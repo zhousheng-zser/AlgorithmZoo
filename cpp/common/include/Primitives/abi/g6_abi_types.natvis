@@ -1,0 +1,29 @@
+<?xml version="1.0" encoding="utf-8"?> 
+<AutoVisualizer xmlns="http://schemas.microsoft.com/vstudio/debugger/natvis/2010">
+  <Type Name="glasssix::exposing::impl::param_vector_impl&lt;*&gt;">
+    <DisplayString>{{ size={ size() } }}</DisplayString>
+    <Expand>
+      <Item Name="[size]">size()</Item>
+      <ArrayItems>
+        <Size>size()</Size>
+        <ValuePointer>buffer_.data()</ValuePointer>
+      </ArrayItems>
+    </Expand>
+  </Type>
+
+  <Type Name="glasssix::exposing::impl::param_pair_impl&lt;*&gt;">
+    <AlternativeType Name="glasssix::exposing::param_pair&lt;*&gt;"/>
+    <DisplayString>{{ key={ key_ }, value={ value_ } }}</DisplayString>
+    <Expand>
+      <Item Name="[key]">key_</Item>
+      <Item Name="[value]">value_</Item>
+    </Expand>
+  </Type>
+
+  <Type Name="glasssix::exposing::impl::param_hash_map_impl&lt;*&gt;">
+    <DisplayString>{{ size={ size() }}</DisplayString>
+    <Expand>
+      <ExpandedItem>buffer_</ExpandedItem>
+    </Expand>
+  </Type>
+</AutoVisualizer>
