@@ -204,7 +204,7 @@ namespace unittest
 				try
 				{
 					// ´íÎóµÄ¸ñÊ½×Ö·û´®¡£
-					auto str = exposing::format(u8"{::<}", 123);
+					auto str = exposing::format(u8"{0*:0:0<}", 123);
 				}
 				catch (const exposing::abi_invalid_argument& ex)
 				{
