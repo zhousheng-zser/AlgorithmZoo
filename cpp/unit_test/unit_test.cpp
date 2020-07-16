@@ -161,17 +161,17 @@ namespace unittest
 				Logger::WriteMessage(exposing::to_narrow_string(str1).c_str());
 				Logger::WriteMessage(exposing::to_narrow_string(str2).c_str());
 				Logger::WriteMessage(exposing::to_narrow_string(str3).c_str());
+
+				// 更多格式表达式请参阅：https://fmt.dev/latest/syntax.html
 			}
 
 			// 例9：非接口类型的装箱和拆箱。
 			{
-				using namespace glasssix::exposing;
-
 				std::array data{ 1, 2, 3, 4, 5 };
 				exposing::unknown_object obj_int = exposing::box(123);
 				exposing::unknown_object obj_str = exposing::box(u8"Hello World!");
 				exposing::unknown_object obj_span = exposing::box(exposing::param_span<int>{ data });
-				using t= impl::abi_in_t<param_span<int>>;
+
 				int val_int = exposing::unbox<int>(obj_int);
 				auto val_str = exposing::unbox<exposing::param_string>(obj_str);
 				auto val_span = exposing::unbox<exposing::param_span<int>>(obj_span);
