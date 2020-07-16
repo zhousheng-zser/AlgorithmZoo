@@ -105,7 +105,7 @@ namespace glasssix::exposing::impl
 			{
 				param_vector<std::int32_t> result{ nullptr };
 
-				return (check_abi_result(this->self_abi().get_values(get_abi(from), get_abi(to))), result);
+				return (check_abi_result(this->self_abi().get_values(get_abi(from), get_abi(to), put_abi(result))), result);
 			}
 		};
 	};
@@ -118,6 +118,6 @@ namespace glasssix::excalibur
 	/// </summary>
 	struct plugin_demo : exposing::inherits<plugin_demo, exposing::iterable_object<exposing::param_string>>
 	{
-		using inherits::inherits;
+		using inherits<plugin_demo, exposing::iterable_object<exposing::param_string>>::inherits;
 	};
 }

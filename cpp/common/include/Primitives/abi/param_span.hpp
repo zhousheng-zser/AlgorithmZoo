@@ -13,15 +13,42 @@
 
 namespace glasssix::exposing
 {
-	template<typename T, typename = void>
+	template<typename T>
 	class param_span;
+}
 
+namespace glasssix::exposing::impl
+{
+	template<typename T>
+	struct abi<param_span<T>>
+	{
+		using identity_type = type_identity_generic_interface;
+		using type = param_span<T>;
+
+		static constexpr guid id{ "4BBC2561-97C4-4C12-A413-7636DBCD70F9" };
+	};
+
+	template<typename T, typename = void>
+	struct is_param_span : std::false_type {};
+
+	template<template<typename> typename ParamSpan, typename T>
+	struct is_param_span<ParamSpan<T>> : std::is_same<ParamSpan<T>, param_span<T>> {};
+
+	/// <summary>
+	/// Checks whether a type is a span.
+	/// </summary>
+	template<typename T>
+	inline constexpr bool is_param_span_v = is_param_span<T>::value;
+}
+
+namespace glasssix::exposing
+{
 	/// <summary>
 	/// Contains a span of elements.
 	/// </summary>
 	/// <typeparam name="T">The element type</typeparam>
 	template<typename T>
-	class param_span<T, std::enable_if_t<impl::has_abi_type_v<T>>>
+	class param_span
 	{
 	public:
 		using value_type = T;
@@ -44,8 +71,16 @@ namespace glasssix::exposing
 		/// </summary>
 		/// <typeparam name="Container">The container type</typeparam>
 		/// <param name="container">The container</param>
-		template<typename Container, typename = std::enable_if_t<meta::is_iterator_category_same_v<std::decay_t<Container>, std::random_access_iterator_tag>>>
+		template<typename Container, typename = std::enable_if_t<std::conjunction_v<std::negation<std::is_same<std::decay_t<Container>, param_span>>, meta::is_iterator_category_same<std::decay_t<Container>, std::random_access_iterator_tag>>>>
 		param_span(Container&& container) noexcept : data_{ &*std::forward<Container>(container).begin() }, size_{ static_cast<std::size_t>(std::forward<Container>(container).end() - std::forward<Container>(container).begin()) }
+		{
+		}
+
+		/// <summary>
+		/// Creates an instance with nullptr.
+		/// This overload is only for initialization purpose only.
+		/// </summary>
+		param_span(std::nullptr_t) noexcept : data_{}, size_{}
 		{
 		}
 
@@ -53,12 +88,12 @@ namespace glasssix::exposing
 		/// Create an instance with an ABI from which ownership is taken.
 		/// </summary>
 		/// <param name="abi">The ABI</param>
-		param_span(take_over_abi_from_void_ptr abi)
+		param_span(take_over_abi_from_void_ptr abi) noexcept
 		{
 			*this = *abi.to<param_span*>();
 		}
 
-		param_span(const param_span& other) noexcept : data_{ other.data }, size_{ other.size_ }
+		param_span(const param_span& other) noexcept : data_{ other.data() }, size_{ other.size_ }
 		{
 		}
 
@@ -66,12 +101,12 @@ namespace glasssix::exposing
 		{
 		}
 
-		param_span& operator=(const param_span& right)
+		param_span& operator=(const param_span& right) noexcept
 		{
 			return (data_ = right.data_, size_ = right.size_, *this);
 		}
 
-		param_span& operator=(param_span&& right)
+		param_span& operator=(param_span&& right) noexcept
 		{
 			return (data_ = std::exchange(right.data_, nullptr), size_ = std::exchange(right.size_, 0), *this);
 		}
@@ -166,30 +201,6 @@ namespace glasssix::exposing
 	};
 }
 
-namespace glasssix::exposing::impl
-{
-	template<typename T>
-	struct abi<param_span<T>>
-	{
-		using identity_type = type_identity_generic_interface;
-		using type = void*;
-
-		static constexpr guid id{ "4BBC2561-97C4-4C12-A413-7636DBCD70F9" };
-	};
-
-	template<typename T, typename = void>
-	struct is_param_span : std::false_type {};
-
-	template<template<typename, typename = void> typename ParamSpan, typename T>
-	struct is_param_span<ParamSpan<T>> : std::is_same<ParamSpan<T>, param_span<T>> {};
-
-	/// <summary>
-	/// Checks whether a type is a span.
-	/// </summary>
-	template<typename T>
-	inline constexpr bool is_param_span_v = is_param_span<T>::value;
-}
-
 namespace glasssix::exposing
 {
 	/// <summary>
@@ -199,9 +210,9 @@ namespace glasssix::exposing
 	/// <param name="span">The span</param>
 	/// <returns>The ABI</returns>
 	template<typename T>
-	void* get_abi(const param_span<T>& span) noexcept
+	param_span<T> get_abi(const param_span<T>& span) noexcept
 	{
-		return meta::get_standard_layout_first_member<T*>(span);
+		return span;
 	}
 
 	/// <summary>
@@ -212,9 +223,9 @@ namespace glasssix::exposing
 	/// <param name="span">The span</param>
 	/// <returns>The pointer to the ABI</returns>
 	template<typename T>
-	void** put_abi_dangerous(param_span<T>& span) noexcept
+	param_span<T>* put_abi_dangerous(param_span<T>& span) noexcept
 	{
-		return reinterpret_cast<void**>(&meta::get_standard_layout_first_member<T*>(span));
+		return &span;
 	}
 
 	/// <summary>
@@ -224,9 +235,9 @@ namespace glasssix::exposing
 	/// <param name="span">The span</param>
 	/// <returns>The pointer to the ABI</returns>
 	template<typename T>
-	void** put_abi(param_span<T>& span) noexcept
+	param_span<T>* put_abi(param_span<T>& span) noexcept
 	{
-		return (span = {}, put_abi_dangerous(span));
+		return (span = nullptr, put_abi_dangerous(span));
 	}
 
 	/// <summary>
@@ -236,9 +247,9 @@ namespace glasssix::exposing
 	/// <param name="span">The span</param>
 	/// <returns>The ABI detached from the span</returns>
 	template<typename T>
-	void* detach_abi(param_span<T>& span) noexcept
+	param_span<T> detach_abi(param_span<T>& span) noexcept
 	{
-		return std::exchange(*put_abi_dangerous(span), nullptr);
+		return get_abi(span);
 	}
 
 	/// <summary>
@@ -247,9 +258,9 @@ namespace glasssix::exposing
 	/// <param name="span">The span</param>
 	/// <returns>The ABI detached from the span</returns>
 	template<typename T>
-	void* detach_abi(param_span<T>&& span) noexcept
+	param_span<T> detach_abi(param_span<T>&& span) noexcept
 	{
-		return std::exchange(*put_abi_dangerous(span), nullptr);
+		return get_abi(span);
 	}
 
 	/// <summary>
@@ -258,9 +269,9 @@ namespace glasssix::exposing
 	/// <typeparam name="T">The span type</typeparam>
 	/// <param name="abi">The ABI</param>
 	/// <returns>The span</returns>
-	template<typename T, std::enable_if_t<impl::is_param_span_v<T>>* = nullptr>
-	T create_from_abi(void* abi) noexcept
+	template<typename T, std::enable_if_t<impl::is_param_span_v<std::decay_t<T>>>* = nullptr>
+	T create_from_abi(const T& abi) noexcept
 	{
-		return param_span<T>{ take_over_abi_from_void_ptr{ abi } };
+		return abi;
 	}
 }

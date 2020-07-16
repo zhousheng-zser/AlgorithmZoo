@@ -39,6 +39,8 @@ namespace glasssix::excalibur
 
 	object_iterator<param_string> plugin_demo_impl::get_iterator() const
 	{
+		// 实现一个迭代器，以支持 ranged-for 和各类容器标准算法。
+		// 本例简单范围一个固定的 list
 		static const std::initializer_list<int> numbers{ 1, 2, 3, 4, 5 };
 
 		struct impl : implements<impl, object_iterator<param_string>>

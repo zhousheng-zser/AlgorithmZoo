@@ -8,7 +8,7 @@
 
 namespace glasssix::excalibur
 {
-	inline constexpr utf8_string_view plugin_demo_impl_qualified_name{ u8"glasssix.excalibur.plugin_demo" };
+	inline constexpr exposing::utf8_string_view plugin_demo_impl_qualified_name{ u8"glasssix.excalibur.plugin_demo" };
 
 	/// <summary>
 	/// 第一步：声明实现类，继承 exposing::implements 模板类用于实现指定的接口。这里我们实现了 plugin_demo 自定义接口。

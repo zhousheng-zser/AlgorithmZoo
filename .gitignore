@@ -30,5 +30,6 @@
 *.exe
 *.out
 *.app
-/.vs
-/vs/.vs/algorithm_zoo/v16
+.vs/
+build/
+
