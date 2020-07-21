@@ -19,6 +19,8 @@ namespace glasssix::exposing::allocations
 	extern "C" EXPORT_EXCALIBUR_PRIMITIVES void* G6_ABI_CALL create_error_message_from_abi_result(std::int32_t code, void* optional_inner_what_abi = nullptr) noexcept;
 }
 
+#define IMPLEMENT_ABI_ERROR(name, code) struct name : glasssix::exposing::abi_error_impl<code>{ using abi_error_impl::abi_error_impl; }
+
 namespace glasssix::exposing
 {
 	/// <summary>
@@ -117,155 +119,32 @@ namespace glasssix::exposing
 		param_string what_;
 	};
 
-	struct abi_failure : abi_error
+	template<std::int32_t code>
+	struct abi_error_impl : abi_error
 	{
-		abi_failure() noexcept : abi_error{ error_failure }
+		abi_error_impl() noexcept : abi_error{ code }
 		{
 		}
 
-		abi_failure(utf8_string_view inner_what) noexcept : abi_error{ error_failure, inner_what }
+		abi_error_impl(utf8_string_view inner_what) noexcept : abi_error{ code, inner_what }
 		{
 		}
 
-		abi_failure(void* what_abi) noexcept : abi_error{ error_failure, what_abi }
+		abi_error_impl(void* what_abi) noexcept : abi_error{ code, what_abi }
 		{
 		}
 	};
 
-	struct abi_not_implemented : abi_error
-	{
-		abi_not_implemented() noexcept : abi_error{ error_not_implemented }
-		{
-		}
-
-		abi_not_implemented(utf8_string_view inner_what) noexcept : abi_error{ error_not_implemented, inner_what }
-		{
-		}
-
-		abi_not_implemented(void* what_abi) noexcept : abi_error{ error_not_implemented, what_abi }
-		{
-		}
-	};
-
-	struct abi_null_pointer : abi_error
-	{
-		abi_null_pointer() noexcept : abi_error{ error_null_pointer }
-		{
-		}
-
-		abi_null_pointer(utf8_string_view inner_what) noexcept : abi_error{ error_null_pointer, inner_what }
-		{
-		}
-
-		abi_null_pointer(void* what_abi) noexcept : abi_error{ error_null_pointer, what_abi }
-		{
-		}
-	};
-
-	struct abi_invalid_argument : abi_error
-	{
-		abi_invalid_argument() noexcept : abi_error{ error_invalid_argument }
-		{
-		}
-
-		abi_invalid_argument(utf8_string_view inner_what) noexcept : abi_error{ error_invalid_argument, inner_what }
-		{
-		}
-
-		abi_invalid_argument(void* what_abi) noexcept : abi_error{ error_invalid_argument, what_abi }
-		{
-		}
-	};
-
-	struct abi_out_of_bounds : abi_error
-	{
-		abi_out_of_bounds() noexcept : abi_error{ error_out_of_bounds }
-		{
-		}
-
-		abi_out_of_bounds(utf8_string_view inner_what) noexcept : abi_error{ error_out_of_bounds, inner_what }
-		{
-		}
-
-		abi_out_of_bounds(void* what_abi) noexcept : abi_error{ error_out_of_bounds, what_abi }
-		{
-		}
-	};
-
-	struct abi_no_interface : abi_error
-	{
-		abi_no_interface() noexcept : abi_error{ error_no_interface }
-		{
-		}
-
-		abi_no_interface(utf8_string_view inner_what) noexcept : abi_error{ error_no_interface, inner_what }
-		{
-		}
-
-		abi_no_interface(void* what_abi) noexcept : abi_error{ error_no_interface, what_abi }
-		{
-		}
-	};
-
-	struct abi_invalid_operation : abi_error
-	{
-		abi_invalid_operation() noexcept : abi_error{ error_invalid_operation }
-		{
-		}
-
-		abi_invalid_operation(utf8_string_view inner_what) noexcept : abi_error{ error_invalid_operation, inner_what }
-		{
-		}
-
-		abi_invalid_operation(void* what_abi) noexcept : abi_error{ error_invalid_operation, what_abi }
-		{
-		}
-	};
-
-	struct abi_key_not_found : abi_error
-	{
-		abi_key_not_found() noexcept : abi_error{ error_key_not_found }
-		{
-		}
-
-		abi_key_not_found(utf8_string_view inner_what) noexcept : abi_error{ error_key_not_found, inner_what }
-		{
-		}
-
-		abi_key_not_found(void* what_abi) noexcept : abi_error{ error_key_not_found, what_abi }
-		{
-		}
-	};
-
-	struct abi_bad_alloc : abi_error
-	{
-		abi_bad_alloc() noexcept : abi_error{ error_bad_alloc }
-		{
-		}
-
-		abi_bad_alloc(utf8_string_view inner_what) noexcept : abi_error{ error_bad_alloc, inner_what }
-		{
-		}
-
-		abi_bad_alloc(void* what_abi) noexcept : abi_error{ error_bad_alloc, what_abi }
-		{
-		}
-	};
-
-	struct abi_not_initialized : abi_error
-	{
-		abi_not_initialized() noexcept : abi_error{ error_not_initialized }
-		{
-		}
-
-		abi_not_initialized(utf8_string_view inner_what) noexcept : abi_error{ error_not_initialized, inner_what }
-		{
-		}
-
-		abi_not_initialized(void* what_abi) noexcept : abi_error{ error_not_initialized, what_abi }
-		{
-		}
-	};
+	IMPLEMENT_ABI_ERROR(abi_failure, error_failure);
+	IMPLEMENT_ABI_ERROR(abi_not_implemented, error_not_implemented);
+	IMPLEMENT_ABI_ERROR(abi_null_pointer, error_null_pointer);
+	IMPLEMENT_ABI_ERROR(abi_invalid_argument, error_invalid_argument);
+	IMPLEMENT_ABI_ERROR(abi_out_of_bounds, error_out_of_bounds);
+	IMPLEMENT_ABI_ERROR(abi_no_interface, error_no_interface);
+	IMPLEMENT_ABI_ERROR(abi_invalid_operation, error_invalid_operation);
+	IMPLEMENT_ABI_ERROR(abi_key_not_found, error_key_not_found);
+	IMPLEMENT_ABI_ERROR(abi_bad_alloc, error_bad_alloc);
+	IMPLEMENT_ABI_ERROR(abi_not_initialized, error_not_initialized);
 
 	/// <summary>
 	/// Catches the current exception and translates it into an ABI result code.

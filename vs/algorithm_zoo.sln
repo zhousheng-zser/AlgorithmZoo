@@ -7,6 +7,10 @@ Project("{8BC9CEB8-8B4A-11D0-8D11-00A0C91BC942}") = "plugin_demo", "plugin_demo.
 EndProject
 Project("{8BC9CEB8-8B4A-11D0-8D11-00A0C91BC942}") = "unit_test", "unit_test.vcxproj", "{2A35D3A4-F47E-4D60-A7EE-74E917A16BE0}"
 EndProject
+Project("{8BC9CEB8-8B4A-11D0-8D11-00A0C91BC942}") = "gaius", "gaius.vcxproj", "{5538DAFC-6221-4D68-ACA7-EBB877E3A776}"
+EndProject
+Project("{8BC9CEB8-8B4A-11D0-8D11-00A0C91BC942}") = "cassius", "cassius.vcxproj", "{A65A1920-0568-4AAB-ADF4-1F8FE968EF6D}"
+EndProject
 Global
 	GlobalSection(SolutionConfigurationPlatforms) = preSolution
 		Debug|x64 = Debug|x64
@@ -21,6 +25,14 @@ Global
 		{2A35D3A4-F47E-4D60-A7EE-74E917A16BE0}.Debug|x64.Build.0 = Debug|x64
 		{2A35D3A4-F47E-4D60-A7EE-74E917A16BE0}.Release|x64.ActiveCfg = Release|x64
 		{2A35D3A4-F47E-4D60-A7EE-74E917A16BE0}.Release|x64.Build.0 = Release|x64
+		{5538DAFC-6221-4D68-ACA7-EBB877E3A776}.Debug|x64.ActiveCfg = Debug|x64
+		{5538DAFC-6221-4D68-ACA7-EBB877E3A776}.Debug|x64.Build.0 = Debug|x64
+		{5538DAFC-6221-4D68-ACA7-EBB877E3A776}.Release|x64.ActiveCfg = Release|x64
+		{5538DAFC-6221-4D68-ACA7-EBB877E3A776}.Release|x64.Build.0 = Release|x64
+		{A65A1920-0568-4AAB-ADF4-1F8FE968EF6D}.Debug|x64.ActiveCfg = Debug|x64
+		{A65A1920-0568-4AAB-ADF4-1F8FE968EF6D}.Debug|x64.Build.0 = Debug|x64
+		{A65A1920-0568-4AAB-ADF4-1F8FE968EF6D}.Release|x64.ActiveCfg = Release|x64
+		{A65A1920-0568-4AAB-ADF4-1F8FE968EF6D}.Release|x64.Build.0 = Release|x64
 	EndGlobalSection
 	GlobalSection(SolutionProperties) = preSolution
 		HideSolutionNode = FALSE
