@@ -25,8 +25,8 @@ namespace glasssix::exposing::impl
 		struct type : abi_unknown_object
 		{
 			virtual std::int32_t G6_ABI_CALL create_instance(abi_in_t<param_string> qualified_name, abi_out_t<unknown_object> object) noexcept = 0;
-			virtual std::int32_t G6_ABI_CALL get_qualified_names(abi_out_t<param_vector<param_string>> result) noexcept = 0;
-			virtual std::int32_t G6_ABI_CALL get_component_name(abi_out_t<param_string> result) noexcept = 0;
+			virtual std::int32_t G6_ABI_CALL qualified_names(abi_out_t<param_vector<param_string>> result) noexcept = 0;
+			virtual std::int32_t G6_ABI_CALL library_name(abi_out_t<param_string> result) noexcept = 0;
 		};
 	};
 
@@ -38,14 +38,14 @@ namespace glasssix::exposing::impl
 			return abi_safe_call([&] { *object = detach_abi(this->self().create_instance(create_from_abi<param_string>(qualified_name))); });
 		}
 
-		virtual std::int32_t G6_ABI_CALL get_qualified_names(abi_out_t<param_vector<param_string>> result) noexcept override
+		virtual std::int32_t G6_ABI_CALL qualified_names(abi_out_t<param_vector<param_string>> result) noexcept override
 		{
-			return abi_safe_call([&] { *result = detach_abi(this->self().get_qualified_names()); });
+			return abi_safe_call([&] { *result = detach_abi(this->self().qualified_names()); });
 		}
 
-		virtual std::int32_t G6_ABI_CALL get_component_name(abi_out_t<param_string> result) noexcept override
+		virtual std::int32_t G6_ABI_CALL library_name(abi_out_t<param_string> result) noexcept override
 		{
-			return abi_safe_call([&] { *result = detach_abi(this->self().get_component_name()); });
+			return abi_safe_call([&] { *result = detach_abi(this->self().library_name()); });
 		}
 	};
 
@@ -70,22 +70,22 @@ namespace glasssix::exposing::impl
 			/// Gets the available qualified names.
 			/// </summary>
 			/// <returns>The qualified names</returns>
-			param_vector<param_string> get_qualified_names() const
+			param_vector<param_string> qualified_names() const
 			{
 				param_vector<param_string> result{ nullptr };
 
-				return (check_abi_result(this->self_abi().get_qualified_names(put_abi(result))), result);
+				return (check_abi_result(this->self_abi().qualified_names(put_abi(result))), result);
 			}
 
 			/// <summary>
-			/// Gets the name of the component.
+			/// Gets the name of the library.
 			/// </summary>
-			/// <returns>The name of the component</returns>
-			param_string get_component_name() const
+			/// <returns>The name of the library</returns>
+			param_string library_name() const
 			{
 				param_string result{ nullptr };
 				
-				return (check_abi_result(this->self_abi().get_component_name(put_abi(result))), result);
+				return (check_abi_result(this->self_abi().library_name(put_abi(result))), result);
 			}
 		};
 	};

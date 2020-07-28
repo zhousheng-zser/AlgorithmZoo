@@ -6,6 +6,8 @@
 #include "filesystem.hpp"
 #include "g6_attributes.hpp"
 #include "class_factory.hpp"
+#include "param_vector.hpp"
+#include "param_hash_map.hpp"
 #include "pure_c_handle_utils.h"
 #include "platform_encoding.hpp"
 
@@ -80,13 +82,13 @@ namespace glasssix::exposing
 				{
 					if (class_factory factory{ nullptr }; dll_create_factory(put_abi(factory)) == error_success)
 					{
-						auto names = factory.get_qualified_names();
-						auto component_name = factory.get_component_name();
+						auto names = factory.qualified_names();
+						auto library_name = factory.library_name();
 						{
 							std::lock_guard<std::mutex> guard{ lock_ };
 
 							modules_.emplace_back(handle);
-							factories_.insert_or_assign(component_name, factory);
+							factories_.insert_or_assign(library_name, factory);
 						}
 
 						return factory;
@@ -116,15 +118,15 @@ namespace glasssix::exposing
 		/// </summary>
 		/// <param name="paths">The paths</param>
 		/// <returns>The class factories of the successfully loaded modules</returns>
-		param_vector<class_factory> add_modules_with_factories(std::initializer_list<utf8_string_view> paths) noexcept
+		param_hash_map<param_string, class_factory> add_modules_with_factories(std::initializer_list<utf8_string_view> paths) noexcept
 		{
-			auto result = make_param_vector<class_factory>();
+			auto result = make_param_hash_map<param_string, class_factory>();
 
 			for (auto& item : paths)
 			{
 				if (auto factory = add_module_with_factory(item))
 				{
-					result.push_back(factory);
+					result.add_or_update(factory.library_name(), factory);
 				}
 			}
 
@@ -157,30 +159,62 @@ namespace glasssix::exposing
 		/// <param name="directory">The directory</param>
 		/// <param name="recursive">Indicates whether to find modules recursively</param>
 		/// <returns>The class factories of the successfully loaded modules</returns>
-		param_vector<class_factory> add_modules_with_factories_in_directory(utf8_string_view directory, bool recursive = false) noexcept
+		param_hash_map<param_string, class_factory> add_modules_with_factories_in_directory(utf8_string_view directory, bool recursive = false) noexcept
 		{
-			auto handler = [this](param_vector<class_factory>& result, const fs::path& item) { if (auto factory = add_module_with_factory(item.u8string())) { result.push_back(factory); } };
+			auto handler = [this](param_hash_map<param_string, class_factory>& result, const fs::path& item) { if (auto factory = add_module_with_factory(item.u8string())) { result.add_or_update(factory.library_name(), factory); } };
 
 			if (recursive)
 			{
-				return for_each_dll_files<true>(directory, handler, make_param_vector<class_factory>());
+				return for_each_dll_files<true>(directory, handler, make_param_hash_map<param_string, class_factory>());
 			}
 			else
 			{
-				return for_each_dll_files<false>(directory, handler, make_param_vector<class_factory>());
+				return for_each_dll_files<false>(directory, handler, make_param_hash_map<param_string, class_factory>());
 			}
 		}
 
 		/// <summary>
-		/// Lookups a class factory by qualified name.
+		/// Lookups a class factory by library name.
 		/// </summary>
-		/// <param name="qualified_name">The qualified name</param>
+		/// <param name="library_name">The library name</param>
 		/// <returns>The class factory</returns>
-		class_factory lookup(utf8_string_view qualified_name) const noexcept
+		class_factory lookup(utf8_string_view library_name) const noexcept
 		{
-			auto iter = factories_.find(qualified_name);
+			auto iter = factories_.find(library_name);
 
 			return iter != factories_.end() ? iter->second : nullptr;
+		}
+
+		/// <summary>
+		/// Retrieves the loaded library names.
+		/// </summary>
+		/// <returns>The loaded library names</returns>
+		param_vector<param_string> library_names() const noexcept
+		{
+			auto result = make_param_vector<param_string>();
+
+			for (auto [key, value] : factories_)
+			{
+				result.push_back(key);
+			}
+
+			return result;
+		}
+
+		/// <summary>
+		/// Retrieves the loaded factories.
+		/// </summary>
+		/// <returns>The factories</returns>
+		param_hash_map<param_string, class_factory> factories() const noexcept
+		{
+			auto result = make_param_hash_map<param_string, class_factory>();
+
+			for (auto [key, value] : factories_)
+			{
+				result.add_or_update(key, value);
+			}
+
+			return result;
 		}
 	private:
 		template<bool Recursive, typename Result, typename Callable>

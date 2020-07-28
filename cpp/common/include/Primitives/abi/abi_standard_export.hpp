@@ -23,19 +23,19 @@
 #endif
 
 #define MAKE_ABI_STANDARD_EXPORT_FUNCTIONS(name, ...) \
-	inline constexpr glasssix::exposing::utf8_string_view dll_module_component_name{ name }; \
-	extern "C" EXPORT_DIRECTIVE_FOR_MAKE_ABI_STANDARD_EXPORT_FUNCTIONS std::int32_t dll_create_factory(void** factory) noexcept { return glasssix::exposing::make_standard_export_functions<dll_module_component_name, __VA_ARGS__>::dll_create_factory_impl(factory); }; \
+	inline constexpr glasssix::exposing::utf8_string_view dll_module_library_name{ name }; \
+	extern "C" EXPORT_DIRECTIVE_FOR_MAKE_ABI_STANDARD_EXPORT_FUNCTIONS std::int32_t dll_create_factory(void** factory) noexcept { return glasssix::exposing::make_standard_export_functions<dll_module_library_name, __VA_ARGS__>::dll_create_factory_impl(factory); }; \
 	extern "C" EXPORT_DIRECTIVE_FOR_MAKE_ABI_STANDARD_EXPORT_FUNCTIONS bool dll_can_unload_now() noexcept { return glasssix::exposing::get_module_ref_count() == 0; };
 
 namespace glasssix::exposing
 {
 	namespace details
 	{
-		template<const utf8_string_view& ComponentName, typename Tuple, typename = void>
+		template<const utf8_string_view& LibraryName, typename Tuple, typename = void>
 		struct make_standard_export_functions_impl;
 
-		template<const utf8_string_view& ComponentName, typename... ComponentImpls>
-		struct make_standard_export_functions_impl<ComponentName, std::tuple<ComponentImpls...>, std::enable_if_t<std::conjunction_v<std::is_default_constructible<ComponentImpls>..., impl::has_external_qualified_name<ComponentImpls>...>>>
+		template<const utf8_string_view& LibraryName, typename... ComponentImpls>
+		struct make_standard_export_functions_impl<LibraryName, std::tuple<ComponentImpls...>, std::enable_if_t<std::conjunction_v<std::is_default_constructible<ComponentImpls>..., impl::has_external_qualified_name<ComponentImpls>...>>>
 		{
 			template<typename Impl>
 			static unknown_object make_component_impl()
@@ -76,18 +76,18 @@ namespace glasssix::exposing
 				/// Gets the available qualified names.
 				/// </summary>
 				/// <returns>The qualified names</returns>
-				param_vector<param_string> get_qualified_names() const
+				param_vector<param_string> qualified_names() const
 				{
 					return make_param_vector<param_string>(impl::get_external_qualified_name_v<ComponentImpls>...);
 				}
 
 				/// <summary>
-				/// Gets the name of the component.
+				/// Gets the name of the library.
 				/// </summary>
-				/// <returns>The name of the component</returns>
-				param_string get_component_name() const
+				/// <returns>The name of the library</returns>
+				param_string library_name() const
 				{
-					return ComponentName;
+					return LibraryName;
 				}
 			};
 
@@ -106,8 +106,8 @@ namespace glasssix::exposing
 	/// <summary>
 	/// Makes DLL standard export functions for a couple of components.
 	/// </summary>
-	template<const utf8_string_view& ComponentName, typename... ComponentImpls>
-	struct make_standard_export_functions : details::make_standard_export_functions_impl<ComponentName, std::tuple<ComponentImpls...>>
+	template<const utf8_string_view& LibraryName, typename... ComponentImpls>
+	struct make_standard_export_functions : details::make_standard_export_functions_impl<LibraryName, std::tuple<ComponentImpls...>>
 	{
 	};
 }

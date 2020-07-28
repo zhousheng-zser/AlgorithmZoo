@@ -152,5 +152,4 @@ namespace glasssix::exposing
 	{
 		return obj.as<box_value<T>>().get();
 	}
-
 }
