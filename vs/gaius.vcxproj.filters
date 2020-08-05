@@ -2,8 +2,15 @@
 <Project ToolsVersion="4.0" xmlns="http://schemas.microsoft.com/developer/msbuild/2003">
   <ItemGroup>
     <ClInclude Include="..\cpp\gaius\gaius_feature.hpp" />
+    <ClInclude Include="..\cpp\gaius\gaius_c.h" />
+    <ClInclude Include="..\cpp\gaius\GaiusFeature.hpp" />
+    <ClInclude Include="..\cpp\gaius\unicorn_mobile.hpp" />
+    <ClInclude Include="..\cpp\gaius\unicorn_mobile_mask.hpp" />
   </ItemGroup>
   <ItemGroup>
     <ClCompile Include="..\cpp\gaius\exports.cpp" />
+    <ClCompile Include="..\cpp\gaius\GaiusFeature.cpp" />
+    <ClCompile Include="..\cpp\gaius\unicorn_mobile.cpp" />
+    <ClCompile Include="..\cpp\gaius\unicorn_mobile_mask.cpp" />
   </ItemGroup>
 </Project>

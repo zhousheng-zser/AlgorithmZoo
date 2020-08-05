@@ -228,6 +228,7 @@ namespace glasssix::exposing
 
 		~unknown_object() noexcept
 		{
+			release();
 		}
 
 		unknown_object& operator=(const unknown_object& right) noexcept

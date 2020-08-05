@@ -45,6 +45,15 @@ namespace glasssix::exposing::meta
 		using tuple_unique_impl_t = typename tuple_unique_impl<Tuple, Args...>::type;
 	}
 
+	template<typename T, typename = void>
+	struct is_complete_type : std::false_type{};
+
+	template<typename T>
+	struct is_complete_type<T, std::void_t<decltype(sizeof(T))>> : std::true_type{};
+
+	template<typename T>
+	inline constexpr bool is_complete_type_v = is_complete_type<T>::value;
+
 	template<typename... Args>
 	struct has_common_type : details::has_common_type_impl<std::tuple<Args...>> {};
 
