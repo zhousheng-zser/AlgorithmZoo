@@ -209,6 +209,24 @@ namespace glasssix
 			{
 				return shape_;
 			}
+			
+			void reshape(std::vector<int> data_shape)
+			{
+				shape_ = data_shape;
+			}
+
+			void set_allocator(pool_allocator<Dtype>* allocator)
+			{
+				if (!allocator_)
+				{
+					allocator_ = allocator;
+				}
+			}
+
+			pool_allocator<Dtype>* allocator() const
+			{
+				return allocator_;
+			}
 
 			// data reference
 			tensor channel(int c);

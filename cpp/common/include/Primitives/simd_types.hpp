@@ -174,6 +174,35 @@ __forceinline int _mm256_sumall_epi32(const __m256i re)
 	return temp_sum[0] + temp_sum[1] + temp_sum[2] + temp_sum[3] + temp_sum[4] + temp_sum[5] + temp_sum[6] + temp_sum[7];
 }
 
+__forceinline float _mm256_sum_ps(const __m256 re)
+{
+	float temp_sum[8];
+	_mm256_storeu_ps(temp_sum, re);
+	return temp_sum[0] + temp_sum[1] + temp_sum[2] + temp_sum[3] + temp_sum[4] + temp_sum[5] + temp_sum[6] + temp_sum[7];
+}
+
+__forceinline __m256i _mm256_add_epi16_epi32(const __m128i a, const __m128i b, __m256i c)
+{
+	const __m128i a_int16 = _mm_cvtepi8_epi16(a);
+	const __m128i b_int16 = _mm_cvtepi8_epi16(b);
+	const __m128i product_int16 = _mm_mullo_epi16(a_int16, b_int16);
+	short product_int16_array[8];
+	_mm_store_si128((__m128i*)product_int16_array, product_int16);
+	const __m128i product_h = _mm_load_si128((__m128i*)product_int16_array);
+	const __m256i product_h_int32 = _mm256_cvtepi16_epi32(product_h);
+	return _mm256_add_epi32(product_h_int32, c);
+}
+
+__forceinline __m256i _mm256__epi32(const __m128i a, const __m128i b, __m256i c)
+{
+	const __m256i producta_int32 = _mm256_cvtepi16_epi32(a);
+	const __m256i productb_int32 = _mm256_cvtepi16_epi32(b);
+	__m256i product_h = _mm256_mullo_epi32(producta_int32, productb_int32);
+	return _mm256_add_epi32(product_h, c);
+}
+
+
+
 union union_type_s_mm128
 {
 	double d[2];
