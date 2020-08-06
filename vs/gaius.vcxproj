@@ -48,14 +48,14 @@
     <OutDir>$(SolutionDir)..\build\out\$(Configuration)\</OutDir>
     <IntDir>$(SolutionDir)..\build\intermediate\$(Configuration)\$(ProjectName)\</IntDir>
     <TargetName>lib$(ProjectName)</TargetName>
-    <IncludePath>../cpp/common/include;../cpp/common/include/Primitives;$(IncludePath)</IncludePath>
+    <IncludePath>../cpp/common/include;../cpp/common/include/Primitives;$(CUDA_PATH)/include;$(IncludePath)</IncludePath>
   </PropertyGroup>
   <PropertyGroup Condition="'$(Configuration)|$(Platform)'=='Release|x64'">
     <LinkIncremental>false</LinkIncremental>
     <OutDir>$(SolutionDir)..\build\out\$(Configuration)\</OutDir>
     <IntDir>$(SolutionDir)..\build\intermediate\$(Configuration)\$(ProjectName)\</IntDir>
     <TargetName>lib$(ProjectName)</TargetName>
-    <IncludePath>../cpp/common/include;../cpp/common/include/Primitives;$(IncludePath)</IncludePath>
+    <IncludePath>../cpp/common/include;../cpp/common/include/Primitives;$(CUDA_PATH)/include;$(IncludePath)</IncludePath>
   </PropertyGroup>
   <ItemDefinitionGroup Condition="'$(Configuration)|$(Platform)'=='Debug|x64'">
     <ClCompile>
@@ -90,17 +90,17 @@
     </Link>
   </ItemDefinitionGroup>
   <ItemGroup>
-    <ClInclude Include="..\cpp\gaius\GaiusFeature.hpp" />
+    <ClInclude Include="..\cpp\gaius\feature_extractor_native.hpp" />
     <ClInclude Include="..\cpp\gaius\gaius_c.h" />
-    <ClInclude Include="..\cpp\gaius\gaius_feature.hpp" />
-    <ClInclude Include="..\cpp\gaius\unicorn_mobile.hpp" />
-    <ClInclude Include="..\cpp\gaius\unicorn_mobile_mask.hpp" />
+    <ClInclude Include="..\cpp\gaius\feature_extractor.hpp" />
   </ItemGroup>
   <ItemGroup>
     <ClCompile Include="..\cpp\gaius\exports.cpp" />
-    <ClCompile Include="..\cpp\gaius\GaiusFeature.cpp" />
-    <ClCompile Include="..\cpp\gaius\unicorn_mobile.cpp" />
-    <ClCompile Include="..\cpp\gaius\unicorn_mobile_mask.cpp" />
+    <ClCompile Include="..\cpp\gaius\feature_extractor_native.cpp" />
+  </ItemGroup>
+  <ItemGroup>
+    <None Include="..\cpp\gaius\feature_extractor_impl.cpp" />
+    <None Include="..\cpp\gaius\feature_extractor_impl.hpp" />
   </ItemGroup>
   <Import Project="$(VCTargetsPath)\Microsoft.Cpp.targets" />
   <ImportGroup Label="ExtensionTargets">
