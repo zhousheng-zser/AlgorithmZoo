@@ -29,7 +29,7 @@ namespace glasssix::cassius
 		{
 		}
 
-		impl(int device) : device_{ device }, mobile_unicorn_{ "models/unicorn.phai", "models/unicorn.racy", device }
+		impl(int device) : device_{ device }, unicorn_{ "models/unicorn.phai", "models/unicorn.racy", device }
 		{
 		}
 
@@ -40,7 +40,7 @@ namespace glasssix::cassius
 			init_cache(bitmaps, count, order);
 
 			std::vector<std::vector<float>> result;
-			auto network_result = mobile_unicorn_.forward(cache_ | memory::tensor_convert_to<float>);
+			auto network_result = unicorn_.forward(cache_ | memory::tensor_convert_to<float>);
 
 			if (auto iter = network_result.find("fc5"); iter != network_result.end())
 			{
@@ -81,7 +81,7 @@ namespace glasssix::cassius
 	}
 
 		int device_;
-		excalibur::pipeline<float> mobile_unicorn_;
+		excalibur::pipeline<float> unicorn_;
 		std::shared_ptr<memory::tensor<std::uint8_t>> cache_;
 };
 
