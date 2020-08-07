@@ -11,11 +11,11 @@
 #include <cuda_runtime_api.h>
 #endif
 
-namespace glasssix::gaius
+namespace glasssix::cassius
 {
 	namespace
 	{
-		constexpr std::size_t feature_size = 128;
+		constexpr std::size_t feature_size = 512;
 		constexpr std::size_t single_bitmap_width = 128;
 		constexpr std::size_t single_bitmap_height = 128;
 		constexpr std::size_t single_bitmap_channels = 3;
@@ -29,7 +29,7 @@ namespace glasssix::gaius
 		{
 		}
 
-		impl(int device) : device_{ device }, mobile_unicorn_{ "models/mobile_unicorn.phai", "models/mobile_unicorn.racy", device }
+		impl(int device) : device_{ device }, mobile_unicorn_{ "models/unicorn.phai", "models/unicorn.racy", device }
 		{
 		}
 
