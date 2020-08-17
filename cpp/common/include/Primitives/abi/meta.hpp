@@ -29,6 +29,8 @@ namespace glasssix::exposing::meta
 
 	namespace details
 	{
+		inline constexpr std::string_view hexadecimal_characters{ "0123456789ABCDEF" };
+
 		template<typename Tuple, typename = void>
 		struct has_common_type_impl : std::false_type {};
 
@@ -277,9 +279,7 @@ namespace glasssix::exposing::meta
 
 		constexpr auto to_hexadecimal_character(std::uint8_t byte) noexcept
 		{
-			constexpr std::string_view hexadecimal_characters{ "0123456789ABCDEF" };
-
-			return std::array<char, hexadecimal_character_size_v<std::uint8_t>>{ hexadecimal_characters[byte >> 4], hexadecimal_characters[byte & 0xF] };
+			return std::array<char, hexadecimal_character_size_v<std::uint8_t>>{ details::hexadecimal_characters[byte >> 4], details::hexadecimal_characters[byte & 0xF] };
 		}
 
 		template<typename Callable, std::size_t... Indexes>

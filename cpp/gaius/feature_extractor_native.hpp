@@ -35,7 +35,7 @@ namespace glasssix::gaius
 		/// The copy constructor must be disabled in PImpl pattern.
 		/// </summary>
 		feature_extractor_native(const feature_extractor_native&) = delete;
-
+		
 		/// <summary>
 		/// Destroys the instance.
 		/// </summary>

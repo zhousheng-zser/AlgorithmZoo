@@ -1,5 +1,7 @@
 #pragma once
 
+#include "dllexport.hpp"
+
 #include <regex>
 #include <string>
 #include <cstdlib>
@@ -7,6 +9,8 @@
 
 namespace glasssix::os_context
 {
+	extern "C" EXPORT_EXCALIBUR_PRIMITIVES bool set_environment_variable(const char* name, const char* value) noexcept;
+
 	inline std::string expand_enviroment_variables(std::string_view path)
 	{
 		thread_local std::regex pattern{ R"(\$\<(.+?)\>)", std::regex_constants::ECMAScript };

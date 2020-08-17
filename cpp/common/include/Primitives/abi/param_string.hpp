@@ -13,9 +13,9 @@
 #include <string>
 #include <cstddef>
 #include <cstdint>
+#include <ostream>
 #include <utility>
 #include <iterator>
-#include <ostream>
 #include <algorithm>
 #include <functional>
 #include <type_traits>

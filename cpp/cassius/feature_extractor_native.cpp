@@ -42,16 +42,16 @@ namespace glasssix::cassius
 			std::vector<std::vector<float>> result;
 			auto network_result = unicorn_.forward(cache_ | memory::tensor_convert_to<float>);
 
-			if (auto iter = network_result.find("fc5"); iter != network_result.end())
+			if (auto iter = network_result.find("conv5_dw"); iter != network_result.end())
 			{
-				auto iter_fc5 = iter->second->cpu_data();
+				auto iter_conv5_dw = iter->second->cpu_data();
 
 				for (std::size_t i = 0; i < count; i++)
 				{
 					std::vector<float> feature(feature_size);
 
-					std::copy(iter_fc5, iter_fc5 + feature_size, feature.data());
-					iter_fc5 += feature_size;
+					std::copy(iter_conv5_dw, iter_conv5_dw + feature_size, feature.data());
+					iter_conv5_dw += feature_size;
 					result.emplace_back(feature);
 				}
 			}

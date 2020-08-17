@@ -1,4 +1,4 @@
-<?xml version="1.0" encoding="utf-8"?>
+﻿<?xml version="1.0" encoding="utf-8"?>
 <Project DefaultTargets="Build" xmlns="http://schemas.microsoft.com/developer/msbuild/2003">
   <ItemGroup Label="ProjectConfigurations">
     <ProjectConfiguration Include="Debug|x64">
@@ -11,10 +11,60 @@
     </ProjectConfiguration>
   </ItemGroup>
   <ItemGroup>
+    <ClCompile Include="..\cpp\irisviel\brute_force_search_impl.cpp" />
+    <ClCompile Include="..\cpp\irisviel\database_business_wrapper.cpp" />
+    <ClCompile Include="..\cpp\irisviel\database_cache.cpp" />
+    <ClCompile Include="..\cpp\irisviel\database_feature_observer.cpp" />
+    <ClCompile Include="..\cpp\irisviel\database_header.cpp" />
+    <ClCompile Include="..\cpp\irisviel\database_manager.cpp" />
+    <ClCompile Include="..\cpp\irisviel\database_record.cpp" />
+    <ClCompile Include="..\cpp\irisviel\distance.cpp" />
     <ClCompile Include="..\cpp\irisviel\exports.cpp" />
+    <ClCompile Include="..\cpp\irisviel\face_service_impl.cpp" />
+    <ClCompile Include="..\cpp\irisviel\face_service_internal.cpp" />
+    <ClCompile Include="..\cpp\irisviel\filesystem_utils.cpp" />
+    <ClCompile Include="..\cpp\irisviel\index_builder.cpp" />
+    <ClCompile Include="..\cpp\irisviel\irisviel_c.cxx" />
+    <ClCompile Include="..\cpp\irisviel\irisviel_search.cpp" />
+    <ClCompile Include="..\cpp\irisviel\kgraph_internal.cpp" />
+    <ClCompile Include="..\cpp\irisviel\memory_mapping.cpp" />
+    <ClCompile Include="..\cpp\irisviel\memory_mapping_operator.cpp" />
+    <ClCompile Include="..\cpp\irisviel\memory_resource_adapter.cpp" />
+    <ClCompile Include="..\cpp\irisviel\ngraph_internal.cpp" />
+    <ClCompile Include="..\cpp\irisviel\record_impl.cpp" />
+    <ClCompile Include="..\cpp\irisviel\search.cpp" />
   </ItemGroup>
   <ItemGroup>
+    <ClInclude Include="..\cpp\irisviel\brute_force_search_impl.hpp" />
+    <ClInclude Include="..\cpp\irisviel\database_business_wrapper.hpp" />
+    <ClInclude Include="..\cpp\irisviel\database_cache.hpp" />
+    <ClInclude Include="..\cpp\irisviel\database_feature_observer.hpp" />
+    <ClInclude Include="..\cpp\irisviel\database_header.hpp" />
+    <ClInclude Include="..\cpp\irisviel\database_manager.hpp" />
     <ClInclude Include="..\cpp\irisviel\database_record.hpp" />
+    <ClInclude Include="..\cpp\irisviel\database_search_result.hpp" />
+    <ClInclude Include="..\cpp\irisviel\distance.hpp" />
+    <ClInclude Include="..\cpp\irisviel\dynamic_buffer.hpp" />
+    <ClInclude Include="..\cpp\irisviel\face_service_impl.hpp" />
+    <ClInclude Include="..\cpp\irisviel\face_service_internal.hpp" />
+    <ClInclude Include="..\cpp\irisviel\feature_searcher.hpp" />
+    <ClInclude Include="..\cpp\irisviel\filesystem_utils.hpp" />
+    <ClInclude Include="..\cpp\irisviel\index_builder.hpp" />
+    <ClInclude Include="..\cpp\irisviel\IrisvielSearch.hpp" />
+    <ClInclude Include="..\cpp\irisviel\irisviel_c.h" />
+    <ClInclude Include="..\cpp\irisviel\irisviel_search.hpp" />
+    <ClInclude Include="..\cpp\irisviel\irisviel_types.hpp" />
+    <ClInclude Include="..\cpp\irisviel\kgraph_internal.hpp" />
+    <ClInclude Include="..\cpp\irisviel\memory_mapping.hpp" />
+    <ClInclude Include="..\cpp\irisviel\memory_mapping_operator.hpp" />
+    <ClInclude Include="..\cpp\irisviel\memory_resource_adapter.hpp" />
+    <ClInclude Include="..\cpp\irisviel\neighbor.hpp" />
+    <ClInclude Include="..\cpp\irisviel\ngraph_internal.hpp" />
+    <ClInclude Include="..\cpp\irisviel\nsg_calculate_error.hpp" />
+    <ClInclude Include="..\cpp\irisviel\record.hpp" />
+    <ClInclude Include="..\cpp\irisviel\record_impl.hpp" />
+    <ClInclude Include="..\cpp\irisviel\search.hpp" />
+    <ClInclude Include="..\cpp\irisviel\search_result.hpp" />
     <ClInclude Include="..\cpp\irisviel\face_service.hpp" />
   </ItemGroup>
   <PropertyGroup Label="Globals">
@@ -99,6 +149,4 @@
     </Link>
   </ItemDefinitionGroup>
   <Import Project="$(VCTargetsPath)\Microsoft.Cpp.targets" />
-  <ImportGroup Label="ExtensionTargets">
-  </ImportGroup>
 </Project>
