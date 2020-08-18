@@ -7,7 +7,7 @@ namespace glasssix::cassius
 	{
 	}
 
-	feature_extractor_impl::feature_extractor_impl(int device) : impl_{ new feature_extractor_native{ device } }
+	feature_extractor_impl::feature_extractor_impl(int device) : impl_{ new feature_extractor_internal{ device } }
 	{
 	}
 

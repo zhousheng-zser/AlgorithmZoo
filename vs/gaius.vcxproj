@@ -90,13 +90,13 @@
     </Link>
   </ItemDefinitionGroup>
   <ItemGroup>
-    <ClInclude Include="..\cpp\gaius\feature_extractor_native.hpp" />
+    <ClInclude Include="..\cpp\gaius\feature_extractor_internal.hpp" />
     <ClInclude Include="..\cpp\gaius\gaius_c.h" />
     <ClInclude Include="..\cpp\gaius\feature_extractor.hpp" />
   </ItemGroup>
   <ItemGroup>
     <ClCompile Include="..\cpp\gaius\exports.cpp" />
-    <ClCompile Include="..\cpp\gaius\feature_extractor_native.cpp" />
+    <ClCompile Include="..\cpp\gaius\feature_extractor_internal.cpp" />
   </ItemGroup>
   <ItemGroup>
     <None Include="..\cpp\gaius\feature_extractor_impl.cpp" />

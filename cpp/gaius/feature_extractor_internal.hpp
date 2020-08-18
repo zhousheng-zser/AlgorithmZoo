@@ -10,12 +10,12 @@
 
 #include <abi/param_span.hpp>
 
-namespace glasssix::cassius
+namespace glasssix::gaius
 {
 	/// <summary>
 	/// A common component supporting feature extraction. 
 	/// </summary>
-	class feature_extractor_native
+	class feature_extractor_internal
 	{
 	public:
 		class impl;
@@ -23,28 +23,28 @@ namespace glasssix::cassius
 		/// <summary>
 		/// Creates an instance with the default CPU.
 		/// </summary>
-		feature_extractor_native();
+		feature_extractor_internal();
 
 		/// <summary>
 		/// Creates an instance with a specified GPU core or the default CPU.
 		/// </summary>
 		/// <param name="device">The device ID; -1 for CPU or a non-negative number for a GPU core</param>
-		feature_extractor_native(int device);
+		feature_extractor_internal(int device);
 
 		/// <summary>
 		/// The copy constructor must be disabled in PImpl pattern.
 		/// </summary>
-		feature_extractor_native(const feature_extractor_native&) = delete;
-
+		feature_extractor_internal(const feature_extractor_internal&) = delete;
+		
 		/// <summary>
 		/// Destroys the instance.
 		/// </summary>
-		virtual ~feature_extractor_native();
+		virtual ~feature_extractor_internal();
 
 		/// <summary>
 		/// The copy assignment operator must be disabled in PImpl pattern.
 		/// </summary>
-		feature_extractor_native& operator=(const feature_extractor_native&) = delete;
+		feature_extractor_internal& operator=(const feature_extractor_internal&) = delete;
 
 		/// <summary>
 		/// Extracts the feature data.

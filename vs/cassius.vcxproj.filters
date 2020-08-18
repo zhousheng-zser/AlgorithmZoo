@@ -3,11 +3,11 @@
   <ItemGroup>
     <ClCompile Include="..\cpp\cassius\exports.cpp" />
     <ClCompile Include="..\cpp\cassius\feature_extractor_impl.cpp" />
-    <ClCompile Include="..\cpp\cassius\feature_extractor_native.cpp" />
+    <ClCompile Include="..\cpp\cassius\feature_extractor_internal.cpp" />
   </ItemGroup>
   <ItemGroup>
     <ClInclude Include="..\cpp\cassius\feature_extractor.hpp" />
     <ClInclude Include="..\cpp\cassius\feature_extractor_impl.hpp" />
-    <ClInclude Include="..\cpp\cassius\feature_extractor_native.hpp" />
+    <ClInclude Include="..\cpp\cassius\feature_extractor_internal.hpp" />
   </ItemGroup>
 </Project>

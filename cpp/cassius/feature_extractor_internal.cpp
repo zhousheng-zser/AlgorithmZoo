@@ -1,4 +1,4 @@
-#include "feature_extractor_native.hpp"
+#include "feature_extractor_internal.hpp"
 
 #include <memory>
 #include <vector>
@@ -22,7 +22,7 @@ namespace glasssix::cassius
 		constexpr std::size_t single_bitmap_bytes = single_bitmap_channels * single_bitmap_width * single_bitmap_height;
 	}
 
-	class feature_extractor_native::impl
+	class feature_extractor_internal::impl
 	{
 	public:
 		impl() : impl{ -1 }
@@ -85,15 +85,15 @@ namespace glasssix::cassius
 		std::shared_ptr<memory::tensor<std::uint8_t>> cache_;
 };
 
-	feature_extractor_native::feature_extractor_native() : impl_{ new impl }
+	feature_extractor_internal::feature_extractor_internal() : impl_{ new impl }
 	{
 	}
 
-	feature_extractor_native::feature_extractor_native(int device) : impl_{ new impl{ device } }
+	feature_extractor_internal::feature_extractor_internal(int device) : impl_{ new impl{ device } }
 	{
 	}
 
-	feature_extractor_native::~feature_extractor_native()
+	feature_extractor_internal::~feature_extractor_internal()
 	{
 		if (impl_ != nullptr)
 		{
@@ -102,12 +102,12 @@ namespace glasssix::cassius
 		}
 	}
 
-	std::vector<std::vector<float>> feature_extractor_native::get(exposing::param_span<std::uint8_t> bitmaps, std::size_t count, int order) const
+	std::vector<std::vector<float>> feature_extractor_internal::get(exposing::param_span<std::uint8_t> bitmaps, std::size_t count, int order) const
 	{
 		return impl_->get(bitmaps, count, order);
 	}
 
-	std::string feature_extractor_native::version()
+	std::string feature_extractor_internal::version()
 	{
 		return impl::version();
 	}

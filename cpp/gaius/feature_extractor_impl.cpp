@@ -7,7 +7,7 @@ namespace glasssix::gaius
 	{
 	}
 
-	feature_extractor_impl::feature_extractor_impl(int device) : impl_{ new feature_extractor_native{ device } }
+	feature_extractor_impl::feature_extractor_impl(int device) : impl_{ new feature_extractor_internal{ device } }
 	{
 	}
 
