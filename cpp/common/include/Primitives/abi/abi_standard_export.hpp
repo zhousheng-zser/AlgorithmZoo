@@ -73,7 +73,7 @@ namespace glasssix::exposing
 				/// </summary>
 				/// <param name="qualified_name">The qualified name</param>
 				/// <returns>The instance</returns>
-				unknown_object create_instance(const param_string& qualified_name) const
+				unknown_object create_by_name(const param_string& qualified_name) const
 				{
 					auto iter = name_map.find(qualified_name);
 

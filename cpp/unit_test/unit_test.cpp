@@ -249,7 +249,7 @@ namespace unittest
 
 					if (!interfaces.empty())
 					{
-						auto demo = factory.create_instance(interfaces[0]).as<excalibur::plugin_demo>();
+						auto demo = factory.create_by_name(interfaces[0]).as<excalibur::plugin_demo>();
 
 						Logger::WriteMessage(exposing::to_narrow_string(demo.name()).c_str());
 						demo.print(exposing::make_param_hash_map<exposing::param_string, exposing::param_string>(

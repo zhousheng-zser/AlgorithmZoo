@@ -123,7 +123,7 @@ namespace glasssix
 							auto entry = mapping_.locate_element_bytes(index, record_size_);
 							auto data_ref = database_record::create_ref(dimension_, entry);
 
-							result.emplace_back(data_ref->feature());
+							result.emplace_back(data_ref->feature().data());
 						}
 
 						return result;

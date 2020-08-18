@@ -63,13 +63,13 @@ namespace glasssix
 
 			virtual void key(std::string_view value) noexcept override
 			{
-				std::copy_n(value.begin(), value.end(), std::min(value.size(), std::size(record_->key) - 1), std::begin(record_->key));
+				std::copy_n(value.begin(), std::min(value.size(), std::size(record_->key) - 1), std::begin(record_->key));
 				record_->key[std::size(record_->key)] = '\0';
 			}
 
 			virtual exposing::param_span<const float> feature() const noexcept override
 			{
-				return record_->feature;
+				return exposing::param_span<const float>{ record_->feature, std::size(record_->feature) };
 			}
 
 			virtual void feature(exposing::param_span<const float> value) noexcept override
@@ -140,13 +140,13 @@ namespace glasssix
 
 			virtual void key(std::string_view value) noexcept override
 			{
-				std::copy_n(value.begin(), value.end(), std::min(value.size(), std::size(record_.key) - 1), std::begin(record_.key));
+				std::copy_n(value.begin(), std::min(value.size(), std::size(record_.key) - 1), std::begin(record_.key));
 				record_.key[std::size(record_.key)] = '\0';
 			}
 
 			virtual exposing::param_span<const float> feature() const noexcept override
 			{
-				return record_.feature;
+				return exposing::param_span<const float>{ record_.feature, std::size(record_.feature) };
 			}
 
 			virtual void feature(exposing::param_span<const float> value) noexcept override

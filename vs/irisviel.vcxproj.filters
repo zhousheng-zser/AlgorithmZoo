@@ -61,6 +61,7 @@
     </ClCompile>
     <ClCompile Include="..\cpp\irisviel\face_service_impl.cpp" />
     <ClCompile Include="..\cpp\irisviel\record_impl.cpp" />
+    <ClCompile Include="..\cpp\irisviel\search_result_impl.cpp" />
   </ItemGroup>
   <ItemGroup>
     <ClInclude Include="..\cpp\irisviel\search_result.hpp" />
@@ -145,6 +146,8 @@
     </ClInclude>
     <ClInclude Include="..\cpp\irisviel\face_service_impl.hpp" />
     <ClInclude Include="..\cpp\irisviel\record_impl.hpp" />
+    <ClInclude Include="..\cpp\irisviel\record.hpp" />
+    <ClInclude Include="..\cpp\irisviel\search_result_impl.hpp" />
   </ItemGroup>
   <ItemGroup>
     <Filter Include="internal">

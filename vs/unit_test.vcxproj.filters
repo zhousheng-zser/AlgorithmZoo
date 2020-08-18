@@ -2,5 +2,6 @@
 <Project ToolsVersion="4.0" xmlns="http://schemas.microsoft.com/developer/msbuild/2003">
   <ItemGroup>
     <ClCompile Include="..\cpp\unit_test\unit_test.cpp" />
+    <ClCompile Include="..\cpp\unit_test\irisviel_test.cpp" />
   </ItemGroup>
 </Project>

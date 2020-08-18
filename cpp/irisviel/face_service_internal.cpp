@@ -35,6 +35,11 @@ namespace glasssix
 				utils::safe_create_directories(cache_directory_);
 			}
 
+			int dimension() const noexcept
+			{
+				return dimension_;
+			}
+
 			std::string database_diectory() const
 			{
 				return database_directory_.string();
@@ -266,6 +271,11 @@ namespace glasssix
 		void face_service_internal::remove_all() noexcept
 		{
 			impl_->remove_all();
+		}
+
+		int face_service_internal::dimension() const noexcept
+		{
+			return impl_->dimension();
 		}
 
 		std::string face_service_internal::database_directory() const

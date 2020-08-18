@@ -21,6 +21,7 @@ namespace glasssix
 			virtual ~face_service_internal();
 			void clear() noexcept;
 			void remove_all() noexcept;
+			int dimension() const noexcept;
 			std::string database_directory() const;
 			std::string cache_directory() const;
 			void load_databases();

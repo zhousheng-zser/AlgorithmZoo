@@ -3,8 +3,9 @@
 
 namespace glasssix::irisviel
 {
-	record_impl::record_impl(int dimension) : impl_{ database_record::create(dimension) }
+	void record_impl::init(std::int32_t dimension)
 	{
+		impl_ = database_record::create(dimension);
 	}
 
 	std::int32_t record_impl::dimension() const
@@ -25,6 +26,11 @@ namespace glasssix::irisviel
 	exposing::param_vector<float> record_impl::feature() const
 	{
 		return exposing::make_param_vector<float>(impl_->feature());
+	}
+
+	void record_impl::feature(const exposing::param_vector<float>& value) const
+	{
+		impl_->feature(std::vector<float>(exposing::begin(value), exposing::end(value)));
 	}
 
 	void record_impl::feature(exposing::param_span<const float> value) const

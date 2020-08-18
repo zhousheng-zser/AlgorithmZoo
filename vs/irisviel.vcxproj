@@ -33,6 +33,7 @@
     <ClCompile Include="..\cpp\irisviel\ngraph_internal.cpp" />
     <ClCompile Include="..\cpp\irisviel\record_impl.cpp" />
     <ClCompile Include="..\cpp\irisviel\search.cpp" />
+    <ClCompile Include="..\cpp\irisviel\search_result_impl.cpp" />
   </ItemGroup>
   <ItemGroup>
     <ClInclude Include="..\cpp\irisviel\brute_force_search_impl.hpp" />
@@ -66,6 +67,7 @@
     <ClInclude Include="..\cpp\irisviel\search.hpp" />
     <ClInclude Include="..\cpp\irisviel\search_result.hpp" />
     <ClInclude Include="..\cpp\irisviel\face_service.hpp" />
+    <ClInclude Include="..\cpp\irisviel\search_result_impl.hpp" />
   </ItemGroup>
   <PropertyGroup Label="Globals">
     <VCProjectVersion>16.0</VCProjectVersion>
@@ -118,7 +120,7 @@
     <ClCompile>
       <WarningLevel>Level3</WarningLevel>
       <SDLCheck>true</SDLCheck>
-      <PreprocessorDefinitions>_DEBUG;_CONSOLE;%(PreprocessorDefinitions)</PreprocessorDefinitions>
+      <PreprocessorDefinitions>COSINE_DISTANCE;%(PreprocessorDefinitions)</PreprocessorDefinitions>
       <ConformanceMode>true</ConformanceMode>
       <LanguageStandard>stdcpp17</LanguageStandard>
       <AdditionalIncludeDirectories>../cpp/irisviel;%(AdditionalIncludeDirectories)</AdditionalIncludeDirectories>
@@ -126,7 +128,7 @@
     <Link>
       <SubSystem>Console</SubSystem>
       <GenerateDebugInformation>true</GenerateDebugInformation>
-      <AdditionalDependencies>../cpp/common/lib/libPrimitivesd.lib;%(AdditionalDependencies)</AdditionalDependencies>
+      <AdditionalDependencies>bcrypt.lib;../cpp/common/lib/libPrimitivesd.lib;../cpp/common/lib/libJuliusd.lib;%(AdditionalDependencies)</AdditionalDependencies>
     </Link>
   </ItemDefinitionGroup>
   <ItemDefinitionGroup Condition="'$(Configuration)|$(Platform)'=='Release|x64'">
@@ -135,7 +137,7 @@
       <FunctionLevelLinking>true</FunctionLevelLinking>
       <IntrinsicFunctions>true</IntrinsicFunctions>
       <SDLCheck>true</SDLCheck>
-      <PreprocessorDefinitions>NDEBUG;_CONSOLE;%(PreprocessorDefinitions)</PreprocessorDefinitions>
+      <PreprocessorDefinitions>COSINE_DISTANCE;%(PreprocessorDefinitions)</PreprocessorDefinitions>
       <ConformanceMode>true</ConformanceMode>
       <LanguageStandard>stdcpp17</LanguageStandard>
       <AdditionalIncludeDirectories>../cpp/irisviel;%(AdditionalIncludeDirectories)</AdditionalIncludeDirectories>
@@ -145,7 +147,7 @@
       <EnableCOMDATFolding>true</EnableCOMDATFolding>
       <OptimizeReferences>true</OptimizeReferences>
       <GenerateDebugInformation>true</GenerateDebugInformation>
-      <AdditionalDependencies>../cpp/common/lib/libPrimitives.lib;%(AdditionalDependencies)</AdditionalDependencies>
+      <AdditionalDependencies>bcrypt.lib;../cpp/common/lib/libPrimitives.lib;../cpp/common/lib/libJulius.lib;%(AdditionalDependencies)</AdditionalDependencies>
     </Link>
   </ItemDefinitionGroup>
   <Import Project="$(VCTargetsPath)\Microsoft.Cpp.targets" />

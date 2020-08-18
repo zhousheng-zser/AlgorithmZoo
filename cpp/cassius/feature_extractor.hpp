@@ -17,20 +17,20 @@ namespace glasssix::exposing::impl
 
 		struct type : abi_unknown_object
 		{
-			virtual std::int32_t get(abi_in_t<param_span<std::uint8_t>> bitmaps, std::uint64_t count, std::int32_t order, abi_out_t<param_vector<param_vector<float>>> result) noexcept = 0;
-			virtual std::int32_t version(abi_out_t<param_string> result) noexcept = 0;
+			virtual std::int32_t G6_ABI_CALL get(abi_in_t<param_span<std::uint8_t>> bitmaps, std::uint64_t count, std::int32_t order, abi_out_t<param_vector<param_vector<float>>> result) noexcept = 0;
+			virtual std::int32_t G6_ABI_CALL version(abi_out_t<param_string> result) noexcept = 0;
 		};
 	};
 
 	template<typename Derived>
 	struct interface_vtable<Derived, cassius::feature_extractor> : interface_vtable_base<Derived, cassius::feature_extractor>
 	{
-		virtual std::int32_t get(abi_in_t<param_span<std::uint8_t>> bitmaps, std::uint64_t count, std::int32_t order, abi_out_t<param_vector<param_vector<float>>> result) noexcept override
+		virtual std::int32_t G6_ABI_CALL get(abi_in_t<param_span<std::uint8_t>> bitmaps, std::uint64_t count, std::int32_t order, abi_out_t<param_vector<param_vector<float>>> result) noexcept override
 		{
 			return abi_safe_call([&] { *result = detach_abi(this->self().get(create_from_abi<param_span<std::uint8_t>>(bitmaps), count, order)); });
 		}
 
-		virtual std::int32_t version(abi_out_t<param_string> result) noexcept override
+		virtual std::int32_t G6_ABI_CALL version(abi_out_t<param_string> result) noexcept override
 		{
 			return abi_safe_call([&] { *result = detach_abi(this->self().version()); });
 		}
