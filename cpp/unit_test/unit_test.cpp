@@ -238,9 +238,9 @@ namespace unittest
 			{
 				if (auto factory = exposing::component_loader::instance().add_module_with_factory(u8"libplugin_demo.dll"))
 				{
-					Logger::WriteMessage(exposing::to_narrow_string(exposing::format(u8"组件名：{}", factory.get_component_name())).c_str());
+					Logger::WriteMessage(exposing::to_narrow_string(exposing::format(u8"组件名：{}", factory.library_name())).c_str());
 
-					auto interfaces = factory.get_qualified_names();
+					auto interfaces = factory.qualified_names();
 
 					for (const auto& item : interfaces)
 					{
