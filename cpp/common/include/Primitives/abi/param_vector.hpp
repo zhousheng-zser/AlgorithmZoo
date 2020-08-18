@@ -194,6 +194,10 @@ namespace glasssix::exposing::impl
 		{
 		}
 
+		param_vector_impl(param_span<const T> data) : buffer_(data.data(), data.data() + data.size())
+		{
+		}
+
 		param_vector_impl(param_span<T> data) : buffer_(data.data(), data.data() + data.size())
 		{
 		}
@@ -315,7 +319,7 @@ namespace glasssix::exposing
 	}
 
 	/// <summary>
-	/// Creates a one-dimensional param_vector from a data span.
+	/// Creates a one-dimensional param_vector from a span.
 	/// </summary>
 	/// <typeparam name="T">The element type</typeparam>
 	/// <typeparam name="...Args">The types of the initializer</typeparam>
@@ -324,6 +328,20 @@ namespace glasssix::exposing
 	/// <returns>The result</returns>
 	template<typename T, typename = std::enable_if_t<impl::has_abi_type_v<T>>>
 	auto make_param_vector(param_span<T> data)
+	{
+		return make_as_first<impl::param_vector_impl<T>>(data);
+	}
+
+	/// <summary>
+	/// Creates a one-dimensional param_vector from a read-only span.
+	/// </summary>
+	/// <typeparam name="T">The element type</typeparam>
+	/// <typeparam name="...Args">The types of the initializer</typeparam>
+	/// <param name="...args">The initializer</param>
+	/// <param name="data">The data span</param>
+	/// <returns>The result</returns>
+	template<typename T, typename = std::enable_if_t<impl::has_abi_type_v<T>>>
+	auto make_param_vector(param_span<const T> data)
 	{
 		return make_as_first<impl::param_vector_impl<T>>(data);
 	}

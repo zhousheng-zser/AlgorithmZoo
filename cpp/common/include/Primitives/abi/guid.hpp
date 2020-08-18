@@ -2,10 +2,13 @@
 
 #include "meta.hpp"
 #include "sha3.hpp"
+#include "hash_utils.hpp"
 
 #include <array>
 #include <cstddef>
 #include <cstdint>
+#include <algorithm>
+#include <functional>
 #include <string_view>
 
 namespace glasssix::exposing
@@ -160,4 +163,22 @@ namespace glasssix::exposing
 			meta::to_char_array(meta::sub_array<2, 6>::get(id.data4))
 		);
 	}
+}
+
+namespace std
+{
+	template<> struct hash<glasssix::exposing::guid>
+	{
+		std::size_t operator()(const glasssix::exposing::guid& id) const
+		{
+			std::size_t result = 0;
+			
+			glasssix::utils::hash_combine(result, id.data1);
+			glasssix::utils::hash_combine(result, id.data2);
+			glasssix::utils::hash_combine(result, id.data3);
+			std::for_each(id.data4.begin(), id.data4.end(), [&](std::uint8_t inner) { glasssix::utils::hash_combine(result, inner); });
+
+			return result;
+		}
+	};
 }

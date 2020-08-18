@@ -36,7 +36,7 @@ namespace glasssix::exposing::platform_encoding::api::win32
 		gb18030 = 54936,
 		utf8 = 65001
 	};
-	
+
 	extern "C" EXPORT_EXCALIBUR_PRIMITIVES std::size_t G6_ABI_CALL get_narrow_to_wide_size(encoding_codepage codepage, const char* narrow_str, std::size_t size) noexcept;
 	extern "C" EXPORT_EXCALIBUR_PRIMITIVES std::size_t G6_ABI_CALL get_wide_to_narrow_size(encoding_codepage codepage, const wchar_t* wide_str, std::size_t size) noexcept;
 	extern "C" EXPORT_EXCALIBUR_PRIMITIVES std::size_t G6_ABI_CALL narrow_to_wide(encoding_codepage codepage, const char* narrow_str, std::size_t narrow_size, wchar_t* wide_char, std::size_t wide_size) noexcept;
@@ -94,7 +94,7 @@ namespace glasssix::exposing::platform_encoding::win32
 	}
 
 	/// <summary>
-	/// Converts a platform-dependent UTF-8 string to a platform-dependent wide string.
+	/// Converts a platform-independent UTF-8 string to a platform-dependent wide string.
 	/// </summary>
 	/// <param name="utf8_str">The UTF-8 string</param>
 	/// <returns>The wide string</returns>
@@ -120,6 +120,21 @@ namespace glasssix::exposing::platform_encoding::win32
 			false,
 			[](std::size_t size) { return std::tuple{ std::wstring(size, L'\0'), [](std::wstring& wide_str) { return wide_str.data(); } }; },
 			[](std::wstring& wide_str) { wide_str.clear(); }
+		);
+	}
+
+	/// <summary>
+	/// Converts a platform-dependent wide string to a platform-independent UTF-8 string.
+	/// </summary>
+	/// <param name="wide_str">The wide string</param>
+	/// <returns>The UTF-8 string</returns>
+	inline utf8_string wide_to_utf8(std::wstring_view wide_str) noexcept
+	{
+		return wide_to_multibyte(
+			wide_str,
+			true,
+			[](std::size_t size) { return std::tuple{ utf8_string(size, '\0'), [](utf8_string& utf8_str) { return utf8_str.data(); } }; },
+			[](utf8_string& utf8_str) { utf8_str.clear(); }
 		);
 	}
 
@@ -157,6 +172,24 @@ namespace glasssix::exposing::platform_encoding
 		std::string result(utf8_str.size(), '\0');
 
 		return (std::memcpy(result.data(), utf8_str.data(), utf8_str.size()), result);
+#endif
+	}
+
+	/// <summary>
+	/// Converts a narrow string to a UTF-8 string.
+	/// </summary>
+	/// <param name="narrow_str">The narrow string</param>
+	/// <returns>The UTF-8 string</returns>
+	inline utf8_string narrow_to_utf8(std::string_view narrow_str) noexcept
+	{
+		// On Linux the default encoding of narrow strings are UTF-8.
+		// On Windows the default encoding of narrow strings are configurated as codepage.
+#ifdef _WIN32
+		return win32::wide_to_utf8(win32::narrow_to_wide(narrow_str));
+#else
+		utf8_string result(narrow_str.size(), '\0');
+
+		return (std::memcpy(result.data(), narrow_str.data(), narrow_str.size()), result);
 #endif
 	}
 }

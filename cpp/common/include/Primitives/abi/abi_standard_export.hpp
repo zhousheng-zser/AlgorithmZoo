@@ -4,6 +4,7 @@
 #include "base_abi.hpp"
 #include "implements.hpp"
 #include "param_string.hpp"
+#include "param_vector.hpp"
 #include "class_factory.hpp"
 #include "g6_attributes.hpp"
 #include "fundamental_semantics.hpp"
@@ -48,7 +49,8 @@ namespace glasssix::exposing
 			/// </summary>
 			struct class_factory_impl : implements<class_factory_impl, class_factory>
 			{
-				inline static std::unordered_map<param_string, std::function<unknown_object()>> map;
+				inline static std::unordered_map<guid, std::function<unknown_object()>> guid_map;
+				inline static std::unordered_map<param_string, std::function<unknown_object()>> name_map;
 
 				/// <summary>
 				/// Creates an instance.
@@ -57,7 +59,13 @@ namespace glasssix::exposing
 				{
 					static std::once_flag flag;
 
-					std::call_once(flag, [] { ((map.insert_or_assign(impl::get_external_qualified_name_v<ComponentImpls>, &make_component_impl<ComponentImpls>), ...)); });
+					std::call_once(flag, []
+						{
+							// Adds constructors for external qualified names.
+							// Adds constructors for default implementations.
+							(name_map.insert_or_assign(impl::get_external_qualified_name_v<ComponentImpls>, &make_component_impl<ComponentImpls>), ...);
+							(guid_map.insert_or_assign(guid_of_v<impl::first_interface_t<ComponentImpls>>, &make_component_impl<ComponentImpls>), ...);
+						});
 				}
 
 				/// <summary>
@@ -65,11 +73,32 @@ namespace glasssix::exposing
 				/// </summary>
 				/// <param name="qualified_name">The qualified name</param>
 				/// <returns>The instance</returns>
-				unknown_object create_instance(const param_string& qualified_name) const
+				unknown_object create_by_name(const param_string& qualified_name) const
 				{
-					auto iter = map.find(qualified_name);
+					auto iter = name_map.find(qualified_name);
 
-					return iter != map.end() ? iter->second() : nullptr;
+					return iter != name_map.end() ? iter->second() : nullptr;
+				}
+
+				/// <summary>
+				/// Creates an instance by first interface ID.
+				/// </summary>
+				/// <param name="interface_id">The interface ID</param>
+				/// <returns>The instance</returns>
+				unknown_object create_by_interface_id(const guid& interface_id) const
+				{
+					auto iter = guid_map.find(interface_id);
+
+					return iter != guid_map.end() ? iter->second() : nullptr;
+				}
+
+				/// <summary>
+				/// Gets the available interface IDs.
+				/// </summary>
+				/// <returns>The qualified names</returns>
+				param_vector<guid> interface_ids() const
+				{
+					return make_param_vector<guid>(guid_of_v<impl::first_interface_t<ComponentImpls>>...);
 				}
 
 				/// <summary>
