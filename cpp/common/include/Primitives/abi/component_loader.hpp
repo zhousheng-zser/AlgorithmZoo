@@ -356,4 +356,19 @@ namespace glasssix::exposing
 	{
 		return component_loader::instance().create_by_interface_id(guid_of_v<Interface>).as<Interface>();
 	}
+
+	/// <summary>
+	/// A convenient function to create an instance by specified (first) interface.
+	/// </summary>
+	/// <typeparam name="Interface">The interfacial type</typeparam>
+	/// <typeparam name="...Args">The argument types</typeparam>
+	/// <param name="...args">The arguments</param>
+	/// <returns>The instance</returns>
+	template<typename Interface, typename... Args, typename = std::enable_if_t<impl::is_well_defined_interface_v<Interface>>, typename = std::void_t<decltype(std::declval<Interface>().init(std::declval<Args>()...))>>
+	auto make_exported_interface(Args&&... args)
+	{
+		auto obj = component_loader::instance().create_by_interface_id(guid_of_v<Interface>).as<Interface>();
+
+		return (obj.init(std::forward<Args>(args)...), obj);
+	}
 }
