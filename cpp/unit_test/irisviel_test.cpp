@@ -37,18 +37,16 @@ namespace unittest
 	TEST_CLASS(irisviel_test)
 	{
 	public:
-		irisviel_test() : service_{ exposing::make_exported_interface<irisviel::face_service>() }
+		irisviel_test() : service_{ exposing::make_exported_interface<irisviel::face_service>(100, 512, u8".") }
 		{
-			service_.init(100, 512, u8".");
 		}
 
 		TEST_METHOD(single_record_test)
 		{
 			service_.remove_all();
 
-			auto single_record = exposing::make_exported_interface<irisviel::record>();
+			auto single_record = exposing::make_exported_interface<irisviel::record>(512);
 
-			single_record.init(512);
 			single_record.key(u8"123");
 			single_record.feature(std::array<float, 3>{ 1, 2, 3 });
 
@@ -74,9 +72,8 @@ namespace unittest
 
 			for (std::size_t i = 0; i < 1000; i++)
 			{
-				auto record = exposing::make_exported_interface<irisviel::record>();
+				auto record = exposing::make_exported_interface<irisviel::record>(512);
 
-				record.init(512);
 				record.key(exposing::to_param_string(i));
 				record.feature(get_feature(512));
 
@@ -91,9 +88,8 @@ namespace unittest
 		{
 			single_record_test();
 
-			auto record = exposing::make_exported_interface<irisviel::record>();
+			auto record = exposing::make_exported_interface<irisviel::record>(512);
 
-			record.init(512);
 			record.key(u8"123");
 			record.feature(std::array<float, 5>{ 100, 200, 300, 400, 500 });
 
