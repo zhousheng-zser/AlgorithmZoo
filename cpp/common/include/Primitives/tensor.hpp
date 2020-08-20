@@ -1,7 +1,10 @@
 ﻿#pragma once
+
 #ifndef _TENSOR_HPP_
 #define _TENSOR_HPP_
+
 #include "syncedmem.hpp"
+
 #include <vector>
 #include <memory>
 
@@ -12,34 +15,10 @@ namespace glasssix
 		enum orderType { NCHW, NHWC };
 
 		/// <summary>
-		/// A non-generic abstaction of glasssix::memory::tensor.
-		/// </summary>
-		struct tensor_
-		{
-			virtual bool empty() const = 0;
-			virtual int num() const = 0;
-			virtual int channels() const = 0;
-			virtual int height() const = 0;
-			virtual int width() const = 0;
-			virtual int count(int start_axis, int end_axis) const = 0;
-			virtual int count() const = 0;
-			virtual int device() const = 0;
-			virtual orderType order() const = 0;
-			virtual int offset(const int n, const int c = 0, const int h = 0, const int w = 0) const = 0;
-			virtual std::vector<int> data_shape() const = 0;
-			virtual void* cpu_data_any() const = 0;
-			virtual void* gpu_data_any() const = 0;
-			virtual void* data_auto() const = 0;
-			virtual tensor_* clone_new() = 0;
-			virtual std::shared_ptr<tensor_> clone_shared() = 0;
-			virtual void copy_from(const void* data, size_t size) = 0;
-		};
-
-		/// <summary>
 		/// The four dimension tensor in N, C, H, W
 		/// </summary>
 		template <typename Dtype>
-		class EXPORT_EXCALIBUR_PRIMITIVES tensor : public tensor_
+		class EXPORT_EXCALIBUR_PRIMITIVES tensor
 		{
 			// Data pointer
 			std::shared_ptr<syncedmem<Dtype>> data_;
@@ -85,90 +64,40 @@ namespace glasssix
 			// Deep copy
 			tensor clone() const;
 			// Check empty
-			virtual bool empty() const override
+			bool empty() const 
 			{
 				return data_ == nullptr || count() == 0;
 			}
 			
-			virtual tensor_* clone_new() override
-			{
-				return new tensor<Dtype>{ clone() };
-			}
-
-			virtual std::shared_ptr<tensor_> clone_shared() override
-			{
-				return std::make_shared<tensor<Dtype>>(clone());
-			}
-
-			// DEPTRCATED!
-			tensor channel_tensor_ptr(int c) 
-			{
-				DEPRECATED;
-				return tensor();
-			};
-
 			const Dtype* cpu_data() const;
-
 			const Dtype* gpu_data() const;
-
 			Dtype* mutable_cpu_data() const;
-
 			Dtype* mutable_gpu_data() const;
-
-			// DEPTRCATED!
-			void set_cpu_data(Dtype* data)
-			{
-				DEPRECATED;
-			}
-
-			// DEPRECATED!
-			void set_gpu_data(Dtype* data)
-			{
-				DEPRECATED;
-			}
-
 			void fill(Dtype v);
-
 			void convert_order();
+			void copy_from(const void* data, size_t size) ;
 
-			virtual void* cpu_data_any() const override
-			{
-				return mutable_cpu_data();
-			}
-
-			virtual void* gpu_data_any() const override
-			{
-				return mutable_gpu_data();
-			}
-
-			virtual void* data_auto() const override
-			{
-				return device_ >= 0 ? gpu_data_any() : cpu_data_any();
-			}
-
-			virtual void copy_from(const void* data, size_t size) override;
-
-			virtual int num() const override
+			int num() const 
 			{
 				return shape_[0];
 			}
 
-			virtual int channels() const override
+			int channels() const 
 			{
 				return order_ == NCHW ? shape_[1] : shape_[3];
 			}
 
-			virtual int height() const override
+			int height() const 
 			{
 				return order_ == NCHW ? shape_[2] : shape_[1];
 			}
 
-			virtual int width() const override
+			int width() const 
 			{
 				return order_ == NCHW ? shape_[3] : shape_[2];
 			}
 
-			virtual int count(int start_axis, int end_axis) const override
+			int count(int start_axis, int end_axis) const 
 			{
 				int count = 1;
 				for (int i = start_axis; i < end_axis; ++i) {
@@ -177,23 +106,22 @@ namespace glasssix
 				return count;
 			}
 
-			virtual int count() const override
+			int count() const 
 			{
 				return count(0, static_cast<int>(shape_.size()));
 			}
 
-			virtual int device() const override
+			int device() const 
 			{
 				return device_;
 			}
 
-			virtual orderType order() const override
+			orderType order() const 
 			{
 				return order_;
 			}
 
-			virtual int offset(const int n, const int c = 0,
-				const int h = 0, const int w = 0) const override
+			int offset(const int n, const int c = 0, const int h = 0, const int w = 0) const
 			{
 				if (order_ == NCHW)
 				{
@@ -205,7 +133,7 @@ namespace glasssix
 				}
 			}
 
-			virtual std::vector<int> data_shape() const override
+			std::vector<int> data_shape() const 
 			{
 				return shape_;
 			}
@@ -242,7 +170,6 @@ namespace glasssix
 			// convenient access float vec element
 			Dtype& operator[](size_t i);
 			const Dtype& operator[](size_t i) const;
-			
 		};
 	}
 }
