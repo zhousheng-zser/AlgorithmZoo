@@ -3,11 +3,11 @@
   <ItemGroup>
     <ClCompile Include="..\cpp\romancia\exports.cpp" />
     <ClCompile Include="..\cpp\romancia\face_alignment_impl.cpp" />
-    <ClCompile Include="..\cpp\romancia\face_alignment_native.cpp" />
+    <ClCompile Include="..\cpp\romancia\face_alignment_internal.cpp" />
   </ItemGroup>
   <ItemGroup>
     <ClInclude Include="..\cpp\romancia\face_alignment.hpp" />
     <ClInclude Include="..\cpp\romancia\face_alignment_impl.hpp" />
-    <ClInclude Include="..\cpp\romancia\face_alignment_native.hpp" />
+    <ClInclude Include="..\cpp\romancia\face_alignment_internal.hpp" />
   </ItemGroup>
 </Project>

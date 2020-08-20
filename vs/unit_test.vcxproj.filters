@@ -3,5 +3,6 @@
   <ItemGroup>
     <ClCompile Include="..\cpp\unit_test\unit_test.cpp" />
     <ClCompile Include="..\cpp\unit_test\irisviel_test.cpp" />
+    <ClCompile Include="..\cpp\unit_test\longinus_romancia_test.cpp" />
   </ItemGroup>
 </Project>
