@@ -34,7 +34,7 @@ namespace glasssix
 	namespace
 	{
 		std::mutex log_mutex;
-		const std::unordered_map<enum log_level, std::string_view> log_level_string_map =
+		const std::unordered_map<enum log_level, const char*> log_level_string_map =
 		{
 			{ log_level::INFO, "INFO" },
 			{ log_level::WARNING, "WARNING" },
@@ -47,12 +47,12 @@ namespace glasssix
 	{
 	public:
 		virtual ~logger_base() = default;
-		auto operator()(std::string_view file, int line, enum log_level level = log_level::INFO)
+		auto operator()(const char* file, int line, enum log_level level = log_level::INFO)
 		{
 			class log_stream : public std::ostringstream
 			{
 			public:
-				log_stream(logger_base& logger, std::string_view file, int line, log_level level) : line_{ line }, level_{ level }, logger_{ logger }, file_{ file }
+				log_stream(logger_base& logger, const char* file, int line, log_level level) : line_{ line }, level_{ level }, logger_{ logger }, file_{ file }
 				{
 				};
 
@@ -62,19 +62,19 @@ namespace glasssix
 
 				~log_stream()
 				{
-					logger_.endline(file_, line_, level_, str());
+					logger_.endline(file_, line_, level_, str().c_str());
 				}
 			private:
 				int line_;
 				log_level level_;
 				logger_base& logger_;
-				std::string_view file_;
+				const char* file_;
 			};
 
 			return log_stream{ *this, file, line, level };
 		}
 	protected:
-		virtual void output(const tm& time, std::string_view level, std::string_view file, int line, std::string_view message) = 0;
+		virtual void output(const tm& time, const char* level, const char* file, int line, const char* message) = 0;
 	private:
 		const tm& get_local_time()
 		{
@@ -85,9 +85,9 @@ namespace glasssix
 			return (localtime_r(&timestamp, &local_time), local_time);
 		}
 
-		void endline(std::string_view file, int line, log_level level, std::string_view message)
+		void endline(const char* file, int line, log_level level, const char* message)
 		{
-			std::scoped_lock lock{ log_mutex };
+			std::lock_guard<std::mutex> lock{ log_mutex };
 			output(get_local_time(), log_level_string_map.find(level)->second, file, line, message);
 
 			if (level == log_level::FATAL)
@@ -100,7 +100,7 @@ namespace glasssix
 	class standard_output_logger : public logger_base
 	{
 		using logger_base::logger_base;
-		virtual void output(const tm& time, std::string_view level, std::string_view file, int line, std::string_view message) override
+		virtual void output(const tm& time, const char* level, const char* file, int line, const char* message) override
 		{
 			std::cout << fmt::format("[{:04}-{:02}-{:02} {:02}:{:02}:{:02} {:5} {}:{}][{}] {}",
 				1900 + time.tm_year,

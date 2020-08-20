@@ -5,6 +5,7 @@
 #include <algorithm>
 
 #include <Excalibur/pipeline.hpp>
+#include <Primitives/pool_allocator.hpp>
 #include <Primitives/tensor_conversions.hpp>
 
 #ifdef USE_CUDA
@@ -25,15 +26,9 @@ namespace glasssix::gaius
 	class feature_extractor_internal::impl
 	{
 	public:
-		impl() : impl{ -1 }
+		impl(std::string_view phai_path, std::string_view racy_path, int device) : device_{ device }, mobile_unicorn_{ std::string{ phai_path }, std::string{ racy_path }, device }
 		{
 		}
-
-		impl(int device) : device_{ device }, mobile_unicorn_{ "models/mobile_unicorn.phai", "models/mobile_unicorn.racy", device }
-		{
-		}
-
-		~impl() = default;
 
 		std::vector<std::vector<float>> get(exposing::param_span<std::uint8_t> bitmaps, std::size_t count, int order)
 		{
@@ -69,8 +64,8 @@ namespace glasssix::gaius
 			if (cache_ == nullptr || cache_->num() != count || cache_->order() != order)
 			{
 				cache_ = order == memory::NCHW ?
-					std::make_shared<memory::tensor<std::uint8_t>>(std::vector<int>{  static_cast<int>(count), single_bitmap_channels, single_bitmap_height, single_bitmap_width }, device_, order) :
-					std::make_shared<memory::tensor<std::uint8_t>>(std::vector<int>{ static_cast<int>(count), single_bitmap_height, single_bitmap_width, single_bitmap_channels }, device_, order);
+					std::make_shared<memory::tensor<std::uint8_t>>(std::vector<int>{  static_cast<int>(count), single_bitmap_channels, single_bitmap_height, single_bitmap_width }, device_, static_cast<memory::orderType>(order), &memory::pool_allocator_default<std::uint8_t>::get()) :
+					std::make_shared<memory::tensor<std::uint8_t>>(std::vector<int>{ static_cast<int>(count), single_bitmap_height, single_bitmap_width, single_bitmap_channels }, device_, static_cast<memory::orderType>(order), &memory::pool_allocator_default<std::uint8_t>::get());
 		}
 
 #ifdef USE_CUDA
@@ -85,11 +80,7 @@ namespace glasssix::gaius
 		std::shared_ptr<memory::tensor<std::uint8_t>> cache_;
 };
 
-	feature_extractor_internal::feature_extractor_internal() : impl_{ new impl }
-	{
-	}
-
-	feature_extractor_internal::feature_extractor_internal(int device) : impl_{ new impl{ device } }
+	feature_extractor_internal::feature_extractor_internal(std::string_view phai_path, std::string_view racy_path, int device) : impl_{ new impl{ phai_path, racy_path, device } }
 	{
 	}
 

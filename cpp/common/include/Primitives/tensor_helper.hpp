@@ -19,7 +19,8 @@ namespace glasssix::memory
 		/// </summary>
 		/// <param name="tensor">The tensor</param>
 		/// <returns>True or false</returns>
-		static bool has_triple_channel(const memory::tensor_& tensor)
+		template<typename UnderlyingType>
+		static bool has_triple_channel(const tensor<UnderlyingType>& tensor)
 		{
 			return tensor.channels() == 3;
 		}
@@ -29,7 +30,8 @@ namespace glasssix::memory
 		/// </summary>
 		/// <param name="tensor">The tensor</param>
 		/// <returns>True or false</returns>
-		static bool has_single_channel(const memory::tensor_& tensor)
+		template<typename UnderlyingType>
+		static bool has_single_channel(const tensor<UnderlyingType>& tensor)
 		{
 			return tensor.channels() == 1;
 		}
@@ -39,7 +41,8 @@ namespace glasssix::memory
 		/// </summary>
 		/// <param name="tensor">The tensor</param>
 		/// <returns>True or false</returns>
-		static bool has_quadruple_channel(const memory::tensor_& tensor)
+		template<typename UnderlyingType>
+		static bool has_quadruple_channel(const tensor<UnderlyingType>& tensor)
 		{
 			return tensor.channels() == 4;
 		}

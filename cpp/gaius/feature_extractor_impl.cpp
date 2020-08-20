@@ -3,20 +3,17 @@
 
 namespace glasssix::gaius
 {
-	feature_extractor_impl::feature_extractor_impl() : feature_extractor_impl{ -1 }
-	{
-	}
-
-	feature_extractor_impl::feature_extractor_impl(int device) : impl_{ new feature_extractor_internal{ device } }
-	{
-	}
-
 	feature_extractor_impl::~feature_extractor_impl()
 	{
 		if (impl_)
 		{
 			delete impl_;
 		}
+	}
+
+	void feature_extractor_impl::init(const exposing::param_string& phai_path, const exposing::param_string& racy_path, std::int32_t device)
+	{
+		impl_ = new feature_extractor_internal{ phai_path, racy_path, device };
 	}
 
 	exposing::param_string feature_extractor_impl::version() const
