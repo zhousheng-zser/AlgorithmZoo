@@ -25,9 +25,8 @@ namespace glasssix::gaius
 		/// Creates an instance with a specified GPU core or the default CPU.
 		/// </summary>
 		/// <param name="phai_path">The phai path</param>
-		/// <param name="racy_path">The racy path</param>
 		/// <param name="device">The device ID; -1 for CPU or a non-negative number for a GPU core</param>
-		feature_extractor_internal(std::string_view phai_path, std::string_view racy_path, int device);
+		feature_extractor_internal(std::string_view phai_path, int device);
 
 		/// <summary>
 		/// The copy constructor must be disabled in PImpl pattern.

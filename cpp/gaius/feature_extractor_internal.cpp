@@ -26,7 +26,7 @@ namespace glasssix::gaius
 	class feature_extractor_internal::impl
 	{
 	public:
-		impl(std::string_view phai_path, std::string_view racy_path, int device) : device_{ device }, mobile_unicorn_{ std::string{ phai_path }, std::string{ racy_path }, device }
+		impl(std::string_view phai_path, int device) : device_{ device }, mobile_unicorn_{ std::string{ phai_path }, device }
 		{
 		}
 
@@ -80,7 +80,7 @@ namespace glasssix::gaius
 		std::shared_ptr<memory::tensor<std::uint8_t>> cache_;
 };
 
-	feature_extractor_internal::feature_extractor_internal(std::string_view phai_path, std::string_view racy_path, int device) : impl_{ new impl{ phai_path, racy_path, device } }
+	feature_extractor_internal::feature_extractor_internal(std::string_view phai_path, int device) : impl_{ new impl{ phai_path, device } }
 	{
 	}
 

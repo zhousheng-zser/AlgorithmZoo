@@ -11,8 +11,12 @@
     </ProjectConfiguration>
   </ItemGroup>
   <ItemGroup>
+    <ClCompile Include="..\cpp\unit_test\cassius_gaius_test.cpp" />
     <ClCompile Include="..\cpp\unit_test\irisviel_test.cpp" />
-    <ClCompile Include="..\cpp\unit_test\longinus_romancia_test.cpp" />
+    <ClCompile Include="..\cpp\unit_test\longinus_romancia_test.cpp">
+      <ExcludedFromBuild Condition="'$(Configuration)|$(Platform)'=='Debug|x64'">true</ExcludedFromBuild>
+      <ExcludedFromBuild Condition="'$(Configuration)|$(Platform)'=='Release|x64'">true</ExcludedFromBuild>
+    </ClCompile>
     <ClCompile Include="..\cpp\unit_test\unit_test.cpp" />
   </ItemGroup>
   <PropertyGroup Label="Globals">
