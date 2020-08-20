@@ -1,7 +1,7 @@
 #pragma once
 
 #include "face_info.hpp"
-#include "retina_net_native.hpp"
+#include "retina_net_internal.hpp"
 
 #include <abi/consumer.hpp>
 
@@ -13,7 +13,7 @@ namespace glasssix::longinus
 	{
 	public:
 		face_info_impl();
-		face_info_impl(face_info_internal& internal);
+		face_info_impl(const face_info_internal& internal);
 		~face_info_impl();
 
 		std::int32_t x() const;

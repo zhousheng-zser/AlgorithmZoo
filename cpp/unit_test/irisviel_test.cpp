@@ -126,7 +126,7 @@ BOOL WINAPI DllMain(HINSTANCE hinstDLL, DWORD fdwReason, LPVOID lpReserved)
 		std::filesystem::current_path(std::filesystem::path{ buffer }.parent_path());
 
 		// Adds neccessary modules.
-		exposing::component_loader::instance().add_modules({ u8"libirisviel.dll" });
+		exposing::component_loader::instance().add_modules({ u8"libirisviel.dll", u8"liblonginus.dll", u8"libromancia.dll" });
 		break;
 	}
 	case DLL_THREAD_ATTACH:
