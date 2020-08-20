@@ -37,8 +37,8 @@ namespace glasssix::memory
 	/// </summary>
 	/// <param name="source">The source tensor</param>
 	/// <returns>The allocated tensor</returns>
-	template<typename UnderlyingType, bool Shared = false>
-	auto allocate_tensor(const tensor<UnderlyingType>& source)
+	template<bool Shared, typename Destination, typename Source>
+	auto allocate_tensor(const tensor<Source>& source)
 	{
 		auto input_vector = source.order() == memory::NHWC ?
 			std::vector<int>{ source.num(), source.height(), source.width(), source.channels() } :
@@ -46,11 +46,11 @@ namespace glasssix::memory
 
 		if constexpr (Shared)
 		{
-			return std::make_shared<tensor<UnderlyingType>>(input_vector, source.device(), source.order(), source.allocator());
+			return std::make_shared<tensor<Destination>>(input_vector, source.device(), source.order(), &memory::pool_allocator_default<Destination>::get());
 		}
 		else
 		{
-			return tensor<UnderlyingType>{ input_vector, source.device(), source.order(), source.allocator() };
+			return tensor<Destination>{ input_vector, source.device(), source.order(), & memory::pool_allocator_default<Destination>::get() };
 		}
 	}
 
@@ -75,7 +75,7 @@ namespace glasssix::memory
 		assert_numeric<Source>();
 		assert_numeric<Destination>();
 
-		auto destination = allocate_tensor<Destination, Shared>(source.access());
+		auto destination = allocate_tensor<Shared, Destination>(source.access());
 		tensor_or_shared<Destination, Shared> destination_wrapper{ destination };
 
 		if (source->device() < 0)
@@ -101,7 +101,7 @@ namespace glasssix::memory
 	{
 		assert_numeric<Source>();
 
-		auto destination = allocate_tensor<Source, Shared>(source.access());
+		auto destination = allocate_tensor<Shared, Source>(source.access());
 		tensor_or_shared<Source, Shared> destination_wrapper{ destination };
 
 		if (source->device() < 0)

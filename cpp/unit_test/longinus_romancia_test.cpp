@@ -9,10 +9,6 @@
 
 #include <abi/consumer.hpp>
 
-#define NOMINMAX
-#define WIN32_LEAN_AND_MEAN
-#include <Windows.h>
-
 #include <opencv2/opencv.hpp>
 
 using namespace glasssix;
@@ -96,38 +92,26 @@ namespace unittest
 		TEST_METHOD(detect_alignment_test)
 		{
 			cv::Mat img = cv::imread("C:/Users/Glasssix-ZYF/Desktop/test.jpg");
+			cv::resize(img, img, cv::Size(320, 240));
 			cv::Mat gray;
 			cv::cvtColor(img, gray, CV_BGR2GRAY);
 
 			std::shared_ptr<memory::tensor<std::uint8_t>> tensor_img;
 			mat2tensor_cpu(img, tensor_img);
 			exposing::param_span<std::uint8_t> img_span(tensor_img->mutable_cpu_data(), tensor_img->channels() * tensor_img->height() * tensor_img->width());
-			auto detect_result = retina_.get(img_span, tensor_img->channels(), tensor_img->height(), tensor_img->width(), 32, 0.4, 0);
+			auto detect_result = retina_.get(img_span, tensor_img->channels(), tensor_img->height(), tensor_img->width(), 16, 0.5, 0);
 
-			exposing::param_vector<exposing::param_vector<int> > bboxes = exposing::make_param_vector<exposing::param_vector<int>>();
-			exposing::param_vector<exposing::param_vector<int> > landmarks = exposing::make_param_vector<exposing::param_vector<int>>();
 			for (const auto& x : detect_result)
 			{
-				exposing::param_vector<int> bbox = exposing::make_param_vector<int>();
-				bbox.push_back(x.x());
-				bbox.push_back(x.y());
-				bbox.push_back(x.height());
-				bbox.push_back(x.width());
-				bboxes.push_back(bbox);
 				
 				std::string face_str = "{x: " + std::to_string(x.x()) + ", y: " + std::to_string(x.y()) + ", height: " + std::to_string(x.height()) + ", width: " + std::to_string(x.width());
 				
-				exposing::param_vector<int> landmark = exposing::make_param_vector<int>();
 				face_str += ", pts:";
 				auto pts = x.pts();
 				for (const auto& y : pts)
 				{
-					landmark.push_back(y.key());
-					landmark.push_back(y.value());
 					face_str += " " + std::to_string(y.key()) + "," + std::to_string(y.value());
 				}
-
-				landmarks.push_back(landmark);
 				face_str += " }";
 
 				Logger::WriteMessage(face_str.c_str());
@@ -135,9 +119,9 @@ namespace unittest
 
 
 			exposing::param_span<std::uint8_t> gray_span(gray.data, gray.rows * gray.cols);
-			auto align_result = face_alignment_.get(gray_span, gray.rows, gray.cols, bboxes, landmarks);
+			auto align_result = face_alignment_.get(gray_span, gray.rows, gray.cols, detect_result);
 
-			Logger::WriteMessage((std::string("algin result size: ") + std::to_string(align_result.size())).c_str());
+			Logger::WriteMessage((std::string("algin result num: ") + std::to_string(align_result.size())).c_str());
 		}
 	private:
 		longinus::retina_net retina_;

@@ -1,7 +1,6 @@
 #pragma once
 
 #include "face_alignment.hpp"
-
 #include <abi/consumer.hpp>
 
 namespace glasssix::romancia
@@ -19,8 +18,8 @@ namespace glasssix::romancia
 		void init(std::int32_t device);
 
 		exposing::param_string version() const;
-		exposing::param_vector<std::uint8_t> get(exposing::param_span<std::uint8_t> gray_bitmap, std::int32_t height, std::int32_t width,
-			exposing::param_vector<exposing::param_vector<std::int32_t>> bboxes, exposing::param_vector<exposing::param_vector<std::int32_t>> landmarks);
+		exposing::param_vector<exposing::param_vector<std::uint8_t>> get(exposing::param_span<std::uint8_t> gray_bitmap, std::int32_t height, std::int32_t width,
+			exposing::param_vector<longinus::face_info> faces);
 	private:
 		face_alignment_internal* impl_;
 	};
