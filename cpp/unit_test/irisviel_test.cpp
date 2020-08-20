@@ -73,7 +73,7 @@ namespace unittest
 			for (std::size_t i = 0; i < 1000; i++)
 			{
 				auto record = exposing::make_exported_interface<irisviel::record>(512);
-
+				
 				record.key(exposing::to_param_string(i));
 				record.feature(get_feature(512));
 

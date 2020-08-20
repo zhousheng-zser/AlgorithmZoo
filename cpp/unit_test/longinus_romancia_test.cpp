@@ -114,7 +114,7 @@ namespace unittest
 				bbox.push_back(x.height());
 				bbox.push_back(x.width());
 				bboxes.push_back(bbox);
-
+				
 				std::string face_str = "{x: " + std::to_string(x.x()) + ", y: " + std::to_string(x.y()) + ", height: " + std::to_string(x.height()) + ", width: " + std::to_string(x.width());
 				
 				exposing::param_vector<int> landmark = exposing::make_param_vector<int>();

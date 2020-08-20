@@ -38,7 +38,7 @@ namespace glasssix::memory
 	/// <param name="source">The source tensor</param>
 	/// <returns>The allocated tensor</returns>
 	template<typename UnderlyingType, bool Shared = false>
-	auto allocate_tensor(const memory::tensor_& source)
+	auto allocate_tensor(const tensor<UnderlyingType>& source)
 	{
 		auto input_vector = source.order() == memory::NHWC ?
 			std::vector<int>{ source.num(), source.height(), source.width(), source.channels() } :
@@ -46,11 +46,11 @@ namespace glasssix::memory
 
 		if constexpr (Shared)
 		{
-			return std::make_shared<tensor<UnderlyingType>>(input_vector, source.device(), source.order());
+			return std::make_shared<tensor<UnderlyingType>>(input_vector, source.device(), source.order(), source.allocator());
 		}
 		else
 		{
-			return tensor<UnderlyingType>{ input_vector, source.device(), source.order() };
+			return tensor<UnderlyingType>{ input_vector, source.device(), source.order(), source.allocator() };
 		}
 	}
 
