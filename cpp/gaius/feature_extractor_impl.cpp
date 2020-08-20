@@ -1,5 +1,5 @@
 #include "feature_extractor_impl.hpp"
-#include "feature_extractor_native.hpp"
+#include "feature_extractor_internal.hpp"
 
 namespace glasssix::gaius
 {

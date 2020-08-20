@@ -5,7 +5,7 @@ namespace glasssix::longinus
 	face_info_impl::face_info_impl()
 	{
 	}
-	face_info_impl::face_info_impl(face_info_internal& internal) : internal_(internal)
+	face_info_impl::face_info_impl(const face_info_internal& internal) : internal_(internal)
 	{
 	}
 	face_info_impl::~face_info_impl()

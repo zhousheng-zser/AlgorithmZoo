@@ -17,6 +17,7 @@ namespace glasssix::exposing::impl
 
 		struct type : abi_unknown_object
 		{
+			virtual std::int32_t init(std::int32_t device) noexcept = 0;
 			virtual std::int32_t get(abi_in_t<param_span<std::uint8_t>> bitmap, std::int32_t height, std::int32_t width,
 				abi_in_t<param_vector<param_vector<std::int32_t>>> bboxes, abi_in_t<param_vector<param_vector<std::int32_t>>> landmarks, abi_out_t<param_vector<std::uint8_t>> result) noexcept = 0;
 			virtual std::int32_t version(abi_out_t<param_string> result) noexcept = 0;
@@ -26,6 +27,11 @@ namespace glasssix::exposing::impl
 	template<typename Derived>
 	struct interface_vtable<Derived, romancia::face_alignment> : interface_vtable_base<Derived, romancia::face_alignment>
 	{
+		virtual std::int32_t init(std::int32_t device) noexcept override
+		{
+			return abi_safe_call([&] { this->self().init(device); });
+		}
+
 		virtual std::int32_t get(abi_in_t<param_span<std::uint8_t>> bitmap, std::int32_t height, std::int32_t width, 
 			abi_in_t<param_vector<param_vector<std::int32_t>>> bboxes, abi_in_t<param_vector<param_vector<std::int32_t>>> landmarks, abi_out_t<param_vector<std::uint8_t>> result) noexcept override
 		{
@@ -44,6 +50,11 @@ namespace glasssix::exposing::impl
 		template<typename Derived>
 		struct type : enable_self_abi_awareness<Derived, romancia::face_alignment>
 		{
+			void init(std::int32_t device = -1) const
+			{
+				check_abi_result(this->self_abi().init(get_abi(device)));
+			}
+
 			param_string version() const
 			{
 				param_string result{ nullptr };
