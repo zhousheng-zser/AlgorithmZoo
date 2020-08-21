@@ -2,6 +2,8 @@
 
 #include <abi/consumer.hpp>
 
+#include "../longinus/face_info.hpp"
+
 namespace glasssix::romancia
 {
 	struct face_alignment;
@@ -19,7 +21,7 @@ namespace glasssix::exposing::impl
 		{
 			virtual std::int32_t init(std::int32_t device) noexcept = 0;
 			virtual std::int32_t get(abi_in_t<param_span<std::uint8_t>> bitmap, std::int32_t height, std::int32_t width,
-				abi_in_t<param_vector<param_vector<std::int32_t>>> bboxes, abi_in_t<param_vector<param_vector<std::int32_t>>> landmarks, abi_out_t<param_vector<std::uint8_t>> result) noexcept = 0;
+				abi_in_t<exposing::param_vector<longinus::face_info>> faces, abi_out_t<param_vector< param_vector<std::uint8_t>>> result) noexcept = 0;
 			virtual std::int32_t version(abi_out_t<param_string> result) noexcept = 0;
 		};
 	};
@@ -33,10 +35,10 @@ namespace glasssix::exposing::impl
 		}
 
 		virtual std::int32_t get(abi_in_t<param_span<std::uint8_t>> bitmap, std::int32_t height, std::int32_t width, 
-			abi_in_t<param_vector<param_vector<std::int32_t>>> bboxes, abi_in_t<param_vector<param_vector<std::int32_t>>> landmarks, abi_out_t<param_vector<std::uint8_t>> result) noexcept override
+			abi_in_t<exposing::param_vector<longinus::face_info>> faces, abi_out_t<param_vector< param_vector<std::uint8_t>>> result) noexcept override
 		{
 			return abi_safe_call([&] { *result = detach_abi(this->self().get(create_from_abi<param_span<std::uint8_t>>(bitmap), height, width, 
-				create_from_abi<param_vector<param_vector<std::int32_t>>>(bboxes), create_from_abi<param_vector<param_vector<std::int32_t>>>(landmarks))); });
+				create_from_abi<exposing::param_vector<longinus::face_info>>(faces))); });
 		}
 
 		virtual std::int32_t version(abi_out_t<param_string> result) noexcept override
@@ -62,11 +64,11 @@ namespace glasssix::exposing::impl
 				return (check_abi_result(this->self_abi().version(put_abi(result))), result);
 			}
 
-			param_vector<std::uint32_t> get(param_span<std::uint8_t> bitmap, std::int32_t height, std::int32_t width,
-				param_vector<param_vector<std::int32_t>> bboxes, param_vector<param_vector<std::int32_t>> landmarks) const
+			param_vector< param_vector<std::uint8_t>> get(param_span<std::uint8_t> bitmap, std::int32_t height, std::int32_t width,
+				exposing::param_vector<longinus::face_info> faces) const
 			{
-				param_vector<std::uint32_t> result{ nullptr };
-				return (check_abi_result(this->self_abi().get(get_abi(bitmap), height, width, get_abi(bboxes), get_abi(landmarks), put_abi(result))), result);
+				param_vector< param_vector<std::uint8_t>> result{ nullptr };
+				return (check_abi_result(this->self_abi().get(get_abi(bitmap), height, width, get_abi(faces), put_abi(result))), result);
 			}
 		};
 	};

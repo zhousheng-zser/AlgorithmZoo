@@ -19,7 +19,7 @@ namespace glasssix::longinus
 		void init(exposing::param_string phai_path, exposing::param_string racy_path, float nms_threshold, std::int32_t device);
 
 		exposing::param_string version() const;
-		exposing::param_vector<longinus::face_info> get(exposing::param_span<std::uint8_t> bitmap, std::int32_t channels, std::int32_t height, std::int32_t width, std::int32_t min_size, float threshold, std::int32_t order) const;
+		exposing::param_vector<face_info> get(exposing::param_span<std::uint8_t> bitmap, std::int32_t channels, std::int32_t height, std::int32_t width, std::int32_t min_size, float threshold, std::int32_t order) const;
 	private:
 		retina_net_internal* impl_;
 	};

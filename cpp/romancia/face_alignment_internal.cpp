@@ -30,34 +30,32 @@ namespace glasssix::romancia
 
 		~impl() = default;
 
-		std::vector<unsigned char> align(exposing::param_span<std::uint8_t> gray_bitmap, std::int32_t height, std::int32_t width,
-			exposing::param_vector<exposing::param_vector<std::int32_t>> bboxes, exposing::param_vector<exposing::param_vector<std::int32_t>> landmarks)
+		exposing::param_vector<exposing::param_vector<std::uint8_t>> align(exposing::param_span<std::uint8_t>& gray_bitmap, std::int32_t height, std::int32_t width, 
+			exposing::param_vector<longinus::face_info>& faces)
 		{
 			init_cache(gray_bitmap, height, width);
 
-			CHECK_EQ(bboxes.size(), landmarks.size());
-
 			std::shared_ptr<memory::tensor<unsigned char>> ROI, rotated_ROI, final_mat, final_mat_gray, color_img, resized_color_img;
 			std::vector<std::shared_ptr<memory::tensor<unsigned char>>> src_vector;
-			std::vector<unsigned char> res;
-			res.resize(bboxes.size() * 3 * 128 * 128);
+			auto res = exposing::make_param_vector<std::uint8_t, 2>();
+			
 			if (device_ < 0)
 			{
-				for (size_t i = 0; i < landmarks.size(); i++)
+				for (size_t i = 0; i < faces.size(); i++)
 				{
 					src_vector.clear();
-					CHECK_EQ(landmarks[i].size() / 2, 5);
-					rectangle<int> MarginRect = rectangle<int>(bboxes[i][0] - bboxes[i][3] * 0.2,
-						bboxes[i][1] - bboxes[i][2] * 0.2,
-						bboxes[i][3] * 1.4f,
-						bboxes[i][2] * 1.4f);
+					rectangle<int> MarginRect = rectangle<int>(faces[i].x() - faces[i].width() * 0.2,
+						faces[i].y() - faces[i].height() * 0.2,
+						faces[i].height() * 1.4f,
+						faces[i].width() * 1.4f);
 
 					excalibur::safty_cut_cpu(cache_, ROI, &MarginRect);
 
 					point<float> ldmk5[5];
-					for (size_t j = 0; j < landmarks[i].size() / 2; j++)
+					auto pts = faces[i].pts();
+					for (size_t j = 0; j < pts.size(); j++)
 					{
-						ldmk5[j] = point<float>(landmarks[i][2 * j] - MarginRect.x, landmarks[i][2 * j + 1] - MarginRect.y);
+						ldmk5[j] = point<float>(pts[j].key() - MarginRect.x, pts[j].value() - MarginRect.y);
 					}
 					point<float> center_eye = point<float>((ldmk5[0].x + ldmk5[1].x) / 2, (ldmk5[0].y + ldmk5[1].y) / 2);
 					point<float> center_mouth = point<float>((ldmk5[3].x + ldmk5[4].x) / 2, (ldmk5[3].y + ldmk5[4].y) / 2);
@@ -84,7 +82,7 @@ namespace glasssix::romancia
 					excalibur::safty_cut_cpu(rotated_ROI, final_mat, &final_rect);
 					excalibur::equalize_hist_cpu(final_mat, final_mat);
 
-					for (size_t i = 0; i < 3; i++)
+					for (size_t k = 0; k < 3; k++)
 					{
 						src_vector.push_back(final_mat);
 					}
@@ -92,7 +90,15 @@ namespace glasssix::romancia
 					excalibur::merge_channel_cpu(src_vector, color_img);
 					excalibur::resize_cpu(color_img, resized_color_img, 128, 128);
 
-					memcpy(&(res[0]) + i * 3 * 128 * 128 * sizeof(unsigned char), resized_color_img->cpu_data(), 3 * 128 * 128 * sizeof(unsigned char));
+					auto temp_vec = exposing::make_param_vector<std::uint8_t>();
+					
+					auto* ptr = resized_color_img->cpu_data();
+					for (size_t k = 0; k < resized_color_img->count(); k++)
+					{
+						temp_vec.push_back(ptr[k]);
+					}
+
+					res.push_back(temp_vec);
 				}
 			}
 			else
@@ -108,15 +114,15 @@ namespace glasssix::romancia
 			return "1.0.0";
 		}
 	private:
-		void init_cache(const exposing::param_span<std::uint8_t>& gray_bitmap, std::int32_t height, std::int32_t width)
+		void init_cache(exposing::param_span<std::uint8_t> &gray_bitmap, std::int32_t height, std::int32_t width)
 		{
 			if (cache_ == nullptr || cache_->height() != height  || cache_->width() != width)
 			{
-				cache_ = std::make_shared<memory::tensor<std::uint8_t>>(std::vector<int>{ static_cast<int>(1), static_cast<int>(1), height, width }, device_, memory::NCHW);
+				cache_ = std::make_shared<memory::tensor<std::uint8_t>>(std::vector<int>{ static_cast<int>(1), static_cast<int>(1), height, width }, device_, memory::NCHW, &memory::pool_allocator_default<std::uint8_t>::get());
 			}
 
 #ifdef USE_CUDA
-			cudaMemcpy(cache_->mutable_gpu_data(), gray_bitmap.data(), gray_bitmap.size(), cudaMemcpyHostToDevice);
+			cudaMemcpy(cache_->mutable_gpu_data(), gray_bitmap, gray_bitmap + height * width, cudaMemcpyHostToDevice);
 #else
 			std::copy(gray_bitmap.begin(), gray_bitmap.end(), cache_->mutable_cpu_data());
 #endif
@@ -143,18 +149,10 @@ namespace glasssix::romancia
 		}
 	}
 
-	exposing::param_vector<std::uint8_t> face_alignment_internal::align(exposing::param_span<std::uint8_t> gray_bitmap, std::int32_t height, std::int32_t width,
-		exposing::param_vector<exposing::param_vector<std::int32_t>> bbox, exposing::param_vector<exposing::param_vector<std::int32_t>> landmarks) const
+	exposing::param_vector<exposing::param_vector<std::uint8_t>> face_alignment_internal::align(exposing::param_span<std::uint8_t>& gray_bitmap, std::int32_t height, std::int32_t width,
+		exposing::param_vector<longinus::face_info>& faces) const
 	{
-		auto native_result = impl_->align(gray_bitmap, height, width, bbox, landmarks);
-		auto result = exposing::make_param_vector<std::uint8_t, 1>();
-
-		for (const auto& item : native_result)
-		{
-			result.push_back(item);
-		}
-
-		return result;
+		return impl_->align(gray_bitmap, height, width, faces);
 	}
 
 	std::string face_alignment_internal::version()

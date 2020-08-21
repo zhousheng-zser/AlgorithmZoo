@@ -108,13 +108,13 @@ namespace glasssix
 				{
 					temp.reset(new memory::tensor<Dtype>(
 						std::vector<int>{src->num(), src->channels(), src->height() + top + bottom, src->width() + left + right},
-						src->device(), src->order()));
+						src->device(), src->order(), src->allocator()));
 				}
 				else if (src->order() == memory::NHWC)
 				{
 					temp.reset(new memory::tensor<Dtype>(
 						std::vector<int>{src->num(), src->height() + top + bottom, src->width() + left + right, src->channels()},
-						src->device(), src->order()));
+						src->device(), src->order(), src->allocator()));
 				}
 				else
 				{

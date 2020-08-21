@@ -2,9 +2,8 @@
 #ifndef _FACE_ALIGNMENT_INTERNAL_HPP_
 #define _FACE_ALIGNMENT_INTERNAL_HPP_
 #include <string>
-
 #include <abi/consumer.hpp>
-#include "Excalibur/pipeline.hpp"
+#include "../longinus/face_info.hpp"
 
 namespace glasssix::romancia
 {
@@ -48,8 +47,7 @@ namespace glasssix::romancia
 		/// <param name="bboxes">The bboxes of faces on bitmap</param>
 		/// <param name="bboxes">The landmarks of faces on bitmap</param>
 		/// <returns>The feature vectors</returns>
-		exposing::param_vector<std::uint8_t> align(exposing::param_span<std::uint8_t> gray_bitmap, std::int32_t height, std::int32_t width,
-			exposing::param_vector<exposing::param_vector<std::int32_t>> bboxes, exposing::param_vector<exposing::param_vector<std::int32_t>> landmarks) const;
+		exposing::param_vector<exposing::param_vector<std::uint8_t>> align(exposing::param_span<std::uint8_t> &gray_bitmap, std::int32_t height, std::int32_t width, exposing::param_vector<longinus::face_info> &faces) const;
 
 		/// <summary>
 		/// Gets the version of the component.
