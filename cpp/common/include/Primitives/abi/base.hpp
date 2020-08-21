@@ -18,6 +18,11 @@ namespace glasssix::exposing::impl
 	template<typename T>
 	inline constexpr auto& guid_storage_v = guid_storage<T>::value;
 
+	template<> struct guid_storage<guid>
+	{
+		static constexpr guid value{ "47534958-0000-0000-0000-000047554944" };
+	};
+
 	template<> struct guid_storage<bool>
 	{
 		static constexpr guid value{ "47534958-0000-0000-0000-0000424F4F4C" };

@@ -104,6 +104,14 @@ namespace glasssix::exposing::impl
 			set(value);
 		}
 
+		~box_value_impl()
+		{
+			if (initialized_)
+			{
+				std::launder(reinterpret_cast<const T*>(&buffer_))->~T();
+			}
+		}
+
 		bool has_value() const
 		{
 			return initialized_;
@@ -152,5 +160,4 @@ namespace glasssix::exposing
 	{
 		return obj.as<box_value<T>>().get();
 	}
-
 }

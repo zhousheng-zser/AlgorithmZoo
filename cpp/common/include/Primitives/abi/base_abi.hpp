@@ -228,6 +228,7 @@ namespace glasssix::exposing
 
 		~unknown_object() noexcept
 		{
+			release();
 		}
 
 		unknown_object& operator=(const unknown_object& right) noexcept
@@ -492,7 +493,7 @@ namespace glasssix::exposing::impl
 			{
 				if constexpr (HasException)
 				{
-					throw abi_no_interface{};
+					throw abi_no_interface{ exposing::format("Failed to convert the object to {}.", to_param_string(guid_of_v<To>)) };
 				}
 			}
 

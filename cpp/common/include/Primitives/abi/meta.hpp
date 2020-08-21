@@ -29,6 +29,8 @@ namespace glasssix::exposing::meta
 
 	namespace details
 	{
+		inline constexpr std::string_view hexadecimal_characters{ "0123456789ABCDEF" };
+
 		template<typename Tuple, typename = void>
 		struct has_common_type_impl : std::false_type {};
 
@@ -44,6 +46,15 @@ namespace glasssix::exposing::meta
 		template<typename Tuple, typename... Args>
 		using tuple_unique_impl_t = typename tuple_unique_impl<Tuple, Args...>::type;
 	}
+
+	template<typename T, typename = void>
+	struct is_complete_type : std::false_type{};
+
+	template<typename T>
+	struct is_complete_type<T, std::void_t<decltype(sizeof(T))>> : std::true_type{};
+
+	template<typename T>
+	inline constexpr bool is_complete_type_v = is_complete_type<T>::value;
 
 	template<typename... Args>
 	struct has_common_type : details::has_common_type_impl<std::tuple<Args...>> {};
@@ -214,21 +225,21 @@ namespace glasssix::exposing::meta
 	template<typename Array>
 	inline constexpr std::size_t std_array_size_v = std_array_traits<std::decay_t<Array>>::size;
 
-	template<auto left, auto right>
-	struct get_min : std::integral_constant<std::common_type_t<decltype(left), decltype(right)>, std::min(left, right)>
+	template<auto Left, auto Right>
+	struct get_min : std::integral_constant<std::common_type_t<decltype(Left), decltype(Right)>, std::min(Left, Right)>
 	{
 	};
 
-	template<auto left, auto right>
-	inline constexpr auto get_min_v = get_min<left, right>::value;
+	template<auto Left, auto Right>
+	inline constexpr auto get_min_v = get_min<Left, Right>::value;
 
-	template<auto left, auto right>
-	struct get_max : std::integral_constant<std::common_type_t<decltype(left), decltype(right)>, std::max(left, right)>
+	template<auto Left, auto Right>
+	struct get_max : std::integral_constant<std::common_type_t<decltype(Left), decltype(Right)>, std::max(Left, Right)>
 	{
 	};
 
-	template<auto left, auto right>
-	inline constexpr auto get_max_v = get_max<left, right>::value;
+	template<auto Left, auto Right>
+	inline constexpr auto get_max_v = get_max<Left, Right>::value;
 
 	/// <summary>
 	/// Get the sum of numbers.
@@ -268,9 +279,7 @@ namespace glasssix::exposing::meta
 
 		constexpr auto to_hexadecimal_character(std::uint8_t byte) noexcept
 		{
-			constexpr std::string_view hexadecimal_characters{ "0123456789ABCDEF" };
-
-			return std::array<char, hexadecimal_character_size_v<std::uint8_t>>{ hexadecimal_characters[byte >> 4], hexadecimal_characters[byte & 0xF] };
+			return std::array<char, hexadecimal_character_size_v<std::uint8_t>>{ details::hexadecimal_characters[byte >> 4], details::hexadecimal_characters[byte & 0xF] };
 		}
 
 		template<typename Callable, std::size_t... Indexes>
@@ -306,7 +315,7 @@ namespace glasssix::exposing::meta
 			return (details::set_array_value_helper(result.data() + (offset += sizes[Indexes]), std::forward<Arrays>(arrays), std::make_index_sequence<std_array_size_v<Arrays>>{}), ..., result);
 		}
 
-		template<bool left, typename UnsignedNumber, typename = std::enable_if_t<std::is_unsigned_v<UnsignedNumber>>>
+		template<bool Left, typename UnsignedNumber, typename = std::enable_if_t<std::is_unsigned_v<UnsignedNumber>>>
 		constexpr auto bitwise_rotate_impl(UnsignedNumber number, int bits) noexcept
 		{
 			using limits_type = std::numeric_limits<UnsignedNumber>;
@@ -314,7 +323,7 @@ namespace glasssix::exposing::meta
 
 			constexpr auto rotl_impl = [](UnsignedNumber number, int bits) { return (number << bits) | (number >> (limits_type::digits - bits)); };
 			constexpr auto rotr_impl = [](UnsignedNumber number, int bits) { return (number >> bits) | (number << (limits_type::digits - bits)); };
-			constexpr auto rotate_impl = left ? static_cast<rotate_impl_type>(rotl_impl) : rotr_impl;
+			constexpr auto rotate_impl = Left ? static_cast<rotate_impl_type>(rotl_impl) : rotr_impl;
 
 			if (bits == 0)
 			{
@@ -329,7 +338,7 @@ namespace glasssix::exposing::meta
 			}
 			else
 			{
-				return bitwise_rotate_impl<!left>(number, -bits);
+				return bitwise_rotate_impl<!Left>(number, -bits);
 			}
 		}
 	}

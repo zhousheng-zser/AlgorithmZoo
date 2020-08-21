@@ -4,6 +4,7 @@
 #include "base_abi.hpp"
 #include "implements.hpp"
 #include "param_string.hpp"
+#include "param_vector.hpp"
 #include "class_factory.hpp"
 #include "g6_attributes.hpp"
 #include "fundamental_semantics.hpp"
@@ -23,19 +24,19 @@
 #endif
 
 #define MAKE_ABI_STANDARD_EXPORT_FUNCTIONS(name, ...) \
-	inline constexpr glasssix::exposing::utf8_string_view dll_module_component_name{ name }; \
-	extern "C" EXPORT_DIRECTIVE_FOR_MAKE_ABI_STANDARD_EXPORT_FUNCTIONS std::int32_t dll_create_factory(void** factory) noexcept { return glasssix::exposing::make_standard_export_functions<dll_module_component_name, __VA_ARGS__>::dll_create_factory_impl(factory); }; \
+	inline constexpr glasssix::exposing::utf8_string_view dll_module_library_name{ name }; \
+	extern "C" EXPORT_DIRECTIVE_FOR_MAKE_ABI_STANDARD_EXPORT_FUNCTIONS std::int32_t dll_create_factory(void** factory) noexcept { return glasssix::exposing::make_standard_export_functions<dll_module_library_name, __VA_ARGS__>::dll_create_factory_impl(factory); }; \
 	extern "C" EXPORT_DIRECTIVE_FOR_MAKE_ABI_STANDARD_EXPORT_FUNCTIONS bool dll_can_unload_now() noexcept { return glasssix::exposing::get_module_ref_count() == 0; };
 
 namespace glasssix::exposing
 {
 	namespace details
 	{
-		template<const utf8_string_view& ComponentName, typename Tuple, typename = void>
+		template<const utf8_string_view& LibraryName, typename Tuple, typename = void>
 		struct make_standard_export_functions_impl;
 
-		template<const utf8_string_view& ComponentName, typename... ComponentImpls>
-		struct make_standard_export_functions_impl<ComponentName, std::tuple<ComponentImpls...>, std::enable_if_t<std::conjunction_v<std::is_default_constructible<ComponentImpls>..., impl::has_external_qualified_name<ComponentImpls>...>>>
+		template<const utf8_string_view& LibraryName, typename... ComponentImpls>
+		struct make_standard_export_functions_impl<LibraryName, std::tuple<ComponentImpls...>, std::enable_if_t<std::conjunction_v<std::is_default_constructible<ComponentImpls>..., impl::has_external_qualified_name<ComponentImpls>...>>>
 		{
 			template<typename Impl>
 			static unknown_object make_component_impl()
@@ -48,7 +49,8 @@ namespace glasssix::exposing
 			/// </summary>
 			struct class_factory_impl : implements<class_factory_impl, class_factory>
 			{
-				inline static std::unordered_map<param_string, std::function<unknown_object()>> map;
+				inline static std::unordered_map<guid, std::function<unknown_object()>> guid_map;
+				inline static std::unordered_map<param_string, std::function<unknown_object()>> name_map;
 
 				/// <summary>
 				/// Creates an instance.
@@ -57,7 +59,13 @@ namespace glasssix::exposing
 				{
 					static std::once_flag flag;
 
-					std::call_once(flag, [] { ((map.insert_or_assign(impl::get_external_qualified_name_v<ComponentImpls>, &make_component_impl<ComponentImpls>), ...)); });
+					std::call_once(flag, []
+						{
+							// Adds constructors for external qualified names.
+							// Adds constructors for default implementations.
+							(name_map.insert_or_assign(impl::get_external_qualified_name_v<ComponentImpls>, &make_component_impl<ComponentImpls>), ...);
+							(guid_map.insert_or_assign(guid_of_v<impl::first_interface_t<ComponentImpls>>, &make_component_impl<ComponentImpls>), ...);
+						});
 				}
 
 				/// <summary>
@@ -65,29 +73,50 @@ namespace glasssix::exposing
 				/// </summary>
 				/// <param name="qualified_name">The qualified name</param>
 				/// <returns>The instance</returns>
-				unknown_object create_instance(const param_string& qualified_name) const
+				unknown_object create_by_name(const param_string& qualified_name) const
 				{
-					auto iter = map.find(qualified_name);
+					auto iter = name_map.find(qualified_name);
 
-					return iter != map.end() ? iter->second() : nullptr;
+					return iter != name_map.end() ? iter->second() : nullptr;
+				}
+
+				/// <summary>
+				/// Creates an instance by first interface ID.
+				/// </summary>
+				/// <param name="interface_id">The interface ID</param>
+				/// <returns>The instance</returns>
+				unknown_object create_by_interface_id(const guid& interface_id) const
+				{
+					auto iter = guid_map.find(interface_id);
+
+					return iter != guid_map.end() ? iter->second() : nullptr;
+				}
+
+				/// <summary>
+				/// Gets the available interface IDs.
+				/// </summary>
+				/// <returns>The qualified names</returns>
+				param_vector<guid> interface_ids() const
+				{
+					return make_param_vector<guid>(guid_of_v<impl::first_interface_t<ComponentImpls>>...);
 				}
 
 				/// <summary>
 				/// Gets the available qualified names.
 				/// </summary>
 				/// <returns>The qualified names</returns>
-				param_vector<param_string> get_qualified_names() const
+				param_vector<param_string> qualified_names() const
 				{
 					return make_param_vector<param_string>(impl::get_external_qualified_name_v<ComponentImpls>...);
 				}
 
 				/// <summary>
-				/// Gets the name of the component.
+				/// Gets the name of the library.
 				/// </summary>
-				/// <returns>The name of the component</returns>
-				param_string get_component_name() const
+				/// <returns>The name of the library</returns>
+				param_string library_name() const
 				{
-					return ComponentName;
+					return LibraryName;
 				}
 			};
 
@@ -106,8 +135,8 @@ namespace glasssix::exposing
 	/// <summary>
 	/// Makes DLL standard export functions for a couple of components.
 	/// </summary>
-	template<const utf8_string_view& ComponentName, typename... ComponentImpls>
-	struct make_standard_export_functions : details::make_standard_export_functions_impl<ComponentName, std::tuple<ComponentImpls...>>
+	template<const utf8_string_view& LibraryName, typename... ComponentImpls>
+	struct make_standard_export_functions : details::make_standard_export_functions_impl<LibraryName, std::tuple<ComponentImpls...>>
 	{
 	};
 }

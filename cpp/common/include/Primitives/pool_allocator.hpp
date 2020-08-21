@@ -1,10 +1,13 @@
 #pragma once
 #ifndef _POOL_ALLOCATOR_HPP_
 #define _POOL_ALLOCATOR_HPP_
-#include "memory.hpp"
-#include "basic_allocator.hpp"
-#include "logger.hpp"
+
 #include "gpu.hpp"
+#include "logger.hpp"
+#include "memory.hpp"
+#include "dllexport.hpp"
+#include "basic_allocator.hpp"
+
 #include <type_traits>
 #include <list>
 
@@ -90,7 +93,7 @@ namespace glasssix
 				budgets_lock.unlock();
 				// new
 				void* ptr;
-				if (device_id >= 0) 
+				if (device_id >= 0)
 				{
 #ifdef USE_CUDA
 					cudaSetDevice(device_id);
@@ -150,6 +153,12 @@ namespace glasssix
 			std::list< std::pair<size_t, void*> > budgets;
 			std::list< std::pair<size_t, void*> > payouts;
 		};
-	}
+
+		template<typename UnderlyingType>
+		struct EXPORT_EXCALIBUR_PRIMITIVES pool_allocator_default
+		{
+			static pool_allocator<UnderlyingType>& get();
+		};
+}
 }
 #endif // !_POOL_ALLOCATOR_HPP_
