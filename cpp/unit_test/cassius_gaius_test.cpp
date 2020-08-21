@@ -2,6 +2,7 @@
 #include "../gaius/feature_extractor.hpp"
 #include "../cassius/feature_extractor.hpp"
 #include "../common/include/Primitives/tensor.hpp"
+#include "../common/include/Primitives/pool_allocator.hpp"
 
 #include <random>
 #include <algorithm>
@@ -61,6 +62,14 @@ namespace unittest
 				Logger::WriteMessage(ex.what_to_narrow().c_str());
 				Assert::Fail();
 			}
+		}
+
+		TEST_METHOD(pool_allocator_test)
+		{
+			memory::tensor<float> test{ { 1, 3, 100, 100 }, -1, memory::NCHW, &memory::pool_allocator_default<float>::get() };
+
+			test.mutable_cpu_data();
+			test.mutable_gpu_data();
 		}
 	};
 }
