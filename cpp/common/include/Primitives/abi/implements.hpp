@@ -316,6 +316,8 @@ namespace glasssix::exposing::impl
 	class find_interface_by_guid<Derived, std::enable_if_t<is_implements_v<Derived>>>
 	{
 	public:
+		using packed_type = details::get_implemented_interfaces_recursively_t<Derived>;
+
 		/// <summary>
 		/// Gets the ABI of an interface by specified ID.
 		/// </summary>
@@ -324,22 +326,16 @@ namespace glasssix::exposing::impl
 		/// <returns>The ABI</returns>
 		static void* get(Derived& derived, const guid& id) noexcept
 		{
-			using packed_type = details::get_implemented_interfaces_recursively_t<Derived>;
-
-			return get_impl<packed_type>(derived, id, std::make_index_sequence<std::tuple_size_v<packed_type>>{});
+			return get_impl(derived, id, std::make_index_sequence<std::tuple_size_v<packed_type>>{});
 		}
 	private:
-		template<typename Packed, std::size_t... Indexes>
+		template<std::size_t... Indexes>
 		static void* get_impl(Derived& derived, const guid& id, std::index_sequence<Indexes...>) noexcept
 		{
-			std::array<void*, std::tuple_size_v<Packed>> results =
-			{
-				(guid_of_v<std::tuple_element_t<Indexes, Packed>> == id ? to_abi<std::tuple_element_t<Indexes, Packed>>(derived) : nullptr)...
-			};
+			static constexpr std::array guids{ guid_of_v<std::tuple_element_t<Indexes, packed_type>>... };
+			void* result = nullptr;
 
-			auto iter = std::find_if(results.begin(), results.end(), [](void* inner) -> bool { return inner; });
-
-			return iter != results.end() ? *iter : nullptr;
+			return ((guids[Indexes] == id ? static_cast<void>(result = to_abi<std::tuple_element_t<Indexes, packed_type>>(derived)) : void()), ..., result);
 		}
 	};
 
