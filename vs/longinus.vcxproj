@@ -80,7 +80,7 @@
     <LinkIncremental>true</LinkIncremental>
     <OutDir>$(SolutionDir)..\build\out\$(Configuration)\</OutDir>
     <IntDir>$(SolutionDir)..\build\intermediate\$(Configuration)\$(ProjectName)\</IntDir>
-    <TargetName>lib$(ProjectName)</TargetName>
+    <TargetName>lib$(ProjectName)d</TargetName>
     <IncludePath>../cpp/common/include;../cpp/common/include/Primitives;$(CUDA_PATH)/include;$(IncludePath)</IncludePath>
   </PropertyGroup>
   <PropertyGroup Condition="'$(Configuration)|$(Platform)'=='Release|x64'">

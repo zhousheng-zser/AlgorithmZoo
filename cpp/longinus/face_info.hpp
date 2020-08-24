@@ -17,120 +17,120 @@ namespace glasssix::exposing::impl
 
 		struct type : abi_unknown_object
 		{
-			virtual std::int32_t pts(abi_out_t<param_vector<param_pair<float, float>>> result) noexcept = 0;
-			virtual std::int32_t yaw(abi_out_t<float> result) noexcept = 0;
-			virtual std::int32_t pitch(abi_out_t<float> result) noexcept = 0;
-			virtual std::int32_t roll(abi_out_t<float> result) noexcept = 0;
-			virtual std::int32_t clarity(abi_out_t<float> result) noexcept = 0;
-			virtual std::int32_t x(abi_out_t<std::int32_t> result) noexcept = 0;
-			virtual std::int32_t y(abi_out_t<std::int32_t> result) noexcept = 0;
-			virtual std::int32_t width(abi_out_t<std::int32_t> result) noexcept = 0;
-			virtual std::int32_t height(abi_out_t<std::int32_t> result) noexcept = 0;
-			virtual std::int32_t confidence(abi_out_t<float> result) noexcept = 0;
+			virtual std::int32_t G6_ABI_CALL pts(abi_out_t<param_vector<param_pair<float, float>>> result) noexcept = 0;
+			virtual std::int32_t G6_ABI_CALL yaw(abi_out_t<float> result) noexcept = 0;
+			virtual std::int32_t G6_ABI_CALL pitch(abi_out_t<float> result) noexcept = 0;
+			virtual std::int32_t G6_ABI_CALL roll(abi_out_t<float> result) noexcept = 0;
+			virtual std::int32_t G6_ABI_CALL clarity(abi_out_t<float> result) noexcept = 0;
+			virtual std::int32_t G6_ABI_CALL x(abi_out_t<std::int32_t> result) noexcept = 0;
+			virtual std::int32_t G6_ABI_CALL y(abi_out_t<std::int32_t> result) noexcept = 0;
+			virtual std::int32_t G6_ABI_CALL width(abi_out_t<std::int32_t> result) noexcept = 0;
+			virtual std::int32_t G6_ABI_CALL height(abi_out_t<std::int32_t> result) noexcept = 0;
+			virtual std::int32_t G6_ABI_CALL confidence(abi_out_t<float> result) noexcept = 0;
 
-			virtual std::int32_t set_pts(abi_in_t<param_vector<param_pair<float, float>>> input) noexcept = 0;
-			virtual std::int32_t set_yaw(abi_in_t<float> input) noexcept = 0;
-			virtual std::int32_t set_pitch(abi_in_t<float> input) noexcept = 0;
-			virtual std::int32_t set_roll(abi_in_t<float> input) noexcept = 0;
-			virtual std::int32_t set_clarity(abi_in_t<float> input) noexcept = 0;
-			virtual std::int32_t set_x(abi_in_t<std::int32_t> input) noexcept = 0;
-			virtual std::int32_t set_y(abi_in_t<std::int32_t> input) noexcept = 0;
-			virtual std::int32_t set_width(abi_in_t<std::int32_t> input) noexcept = 0;
-			virtual std::int32_t set_height(abi_in_t<std::int32_t> input) noexcept = 0;
-			virtual std::int32_t set_confidence(abi_in_t<float> input) noexcept = 0;
+			virtual std::int32_t G6_ABI_CALL set_pts(abi_in_t<param_vector<param_pair<float, float>>> input) noexcept = 0;
+			virtual std::int32_t G6_ABI_CALL set_yaw(abi_in_t<float> input) noexcept = 0;
+			virtual std::int32_t G6_ABI_CALL set_pitch(abi_in_t<float> input) noexcept = 0;
+			virtual std::int32_t G6_ABI_CALL set_roll(abi_in_t<float> input) noexcept = 0;
+			virtual std::int32_t G6_ABI_CALL set_clarity(abi_in_t<float> input) noexcept = 0;
+			virtual std::int32_t G6_ABI_CALL set_x(abi_in_t<std::int32_t> input) noexcept = 0;
+			virtual std::int32_t G6_ABI_CALL set_y(abi_in_t<std::int32_t> input) noexcept = 0;
+			virtual std::int32_t G6_ABI_CALL set_width(abi_in_t<std::int32_t> input) noexcept = 0;
+			virtual std::int32_t G6_ABI_CALL set_height(abi_in_t<std::int32_t> input) noexcept = 0;
+			virtual std::int32_t G6_ABI_CALL set_confidence(abi_in_t<float> input) noexcept = 0;
 		};
 	};
 
 	template<typename Derived>
 	struct interface_vtable<Derived, longinus::face_info> : interface_vtable_base<Derived, longinus::face_info>
 	{
-		virtual std::int32_t pts(abi_out_t<param_vector<param_pair<float, float>>> result) noexcept override
+		virtual std::int32_t G6_ABI_CALL pts(abi_out_t<param_vector<param_pair<float, float>>> result) noexcept override
 		{
 			return abi_safe_call([&] {*result = detach_abi(this->self().pts()); });
 		}
 
-		virtual std::int32_t yaw(abi_out_t<float> result) noexcept override
+		virtual std::int32_t G6_ABI_CALL yaw(abi_out_t<float> result) noexcept override
 		{
 			return abi_safe_call([&] {*result = detach_abi(this->self().yaw()); });
 		}
 
-		virtual std::int32_t pitch(abi_out_t<float> result) noexcept override
+		virtual std::int32_t G6_ABI_CALL pitch(abi_out_t<float> result) noexcept override
 		{
 			return abi_safe_call([&] {*result = detach_abi(this->self().pitch()); });
 		}
 
-		virtual std::int32_t roll(abi_out_t<float> result) noexcept override
+		virtual std::int32_t G6_ABI_CALL roll(abi_out_t<float> result) noexcept override
 		{
 			return abi_safe_call([&] {*result = detach_abi(this->self().roll()); });
 		}
 
-		virtual std::int32_t clarity(abi_out_t<float> result) noexcept override 
+		virtual std::int32_t G6_ABI_CALL clarity(abi_out_t<float> result) noexcept override
 		{
 			return abi_safe_call([&] {*result = detach_abi(this->self().clarity()); });
 		}
 
-		virtual std::int32_t x(abi_out_t<std::int32_t> result) noexcept override 
+		virtual std::int32_t G6_ABI_CALL x(abi_out_t<std::int32_t> result) noexcept override
 		{
 			return abi_safe_call([&] {*result = detach_abi(this->self().x()); });
 		}
 
-		virtual std::int32_t y(abi_out_t<std::int32_t> result) noexcept override
+		virtual std::int32_t G6_ABI_CALL y(abi_out_t<std::int32_t> result) noexcept override
 		{
 			return abi_safe_call([&] {*result = detach_abi(this->self().y()); });
 		}
 
-		virtual std::int32_t width(abi_out_t<std::int32_t> result) noexcept override
+		virtual std::int32_t G6_ABI_CALL width(abi_out_t<std::int32_t> result) noexcept override
 		{
 			return abi_safe_call([&] {*result = detach_abi(this->self().width()); });
 		}
 
-		virtual std::int32_t height(abi_out_t<std::int32_t> result) noexcept override
+		virtual std::int32_t G6_ABI_CALL height(abi_out_t<std::int32_t> result) noexcept override
 		{
 			return abi_safe_call([&] {*result = detach_abi(this->self().height()); });
 		}
 
-		virtual std::int32_t confidence(abi_out_t<float> result) noexcept override
+		virtual std::int32_t G6_ABI_CALL confidence(abi_out_t<float> result) noexcept override
 		{
 			return abi_safe_call([&] {*result = detach_abi(this->self().confidence()); });
 		}
 
-		virtual std::int32_t set_pts(abi_in_t<param_vector<param_pair<float, float>>> input) noexcept override
+		virtual std::int32_t G6_ABI_CALL set_pts(abi_in_t<param_vector<param_pair<float, float>>> input) noexcept override
 		{
 			return abi_safe_call([&] { this->self().set_pts(create_from_abi<param_vector<param_pair<float, float>>>(input)); });
 		}
-		virtual std::int32_t set_yaw(abi_in_t<float> input) noexcept override
+		virtual std::int32_t G6_ABI_CALL set_yaw(abi_in_t<float> input) noexcept override
 		{
 			return abi_safe_call([&] { this->self().set_yaw(create_from_abi<float>(input)); });
 		}
-		virtual std::int32_t set_pitch(abi_in_t<float> input) noexcept override
+		virtual std::int32_t G6_ABI_CALL set_pitch(abi_in_t<float> input) noexcept override
 		{
 			return abi_safe_call([&] { this->self().set_pitch(create_from_abi<float>(input)); });
 		}
-		virtual std::int32_t set_roll(abi_in_t<float> input) noexcept override
+		virtual std::int32_t G6_ABI_CALL set_roll(abi_in_t<float> input) noexcept override
 		{
 			return abi_safe_call([&] { this->self().set_roll(create_from_abi<float>(input)); });
 		}
-		virtual std::int32_t set_clarity(abi_in_t<float> input) noexcept override
+		virtual std::int32_t G6_ABI_CALL set_clarity(abi_in_t<float> input) noexcept override
 		{
 			return abi_safe_call([&] { this->self().set_clarity(create_from_abi<float>(input)); });
 		}
-		virtual std::int32_t set_x(abi_in_t<std::int32_t> input) noexcept override
+		virtual std::int32_t G6_ABI_CALL set_x(abi_in_t<std::int32_t> input) noexcept override
 		{
 			return abi_safe_call([&] { this->self().set_x(create_from_abi<std::int32_t>(input)); });
 		}
-		virtual std::int32_t set_y(abi_in_t<std::int32_t> input) noexcept override
+		virtual std::int32_t G6_ABI_CALL set_y(abi_in_t<std::int32_t> input) noexcept override
 		{
 			return abi_safe_call([&] { this->self().set_y(create_from_abi<std::int32_t>(input)); });
 		}
-		virtual std::int32_t set_width(abi_in_t<std::int32_t> input) noexcept override
+		virtual std::int32_t G6_ABI_CALL set_width(abi_in_t<std::int32_t> input) noexcept override
 		{
 			return abi_safe_call([&] { this->self().set_width(create_from_abi<std::int32_t>(input)); });
 		}
-		virtual std::int32_t set_height(abi_in_t<std::int32_t> input) noexcept override
+		virtual std::int32_t G6_ABI_CALL set_height(abi_in_t<std::int32_t> input) noexcept override
 		{
 			return abi_safe_call([&] { this->self().set_height(create_from_abi<std::int32_t>(input)); });
 		}
-		virtual std::int32_t set_confidence(abi_in_t<float> input) noexcept override
+		virtual std::int32_t G6_ABI_CALL set_confidence(abi_in_t<float> input) noexcept override
 		{
 			return abi_safe_call([&] { this->self().set_confidence(create_from_abi<float>(input)); });
 		}
