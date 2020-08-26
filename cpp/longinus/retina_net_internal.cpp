@@ -177,16 +177,32 @@ namespace glasssix::longinus
 	private:
 		void init_cache(exposing::param_span<std::uint8_t> &gray_bitmap, std::int32_t channels, std::int32_t height, std::int32_t width, std::int32_t order)
 		{
-			if (cache_ == nullptr || cache_->channels() != channels || cache_->height() != height || cache_->width() != width)
+			if (cache_ == nullptr || cache_->channels() != channels || cache_->height() != height || cache_->width() != width || cache_->order() != order)
 			{
-				cache_ = std::make_shared<memory::tensor<std::uint8_t>>(std::vector<int>{ static_cast<int>(1), channels, height, width }, device_, (memory::orderType)order, &memory::pool_allocator_default<std::uint8_t>::get());
+				std::vector<int> shape;
+				if (order == memory::NCHW)
+					shape = { static_cast<int>(1), channels, height, width };
+				else if(order == memory::NHWC)
+					shape = { static_cast<int>(1), height, width, channels };
+				else
+					NOT_IMPLEMENTED;
+
+				cache_ = std::make_shared<memory::tensor<std::uint8_t>>(shape, device_, (memory::orderType)order, &memory::pool_allocator_default<std::uint8_t>::get());
 			}
 
+			if (device_ > 0)
+			{
 #ifdef USE_CUDA
-			cudaMemcpy(cache_->mutable_gpu_data(), gray_bitmap, channels * height * width, cudaMemcpyHostToDevice);
+				cudaMemcpy(cache_->mutable_gpu_data(), gray_bitmap, channels * height * width, cudaMemcpyHostToDevice);
 #else
-			std::copy(gray_bitmap.begin(), gray_bitmap.end(), cache_->mutable_cpu_data());
+				NO_GPU;
 #endif
+			}
+			else
+				std::copy(gray_bitmap.begin(), gray_bitmap.end(), cache_->mutable_cpu_data());
+
+			if (order == memory::NHWC)
+				cache_->convert_order();
 		}
 
 		//processing
