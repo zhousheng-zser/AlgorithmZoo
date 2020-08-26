@@ -65,19 +65,23 @@ namespace glasssix::cassius
 				cache_ = order == memory::NCHW ?
 					std::make_shared<memory::tensor<std::uint8_t>>(std::vector<int>{  static_cast<int>(count), single_bitmap_channels, single_bitmap_height, single_bitmap_width }, device_, static_cast<memory::orderType>(order), &memory::pool_allocator_default<std::uint8_t>::get()) :
 					std::make_shared<memory::tensor<std::uint8_t>>(std::vector<int>{ static_cast<int>(count), single_bitmap_height, single_bitmap_width, single_bitmap_channels }, device_, static_cast<memory::orderType>(order), & memory::pool_allocator_default<std::uint8_t>::get());
-		}
-
+			}
+			if (device_ > 0)
+			{
 #ifdef USE_CUDA
-			cudaMemcpy(cache_->mutable_gpu_data(), bitmaps.data(), bitmaps.size(), cudaMemcpyHostToDevice);
+				cudaMemcpy(cache_->mutable_gpu_data(), bitmaps.data(), bitmaps.size(), cudaMemcpyHostToDevice);
 #else
-			std::copy(bitmaps.begin(), bitmaps.end(), cache_->mutable_cpu_data());
+				NO_GPU;
 #endif
-	}
+			}
+
+			std::copy(bitmaps.begin(), bitmaps.end(), cache_->mutable_cpu_data());
+		}
 
 		int device_;
 		excalibur::pipeline<float> unicorn_;
 		std::shared_ptr<memory::tensor<std::uint8_t>> cache_;
-};
+	};
 
 	feature_extractor_internal::feature_extractor_internal(std::string_view phai_path, int device) : impl_{ new impl{ phai_path, device } }
 	{
