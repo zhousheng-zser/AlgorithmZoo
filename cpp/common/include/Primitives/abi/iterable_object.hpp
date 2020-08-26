@@ -196,14 +196,16 @@ namespace std
 namespace glasssix::exposing
 {
 	template<typename T, typename = std::void_t<decltype(std::declval<T>().get_iterator())>>
-	auto begin(T&& obj) noexcept
-	{
-		return std::forward<T>(obj).get_iterator();
-	}
-
-	template<typename T, typename = std::void_t<decltype(std::declval<T>().get_iterator())>>
 	auto end(T&& obj) noexcept
 	{
 		return decltype(std::declval<T>().get_iterator()){};
+	}
+
+	template<typename T, typename = std::void_t<decltype(std::declval<T>().get_iterator())>>
+	auto begin(T&& obj) noexcept
+	{
+		auto iter = std::forward<T>(obj).get_iterator();
+
+		return iter.valid() ? iter : end(obj);
 	}
 }

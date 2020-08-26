@@ -159,7 +159,7 @@ namespace glasssix::exposing::impl
 
 			bool add_module(const param_string& path) const
 			{
-				param_string result{ nullptr };
+				bool result{};
 
 				return (check_abi_result(this->self_abi().add_module(get_abi(path), put_abi(result))), result);
 			}
