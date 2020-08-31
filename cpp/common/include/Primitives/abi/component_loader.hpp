@@ -1,5 +1,8 @@
 #pragma once
 
+#include "base.hpp"
+#include "base_abi.hpp"
+#include "implements.hpp"
 #include "dllexport.hpp"
 #include "exceptions.hpp"
 #include "param_vector.hpp"
@@ -292,7 +295,7 @@ namespace glasssix::exposing
 	template<typename Interface, typename = std::enable_if_t<impl::is_well_defined_interface_v<Interface>>>
 	auto make_exported_interface()
 	{
-		return get_component_loader().create_by_interface_id(guid_of_v<Interface>).as<Interface>();
+		return get_component_loader().create_by_interface_id(guid_of_v<Interface>).template as<Interface>();
 	}
 
 	/// <summary>
@@ -305,7 +308,7 @@ namespace glasssix::exposing
 	template<typename Interface, typename... Args, typename = std::enable_if_t<impl::is_well_defined_interface_v<Interface>>, typename = std::void_t<decltype(std::declval<Interface>().init(std::declval<Args>()...))>>
 	auto make_exported_interface(Args&&... args)
 	{
-		auto obj = get_component_loader().create_by_interface_id(guid_of_v<Interface>).as<Interface>();
+		auto obj = get_component_loader().create_by_interface_id(guid_of_v<Interface>).template as<Interface>();
 
 		return (obj.init(std::forward<Args>(args)...), obj);
 	}
