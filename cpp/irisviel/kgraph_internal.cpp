@@ -91,7 +91,7 @@ namespace glasssix
 #ifdef COSINE_DISTANCE
 					nn.distance = distance_cosine::compare((*base_data).at(nn.id), normNN, (*base_data).at(query_id), normQuery, dimension);
 #else
-					nn.distance = distance_fast_l2::compare((*base_data).at(nn.id), norm_nn, (*base_data).at(query_id), normQuery, dimension);
+					nn.distance = distance_fast_l2::compare((*base_data).at(nn.id), normNN, (*base_data).at(query_id), normQuery, dimension);
 #endif // COSINE_DISTANCE
 
 					insert_into_pool(&neighbors[0], tempK, nn);

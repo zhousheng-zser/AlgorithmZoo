@@ -1,0 +1,9 @@
+E:\cmake-3.16.0-rc3-win64-x64\bin\cmake.exe .. \
+-G "Unix Makefiles" \
+-DCMAKE_TOOLCHAIN_FILE=E:/android-ndk-r21d/build/cmake/android.toolchain.cmake \
+-DCMAKE_MAKE_PROGRAM=E:/android-ndk-r21d/prebuilt/windows-x86_64/bin/make.exe \
+-DCMAKE_BUILD_TYPE=Debug \
+-DANDROID_ABI=arm64-v8a \
+-DANDROID_PLATFORM=android-21 \
+-DCOMMON_LIBRARY_DIRS=C:/Users/Glasssix-ZYF/source/repos/Excalibur/cmake/build/lib \
+#-DBoost_INCLUDE_DIRS=C:/Tools/vcpkg/installed/x64-windows/include(通过系统工具安装了boost可不指定)

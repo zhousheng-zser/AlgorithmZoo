@@ -55,7 +55,7 @@ namespace glasssix
 #ifdef COSINE_DISTANCE
 					norm_array_[i] = distance_cosine::norm((*base_data).at(i), dimension_);
 #else
-					norm_array[i] = distance_fast_l2::norm((*base_data).at(i), dimension);
+					norm_array_[i] = distance_fast_l2::norm((*base_data).at(i), dimension_);
 #endif // COSINE_DISTANCE
 				}
 			}
@@ -133,7 +133,7 @@ namespace glasssix
 #ifdef COSINE_DISTANCE
 				sum += distance_cosine::norm((*base_data).at(i), dimension_);
 #else
-				sum += distance_fast_l2::norm((*base_data).at(i), dimension);
+				sum += distance_fast_l2::norm((*base_data).at(i), dimension_);
 #endif // COSINE_DISTANCE
 			}
 
@@ -158,7 +158,7 @@ namespace glasssix
 #ifdef COSINE_DISTANCE
 					norm_array_[i] = distance_cosine::norm((*base_data).at(i), dimension_);
 #else
-					norm_array[i] = distance_fast_l2::norm((*base_data).at(i), dimension);
+					norm_array_[i] = distance_fast_l2::norm((*base_data).at(i), dimension_);
 #endif // COSINE_DISTANCE
 				}
 			}

@@ -175,7 +175,7 @@ namespace glasssix::longinus
 						face.pts.y[i] *= scale;
 					}
 				}
-				
+
 				faces.push_back(exposing::make_as_first<face_info_impl>(face));
 			}
 

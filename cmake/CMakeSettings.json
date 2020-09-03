@@ -1,0 +1,27 @@
+﻿{
+  "configurations": [
+    {
+      "name": "X64-Debug",
+      "generator": "Ninja",
+      "configurationType": "Debug",
+      "inheritEnvironments": [ "msvc_x64_x64" ],
+      "buildRoot": "${projectDir}\\out\\build\\${name}",
+      "installRoot": "${projectDir}\\out\\install\\${name}",
+      "cmakeCommandArgs": "",
+      "buildCommandArgs": "",
+      "ctestCommandArgs": "",
+      "variables": [
+        {
+          "name": "COMMON_LIBRARY_DIRS",
+          "value": "C:/Users/Glasssix-ZYF/source/repos/Excalibur/cmake/out/build/x64-Debug/lib",
+          "type": "STRING"
+        },
+        {
+          "name": "Boost_INCLUDE_DIRS",
+          "value": "",
+          "type": "STRING"
+        }
+      ]
+    }
+  ]
+}
