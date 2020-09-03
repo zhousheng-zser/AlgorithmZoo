@@ -91,7 +91,6 @@
   </ItemDefinitionGroup>
   <ItemGroup>
     <ClInclude Include="..\cpp\gaius\feature_extractor_internal.hpp" />
-    <ClInclude Include="..\cpp\gaius\gaius_c.h" />
     <ClInclude Include="..\cpp\gaius\feature_extractor.hpp" />
   </ItemGroup>
   <ItemGroup>

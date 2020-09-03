@@ -13,7 +13,7 @@
       "variables": [
         {
           "name": "COMMON_LIBRARY_DIRS",
-          "value": "C:/Users/Glasssix-ZYF/source/repos/Excalibur/cmake/out/build/x64-Debug/lib",
+          "value": "E:/Research/Source/Repos/Excalibur/cmake/out/build/x64-Debug/lib",
           "type": "STRING"
         },
         {
@@ -36,7 +36,7 @@
       "variables": [
         {
           "name": "COMMON_LIBRARY_DIRS",
-          "value": "C:/Users/Glasssix-ZYF/source/repos/Excalibur/cmake/out/build/x64-Release/lib",
+          "value": "E:/Research/Source/Repos/Excalibur/cmake/out/build/x64-Release/lib",
           "type": "STRING"
         },
         {

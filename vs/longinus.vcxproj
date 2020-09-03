@@ -161,7 +161,6 @@
   <ItemGroup>
     <ClInclude Include="..\cpp\longinus\face_info.hpp" />
     <ClInclude Include="..\cpp\longinus\face_info_impl.hpp" />
-    <ClInclude Include="..\cpp\longinus\longinus_c.h" />
     <ClInclude Include="..\cpp\longinus\retina_net.hpp" />
     <ClInclude Include="..\cpp\longinus\retina_net_impl.hpp" />
     <ClInclude Include="..\cpp\longinus\retina_net_internal.hpp" />
