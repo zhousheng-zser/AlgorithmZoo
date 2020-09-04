@@ -161,8 +161,21 @@ namespace glasssix::longinus
 			face_infos = nms(face_infos, nms_threshold_);
 
 			auto faces = exposing::make_param_vector<face_info>();
-			for (const auto &face : face_infos)
+			for (auto &face : face_infos)
 			{
+				if (scale != 1.0f)
+				{
+					face.rect.x *= scale;
+					face.rect.y *= scale;
+					face.rect.h *= scale;
+					face.rect.w *= scale;
+					for (size_t i = 0; i < std::size(face.pts.x); i++)
+					{
+						face.pts.x[i] *= scale;
+						face.pts.y[i] *= scale;
+					}
+				}
+
 				faces.push_back(exposing::make_as_first<face_info_impl>(face));
 			}
 

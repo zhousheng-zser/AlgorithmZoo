@@ -180,7 +180,7 @@ namespace glasssix
 #ifdef COSINE_DISTANCE
 					cur_norm = distance_cosine::norm((*base_data)[i], dimension_);
 #else
-					cur_norm = distance_fast_l2::norm((*base_data)[i], dimension);
+					cur_norm = distance_fast_l2::norm((*base_data)[i], dimension_);
 #endif // COSINE_DISTANCE
 				}
 
@@ -240,9 +240,9 @@ namespace glasssix
 
 					similarities[i][0] = 1.0f - dist;
 #else
-					float norm_query = distance_fast_l2::norm((*query_data_)[i], dimension);
-					float dist = distance_l2::compare((*base_data)[0], (*queryData_)[i], dimension);
-					return_similarities[i][0] = 1.0f - 1.0f * dist / norm_query;
+					float norm_query = distance_fast_l2::norm((*query_data_)[i], dimension_);
+					float dist = distance_l2::compare((*base_data)[0], (*query_data_)[i], dimension_);
+					similarities[i][0] = 1.0f - 1.0f * dist / norm_query;
 #endif // COSINE_DISTANCE
 				}
 			}
@@ -307,7 +307,7 @@ namespace glasssix
 #ifdef COSINE_DISTANCE
 				norm_query = distance_cosine::norm(single_query_data, dimension_);
 #else
-				norm_query = distance_fast_l2::norm(single_query_data, dimension);
+				norm_query = distance_fast_l2::norm(single_query_data, dimension_);
 #endif // COSINE_DISTANCE
 			}
 
@@ -320,7 +320,7 @@ namespace glasssix
 #ifdef COSINE_DISTANCE
 				float dist = distance_cosine::compare(x, norm_x, single_query_data, norm_query, dimension_);
 #else
-				float dist = distance_fast_l2::compare(x, norm_x, single_query_data, norm_query, dimension);
+				float dist = distance_fast_l2::compare(x, norm_x, single_query_data, norm_query, dimension_);
 #endif // COSINE_DISTANCE
 
 				return_neighbors[i] = neighbor(id, dist, true);
@@ -362,7 +362,7 @@ namespace glasssix
 #ifdef COSINE_DISTANCE
 						float dist = distance_cosine::compare(data, norm_id, single_query_data, norm_query, dimension_);
 #else
-						float dist = distance_fast_l2::compare(data, norm_id, single_query_data, norm_query, dimension);
+						float dist = distance_fast_l2::compare(data, norm_id, single_query_data, norm_query, dimension_);
 #endif // COSINE_DISTANCE
 
 						if (dist >= return_neighbors[neighbors_max_length - 1].distance)continue;
@@ -400,7 +400,7 @@ namespace glasssix
 
 #else
 				return_similarities[i] = 1.0f - 1.0f * distance_l2::compare(single_query_data, (*base_data).at(return_ids[i]),
-					(uint32_t)dimension) / norm_query;
+					(uint32_t)dimension_) / norm_query;
 #endif // COSINE_DISTANCE
 
 			}
