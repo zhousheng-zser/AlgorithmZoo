@@ -19,26 +19,26 @@ namespace glasssix::exposing::impl
 
 		struct type : abi_unknown_object
 		{
-			virtual std::int32_t init(abi_in_t<param_string> phai_path, abi_in_t<param_string> racy_path, float nms, std::int32_t device) noexcept = 0;
-			virtual std::int32_t get(abi_in_t<param_span<std::uint8_t>> bitmap, std::int32_t channels, std::int32_t height, std::int32_t width, std::int32_t min_win, float threshold, std::int32_t order, abi_out_t<param_vector<longinus::face_info>> result) noexcept = 0;
-			virtual std::int32_t version(abi_out_t<param_string> result) noexcept = 0;
+			virtual std::int32_t G6_ABI_CALL init(abi_in_t<param_string> phai_path, abi_in_t<param_string> racy_path, float nms, std::int32_t device) noexcept = 0;
+			virtual std::int32_t G6_ABI_CALL get(abi_in_t<param_span<std::uint8_t>> bitmap, std::int32_t channels, std::int32_t height, std::int32_t width, std::int32_t min_size, float threshold, std::int32_t order, abi_out_t<param_vector<longinus::face_info>> result) noexcept = 0;
+			virtual std::int32_t G6_ABI_CALL version(abi_out_t<param_string> result) noexcept = 0;
 		};
 	};
 
 	template<typename Derived>
 	struct interface_vtable<Derived, longinus::retina_net> : interface_vtable_base<Derived, longinus::retina_net>
 	{
-		virtual std::int32_t get(abi_in_t<param_span<std::uint8_t>> bitmap, std::int32_t channels, std::int32_t height, std::int32_t width, std::int32_t min_win, float threshold, std::int32_t order, abi_out_t<param_vector<longinus::face_info>> result) noexcept override
+		virtual std::int32_t G6_ABI_CALL get(abi_in_t<param_span<std::uint8_t>> bitmap, std::int32_t channels, std::int32_t height, std::int32_t width, std::int32_t min_size, float threshold, std::int32_t order, abi_out_t<param_vector<longinus::face_info>> result) noexcept override
 		{
-			return abi_safe_call([&] { *result = detach_abi(this->self().get(create_from_abi<param_span<std::uint8_t>>(bitmap), channels, height, width, min_win, threshold, order)); });
+			return abi_safe_call([&] { *result = detach_abi(this->self().get(create_from_abi<param_span<std::uint8_t>>(bitmap), channels, height, width, min_size, threshold, order)); });
 		}
 
-		virtual std::int32_t version(abi_out_t<param_string> result) noexcept override
+		virtual std::int32_t G6_ABI_CALL version(abi_out_t<param_string> result) noexcept override
 		{
 			return abi_safe_call([&] { *result = detach_abi(this->self().version()); });
 		}
 
-		virtual std::int32_t init(abi_in_t<param_string> phai_path, abi_in_t<param_string> racy_path, float nms, std::int32_t device) noexcept override
+		virtual std::int32_t G6_ABI_CALL init(abi_in_t<param_string> phai_path, abi_in_t<param_string> racy_path, float nms, std::int32_t device) noexcept override
 		{
 			return abi_safe_call([&] { this->self().init(create_from_abi<param_string>(phai_path), create_from_abi<param_string>(racy_path), nms, device); });
 		}
@@ -49,11 +49,11 @@ namespace glasssix::exposing::impl
 		template<typename Derived>
 		struct type : enable_self_abi_awareness<Derived, longinus::retina_net>
 		{
-			param_vector<longinus::face_info> get(param_span<std::uint8_t> bitmap, std::int32_t channels, std::int32_t height, std::int32_t width, std::int32_t min_win, float threshold, std::int32_t order) const
+			param_vector<longinus::face_info> get(param_span<std::uint8_t> bitmap, std::int32_t channels, std::int32_t height, std::int32_t width, std::int32_t min_size, float threshold, std::int32_t order) const
 			{
 				param_vector<longinus::face_info> result{ nullptr };
 
-				return (check_abi_result(this->self_abi().get(get_abi(bitmap), get_abi(channels), get_abi(height), get_abi(width), get_abi(min_win), get_abi(threshold), get_abi(order), put_abi(result))), result);
+				return (check_abi_result(this->self_abi().get(get_abi(bitmap), get_abi(channels), get_abi(height), get_abi(width), get_abi(min_size), get_abi(threshold), get_abi(order), put_abi(result))), result);
 			}
 
 			param_string version() const

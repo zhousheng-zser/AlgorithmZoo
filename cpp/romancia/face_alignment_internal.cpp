@@ -121,11 +121,16 @@ namespace glasssix::romancia
 				cache_ = std::make_shared<memory::tensor<std::uint8_t>>(std::vector<int>{ static_cast<int>(1), static_cast<int>(1), height, width }, device_, memory::NCHW, &memory::pool_allocator_default<std::uint8_t>::get());
 			}
 
+			if (device_ > 0)
+			{
 #ifdef USE_CUDA
-			cudaMemcpy(cache_->mutable_gpu_data(), gray_bitmap, gray_bitmap + height * width, cudaMemcpyHostToDevice);
+				cudaMemcpy(cache_->mutable_gpu_data(), gray_bitmap, gray_bitmap + height * width, cudaMemcpyHostToDevice);
 #else
-			std::copy(gray_bitmap.begin(), gray_bitmap.end(), cache_->mutable_cpu_data());
+				NO_GPU;
 #endif
+			}
+			else
+				std::copy(gray_bitmap.begin(), gray_bitmap.end(), cache_->mutable_cpu_data());
 		}
 
 		int device_;

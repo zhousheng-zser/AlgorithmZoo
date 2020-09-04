@@ -118,7 +118,7 @@ namespace glasssix
 		}
 	};
 
-#define LOG(level) glasssix::standard_output_logger{}(__FILE__, __LINE__, glasssix::log_level::##level)
+#define LOG(level) glasssix::standard_output_logger{}(__FILE__, __LINE__, glasssix::log_level::level)
 #define LOG_IF(level, condition) if(condition) LOG(level)
 
 #define CHECK(a) \
