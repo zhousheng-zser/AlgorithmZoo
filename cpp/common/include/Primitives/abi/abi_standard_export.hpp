@@ -24,7 +24,7 @@
 #endif
 
 #define MAKE_ABI_STANDARD_EXPORT_FUNCTIONS(name, ...) \
-	inline constexpr glasssix::exposing::utf8_string_view dll_module_library_name{ name }; \
+	namespace { constexpr glasssix::exposing::utf8_string_view dll_module_library_name{ name }; } \
 	extern "C" EXPORT_DIRECTIVE_FOR_MAKE_ABI_STANDARD_EXPORT_FUNCTIONS std::int32_t dll_create_factory(void** factory) noexcept { return glasssix::exposing::make_standard_export_functions<dll_module_library_name, __VA_ARGS__>::dll_create_factory_impl(factory); }; \
 	extern "C" EXPORT_DIRECTIVE_FOR_MAKE_ABI_STANDARD_EXPORT_FUNCTIONS bool dll_can_unload_now() noexcept { return glasssix::exposing::get_module_ref_count() == 0; };
 
