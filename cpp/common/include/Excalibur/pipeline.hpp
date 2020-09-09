@@ -3,7 +3,6 @@
 #define _PIPELINE_HPP_
 
 #include "Primitives/tensor.hpp"
-#include "Primitives/dllexport.hpp"
 
 #include <string>
 #include <vector>

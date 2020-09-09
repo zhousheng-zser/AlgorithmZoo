@@ -108,20 +108,20 @@ namespace glasssix
 				{
 					temp.reset(new memory::tensor<Dtype>(
 						std::vector<int>{src->num(), src->channels(), src->height() + top + bottom, src->width() + left + right},
-						src->device(), src->order(), src->allocator()));
+						src->device(), src->order()));
 				}
 				else if (src->order() == memory::NHWC)
 				{
 					temp.reset(new memory::tensor<Dtype>(
 						std::vector<int>{src->num(), src->height() + top + bottom, src->width() + left + right, src->channels()},
-						src->device(), src->order(), src->allocator()));
+						src->device(), src->order()));
 				}
 				else
 				{
 					NOT_IMPLEMENTED;
 				}
 
-				make_border(src, temp, top, bottom, left, right, border_constant);
+				make_border_cpu(src, temp, top, bottom, left, right, border_constant);
 				cut_border_cpu(temp, dst, rect->y + top, temp->height() - rect->y - rect->h - top, rect->x + left, temp->width() - rect->x - rect->w - left);
 			}
 		}

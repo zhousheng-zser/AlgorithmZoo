@@ -2,7 +2,6 @@
 #ifndef _OPERATION_RESIZE_HPP_
 #define _OPERATION_RESIZE_HPP_
 #include <memory>
-#include <algorithm>
 #include <Primitives/logger.hpp>
 
 namespace glasssix

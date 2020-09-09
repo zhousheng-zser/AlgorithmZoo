@@ -24,7 +24,7 @@ namespace unittest
 
 			try
 			{
-				auto cassius_extractor = exposing::make_exported_interface<cassius::feature_extractor>(u8"models/unicorn.phai", -1);
+				auto cassius_extractor = exposing::make_exported_interface<cassius::feature_extractor>(u8"models/unicorn.phai", u8"models/unicorn.racy", -1);
 				auto result = cassius_extractor.get(input_bitmap, 10, 0);
 
 				Assert::AreEqual(10ULL, result.size());
@@ -47,7 +47,7 @@ namespace unittest
 
 			try
 			{
-				auto gaius_extractor = exposing::make_exported_interface<gaius::feature_extractor>(u8"models/mobile_unicorn.phai", -1);
+				auto gaius_extractor = exposing::make_exported_interface<gaius::feature_extractor>(u8"models/mobile_unicorn.phai", u8"models/mobile_unicorn.racy", -1);
 				auto result = gaius_extractor.get(input_bitmap, 10, 0);
 
 				Assert::AreEqual(10ULL, result.size());
