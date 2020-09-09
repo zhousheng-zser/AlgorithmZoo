@@ -493,7 +493,7 @@ namespace glasssix::exposing::impl
 			{
 				if constexpr (HasException)
 				{
-					throw abi_no_interface{ exposing::format("Failed to convert the object to {}.", to_param_string(guid_of_v<To>)) };
+					throw abi_no_interface{ exposing::format(FMT_STRING("Failed to convert the object to {}."), to_param_string(guid_of_v<To>)) };
 				}
 			}
 

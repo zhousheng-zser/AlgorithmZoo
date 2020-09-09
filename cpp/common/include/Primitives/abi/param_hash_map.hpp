@@ -326,11 +326,11 @@ namespace glasssix::exposing::impl
 			
 			if constexpr (impl::has_to_param_string_v<Key>)
 			{
-				return iter != buffer_.end() ? iter->second : throw abi_key_not_found{ format(u8"Key = {}", to_param_string(key)) };
+				return iter != buffer_.end() ? iter->second : throw abi_key_not_found{ format(FMT_STRING(u8"Key = {}"), to_param_string(key)) };
 			}
 			else if constexpr (std::is_same_v<Key, param_string>)
 			{
-				return iter != buffer_.end() ? iter->second : throw abi_key_not_found{ format(u8"Key = {}", key) };
+				return iter != buffer_.end() ? iter->second : throw abi_key_not_found{ format(FMT_STRING(u8"Key = {}"), key) };
 			}
 			else
 			{
