@@ -481,7 +481,7 @@ namespace glasssix::exposing::impl
 			{
 				if constexpr (HasException)
 				{
-					throw abi_null_pointer{ format(FMT_STRING(u8"Failed to query an interface to {}. The source interface was null."), to_param_string(guid_of_v<To>)) };
+					throw abi_null_pointer{ format(FMT_STRING(u8"Failed to query an interface: {}. The source interface was null."), to_param_string(guid_of_v<To>)) };
 				}
 				else
 				{
