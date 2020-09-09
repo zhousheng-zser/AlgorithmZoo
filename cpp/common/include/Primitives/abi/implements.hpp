@@ -3,6 +3,7 @@
 #include "meta.hpp"
 #include "base.hpp"
 #include "base_abi.hpp"
+#include "exceptions.hpp"
 #include "param_string.hpp"
 #include "g6_attributes.hpp"
 #include "fundamental_semantics.hpp"
@@ -354,9 +355,11 @@ namespace glasssix::exposing::impl
 	template<typename Derived, typename Interface, typename = std::enable_if_t<has_abi_type_v<Interface>>>
 	struct enable_self_abi_awareness
 	{
-		decltype(auto) self_abi() const noexcept
+		decltype(auto) self_abi() const
 		{
-			return *static_cast<abi_t<Interface>*>(get_abi(static_cast<const Interface&>(static_cast<const Derived&>(*this))));
+			decltype(auto) ptr = static_cast<abi_t<Interface>*>(get_abi(static_cast<const Interface&>(static_cast<const Derived&>(*this))));
+
+			return ptr ? *ptr : throw abi_null_pointer{ format(FMT_STRING(u8"Cannot invoke a method of a null interface: {}."), to_param_string(guid_of_v<Interface>)) };
 		}
 	};
 
