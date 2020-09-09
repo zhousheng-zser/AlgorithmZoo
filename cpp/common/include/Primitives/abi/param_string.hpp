@@ -409,12 +409,12 @@ namespace glasssix::exposing
 	/// <param name="format_str">The format string</param>
 	/// <param name="...args">The arguments</param>
 	/// <returns>The result</returns>
-	template<typename... Args>
-	param_string format(utf8_string_view format_str, Args&&... args)
+	template<typename String, typename... Args>
+	param_string format(String&& format_str, Args&&... args)
 	{
 		param_string result{ nullptr };
 
-		return (check_abi_result(abi_safe_call([&] { result = param_string{ fmt::format(format_str, std::forward<Args>(args)...) }; })), result);
+		return (check_abi_result(abi_safe_call([&] { result = param_string{ fmt::format(std::forward<String>(format_str), std::forward<Args>(args)...) }; })), result);
 	}
 
 	/// <summary>

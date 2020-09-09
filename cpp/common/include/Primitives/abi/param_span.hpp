@@ -190,7 +190,7 @@ namespace glasssix::exposing
 		{
 			if (index >= size_ || index + size > size_)
 			{
-				throw abi_out_of_bounds{ format("Index: {}, Size: {}", index, size) };
+				throw abi_out_of_bounds{ format(FMT_STRING("Index: {}, Size: {}"), index, size) };
 			}
 
 			return param_span<T>{ data_ + index, size };
