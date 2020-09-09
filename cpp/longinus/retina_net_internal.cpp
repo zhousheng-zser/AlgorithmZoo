@@ -176,8 +176,6 @@ namespace glasssix::longinus
 					}
 				}
 
-				refine(face, height, width, true);
-
 				faces.push_back(exposing::make_as_first<face_info_impl>(face));
 			}
 
@@ -221,7 +219,7 @@ namespace glasssix::longinus
 		}
 
 		//processing
-		inline anchor_win  whctrs(anchor_box anchor)
+		anchor_win  whctrs(anchor_box anchor)
 		{
 			//Return width, height, x center, and y center for an anchor (window).
 			anchor_win win;
@@ -233,7 +231,7 @@ namespace glasssix::longinus
 			return win;
 		}
 
-		inline anchor_box make_anchors(anchor_win win)
+		anchor_box make_anchors(anchor_win win)
 		{
 			//Given a vector of widths (ws) and heights (hs) around a center
 			//(x_ctr, y_ctr), output a set of anchors (windows).
@@ -246,7 +244,7 @@ namespace glasssix::longinus
 			return anchor;
 		}
 
-		inline std::vector<anchor_box> ratio_enum(anchor_box anchor, std::vector<float> ratios)
+		std::vector<anchor_box> ratio_enum(anchor_box anchor, std::vector<float> ratios)
 		{
 			//Enumerate a set of anchors for each aspect ratio wrt an anchor.
 			std::vector<anchor_box> anchors;
@@ -266,7 +264,7 @@ namespace glasssix::longinus
 			return anchors;
 		}
 
-		inline std::vector<anchor_box> scale_enum(anchor_box anchor, std::vector<int> scales)
+		std::vector<anchor_box> scale_enum(anchor_box anchor, std::vector<int> scales)
 		{
 			//Enumerate a set of anchors for each scale wrt an anchor.
 			std::vector<anchor_box> anchors;
@@ -284,7 +282,7 @@ namespace glasssix::longinus
 			return anchors;
 		}
 
-		inline std::vector<anchor_box> generate_anchors(int base_size = 16, std::vector<float> ratios = { 0.5, 1, 2 },
+		std::vector<anchor_box> generate_anchors(int base_size = 16, std::vector<float> ratios = { 0.5, 1, 2 },
 			std::vector<int> scales = { 8, 64 }, int stride = 16, bool dense_anchor = false)
 		{
 			//Generate anchor (reference) windows by enumerating aspect ratios X
@@ -320,7 +318,7 @@ namespace glasssix::longinus
 			return anchors;
 		}
 
-		inline std::vector<std::vector<anchor_box>> generate_anchors_fpn(bool dense_anchor = false, std::vector<anchor_cfg> cfg = {})
+		std::vector<std::vector<anchor_box>> generate_anchors_fpn(bool dense_anchor = false, std::vector<anchor_cfg> cfg = {})
 		{
 			//Generate anchor (reference) windows by enumerating aspect ratios X
 			//scales wrt a reference (0, 0, 15, 15) window.
@@ -342,7 +340,7 @@ namespace glasssix::longinus
 			return anchors;
 		}
 
-		inline std::vector<anchor_box> anchors_plane(int height, int width, int stride, std::vector<anchor_box> base_anchors)
+		std::vector<anchor_box> anchors_plane(int height, int width, int stride, std::vector<anchor_box> base_anchors)
 		{
 			/*
 			height: height of plane
@@ -371,7 +369,7 @@ namespace glasssix::longinus
 			return all_anchors;
 		}
 
-		inline void clip_boxes(std::vector<anchor_box>& boxes, int width, int height)
+		void clip_boxes(std::vector<anchor_box>& boxes, int width, int height)
 		{
 			//Clip boxes to image boundaries.
 			for (size_t i = 0; i < boxes.size(); i++)
@@ -399,7 +397,7 @@ namespace glasssix::longinus
 			}
 		}
 
-		inline void clip_box(anchor_box& box, int width, int height)
+		void clip_box(anchor_box& box, int width, int height)
 		{
 			//Clip boxes to image boundaries.
 			if (box.x < 0) {
@@ -421,7 +419,7 @@ namespace glasssix::longinus
 
 		}
 
-		inline std::vector<anchor_box> bbox_pred(std::vector<anchor_box> anchors, std::vector<std::vector<float>> regress)
+		std::vector<anchor_box> bbox_pred(std::vector<anchor_box> anchors, std::vector<std::vector<float>> regress)
 		{
 			//"""
 			//  Transform the set of class-agnostic boxes into class-specific boxes
@@ -453,39 +451,7 @@ namespace glasssix::longinus
 			return rects;
 		}
 
-		inline void refine(face_info_internal& face, const int& height, const int& width, bool square)
-		{
-			float bbw = 0, bbh = 0, maxSide = 0, minSide = 0;
-			float h = 0, w = 0;
-			float x1 = 0, y1 = 0, x2 = 0, y2 = 0;
-			bbw = face.rect.w - 1;
-			bbh = face.rect.h - 1;
-			x1 = face.rect.x;
-			y1 = face.rect.y;
-
-			if (square)
-			{
-				maxSide = (bbh > bbw) ? bbh : bbw;
-				x1 = x1 + bbw * 0.5 - maxSide * 0.5;
-				y1 = y1 + bbh * 0.5 - maxSide * 0.5;
-				face.rect.w = round(maxSide + 1);
-				face.rect.h = round(maxSide + 1);
-				face.rect.x = round(x1);
-				face.rect.y = round(y1);
-			}
-
-			//boundary check
-			if (face.rect.x < 0)face.rect.x = 0;
-			if (face.rect.y < 0)face.rect.y = 0;
-			if (face.rect.x + face.rect.w - 1 > width)face.rect.w = width - face.rect.x;
-			if (face.rect.y + face.rect.h - 1 > height)face.rect.h = height - face.rect.y;
-
-			minSide = (face.rect.h > face.rect.w) ? face.rect.w : face.rect.h;
-			face.rect.h = minSide;
-			face.rect.w = minSide;
-		}
-
-		inline anchor_box bbox_pred(anchor_box anchor, std::vector<float> regress)
+		anchor_box bbox_pred(anchor_box anchor, std::vector<float> regress)
 		{
 			anchor_box rect;
 
@@ -507,7 +473,7 @@ namespace glasssix::longinus
 			return rect;
 		}
 
-		inline std::vector<face_pts> landmark_pred(std::vector<anchor_box> anchors, std::vector<face_pts> facepts)
+		std::vector<face_pts> landmark_pred(std::vector<anchor_box> anchors, std::vector<face_pts> facepts)
 		{
 			std::vector<face_pts> pts(anchors.size());
 			for (size_t i = 0; i < anchors.size(); i++)
@@ -527,7 +493,7 @@ namespace glasssix::longinus
 			return pts;
 		}
 
-		inline face_pts landmark_pred(anchor_box anchor, face_pts facePt)
+		face_pts landmark_pred(anchor_box anchor, face_pts facePt)
 		{
 			face_pts pt;
 			float width = anchor.w;
@@ -544,12 +510,12 @@ namespace glasssix::longinus
 			return pt;
 		}
 
-		inline bool compare_bbox(const face_info_internal& a, const face_info_internal& b)
+		bool compare_bbox(const face_info_internal& a, const face_info_internal& b)
 		{
 			return a.score > b.score;
 		}
 
-		inline std::vector<face_info_internal> nms(std::vector<face_info_internal>& bboxes, float threshold)
+		std::vector<face_info_internal> nms(std::vector<face_info_internal>& bboxes, float threshold)
 		{
 			std::vector<face_info_internal> bboxes_nms;
 			std::sort(bboxes.begin(), bboxes.end(), std::bind(&impl::compare_bbox, this, std::placeholders::_1, std::placeholders::_2));
