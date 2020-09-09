@@ -256,7 +256,7 @@ namespace glasssix::exposing::impl
 			{
 				bool result{};
 
-				return (check_abi_result(this->self_abi().add_module(get_abi(name), put_abi(result))), result);
+				return (check_abi_result(this->self_abi().add_module_by_name(get_abi(name), put_abi(result))), result);
 			}
 
 			class_factory add_module_by_name_with_factory(const param_string& name) const
