@@ -288,8 +288,8 @@ namespace glasssix::exposing
 
 namespace glasssix::exposing::impl
 {
-	template<typename Key, typename Value>
-	class param_hash_map_impl : public implements<param_hash_map_impl<Key, Value>, param_hash_map<Key, Value>>
+	template<typename Key, typename Value, typename Hasher = std::hash<Key>, typename KeyEqual = std::equal_to<Key>>
+	class param_hash_map_impl : public implements<param_hash_map_impl<Key, Value, Hasher, KeyEqual>, param_hash_map<Key, Value>>
 	{
 	public:
 		param_hash_map_impl()
@@ -297,6 +297,16 @@ namespace glasssix::exposing::impl
 		}
 
 		param_hash_map_impl(std::initializer_list<std::pair<const Key, Value>> list) : buffer_(std::move(list))
+		{
+		}
+
+		template<typename OtherHasher, typename OtherKeyEqual, typename = std::enable_if_t<std::conjunction_v<std::is_convertible<OtherHasher, Hasher>, std::is_convertible<OtherKeyEqual, KeyEqual>>>>
+		param_hash_map_impl(OtherHasher&& hasher, OtherKeyEqual&& key_equal) : buffer_(0, std::forward<OtherHasher>(hasher), std::forward<OtherKeyEqual>(key_equal))
+		{
+		}
+
+		template<typename OtherHasher, typename OtherKeyEqual, typename = std::enable_if_t<std::conjunction_v<std::is_convertible<OtherHasher, Hasher>, std::is_convertible<OtherKeyEqual, KeyEqual>>>>
+		param_hash_map_impl(std::initializer_list<std::pair<const Key, Value>> list, OtherHasher&& hasher, OtherKeyEqual&& key_equal) : buffer_(std::move(list), 0, std::forward<OtherHasher>(hasher), std::forward<OtherKeyEqual>(key_equal))
 		{
 		}
 
@@ -392,7 +402,7 @@ namespace glasssix::exposing::impl
 			typename std::unordered_map<Key, Value>::const_iterator iter_end_;
 		};
 
-		std::unordered_map<Key, Value> buffer_;
+		std::unordered_map<Key, Value, Hasher, KeyEqual> buffer_;
 	};
 }
 
@@ -421,5 +431,34 @@ namespace glasssix::exposing
 	auto make_param_hash_map(std::initializer_list<std::pair<const Key, Value>> list)
 	{
 		return make_as_first<impl::param_hash_map_impl<Key, Value>>(list);
+	}
+
+	/// <summary>
+	/// Creates a hash map.
+	/// </summary>
+	/// <typeparam name="Key">The key type</typeparam>
+	/// <typeparam name="Value">The value type</typeparam>
+	/// <typeparam name="Hasher">The hasher type</typeparam>
+	/// <typeparam name="KeyEqual">The equal type</typeparam>
+	/// <returns>The hash map</returns>
+	template<typename Key, typename Value, typename Hasher, typename KeyEqual, typename = std::enable_if_t<std::conjunction_v<impl::has_abi_type<Key>, impl::has_abi_type<Value>>>>
+	auto make_param_hash_map(Hasher&& hasher, KeyEqual&& key_equal)
+	{
+		return make_as_first<impl::param_hash_map_impl<Key, Value, std::decay_t<Hasher>, std::decay_t<KeyEqual>>>(std::forward<Hasher>(hasher), std::forward<KeyEqual>(key_equal));
+	}
+
+	/// <summary>
+	/// Creates a hash map.
+	/// </summary>
+	/// <typeparam name="Key">The key type</typeparam>
+	/// <typeparam name="Value">The value type</typeparam>
+	/// <typeparam name="Hasher">The hasher type</typeparam>
+	/// <typeparam name="KeyEqual">The equal type</typeparam>
+	/// <param name="list">The initializer list</param>
+	/// <returns>The hash map</returns>
+	template<typename Key, typename Value, typename Hasher, typename KeyEqual, typename = std::enable_if_t<std::conjunction_v<impl::has_abi_type<Key>, impl::has_abi_type<Value>>>>
+	auto make_param_hash_map(std::initializer_list<std::pair<const Key, Value>> list, Hasher&& hasher, KeyEqual&& key_equal)
+	{
+		return make_as_first<impl::param_hash_map_impl<Key, Value, std::decay_t<Hasher>, std::decay_t<KeyEqual>>>(list, std::forward<Hasher>(hasher), std::forward<KeyEqual>(key_equal));
 	}
 }

@@ -59,6 +59,12 @@ namespace glasssix::exposing::impl
 			virtual std::int32_t G6_ABI_CALL add_modules_with_factories(abi_in_t<param_span<param_string>> paths, abi_out_t<param_hash_map<param_string, class_factory>> result) noexcept = 0;
 			virtual std::int32_t G6_ABI_CALL add_modules_with_factories(abi_in_t<param_vector<param_string>> paths, abi_out_t<param_hash_map<param_string, class_factory>> result) noexcept = 0;
 			virtual std::int32_t G6_ABI_CALL add_modules_with_factories_in_directory(abi_in_t<param_string> directory, abi_in_t<bool> recursive, abi_out_t<param_hash_map<param_string, class_factory>> result) noexcept = 0;
+			virtual std::int32_t G6_ABI_CALL add_module_by_name(abi_in_t<param_string> name, abi_out_t<bool> result) noexcept = 0;
+			virtual std::int32_t G6_ABI_CALL add_module_by_name_with_factory(abi_in_t<param_string> name, abi_out_t<class_factory> result) noexcept = 0;
+			virtual std::int32_t G6_ABI_CALL add_modules_by_name(abi_in_t<param_span<param_string>> names, abi_out_t<std::uint64_t> result) noexcept = 0;
+			virtual std::int32_t G6_ABI_CALL add_modules_by_name(abi_in_t<param_vector<param_string>> names, abi_out_t<std::uint64_t> result) noexcept = 0;
+			virtual std::int32_t G6_ABI_CALL add_modules_by_name_with_factories(abi_in_t<param_span<param_string>> names, abi_out_t<param_hash_map<param_string, class_factory>> result) noexcept = 0;
+			virtual std::int32_t G6_ABI_CALL add_modules_by_name_with_factories(abi_in_t<param_vector<param_string>> names, abi_out_t<param_hash_map<param_string, class_factory>> result) noexcept = 0;
 			virtual std::int32_t G6_ABI_CALL lookup_factory(abi_in_t<param_string> library_name, abi_out_t<class_factory> result) noexcept = 0;
 			virtual std::int32_t G6_ABI_CALL library_names(abi_out_t<param_vector<param_string>> result) noexcept = 0;
 			virtual std::int32_t G6_ABI_CALL factories(abi_out_t<param_hash_map<param_string, class_factory>> result) noexcept = 0;
@@ -110,6 +116,36 @@ namespace glasssix::exposing::impl
 		virtual std::int32_t G6_ABI_CALL add_modules_with_factories_in_directory(abi_in_t<param_string> directory, abi_in_t<bool> recursive, abi_out_t<param_hash_map<param_string, class_factory>> result) noexcept override
 		{
 			return abi_safe_call([&] { *result = detach_abi(this->self().add_modules_with_factories_in_directory(create_from_abi<param_string>(directory), recursive)); });
+		}
+
+		virtual std::int32_t G6_ABI_CALL add_module_by_name(abi_in_t<param_string> name, abi_out_t<bool> result) noexcept override
+		{
+			return abi_safe_call([&] { *result = detach_abi(this->self().add_module(create_from_abi<param_string>(name))); });
+		}
+
+		virtual std::int32_t G6_ABI_CALL add_module_by_name_with_factory(abi_in_t<param_string> name, abi_out_t<class_factory> result) noexcept override
+		{
+			return abi_safe_call([&] { *result = detach_abi(this->self().add_module_with_factory(create_from_abi<param_string>(name))); });
+		}
+
+		virtual std::int32_t G6_ABI_CALL add_modules_by_name(abi_in_t<param_span<param_string>> names, abi_out_t<std::uint64_t> result) noexcept override
+		{
+			return abi_safe_call([&] { *result = detach_abi(this->self().add_modules(create_from_abi<param_span<param_string>>(names))); });
+		}
+
+		virtual std::int32_t G6_ABI_CALL add_modules_by_name(abi_in_t<param_vector<param_string>> names, abi_out_t<std::uint64_t> result) noexcept override
+		{
+			return abi_safe_call([&] { *result = detach_abi(this->self().add_modules(create_from_abi<param_vector<param_string>>(names))); });
+		}
+
+		virtual std::int32_t G6_ABI_CALL add_modules_by_name_with_factories(abi_in_t<param_span<param_string>> names, abi_out_t<param_hash_map<param_string, class_factory>> result) noexcept override
+		{
+			return abi_safe_call([&] { *result = detach_abi(this->self().add_modules_with_factories(create_from_abi<param_span<param_string>>(names))); });
+		}
+
+		virtual std::int32_t G6_ABI_CALL add_modules_by_name_with_factories(abi_in_t<param_vector<param_string>> names, abi_out_t<param_hash_map<param_string, class_factory>> result) noexcept override
+		{
+			return abi_safe_call([&] { *result = detach_abi(this->self().add_modules_with_factories(create_from_abi<param_vector<param_string>>(names))); });
 		}
 
 		virtual std::int32_t G6_ABI_CALL lookup_factory(abi_in_t<param_string> library_name, abi_out_t<class_factory> result) noexcept override
@@ -214,6 +250,48 @@ namespace glasssix::exposing::impl
 				param_hash_map<param_string, class_factory> result{ nullptr };
 
 				return (check_abi_result(this->self_abi().add_modules_with_factories_in_directory(get_abi(directory), get_abi(recursive), put_abi(result))), result);
+			}
+
+			bool add_module_by_name(const param_string& name) const
+			{
+				bool result{};
+
+				return (check_abi_result(this->self_abi().add_module(get_abi(name), put_abi(result))), result);
+			}
+
+			class_factory add_module_by_name_with_factory(const param_string& name) const
+			{
+				class_factory result{ nullptr };
+
+				return (check_abi_result(this->self_abi().add_module_with_factory(get_abi(name), put_abi(result))), result);
+			}
+
+			std::uint64_t add_modules_by_name(const param_span<param_string>& names) const
+			{
+				std::uint64_t result{};
+
+				return (check_abi_result(this->self_abi().add_modules(get_abi(names), put_abi(result))), result);
+			}
+
+			std::uint64_t add_modules_by_name(const param_vector<param_string>& names) const
+			{
+				std::uint64_t result{};
+
+				return (check_abi_result(this->self_abi().add_modules(get_abi(names), put_abi(result))), result);
+			}
+
+			param_hash_map<param_string, class_factory> add_modules_by_name_with_factories(const param_span<param_string>& names) const
+			{
+				param_hash_map<param_string, class_factory> result{ nullptr };
+
+				return (check_abi_result(this->self_abi().add_modules_with_factories(get_abi(names), put_abi(result))), result);
+			}
+
+			param_hash_map<param_string, class_factory> add_modules_by_name_with_factories(const param_vector<param_string>& names) const
+			{
+				param_hash_map<param_string, class_factory> result{ nullptr };
+
+				return (check_abi_result(this->self_abi().add_modules_with_factories(get_abi(names), put_abi(result))), result);
 			}
 
 			class_factory lookup_factory(const param_string& library_name) const
