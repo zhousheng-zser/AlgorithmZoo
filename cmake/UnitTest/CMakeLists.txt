@@ -1,7 +1,7 @@
 cmake_minimum_required(VERSION 3.14.3)
-set(module_name romancia)
-file(GLOB src ${CMAKE_CURRENT_SOURCE_DIR}/../../cpp/romancia/*.cpp)
-file(GLOB header ${CMAKE_CURRENT_SOURCE_DIR}/../../cpp/romancia/*.hpp)
+set(module_name unit_test)
+file(GLOB src ${CMAKE_CURRENT_SOURCE_DIR}/../../cpp/unit_test/*.cpp)
+file(GLOB header ${CMAKE_CURRENT_SOURCE_DIR}/../../cpp/unit_test/*.hpp)
 
 add_library(${module_name} SHARED ${src} ${header})
 
