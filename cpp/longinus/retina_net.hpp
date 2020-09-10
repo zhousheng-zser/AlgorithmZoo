@@ -49,7 +49,7 @@ namespace glasssix::exposing::impl
 		template<typename Derived>
 		struct type : enable_self_abi_awareness<Derived, longinus::retina_net>
 		{
-			void init(param_span<param_string> phai, param_string racy_path, float nms = 0.4, std::int32_t device = -1) const
+			void init(param_span<const param_string> phai, param_string racy_path, float nms = 0.4, std::int32_t device = -1) const
 			{
 				check_abi_result(this->self_abi().init(get_abi(phai), get_abi(racy_path), get_abi(nms), get_abi(device)));
 			}
