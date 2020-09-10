@@ -12,11 +12,6 @@
       "ctestCommandArgs": "",
       "variables": [
         {
-          "name": "COMMON_LIBRARY_DIRS",
-          "value": "E:/Research/Source/Repos/Excalibur/cmake/out/build/x64-Debug/lib",
-          "type": "STRING"
-        },
-        {
           "name": "Boost_INCLUDE_DIRS",
           "value": "",
           "type": "STRING"
@@ -34,11 +29,6 @@
       "ctestCommandArgs": "",
       "inheritEnvironments": [ "msvc_x64_x64" ],
       "variables": [
-        {
-          "name": "COMMON_LIBRARY_DIRS",
-          "value": "E:/Research/Source/Repos/Excalibur/cmake/out/build/x64-Release/lib",
-          "type": "STRING"
-        },
         {
           "name": "Boost_INCLUDE_DIRS",
           "value": "",

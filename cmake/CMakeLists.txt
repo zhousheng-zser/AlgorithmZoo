@@ -21,6 +21,7 @@ option(HAVE_AVX2 "Control CPU AVX2 options when using gcc or clang" OFF)
 
 if(CMAKE_CXX_COMPILER_ID STREQUAL "MSVC")
 	set(CMAKE_FIND_LIBRARY_PREFIXES "lib")
+	set(COMMON_LIBRARY_DIRS ${CMAKE_CURRENT_SOURCE_DIR}/../cpp/common/lib/${CMAKE_BUILD_TYPE})
 endif()
 
 #set(Boost_INCLUDE_DIRS C:/Tools/vcpkg/installed/x64-windows/include)
