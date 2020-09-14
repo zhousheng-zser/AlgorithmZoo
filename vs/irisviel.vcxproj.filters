@@ -32,6 +32,9 @@
     <ClCompile Include="..\cpp\irisviel\index_builder.cpp">
       <Filter>internal</Filter>
     </ClCompile>
+    <ClCompile Include="..\cpp\irisviel\irisviel_c.cxx">
+      <Filter>internal</Filter>
+    </ClCompile>
     <ClCompile Include="..\cpp\irisviel\irisviel_search.cpp">
       <Filter>internal</Filter>
     </ClCompile>
@@ -100,6 +103,9 @@
       <Filter>internal</Filter>
     </ClInclude>
     <ClInclude Include="..\cpp\irisviel\index_builder.hpp">
+      <Filter>internal</Filter>
+    </ClInclude>
+    <ClInclude Include="..\cpp\irisviel\irisviel_c.h">
       <Filter>internal</Filter>
     </ClInclude>
     <ClInclude Include="..\cpp\irisviel\irisviel_search.hpp">

@@ -42,6 +42,11 @@ namespace glasssix::exposing::impl
 		{
 			return abi_safe_call([&] { *result = detach_abi(this->self().version()); });
 		}
+
+		virtual std::int32_t G6_ABI_CALL init(abi_in_t<param_string> phai_path, abi_in_t<param_string> racy_path, float nms, std::int32_t device) noexcept override
+		{
+			return abi_safe_call([&] { this->self().init(create_from_abi<param_string>(phai_path), create_from_abi<param_string>(racy_path), nms, device); });
+		}
 	};
 
 	template<> struct abi_adapter<longinus::retina_net>
@@ -66,6 +71,11 @@ namespace glasssix::exposing::impl
 				param_string result{ nullptr };
 
 				return (check_abi_result(this->self_abi().version(put_abi(result))), result);
+			}
+
+			void init(param_string phai_path, param_string racy_path, float nms = 0.4, std::int32_t device = -1) const
+			{
+				check_abi_result(this->self_abi().init(get_abi(phai_path), get_abi(racy_path), get_abi(nms), get_abi(device)));
 			}
 		};
 	};

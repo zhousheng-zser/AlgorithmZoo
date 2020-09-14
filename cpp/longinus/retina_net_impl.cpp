@@ -25,10 +25,7 @@ namespace glasssix::longinus
 			impl_ = nullptr;
 		}
 
-		std::vector<std::string> phai_internal(phai.size());
-
-		std::transform(phai.begin(), phai.end(), phai_internal.begin(), &exposing::to_narrow_string);
-		impl_ = new retina_net_internal(phai_internal, racy_path, nms_threshold, device);
+		impl_ = new retina_net_internal(phai_path, racy_path, nms_threshold, device);
 	}
 
 	exposing::param_string retina_net_impl::version() const

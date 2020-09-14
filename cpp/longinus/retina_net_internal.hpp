@@ -1,11 +1,9 @@
 #ifndef _RETINA_NET_INTERNAL_HPP_
 #define _RETINA_NET_INTERNAL_HPP_
 
-#include "face_info.hpp"
-
 #include <vector>
-
 #include <abi/consumer.hpp>
+#include "face_info.hpp"
 
 namespace glasssix::longinus
 {
@@ -62,7 +60,7 @@ namespace glasssix::longinus
 	public:
 		class impl;
 		retina_net_internal() = delete;
-		retina_net_internal(const std::vector<std::string>& phai, exposing::param_string racy_path, float nms_threshold = 0.4, int device = -1);
+		retina_net_internal(exposing::param_string phai_path, exposing::param_string racy_path, float nms_threshold = 0.4, int device = -1);
 		retina_net_internal(const retina_net_internal&) = delete;
 		retina_net_internal& operator=(const retina_net_internal&) = delete;
 		~retina_net_internal();
