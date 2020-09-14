@@ -236,7 +236,7 @@ namespace unittest
 
 			// 例11：加载外部动态组件。
 			{
-				if (auto factory = exposing::get_component_loader().add_module_with_factory(u8"libplugin_demo.dll"))
+				if (auto factory = exposing::get_component_loader().add_module_by_name_with_factory(u8"plugin_demo"))
 				{
 					Logger::WriteMessage(exposing::to_narrow_string(exposing::format(u8"组件名：{}", factory.library_name())).c_str());
 

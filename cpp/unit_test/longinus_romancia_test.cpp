@@ -84,7 +84,7 @@ namespace unittest
 	TEST_CLASS(longinus_romancia_test)
 	{
 	public:
-		longinus_romancia_test() : retina_{ exposing::make_exported_interface<longinus::retina_net>(u8"E:/Research/Source/Repos/Excalibur/models/retina.phai", u8"E:/Research/Source/Repos/Excalibur/models/retina.racy",0.4,-1) },
+		longinus_romancia_test() : retina_{ exposing::make_exported_interface<longinus::retina_net>(u8"models/retina.phai", u8"models/retina.racy",0.4,-1) },
 			face_alignment_{exposing::make_exported_interface<romancia::face_alignment>(-1)}
 		{
 		}

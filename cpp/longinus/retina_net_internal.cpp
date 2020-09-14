@@ -14,7 +14,7 @@ namespace glasssix::longinus
 	{
 	public:
 		impl(exposing::param_string phai_path, exposing::param_string racy_path, float nms_threshold = 0.4, int device = -1)
-			: nms_threshold_(nms_threshold), device_(device)
+			: retina_{ exposing::to_narrow_string(phai_path), exposing::to_narrow_string(racy_path), device }, nms_threshold_(nms_threshold), device_(device)
 		{
 			ratio_ = { 1.0 };
 			//anchor setting
@@ -41,9 +41,6 @@ namespace glasssix::longinus
 			tmp.STRIDE = 8;
 			cfg_.push_back(tmp);
 
-			/* Load the network. */
-			pipe.reset(new glasssix::excalibur::pipeline<float>(exposing::to_narrow_string(phai_path), exposing::to_narrow_string(racy_path), device_));
-			pipe->enable_profiler();
 			bool dense_anchor = false;
 			std::vector<std::vector<anchor_box>> anchors_fpn = generate_anchors_fpn(dense_anchor, cfg_);
 			for (size_t i = 0; i < anchors_fpn.size(); i++)
@@ -78,7 +75,7 @@ namespace glasssix::longinus
 			excalibur::resize_cpu(cache_, temp, int(height / scale), int(width / scale));
 			excalibur::make_border(temp, temp, 0, hs - int(height / scale), 0, ws - int(width / scale));
 
-			auto blob_data = pipe->forward(temp | memory::tensor_convert_to<float>);
+			auto blob_data = retina_.forward(temp | memory::tensor_convert_to<float>);
 
 			std::string name_bbox = "face_rpn_bbox_pred_";
 			std::string name_score = "face_rpn_cls_prob_reshape_";
@@ -91,21 +88,21 @@ namespace glasssix::longinus
 				int stride = feat_stride_fpn_[i];
 
 				std::string str = name_score + key;
-				auto score_blob = pipe->get_featmap(str);
+				auto score_blob = retina_.get_featmap(str);
 				auto score_blob_count = score_blob->count();
 				const float* scoreB = score_blob->cpu_data() + score_blob_count / 2;
 				const float* scoreE = scoreB + score_blob_count / 2;
 				std::vector<float> score = std::vector<float>(scoreB, scoreE);
 
 				str = name_bbox + key;
-				auto bbox_blob = pipe->get_featmap(str);
+				auto bbox_blob = retina_.get_featmap(str);
 				auto bbox_blob_count = bbox_blob->count();
 				const float* bboxB = bbox_blob->cpu_data();
 				const float* bboxE = bboxB + bbox_blob_count;
 				std::vector<float> bbox_delta = std::vector<float>(bboxB, bboxE);
 
 				str = name_landmark + key;
-				auto landmark_blob = pipe->get_featmap(str);
+				auto landmark_blob = retina_.get_featmap(str);
 				auto landmark_blob_count = landmark_blob->count();
 				const float* landmarkB = landmark_blob->cpu_data();
 				const float* landmarkE = landmarkB + landmark_blob_count;
@@ -161,8 +158,23 @@ namespace glasssix::longinus
 			face_infos = nms(face_infos, nms_threshold_);
 
 			auto faces = exposing::make_param_vector<face_info>();
-			for (const auto &face : face_infos)
+			for (auto &face : face_infos)
 			{
+				if (scale != 1.0f)
+				{
+					face.rect.x *= scale;
+					face.rect.y *= scale;
+					face.rect.h *= scale;
+					face.rect.w *= scale;
+					for (size_t i = 0; i < std::size(face.pts.x); i++)
+					{
+						face.pts.x[i] *= scale;
+						face.pts.y[i] *= scale;
+					}
+				}
+
+				refine(face, height, width, true);
+
 				faces.push_back(exposing::make_as_first<face_info_impl>(face));
 			}
 
@@ -206,7 +218,7 @@ namespace glasssix::longinus
 		}
 
 		//processing
-		anchor_win  whctrs(anchor_box anchor)
+		inline anchor_win  whctrs(anchor_box anchor)
 		{
 			//Return width, height, x center, and y center for an anchor (window).
 			anchor_win win;
@@ -218,7 +230,7 @@ namespace glasssix::longinus
 			return win;
 		}
 
-		anchor_box make_anchors(anchor_win win)
+		inline anchor_box make_anchors(anchor_win win)
 		{
 			//Given a vector of widths (ws) and heights (hs) around a center
 			//(x_ctr, y_ctr), output a set of anchors (windows).
@@ -231,7 +243,7 @@ namespace glasssix::longinus
 			return anchor;
 		}
 
-		std::vector<anchor_box> ratio_enum(anchor_box anchor, std::vector<float> ratios)
+		inline std::vector<anchor_box> ratio_enum(anchor_box anchor, std::vector<float> ratios)
 		{
 			//Enumerate a set of anchors for each aspect ratio wrt an anchor.
 			std::vector<anchor_box> anchors;
@@ -251,7 +263,7 @@ namespace glasssix::longinus
 			return anchors;
 		}
 
-		std::vector<anchor_box> scale_enum(anchor_box anchor, std::vector<int> scales)
+		inline std::vector<anchor_box> scale_enum(anchor_box anchor, std::vector<int> scales)
 		{
 			//Enumerate a set of anchors for each scale wrt an anchor.
 			std::vector<anchor_box> anchors;
@@ -269,7 +281,7 @@ namespace glasssix::longinus
 			return anchors;
 		}
 
-		std::vector<anchor_box> generate_anchors(int base_size = 16, std::vector<float> ratios = { 0.5, 1, 2 },
+		inline std::vector<anchor_box> generate_anchors(int base_size = 16, std::vector<float> ratios = { 0.5, 1, 2 },
 			std::vector<int> scales = { 8, 64 }, int stride = 16, bool dense_anchor = false)
 		{
 			//Generate anchor (reference) windows by enumerating aspect ratios X
@@ -305,7 +317,7 @@ namespace glasssix::longinus
 			return anchors;
 		}
 
-		std::vector<std::vector<anchor_box>> generate_anchors_fpn(bool dense_anchor = false, std::vector<anchor_cfg> cfg = {})
+		inline std::vector<std::vector<anchor_box>> generate_anchors_fpn(bool dense_anchor = false, std::vector<anchor_cfg> cfg = {})
 		{
 			//Generate anchor (reference) windows by enumerating aspect ratios X
 			//scales wrt a reference (0, 0, 15, 15) window.
@@ -327,7 +339,7 @@ namespace glasssix::longinus
 			return anchors;
 		}
 
-		std::vector<anchor_box> anchors_plane(int height, int width, int stride, std::vector<anchor_box> base_anchors)
+		inline std::vector<anchor_box> anchors_plane(int height, int width, int stride, std::vector<anchor_box> base_anchors)
 		{
 			/*
 			height: height of plane
@@ -356,7 +368,7 @@ namespace glasssix::longinus
 			return all_anchors;
 		}
 
-		void clip_boxes(std::vector<anchor_box>& boxes, int width, int height)
+		inline void clip_boxes(std::vector<anchor_box>& boxes, int width, int height)
 		{
 			//Clip boxes to image boundaries.
 			for (size_t i = 0; i < boxes.size(); i++)
@@ -384,7 +396,7 @@ namespace glasssix::longinus
 			}
 		}
 
-		void clip_box(anchor_box& box, int width, int height)
+		inline void clip_box(anchor_box& box, int width, int height)
 		{
 			//Clip boxes to image boundaries.
 			if (box.x < 0) {
@@ -406,7 +418,7 @@ namespace glasssix::longinus
 
 		}
 
-		std::vector<anchor_box> bbox_pred(std::vector<anchor_box> anchors, std::vector<std::vector<float>> regress)
+		inline std::vector<anchor_box> bbox_pred(std::vector<anchor_box> anchors, std::vector<std::vector<float>> regress)
 		{
 			//"""
 			//  Transform the set of class-agnostic boxes into class-specific boxes
@@ -438,7 +450,39 @@ namespace glasssix::longinus
 			return rects;
 		}
 
-		anchor_box bbox_pred(anchor_box anchor, std::vector<float> regress)
+		inline void refine(face_info_internal& face, const int& height, const int& width, bool square)
+		{
+			float bbw = 0, bbh = 0, maxSide = 0, minSide = 0;
+			float h = 0, w = 0;
+			float x1 = 0, y1 = 0, x2 = 0, y2 = 0;
+			bbw = face.rect.w - 1;
+			bbh = face.rect.h - 1;
+			x1 = face.rect.x;
+			y1 = face.rect.y;
+
+			if (square)
+			{
+				maxSide = (bbh > bbw) ? bbh : bbw;
+				x1 = x1 + bbw * 0.5 - maxSide * 0.5;
+				y1 = y1 + bbh * 0.5 - maxSide * 0.5;
+				face.rect.w = round(maxSide + 1);
+				face.rect.h = round(maxSide + 1);
+				face.rect.x = round(x1);
+				face.rect.y = round(y1);
+			}
+
+			//boundary check
+			if (face.rect.x < 0)face.rect.x = 0;
+			if (face.rect.y < 0)face.rect.y = 0;
+			if (face.rect.x + face.rect.w - 1 > width)face.rect.w = width - face.rect.x;
+			if (face.rect.y + face.rect.h - 1 > height)face.rect.h = height - face.rect.y;
+
+			minSide = (face.rect.h > face.rect.w) ? face.rect.w : face.rect.h;
+			face.rect.h = minSide;
+			face.rect.w = minSide;
+		}
+
+		inline anchor_box bbox_pred(anchor_box anchor, std::vector<float> regress)
 		{
 			anchor_box rect;
 
@@ -460,7 +504,7 @@ namespace glasssix::longinus
 			return rect;
 		}
 
-		std::vector<face_pts> landmark_pred(std::vector<anchor_box> anchors, std::vector<face_pts> facepts)
+		inline std::vector<face_pts> landmark_pred(std::vector<anchor_box> anchors, std::vector<face_pts> facepts)
 		{
 			std::vector<face_pts> pts(anchors.size());
 			for (size_t i = 0; i < anchors.size(); i++)
@@ -480,7 +524,7 @@ namespace glasssix::longinus
 			return pts;
 		}
 
-		face_pts landmark_pred(anchor_box anchor, face_pts facePt)
+		inline face_pts landmark_pred(anchor_box anchor, face_pts facePt)
 		{
 			face_pts pt;
 			float width = anchor.w;
@@ -497,12 +541,12 @@ namespace glasssix::longinus
 			return pt;
 		}
 
-		bool compare_bbox(const face_info_internal& a, const face_info_internal& b)
+		inline bool compare_bbox(const face_info_internal& a, const face_info_internal& b)
 		{
 			return a.score > b.score;
 		}
 
-		std::vector<face_info_internal> nms(std::vector<face_info_internal>& bboxes, float threshold)
+		inline std::vector<face_info_internal> nms(std::vector<face_info_internal>& bboxes, float threshold)
 		{
 			std::vector<face_info_internal> bboxes_nms;
 			std::sort(bboxes.begin(), bboxes.end(), std::bind(&impl::compare_bbox, this, std::placeholders::_1, std::placeholders::_2));
@@ -562,7 +606,7 @@ namespace glasssix::longinus
 		}
 
 	private:
-		std::shared_ptr<glasssix::excalibur::pipeline<float>> pipe;
+		glasssix::excalibur::pipeline<float> retina_;
 		int device_;
 		float nms_threshold_;
 		std::vector<float> ratio_;

@@ -1,0 +1,50 @@
+﻿{
+  "configurations": [
+    {
+      "name": "X64-Debug",
+      "generator": "Ninja",
+      "configurationType": "Debug",
+      "inheritEnvironments": [ "msvc_x64_x64" ],
+      "buildRoot": "${projectDir}\\out\\build\\${name}",
+      "installRoot": "${projectDir}\\out\\install\\${name}",
+      "cmakeCommandArgs": "",
+      "buildCommandArgs": "",
+      "ctestCommandArgs": "",
+      "variables": [
+        {
+          "name": "COMMON_LIBRARY_DIRS",
+          "value": "E:/Research/Source/Repos/Excalibur/cmake/out/build/x64-Debug/lib",
+          "type": "STRING"
+        },
+        {
+          "name": "Boost_INCLUDE_DIRS",
+          "value": "",
+          "type": "STRING"
+        }
+      ]
+    },
+    {
+      "name": "x64-Release",
+      "generator": "Ninja",
+      "configurationType": "Release",
+      "buildRoot": "${projectDir}\\out\\build\\${name}",
+      "installRoot": "${projectDir}\\out\\install\\${name}",
+      "cmakeCommandArgs": "",
+      "buildCommandArgs": "",
+      "ctestCommandArgs": "",
+      "inheritEnvironments": [ "msvc_x64_x64" ],
+      "variables": [
+        {
+          "name": "COMMON_LIBRARY_DIRS",
+          "value": "E:/Research/Source/Repos/Excalibur/cmake/out/build/x64-Release/lib",
+          "type": "STRING"
+        },
+        {
+          "name": "Boost_INCLUDE_DIRS",
+          "value": "",
+          "type": "STRING"
+        }
+      ]
+    }
+  ]
+}

@@ -356,7 +356,7 @@ namespace glasssix
 					(*base_data).at(id), norm_id, dimension);
 #else
 
-				float dist = distance_fast_l2::compare((*base_data).at(query_id), norm_query,
+				float dist = distance_fast_l2::compare((*base_data).at(query_id), normQuery,
 					(*base_data).at(id), norm_id, dimension);
 #endif // COSINE_DISTANCE
 
@@ -388,8 +388,8 @@ namespace glasssix
 					float distance = distance_cosine::compare((*base_data).at(result[i].id), normResultID,
 						(*base_data).at(candidate.id), normCandidateID, dimension);
 #else
-					float distance = distance_fast_l2::compare((*base_data).at(result[i].id), norm_result_id,
-						(*base_data).at(candidate.id), norm_candidate_id, dimension);
+					float distance = distance_fast_l2::compare((*base_data).at(result[i].id), normResultID,
+						(*base_data).at(candidate.id), normCandidateID, dimension);
 #endif // COSINE_DISTANCE
 
 					if (distance < candidate.distance)

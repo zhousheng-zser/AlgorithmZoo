@@ -8,6 +8,10 @@
 
 #ifdef __GNUC__
 #define __forceinline inline __attribute__((always_inline))
+#if (SIMD_X86_INSTR_SET >= SIMD_X86_SSE2_VERSION)
+#define _mm_loadu_si64(p) _mm_loadl_epi64((__m128i const*)(p))
+#define _mm_storeu_si64(p, a) (_mm_storel_epi64((__m128i*)(p), (a)))
+#endif
 #endif
 
 namespace glasssix
