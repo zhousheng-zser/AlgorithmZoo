@@ -11,12 +11,9 @@ namespace glasssix::gaius
 		}
 	}
 
-	void feature_extractor_impl::init(exposing::param_span<exposing::param_string> phai, const exposing::param_string& racy_path, std::int32_t device)
+	void feature_extractor_impl::init(const exposing::param_string& phai_path, const exposing::param_string& racy_path, std::int32_t device)
 	{
-		std::vector<std::string> phai_internal(phai.size());
-
-		std::transform(phai.begin(), phai.end(), phai_internal.begin(), &exposing::to_narrow_string);
-		impl_ = new feature_extractor_internal{ phai_internal, exposing::to_narrow_string(racy_path),device };
+		impl_ = new feature_extractor_internal{ exposing::to_narrow_string(phai_path), exposing::to_narrow_string(racy_path),device };
 	}
 
 	exposing::param_string feature_extractor_impl::version() const

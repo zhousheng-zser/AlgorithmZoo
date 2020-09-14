@@ -357,12 +357,9 @@ namespace glasssix::exposing::impl
 	{
 		decltype(auto) self_abi() const
 		{
-			if (auto ptr = static_cast<abi_t<Interface>*>(get_abi(static_cast<const Interface&>(static_cast<const Derived&>(*this)))))
-			{
-				return *ptr;
-			}
+			decltype(auto) ptr = static_cast<abi_t<Interface>*>(get_abi(static_cast<const Interface&>(static_cast<const Derived&>(*this))));
 
-			throw abi_null_pointer{ format(FMT_STRING(u8"Cannot invoke a method of a null interface: {}."), to_param_string(guid_of_v<Interface>)) };
+			return ptr ? *ptr : throw abi_null_pointer{ format(FMT_STRING(u8"Cannot invoke a method of a null interface: {}."), to_param_string(guid_of_v<Interface>)) };
 		}
 	};
 

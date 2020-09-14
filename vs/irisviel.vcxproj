@@ -24,6 +24,7 @@
     <ClCompile Include="..\cpp\irisviel\face_service_internal.cpp" />
     <ClCompile Include="..\cpp\irisviel\filesystem_utils.cpp" />
     <ClCompile Include="..\cpp\irisviel\index_builder.cpp" />
+    <ClCompile Include="..\cpp\irisviel\irisviel_c.cxx" />
     <ClCompile Include="..\cpp\irisviel\irisviel_search.cpp" />
     <ClCompile Include="..\cpp\irisviel\kgraph_internal.cpp" />
     <ClCompile Include="..\cpp\irisviel\memory_mapping.cpp" />
@@ -51,6 +52,7 @@
     <ClInclude Include="..\cpp\irisviel\filesystem_utils.hpp" />
     <ClInclude Include="..\cpp\irisviel\index_builder.hpp" />
     <ClInclude Include="..\cpp\irisviel\IrisvielSearch.hpp" />
+    <ClInclude Include="..\cpp\irisviel\irisviel_c.h" />
     <ClInclude Include="..\cpp\irisviel\irisviel_search.hpp" />
     <ClInclude Include="..\cpp\irisviel\irisviel_types.hpp" />
     <ClInclude Include="..\cpp\irisviel\kgraph_internal.hpp" />

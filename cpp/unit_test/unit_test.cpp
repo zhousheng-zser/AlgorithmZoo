@@ -232,28 +232,6 @@ namespace unittest
 				{
 					Logger::WriteMessage(ex.what_to_narrow().c_str());
 				}
-
-				try
-				{
-					exposing::unknown_object obj;
-					
-					obj.as<excalibur::plugin_demo>();
-				}
-				catch (const exposing::abi_null_pointer& ex)
-				{
-					Logger::WriteMessage(ex.what_to_narrow().c_str());
-				}
-
-				try
-				{
-					excalibur::plugin_demo obj;
-
-					obj.get_values(1, 100);
-				}
-				catch (const exposing::abi_null_pointer& ex)
-				{
-					Logger::WriteMessage(ex.what_to_narrow().c_str());
-				}
 			}
 
 			// 例11：加载外部动态组件。

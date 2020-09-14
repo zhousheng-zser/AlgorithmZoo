@@ -13,7 +13,7 @@ namespace glasssix::longinus
 	class retina_net_internal::impl
 	{
 	public:
-		impl(const std::vector<std::string>& phai, exposing::param_string racy_path, float nms_threshold = 0.4, int device = -1)
+		impl(exposing::param_string phai_path, exposing::param_string racy_path, float nms_threshold = 0.4, int device = -1)
 			: nms_threshold_(nms_threshold), device_(device)
 		{
 			ratio_ = { 1.0 };
@@ -42,7 +42,7 @@ namespace glasssix::longinus
 			cfg_.push_back(tmp);
 
 			/* Load the network. */
-			pipe.reset(new glasssix::excalibur::pipeline<float>(phai, exposing::to_narrow_string(racy_path), device_));
+			pipe.reset(new glasssix::excalibur::pipeline<float>(exposing::to_narrow_string(phai_path), exposing::to_narrow_string(racy_path), device_));
 			pipe->enable_profiler();
 			bool dense_anchor = false;
 			std::vector<std::vector<anchor_box>> anchors_fpn = generate_anchors_fpn(dense_anchor, cfg_);
@@ -630,8 +630,8 @@ namespace glasssix::longinus
 	//retina_net_internal
 	//######################################################################
 
-	retina_net_internal::retina_net_internal(const std::vector<std::string>& phai, exposing::param_string racy_path, float nms_threshold, int device)
-		: impl_{ new impl(phai, racy_path, nms_threshold, device) }
+	retina_net_internal::retina_net_internal(exposing::param_string phai_path, exposing::param_string racy_path, float nms_threshold, int device)
+		: impl_{ new impl(phai_path, racy_path, nms_threshold, device) }
 	{
 	}
 
