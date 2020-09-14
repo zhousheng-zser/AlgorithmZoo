@@ -11,7 +11,7 @@ namespace glasssix::cassius
 		}
 	}
 
-	void feature_extractor_impl::init(const exposing::param_string& phai_path, const exposing::param_string& racy_path, std::int32_t device)
+	void feature_extractor_impl::init(exposing::param_span<const exposing::param_string> phai, const exposing::param_string& racy_path, std::int32_t device)
 	{
 		impl_ = new feature_extractor_internal{ exposing::to_narrow_string(phai_path), exposing::to_narrow_string(racy_path), device };
 	}
