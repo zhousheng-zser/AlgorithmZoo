@@ -47,7 +47,7 @@ namespace glasssix::romancia
 		/// <param name="bboxes">The bboxes of faces on bitmap</param>
 		/// <param name="bboxes">The landmarks of faces on bitmap</param>
 		/// <returns>The feature vectors</returns>
-		exposing::param_vector<exposing::param_vector<std::uint8_t>> align(exposing::param_span<std::uint8_t> &gray_bitmap, std::int32_t height, std::int32_t width, exposing::param_vector<longinus::face_info> &faces) const;
+		exposing::param_vector<exposing::param_vector<std::uint8_t>> align(exposing::param_span<std::uint8_t> &bitmap, std::int32_t channels, std::int32_t height, std::int32_t width, exposing::param_vector<longinus::face_info> &faces, std::int32_t order) const;
 
 		/// <summary>
 		/// Gets the version of the component.

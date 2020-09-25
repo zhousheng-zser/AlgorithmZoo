@@ -11,6 +11,7 @@
 #include <Excalibur/operation_equalize_hist.hpp>
 #include <Excalibur/operation_merge_channel.hpp>
 #include <Excalibur/operation_resize.hpp>
+#include <Excalibur/operation_rgb2gray.hpp>
 
 using glasssix::excalibur::rectangle;
 using glasssix::excalibur::point;
@@ -30,17 +31,19 @@ namespace glasssix::romancia
 
 		~impl() = default;
 
-		exposing::param_vector<exposing::param_vector<std::uint8_t>> align(exposing::param_span<std::uint8_t>& gray_bitmap, std::int32_t height, std::int32_t width, 
-			exposing::param_vector<longinus::face_info>& faces)
+		exposing::param_vector<exposing::param_vector<std::uint8_t>> align(exposing::param_span<std::uint8_t>& bitmap, std::int32_t channels, std::int32_t height, std::int32_t width, 
+			exposing::param_vector<longinus::face_info>& faces, std::int32_t order)
 		{
-			init_cache(gray_bitmap, height, width);
+			init_cache(bitmap, channels, height, width, order);
 
-			std::shared_ptr<memory::tensor<unsigned char>> ROI, rotated_ROI, final_mat, final_mat_gray, color_img, resized_color_img;
-			std::vector<std::shared_ptr<memory::tensor<unsigned char>>> src_vector;
+			std::shared_ptr<memory::tensor<uint8_t>> ROI, rotated_ROI, final_mat, final_mat_gray, color_img, resized_color_img;
+			std::vector<std::shared_ptr<memory::tensor<uint8_t>>> src_vector;
 			auto res = exposing::make_param_vector<std::uint8_t, 2>();
 			
 			if (device_ < 0)
 			{
+				std::shared_ptr<memory::tensor<uint8_t>> gray;
+				excalibur::rgb2gray_cpu(cache_, gray);
 				for (size_t i = 0; i < faces.size(); i++)
 				{
 					src_vector.clear();
@@ -49,7 +52,7 @@ namespace glasssix::romancia
 						faces[i].height() * 1.4f,
 						faces[i].width() * 1.4f);
 
-					excalibur::safty_cut_cpu(cache_, ROI, &MarginRect);
+					excalibur::safty_cut_cpu(gray, ROI, &MarginRect);
 
 					point<float> ldmk5[5];
 					auto pts = faces[i].pts();
@@ -114,23 +117,34 @@ namespace glasssix::romancia
 			return "1.0.0";
 		}
 	private:
-		void init_cache(exposing::param_span<std::uint8_t> &gray_bitmap, std::int32_t height, std::int32_t width)
+		void init_cache(exposing::param_span<std::uint8_t>& bitmap, std::int32_t channels, std::int32_t height, std::int32_t width, std::int32_t order)
 		{
-			if (cache_ == nullptr || cache_->height() != height  || cache_->width() != width)
+			if (cache_ == nullptr || cache_->channels() != channels || cache_->height() != height || cache_->width() != width || cache_->order() != order)
 			{
-				cache_ = std::make_shared<memory::tensor<std::uint8_t>>(std::vector<int>{ static_cast<int>(1), static_cast<int>(1), height, width }, device_, memory::NCHW, &memory::pool_allocator_default<std::uint8_t>::get());
+				std::vector<int> shape;
+				if (order == memory::NCHW)
+					shape = { static_cast<int>(1), channels, height, width };
+				else if (order == memory::NHWC)
+					shape = { static_cast<int>(1), height, width, channels };
+				else
+					NOT_IMPLEMENTED;
+
+				cache_ = std::make_shared<memory::tensor<std::uint8_t>>(shape, device_, (memory::orderType)order, &memory::pool_allocator_default<std::uint8_t>::get());
 			}
 
 			if (device_ > 0)
 			{
 #ifdef USE_CUDA
-				cudaMemcpy(cache_->mutable_gpu_data(), gray_bitmap, gray_bitmap + height * width, cudaMemcpyHostToDevice);
+				cudaMemcpy(cache_->mutable_gpu_data(), gray_bitmap, channels * height * width, cudaMemcpyHostToDevice);
 #else
 				NO_GPU;
 #endif
 			}
 			else
-				std::copy(gray_bitmap.begin(), gray_bitmap.end(), cache_->mutable_cpu_data());
+				std::copy(bitmap.begin(), bitmap.end(), cache_->mutable_cpu_data());
+
+			if (order == memory::NHWC)
+				cache_->convert_order();
 		}
 
 		int device_;
@@ -154,10 +168,10 @@ namespace glasssix::romancia
 		}
 	}
 
-	exposing::param_vector<exposing::param_vector<std::uint8_t>> face_alignment_internal::align(exposing::param_span<std::uint8_t>& gray_bitmap, std::int32_t height, std::int32_t width,
-		exposing::param_vector<longinus::face_info>& faces) const
+	exposing::param_vector<exposing::param_vector<std::uint8_t>> face_alignment_internal::align(exposing::param_span<std::uint8_t>& bitmap, std::int32_t channels, std::int32_t height, std::int32_t width,
+		exposing::param_vector<longinus::face_info>& faces, std::int32_t order) const
 	{
-		return impl_->align(gray_bitmap, height, width, faces);
+		return impl_->align(bitmap, channels, height, width, faces, order);
 	}
 
 	std::string face_alignment_internal::version()

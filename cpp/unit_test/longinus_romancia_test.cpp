@@ -84,7 +84,7 @@ namespace unittest
 	TEST_CLASS(longinus_romancia_test)
 	{
 	public:
-		longinus_romancia_test() : retina_{ exposing::make_exported_interface<longinus::retina_net>(u8"models/retina.phai", u8"models/retina.racy",0.4,-1) },
+		longinus_romancia_test() : retina_{ exposing::make_exported_interface<longinus::retina_net>(u8"models/retina.phai", u8"models/retina.racy",u8"models/pfld-sim.phai", u8"models/pfld-sim.racy",0.4,-1) },
 			face_alignment_{exposing::make_exported_interface<romancia::face_alignment>(-1)}
 		{
 		}
@@ -122,6 +122,85 @@ namespace unittest
 			auto align_result = face_alignment_.get(gray_span, gray.rows, gray.cols, detect_result);
 
 			Logger::WriteMessage((std::string("algin result num: ") + std::to_string(align_result.size())).c_str());
+		}
+
+		TEST_METHOD(tracker_test)
+		{
+			cv::VideoCapture cap(0);
+			bool need_detect = true;
+			longinus::face_info tracker_face{ nullptr };
+			for (size_t i = 0; i < 1000; i++)
+			{
+				cv::Mat img;
+				cap >> img;
+
+				//cv::resize(img, img, cv::Size(320, 240));
+
+				std::shared_ptr<memory::tensor<std::uint8_t>> tensor_img;
+				mat2tensor_cpu(img, tensor_img);
+				exposing::param_span<std::uint8_t> img_span(tensor_img->mutable_cpu_data(), tensor_img->channels() * tensor_img->height() * tensor_img->width());
+
+				exposing::param_vector<longinus::face_info> detect_result;
+				if (need_detect)
+				{
+					detect_result = retina_.get(img_span, tensor_img->channels(), tensor_img->height(), tensor_img->width(), 16, 0.5, 0);
+					if (detect_result.size())
+					{
+						need_detect = false;
+						int area = INT_MIN;
+						for (const auto& x : detect_result)
+						{
+							if (x.width() * x.height() > area)
+							{
+								tracker_face = x;
+								area = x.width() * x.height();
+							}
+
+							cv::rectangle(img, cv::Rect(x.x(), x.y(), x.width(), x.height()), cv::Scalar(0, 0, 255));
+							std::string face_str = "detect: {x: " + std::to_string(x.x()) + ", y: " + std::to_string(x.y()) + ", height: " + std::to_string(x.height()) + ", width: " + std::to_string(x.width());
+
+							face_str += ", pts:";
+							auto pts = x.pts();
+							for (const auto& y : pts)
+							{
+								cv::circle(img, cv::Point(y.key(), y.value()), 2, cv::Scalar(0, 255, 255));
+								face_str += " " + std::to_string(y.key()) + "," + std::to_string(y.value());
+							}
+							face_str += " }";
+
+							Logger::WriteMessage(face_str.c_str());
+						}
+					}
+				}
+				else
+				{
+					tracker_face = retina_.get(tracker_face, img_span, tensor_img->channels(), tensor_img->height(), tensor_img->width(), 0);
+					if (tracker_face.confidence() > 0.1)
+					{
+						need_detect = false;
+						cv::rectangle(img, cv::Rect(tracker_face.x(), tracker_face.y(), tracker_face.width(), tracker_face.height()), cv::Scalar(0, 0, 255));
+						cv::putText(img, "yaw: " + std::to_string(tracker_face.yaw()), cv::Point(0, 20), 3, 1.0, cv::Scalar(255, 0, 0));
+						cv::putText(img, "pitch: " + std::to_string(tracker_face.pitch()), cv::Point(0, 60), 3, 1.0, cv::Scalar(255, 0, 0));
+						cv::putText(img, "roll: " + std::to_string(tracker_face.roll()), cv::Point(0, 100), 3, 1.0, cv::Scalar(255, 0, 0));
+						std::string face_str = "tracker:  {x: " + std::to_string(tracker_face.x()) + ", y: " + std::to_string(tracker_face.y()) + ", height: " + std::to_string(tracker_face.height()) + ", width: " + std::to_string(tracker_face.width());
+						face_str += ", pts:";
+						auto pts = tracker_face.pts();
+						for (const auto& y : pts)
+						{
+							cv::circle(img, cv::Point(y.key(), y.value()), 2, cv::Scalar(0, 255, 255));
+							face_str += " " + std::to_string(y.key()) + "," + std::to_string(y.value());
+						}
+						face_str += " }";
+
+						Logger::WriteMessage(face_str.c_str());
+					}
+					else
+						need_detect = true;
+				}
+
+				cv::imshow("img", img);
+				cv::waitKey(1);
+			}
 		}
 	private:
 		longinus::retina_net retina_;

@@ -34,17 +34,17 @@ namespace glasssix::longinus
 
 	float face_info_impl::yaw() const
 	{
-		return 0.0f;
+		return internal_.headpose[0];
 	}
 
 	float face_info_impl::pitch() const
 	{
-		return 0.0f;
+		return internal_.headpose[1];
 	}
 
 	float face_info_impl::roll() const
 	{
-		return 0.0f;
+		return internal_.headpose[2];
 	}
 
 
@@ -83,12 +83,15 @@ namespace glasssix::longinus
 	}
 	void face_info_impl::set_yaw(float input)
 	{
+		internal_.headpose[0] = input;
 	}
 	void face_info_impl::set_pitch(float input)
 	{
+		internal_.headpose[1] = input;
 	}
 	void face_info_impl::set_roll(float input)
 	{
+		internal_.headpose[2] = input;
 	}
 	void face_info_impl::set_clarity(float input)
 	{

@@ -27,11 +27,11 @@ namespace glasssix::romancia
 	{
 		return exposing::to_param_string(impl_->version());
 	}
-	exposing::param_vector<exposing::param_vector<std::uint8_t>> face_alignment_impl::get(exposing::param_span<std::uint8_t> gray_bitmap, std::int32_t height, std::int32_t width, exposing::param_vector<longinus::face_info> faces)
+	exposing::param_vector<exposing::param_vector<std::uint8_t>> face_alignment_impl::get(exposing::param_span<std::uint8_t> bitmap, std::int32_t channels, std::int32_t height, std::int32_t width, exposing::param_vector<longinus::face_info> faces, std::int32_t order)
 	{
 		if (!impl_)
 			throw exposing::abi_not_initialized(u8"romancia internal object not initialized");
 
-		return impl_->align(gray_bitmap, height, width, faces);
+		return impl_->align(bitmap, channels, height, width, faces, order);
 	}
 }

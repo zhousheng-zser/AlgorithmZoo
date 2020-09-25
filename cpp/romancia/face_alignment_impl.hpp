@@ -18,8 +18,8 @@ namespace glasssix::romancia
 		void init(std::int32_t device);
 
 		exposing::param_string version() const;
-		exposing::param_vector<exposing::param_vector<std::uint8_t>> get(exposing::param_span<std::uint8_t> gray_bitmap, std::int32_t height, std::int32_t width,
-			exposing::param_vector<longinus::face_info> faces);
+		exposing::param_vector<exposing::param_vector<std::uint8_t>> get(exposing::param_span<std::uint8_t> bitmap, std::int32_t channels, std::int32_t height, std::int32_t width,
+			exposing::param_vector<longinus::face_info> faces, std::int32_t order);
 	private:
 		face_alignment_internal* impl_;
 	};

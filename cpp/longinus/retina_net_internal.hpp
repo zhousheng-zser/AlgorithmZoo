@@ -34,6 +34,7 @@ namespace glasssix::longinus
 		float score;
 		anchor_box rect;
 		face_pts pts;
+		float headpose[3];
 	};
 
 	struct anchor_cfg
@@ -60,7 +61,9 @@ namespace glasssix::longinus
 	public:
 		class impl;
 		retina_net_internal() = delete;
-		retina_net_internal(exposing::param_string phai_path, exposing::param_string racy_path, float nms_threshold = 0.4, int device = -1);
+		retina_net_internal(exposing::param_string phai_path, exposing::param_string racy_path, 
+			exposing::param_string tracker_phai_path, exposing::param_string tracker_racy_path, 
+			float nms_threshold = 0.4, int device = -1);
 		retina_net_internal(const retina_net_internal&) = delete;
 		retina_net_internal& operator=(const retina_net_internal&) = delete;
 		~retina_net_internal();
@@ -75,6 +78,7 @@ namespace glasssix::longinus
 		//	|  caffe | ????ms | 1280£ø720 | ????ms | 44ms | ????ms      |
 		//	|  caffe | 17.3ms | 640£ø480 | 3.9ms | 13.4ms | 1.0ms |
 		exposing::param_vector<face_info> detect(exposing::param_span<std::uint8_t> &bitmap, int channels, int height, int width, int min_size = 16, float threshold = 0.5, int order = 0);
+		face_info single_track(face_info face, exposing::param_span<std::uint8_t>& bitmap, int channels, int height, int width, int order = 0);
 		static std::string version();
 
 	private:
