@@ -5,7 +5,6 @@
 
 #include <memory>
 #include <vector>
-
 #include <abi/consumer.hpp>
 
 namespace glasssix::longinus

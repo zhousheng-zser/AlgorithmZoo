@@ -47,9 +47,6 @@ namespace glasssix::longinus
 			tmp.STRIDE = 8;
 			cfg_.push_back(tmp);
 
-			/* Load the network. */
-			pipe.reset(new glasssix::excalibur::pipeline<float>(phai, exposing::to_narrow_string(racy_path), device_));
-			pipe->enable_profiler();
 			bool dense_anchor = false;
 			std::vector<std::vector<anchor_box>> anchors_fpn = generate_anchors_fpn(dense_anchor, cfg_);
 			for (size_t i = 0; i < anchors_fpn.size(); i++)
@@ -84,7 +81,7 @@ namespace glasssix::longinus
 			excalibur::resize_cpu(cache_, temp, int(height / scale), int(width / scale));
 			excalibur::make_border(temp, temp, 0, hs - int(height / scale), 0, ws - int(width / scale));
 
-			auto blob_data = pipe->forward(temp | memory::tensor_convert_to<float>);
+			auto blob_data = retina_.forward(temp | memory::tensor_convert_to<float>);
 
 			std::string name_bbox = "face_rpn_bbox_pred_";
 			std::string name_score = "face_rpn_cls_prob_reshape_";
@@ -97,21 +94,21 @@ namespace glasssix::longinus
 				int stride = feat_stride_fpn_[i];
 
 				std::string str = name_score + key;
-				auto score_blob = pipe->get_featmap(str);
+				auto score_blob = retina_.get_featmap(str);
 				auto score_blob_count = score_blob->count();
 				const float* scoreB = score_blob->cpu_data() + score_blob_count / 2;
 				const float* scoreE = scoreB + score_blob_count / 2;
 				std::vector<float> score = std::vector<float>(scoreB, scoreE);
 
 				str = name_bbox + key;
-				auto bbox_blob = pipe->get_featmap(str);
+				auto bbox_blob = retina_.get_featmap(str);
 				auto bbox_blob_count = bbox_blob->count();
 				const float* bboxB = bbox_blob->cpu_data();
 				const float* bboxE = bboxB + bbox_blob_count;
 				std::vector<float> bbox_delta = std::vector<float>(bboxB, bboxE);
 
 				str = name_landmark + key;
-				auto landmark_blob = pipe->get_featmap(str);
+				auto landmark_blob = retina_.get_featmap(str);
 				auto landmark_blob_count = landmark_blob->count();
 				const float* landmarkB = landmark_blob->cpu_data();
 				const float* landmarkE = landmarkB + landmark_blob_count;
@@ -615,7 +612,7 @@ namespace glasssix::longinus
 		}
 
 	private:
-		std::shared_ptr<glasssix::excalibur::pipeline<float>> pipe;
+		glasssix::excalibur::pipeline<float> retina_;
 		int device_;
 		float nms_threshold_;
 		std::vector<float> ratio_;

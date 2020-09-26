@@ -1,9 +1,6 @@
 #include "feature_extractor_impl.hpp"
 #include "feature_extractor_internal.hpp"
 
-#include <string>
-#include <algorithm>
-
 namespace glasssix::cassius
 {
 	feature_extractor_impl::feature_extractor_impl()

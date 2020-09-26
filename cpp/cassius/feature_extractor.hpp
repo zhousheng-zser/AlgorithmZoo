@@ -60,7 +60,7 @@ namespace glasssix::exposing::impl
 
 			void init(param_span<const param_string> phai, const param_string& racy_path, std::int32_t device) const
 			{
-				check_abi_result(this->self_abi().init(get_abi(phai), get_abi(racy_path), get_abi(device)));
+				check_abi_result(this->self_abi().init(get_abi(phai_path), get_abi(racy_path), get_abi(device)));
 			}
 
 			param_vector<param_vector<float>> get(param_span<std::uint8_t> bitmaps, std::uint64_t count, std::int32_t order) const
