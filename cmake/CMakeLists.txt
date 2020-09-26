@@ -5,10 +5,14 @@ if(NOT DEFINED CMAKE_TOOLCHAIN_FILE)
 endif()
 message(STATUS "CMAKE_TOOLCHAIN_FILE: ${CMAKE_TOOLCHAIN_FILE}")
 
-if(NOT DEFINED CMAKE_MAKE_PROGRAM)
-	message(WARNING "CMAKE_MAKE_PROGRAM: please specify make program in cmake command line.")
+# For Visual Studio Generator (not Ninja), it is unneccessary to set CMAKE_MAKE_PROGRAM.
+if (NOT ${CMAKE_GENERATOR} MATCHES "Visual Studio")
+	if(NOT DEFINED CMAKE_MAKE_PROGRAM)
+		message(WARNING "CMAKE_MAKE_PROGRAM: please specify make program in cmake command line.")
+	endif()
+
+	message(STATUS "CMAKE_MAKE_PROGRAM: ${CMAKE_MAKE_PROGRAM}")
 endif()
-message(STATUS "CMAKE_MAKE_PROGRAM: ${CMAKE_MAKE_PROGRAM}")
 
 project(AlgorithmZoo C CXX)
 
@@ -21,7 +25,6 @@ option(HAVE_AVX2 "Control CPU AVX2 options when using gcc or clang" OFF)
 
 if(CMAKE_CXX_COMPILER_ID STREQUAL "MSVC")
 	set(CMAKE_FIND_LIBRARY_PREFIXES "lib")
-	set(COMMON_LIBRARY_DIRS ${CMAKE_CURRENT_SOURCE_DIR}/../cpp/common/lib/${CMAKE_BUILD_TYPE})
 endif()
 
 #set(Boost_INCLUDE_DIRS C:/Tools/vcpkg/installed/x64-windows/include)
@@ -99,6 +102,7 @@ set(LIBRARY_OUTPUT_PATH ${PROJECT_BINARY_DIR}/lib)
 set(CMAKE_RUNTIME_OUTPUT_DIRECTORY ${PROJECT_BINARY_DIR}/bin)
 set(EXECUTABLE_OUTPUT_PATH ${PROJECT_BINARY_DIR}/bin)
 
+add_subdirectory(hardcode)
 add_subdirectory(Cassius)
 add_subdirectory(Gaius)
 add_subdirectory(Longinus)

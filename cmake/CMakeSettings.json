@@ -2,7 +2,7 @@
   "configurations": [
     {
       "name": "x64-Debug",
-      "generator": "Ninja",
+      "generator": "Visual Studio 16 2019 Win64",
       "configurationType": "Debug",
       "inheritEnvironments": [ "msvc_x64_x64" ],
       "buildRoot": "${projectDir}\\out\\build\\${name}",
@@ -15,12 +15,17 @@
           "name": "Boost_INCLUDE_DIRS",
           "value": "",
           "type": "STRING"
+        },
+        {
+          "name": "COMMON_LIBRARY_DIRS",
+          "value": "E:/Code/Excalibur_new_arch/cmake/out/build/x64-Debug/lib",
+          "type": "STRING"
         }
       ]
     },
     {
       "name": "x64-Release",
-      "generator": "Ninja",
+      "generator": "Visual Studio 16 2019 Win64",
       "configurationType": "Release",
       "buildRoot": "${projectDir}\\out\\build\\${name}",
       "installRoot": "${projectDir}\\out\\install\\${name}",
@@ -32,6 +37,11 @@
         {
           "name": "Boost_INCLUDE_DIRS",
           "value": "",
+          "type": "STRING"
+        },
+        {
+          "name": "COMMON_LIBRARY_DIRS",
+          "value": "E:/Code/Excalibur_new_arch/cmake/out/build/x64-Release/lib",
           "type": "STRING"
         }
       ]

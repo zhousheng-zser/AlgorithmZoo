@@ -3,6 +3,7 @@
 #ifndef _GAIUS_FEATURE_HPP_
 #define _GAIUS_FEATURE_HPP_
 
+#include <memory>
 #include <string>
 #include <vector>
 #include <cstddef>
@@ -19,6 +20,13 @@ namespace glasssix::cassius
 	{
 	public:
 		class impl;
+
+		/// <summary>
+		/// Creates an instance with a specified GPU core or the default CPU.
+		/// </summary>
+		/// <param name="racy_path">The model path</param>
+		/// <param name="device">The device ID; -1 for CPU or a non-negative number for a GPU core</param>
+		feature_extractor_internal(std::string_view racy_path, int device);
 
 		/// <summary>
 		/// Creates an instance with a specified GPU core or the default CPU.
@@ -57,7 +65,7 @@ namespace glasssix::cassius
 		/// <returns>The version</returns>
 		static std::string version();
 	private:
-		impl* impl_;
+		std::unique_ptr<impl> impl_;
 	};
 }
 

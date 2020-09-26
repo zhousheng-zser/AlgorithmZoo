@@ -1,9 +1,13 @@
 #pragma once
 #ifndef _FACE_ALIGNMENT_INTERNAL_HPP_
 #define _FACE_ALIGNMENT_INTERNAL_HPP_
-#include <string>
-#include <abi/consumer.hpp>
+
 #include "../longinus/face_info.hpp"
+
+#include <memory>
+#include <string>
+
+#include <abi/consumer.hpp>
 
 namespace glasssix::romancia
 {
@@ -55,8 +59,7 @@ namespace glasssix::romancia
 		/// <returns>The version</returns>
 		static std::string version();
 	private:
-
-		impl* impl_;
+		std::unique_ptr<impl> impl_;
 	};
 }
 

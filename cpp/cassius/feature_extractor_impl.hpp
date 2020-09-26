@@ -2,6 +2,8 @@
 
 #include "feature_extractor.hpp"
 
+#include <memory>
+
 #include <abi/consumer.hpp>
 
 namespace glasssix::cassius
@@ -13,11 +15,13 @@ namespace glasssix::cassius
 	class feature_extractor_impl : public exposing::implements<feature_extractor_impl, feature_extractor>, public exposing::make_external_qualified_name<gaius_feature_extractor_qualified_name>
 	{
 	public:
+		feature_extractor_impl();
 		~feature_extractor_impl();
+		void init(const exposing::param_string& racy_path, std::int32_t device);
 		void init(exposing::param_span<const exposing::param_string> phai, const exposing::param_string& racy_path, std::int32_t device);
 		exposing::param_string version() const;
 		exposing::param_vector<exposing::param_vector<float>> get(exposing::param_span<std::uint8_t> bitmaps, std::uint64_t count, std::int32_t order) const;
 	private:
-		feature_extractor_internal* impl_;
+		std::unique_ptr<feature_extractor_internal> impl_;
 	};
 }

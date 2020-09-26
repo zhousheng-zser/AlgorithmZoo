@@ -3,6 +3,7 @@
 
 #include "face_info.hpp"
 
+#include <memory>
 #include <vector>
 
 #include <abi/consumer.hpp>
@@ -62,6 +63,7 @@ namespace glasssix::longinus
 	public:
 		class impl;
 		retina_net_internal() = delete;
+		retina_net_internal(exposing::param_string racy_path, float nms_threshold = 0.4, int device = -1);
 		retina_net_internal(const std::vector<std::string>& phai, exposing::param_string racy_path, float nms_threshold = 0.4, int device = -1);
 		retina_net_internal(const retina_net_internal&) = delete;
 		retina_net_internal& operator=(const retina_net_internal&) = delete;
@@ -80,7 +82,7 @@ namespace glasssix::longinus
 		static std::string version();
 
 	private:
-		impl* impl_;
+		std::unique_ptr<impl> impl_;
 	};
 }
 

@@ -1,10 +1,9 @@
 #include "face_alignment_internal.hpp"
 
-#include <abi/param_span.hpp>
-#include <memory>
 #include <cmath>
 #include <climits>
 
+#include <abi/param_span.hpp>
 #include <Primitives/tensor_conversions.hpp>
 #include <Excalibur/operation_safty_cut.hpp>
 #include <Excalibur/operation_rotate.hpp>
@@ -137,21 +136,16 @@ namespace glasssix::romancia
 		std::shared_ptr<memory::tensor<std::uint8_t>> cache_;
 	};
 
-	face_alignment_internal::face_alignment_internal() : impl_{ new impl }
+	face_alignment_internal::face_alignment_internal() : impl_{ std::make_unique<impl>() }
 	{
 	}
 
-	face_alignment_internal::face_alignment_internal(int device) : impl_{ new impl{ device } }
+	face_alignment_internal::face_alignment_internal(int device) : impl_{ std::make_unique<impl>(device) }
 	{
 	}
 
 	face_alignment_internal::~face_alignment_internal()
 	{
-		if (impl_ != nullptr)
-		{
-			delete impl_;
-			impl_ = nullptr;
-		}
 	}
 
 	exposing::param_vector<exposing::param_vector<std::uint8_t>> face_alignment_internal::align(exposing::param_span<std::uint8_t>& gray_bitmap, std::int32_t height, std::int32_t width,

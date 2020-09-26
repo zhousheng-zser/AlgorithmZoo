@@ -4,31 +4,25 @@
 
 namespace glasssix::longinus
 {
-	retina_net_impl::retina_net_impl():impl_(nullptr)
+	retina_net_impl::retina_net_impl()
 	{
 	}
 
 	retina_net_impl::~retina_net_impl()
 	{
-		if (impl_)
-		{
-			delete impl_;
-			impl_ = nullptr;
-		}
+	}
+
+	void retina_net_impl::init(exposing::param_string racy_path, float nms_threshold, std::int32_t device)
+	{
+		impl_ = std::make_unique<retina_net_internal>(racy_path, nms_threshold, device);
 	}
 
 	void retina_net_impl::init(exposing::param_span<const exposing::param_string> phai, exposing::param_string racy_path, float nms_threshold, std::int32_t device)
 	{
-		if (impl_)
-		{
-			delete impl_;
-			impl_ = nullptr;
-		}
-
 		std::vector<std::string> phai_internal(phai.size());
 
 		std::transform(phai.begin(), phai.end(), phai_internal.begin(), &exposing::to_narrow_string);
-		impl_ = new retina_net_internal(phai_internal, racy_path, nms_threshold, device);
+		impl_ = std::make_unique<retina_net_internal>(phai_internal, racy_path, nms_threshold, device);
 	}
 
 	exposing::param_string retina_net_impl::version() const

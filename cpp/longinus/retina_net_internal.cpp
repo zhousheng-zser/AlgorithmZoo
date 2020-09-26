@@ -1,18 +1,24 @@
-#include <vector>
-#include <functional>
-#include <map>
 #include "retina_net_internal.hpp"
 #include "face_info_impl.hpp"
 #include "Excalibur/pipeline.hpp"
 #include "Excalibur/operation_make_border.hpp"
 #include "Excalibur/operation_resize.hpp"
 #include "Primitives/tensor_conversions.hpp"
+#include "hardcode.hpp"
+
+#include <map>
+#include <vector>
+#include <functional>
 
 namespace glasssix::longinus
 {
 	class retina_net_internal::impl
 	{
 	public:
+		impl(exposing::param_string racy_path, float nms_threshold = 0.4, int device = -1) : impl{ hardcode::get_model_params("retina"), racy_path, nms_threshold, device }
+		{
+		}
+
 		impl(const std::vector<std::string>& phai, exposing::param_string racy_path, float nms_threshold = 0.4, int device = -1)
 			: nms_threshold_(nms_threshold), device_(device)
 		{
@@ -630,18 +636,17 @@ namespace glasssix::longinus
 	//retina_net_internal
 	//######################################################################
 
+	retina_net_internal::retina_net_internal(exposing::param_string racy_path, float nms_threshold, int device) : impl_{ std::make_unique<impl>(racy_path, nms_threshold, device) }
+	{
+	}
+
 	retina_net_internal::retina_net_internal(const std::vector<std::string>& phai, exposing::param_string racy_path, float nms_threshold, int device)
-		: impl_{ new impl(phai, racy_path, nms_threshold, device) }
+		: impl_{ std::make_unique<impl>(phai, racy_path, nms_threshold, device) }
 	{
 	}
 
 	retina_net_internal::~retina_net_internal()
 	{
-		if (impl_)
-		{
-			delete impl_;
-			impl_ = nullptr;
-		}
 	}
 
 	exposing::param_vector<face_info> retina_net_internal::detect(exposing::param_span<std::uint8_t> &bitmap, int channels, int height, int width, int min_size, float threshold, int order)

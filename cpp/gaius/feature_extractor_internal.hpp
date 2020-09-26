@@ -5,6 +5,7 @@
 
 #include <string>
 #include <vector>
+#include <memory>
 #include <cstddef>
 #include <cstdint>
 #include <string_view>
@@ -24,7 +25,15 @@ namespace glasssix::gaius
 		/// <summary>
 		/// Creates an instance with a specified GPU core or the default CPU.
 		/// </summary>
+		/// <param name="racy_path">The model path</param>
+		/// <param name="device">The device ID; -1 for CPU or a non-negative number for a GPU core</param>
+		feature_extractor_internal(std::string_view racy_path, int device);
+
+		/// <summary>
+		/// Creates an instance with a specified GPU core or the default CPU.
+		/// </summary>
 		/// <param name="phai_path">The phai path</param>
+		/// <param name="racy_path">The model path</param>
 		/// <param name="device">The device ID; -1 for CPU or a non-negative number for a GPU core</param>
 		feature_extractor_internal(const std::vector<std::string>& phai, std::string_view racy_path, int device);
 
@@ -58,7 +67,7 @@ namespace glasssix::gaius
 		/// <returns>The version</returns>
 		static std::string version();
 	private:
-		impl* impl_;
+		std::unique_ptr<impl> impl_;
 	};
 }
 
