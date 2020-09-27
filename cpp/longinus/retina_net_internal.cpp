@@ -2,6 +2,7 @@
 #include <functional>
 #include <map>
 #include <cfloat>
+#include <cmath>
 #include "retina_net_internal.hpp"
 #include "face_info_impl.hpp"
 #include "Excalibur/pipeline.hpp"
@@ -15,43 +16,43 @@
 namespace
 {
 	//拟合好的最小二乘权值，作为固定值
-	static float estimate_head_pose_weights[] =
-	{
-		0.139791,   27.4028,   7.02636,
-	   -2.48207,    9.59384,   6.03758,
-		1.27402,    10.4795,   6.20801,
-		1.17406,    29.1886,   1.67768,
-		0.306761,  -103.832,   5.66238,
-		4.78663,    17.8726,  -15.3623,
-	   -5.20016,    9.29488,  -11.2495,
-	   -25.1704,    10.8649,  -29.4877,
-	   -5.62572,    9.0871,   -12.0982,
-	   -5.19707,   -8.25251,   13.3965,
-	   -23.6643,   -13.1348,   29.4322,
-		67.239,     0.666896,  1.84304,
-	   -2.83223,    4.56333,  -15.885,
-	   -4.74948,   -3.79454,   12.7986,
-	   -16.1,       1.47175,   4.03941
-	};
-
 	//static float estimate_head_pose_weights[] =
 	//{
-	//	-249.11792250, 20.80530043,
-	//	17.59675660, 179.96169478,
-	//	122.96816303, -2.94322559,
-	//	-31.27642004, -125.01610988,
-	//	114.29728894, 52.31455129,
-	//	-60.70642965, -95.45839753,
-	//	-245.05526432, -68.63615302,
-	//	68.54576329, 286.25262032,
-	//	478.05805600, -27.41950009,
-	//	-18.58510901, -458.26650313,
-	//	-80.47443824, -19.72860556,
-	//	20.53640883, 189.05648458,
-	//	-65.48362294, 35.40278107,
-	//	-0.19055618, -0.04324061,
-	//	-41.56019451, 35.60830034
+	//	0.139791,   27.4028,   7.02636,
+	//   -2.48207,    9.59384,   6.03758,
+	//	1.27402,    10.4795,   6.20801,
+	//	1.17406,    29.1886,   1.67768,
+	//	0.306761,  -103.832,   5.66238,
+	//	4.78663,    17.8726,  -15.3623,
+	//   -5.20016,    9.29488,  -11.2495,
+	//   -25.1704,    10.8649,  -29.4877,
+	//   -5.62572,    9.0871,   -12.0982,
+	//   -5.19707,   -8.25251,   13.3965,
+	//   -23.6643,   -13.1348,   29.4322,
+	//	67.239,     0.666896,  1.84304,
+	//   -2.83223,    4.56333,  -15.885,
+	//   -4.74948,   -3.79454,   12.7986,
+	//   -16.1,       1.47175,   4.03941
 	//};
+
+	static float estimate_head_pose_weights[] =
+	{
+		-249.11792250, 20.80530043,
+		17.59675660, 179.96169478,
+		122.96816303, -2.94322559,
+		-31.27642004, -125.01610988,
+		114.29728894, 52.31455129,
+		-60.70642965, -95.45839753,
+		-245.05526432, -68.63615302,
+		68.54576329, 286.25262032,
+		478.05805600, -27.41950009,
+		-18.58510901, -458.26650313,
+		-80.47443824, -19.72860556,
+		20.53640883, 189.05648458,
+		-65.48362294, 35.40278107,
+		-0.19055618, -0.04324061,
+		-41.56019451, 35.60830034
+	};
 }
 
 namespace glasssix::longinus
@@ -484,86 +485,87 @@ namespace glasssix::longinus
 				estimate_head_pose(landmark_data, yaw, pitch, roll);
 				trackfaceinfo.headpose[0] = yaw;
 				trackfaceinfo.headpose[1] = pitch;
-				trackfaceinfo.headpose[2] = roll;
+				trackfaceinfo.headpose[2] = atan(((trackfaceinfo.pts.y[0] - trackfaceinfo.pts.y[1]) / (trackfaceinfo.pts.x[0] - trackfaceinfo.pts.x[1]) 
+					+ (trackfaceinfo.pts.y[3] - trackfaceinfo.pts.y[4]) / (trackfaceinfo.pts.x[3] - trackfaceinfo.pts.x[4])) / 2) * 180 / 3.1415926;
 			}
 		}
 
 		//输入ldmk7_data为长度为14的浮点数组，由CNN直接得到
 		//yaw, pitch, roll为输出
-		void estimate_head_pose(const float* ldmk7_data, float& yaw, float& pitch, float& roll)
-		{
-			float miny = FLT_MAX;
-			float maxy = 0.0f;
-			float sumx = 0.0f;
-			float sumy = 0.0f;
-			// 计算关键点均值和最大垂直距离
-			for (size_t i = 0; i < 7; i++)
-			{
-				sumx += ldmk7_data[2 * i + 0];
-				float y = ldmk7_data[2 * i + 1];
-				sumy += y;
-				if (miny > y)
-					miny = y;
-				if (maxy < y)
-					maxy = y;
-			}
-			float dist = maxy - miny;
-			float avex = sumx / 7;
-			float avey = sumy / 7;
-			//构建一个1x15的矩阵
-			float ldmk_mat[2 * 7 + 1];
-			//对每个坐标减均值并归一化
-			for (size_t i = 0; i < 7; i++)
-			{
-				ldmk_mat[i] = (ldmk7_data[2 * i + 0] - avex) / dist;
-				ldmk_mat[i + 7] = (ldmk7_data[2 * i + 1] - avey) / dist;
-			}
-			//最后一个防止奇异占位符
-			ldmk_mat[2 * 7] = 1.0f;
-			//最小二乘法拟合得到结果 ldmk_mat * weights_mat
-			float predict[3] = {0.0f};
-
-			for (size_t i = 0; i < 3; i++)
-			{
-				for (size_t j = 0; j < 15; j++)
-				{
-					predict[i] += ldmk_mat[j] * estimate_head_pose_weights[j * 3 + i];
-				}
-			}
-
-			pitch = predict[0];
-			yaw = predict[1];
-			roll = predict[2];
-		}
-
 		//void estimate_head_pose(const float* ldmk7_data, float& yaw, float& pitch, float& roll)
 		//{
+		//	float miny = FLT_MAX;
+		//	float maxy = 0.0f;
+		//	float sumx = 0.0f;
+		//	float sumy = 0.0f;
+		//	// 计算关键点均值和最大垂直距离
+		//	for (size_t i = 0; i < 7; i++)
+		//	{
+		//		sumx += ldmk7_data[2 * i + 0];
+		//		float y = ldmk7_data[2 * i + 1];
+		//		sumy += y;
+		//		if (miny > y)
+		//			miny = y;
+		//		if (maxy < y)
+		//			maxy = y;
+		//	}
+		//	float dist = maxy - miny;
+		//	float avex = sumx / 7;
+		//	float avey = sumy / 7;
 		//	//构建一个1x15的矩阵
 		//	float ldmk_mat[2 * 7 + 1];
+		//	//对每个坐标减均值并归一化
+		//	for (size_t i = 0; i < 7; i++)
+		//	{
+		//		ldmk_mat[i] = (ldmk7_data[2 * i + 0] - avex) / dist;
+		//		ldmk_mat[i + 7] = (ldmk7_data[2 * i + 1] - avey) / dist;
+		//	}
 		//	//最后一个防止奇异占位符
 		//	ldmk_mat[2 * 7] = 1.0f;
-
-		//	std::copy(ldmk7_data, ldmk7_data + 14, ldmk_mat);
-
-		//	for (size_t i = 0; i < 14; i++)
-		//	{
-		//		ldmk_mat[i] /= 10.0f;
-		//	}
-
 		//	//最小二乘法拟合得到结果 ldmk_mat * weights_mat
-		//	float predict[2] = { 0.0f };
+		//	float predict[3] = {0.0f};
 
-		//	for (size_t i = 0; i < 2; i++)
+		//	for (size_t i = 0; i < 3; i++)
 		//	{
 		//		for (size_t j = 0; j < 15; j++)
 		//		{
-		//			predict[i] += ldmk_mat[j] * estimate_head_pose_weights[j * 2 + i];
+		//			predict[i] += ldmk_mat[j] * estimate_head_pose_weights[j * 3 + i];
 		//		}
 		//	}
 
-		//	yaw = predict[0];
-		//	pitch = predict[1];
+		//	pitch = predict[0];
+		//	yaw = predict[1];
+		//	roll = predict[2];
 		//}
+
+		void estimate_head_pose(const float* ldmk7_data, float& yaw, float& pitch, float& roll)
+		{
+			//构建一个1x15的矩阵
+			float ldmk_mat[2 * 7 + 1];
+			//最后一个防止奇异占位符
+			ldmk_mat[2 * 7] = 1.0f;
+
+			std::copy(ldmk7_data, ldmk7_data + 14, ldmk_mat);
+
+			for (size_t i = 0; i < 14; i++)
+			{
+				ldmk_mat[i] /= 10.0f;
+			}
+
+			//最小二乘法拟合得到结果 ldmk_mat * weights_mat
+			float predict[2] = { 0.0f };
+
+			for (size_t i = 0; i < 2; i++)
+			{
+				for (size_t j = 0; j < 15; j++)
+				{
+					predict[i] += ldmk_mat[j] * estimate_head_pose_weights[j * 2 + i];
+				}
+			}
+
+			yaw = predict[0];
+			pitch = predict[1];
+		}
 
 		//processing
 		inline anchor_win  whctrs(anchor_box anchor)
