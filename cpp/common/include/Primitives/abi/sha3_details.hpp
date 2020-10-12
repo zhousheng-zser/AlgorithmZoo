@@ -162,7 +162,7 @@ namespace glasssix::exposing::hashing::sha3::details
 		/// <param name="Size">The size in bytes</param>
 		/// <param name="buffer">The buffer to accomoate the result</param>
 		template<std::size_t Size, typename = std::enable_if_t<Size <= sponge_words * sizeof(word_type)>>
-		constexpr void truncate_as_bytes(std::array<std::uint8_t, Size>& buffer) noexcept
+		constexpr void truncate_as_bytes(std::array<std::uint8_t, Size>& buffer_) noexcept
 		{
 			constexpr std::size_t buffer_words = Size / sizeof(word_type);
 			constexpr std::size_t remaining_bytes = Size % sizeof(word_type);
@@ -171,13 +171,13 @@ namespace glasssix::exposing::hashing::sha3::details
 			for (std::size_t i = 0; i < buffer_words; i++)
 			{
 				// According to the NIST standard, "strings" defined in that are littie-endian.
-				meta::split_number(data_[i], [&](auto... bytes) { ((buffer[index++] = bytes), ...); }, false);
+				meta::split_number(data_[i], [&](auto... bytes) { ((buffer_[index++] = bytes), ...); }, false);
 			}
 
 			// Add the remaining bytes in the last incomplete word.
 			if constexpr (remaining_bytes != 0)
 			{
-				meta::split_number(data_[buffer_words], [&](auto... bytes) { ((buffer[index++] = bytes), ...); }, false, std::integral_constant<std::size_t, remaining_bytes>{});
+				meta::split_number(data_[buffer_words], [&](auto... bytes) { ((buffer_[index++] = bytes), ...); }, false, std::integral_constant<std::size_t, remaining_bytes>{});
 			}
 		}
 

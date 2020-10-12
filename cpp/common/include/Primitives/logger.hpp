@@ -102,7 +102,7 @@ namespace glasssix
 		using logger_base::logger_base;
 		virtual void output(const tm& time, const char* level, const char* file, int line, const char* message) override
 		{
-			std::cout << fmt::format("[{:04}-{:02}-{:02} {:02}:{:02}:{:02} {:5} {}:{}][{}] {}",
+			std::cout << fmt::format(FMT_STRING("[{:04}-{:02}-{:02} {:02}:{:02}:{:02} {:5} {}:{}][{}] {}"),
 				1900 + time.tm_year,
 				time.tm_mon + 1,
 				time.tm_mday,
