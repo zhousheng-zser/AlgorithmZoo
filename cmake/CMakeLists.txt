@@ -104,6 +104,8 @@ set(LIBRARY_OUTPUT_PATH ${PROJECT_BINARY_DIR}/lib)
 set(CMAKE_RUNTIME_OUTPUT_DIRECTORY ${PROJECT_BINARY_DIR}/bin)
 set(EXECUTABLE_OUTPUT_PATH ${PROJECT_BINARY_DIR}/bin)
 
+add_definitions(-DFMT_SHARED)
+
 add_subdirectory(hardcode)
 add_subdirectory(Cassius)
 add_subdirectory(Gaius)
