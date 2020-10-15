@@ -175,7 +175,7 @@ namespace glasssix::exposing
 	{
 		auto chars = to_char_array(id);
 
-		return std::string(chars.data(), chars.size());
+		return std::string{ chars.data(), chars.size() };
 	}
 }
 
