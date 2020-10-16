@@ -8,5 +8,16 @@ add_library(${module_name} SHARED ${src} ${header})
 if(NOT (CMAKE_CXX_COMPILER_ID STREQUAL "MSVC"))
 	target_link_directories(${module_name} PRIVATE ${COMMON_LIBRARY_DIRS})
 endif()
+
+if(CMAKE_CXX_COMPILER_ID STREQUAL "MSVC")
+	target_compile_definitions(${module_name} PRIVATE -D_CRT_NONSTDC_NO_DEPRECATE -D_CRT_SECURE_NO_WARNINGS)
+endif()
+
 target_include_directories(${module_name} PRIVATE ${COMMON_INCLUDE_DIRS})
 target_link_libraries(${module_name} PRIVATE ${COMMON_LIBRARIES})
+
+if(USE_OPENCV)
+	target_include_directories(${module_name} PRIVATE ${OpenCV_INCLUDE_DIRS})
+	target_link_directories(${module_name} PRIVATE ${OpenCV_LIBRARY_DIRS})
+	target_link_libraries(${module_name} PRIVATE ${OpenCV_LIBS})
+endif()

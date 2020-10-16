@@ -1,6 +1,6 @@
 #include "feature_extractor_internal.hpp"
-#include <memory>
-#include <vector>
+#include "hardcode.hpp"
+
 #include <algorithm>
 
 #include <Excalibur/pipeline.hpp>
@@ -25,12 +25,21 @@ namespace glasssix::cassius
 	class feature_extractor_internal::impl
 	{
 	public:
-		impl(std::string_view phai_path, std::string_view racy_path, int device) : device_{ device }, unicorn_{ std::string{ phai_path }, std::string{racy_path}, device }
+		impl(std::string_view racy_path, int device) : impl{ hardcode::get_model_params("unicorn"), racy_path, device }
+		{
+		}
+
+		impl(const std::vector<std::string>& phai, std::string_view racy_path, int device) : device_{ device }, unicorn_{ phai, std::string{ racy_path }, device }
 		{
 		}
 
 		std::vector<std::vector<float>> get(exposing::param_span<std::uint8_t> bitmaps, std::size_t count, int order)
 		{
+			if (bitmaps.empty())
+			{
+				throw exposing::abi_invalid_argument("current frame is empty");
+			}
+
 			init_cache(bitmaps, count, order);
 
 			std::vector<std::vector<float>> result;
@@ -83,17 +92,16 @@ namespace glasssix::cassius
 		std::shared_ptr<memory::tensor<std::uint8_t>> cache_;
 	};
 
-	feature_extractor_internal::feature_extractor_internal(std::string_view phai_path, std::string_view racy_path, int device) : impl_{ new impl{ phai_path, racy_path, device } }
+	feature_extractor_internal::feature_extractor_internal(std::string_view racy_path, int device) : impl_{ std::make_unique<impl>(racy_path, device) }
+	{
+	}
+
+	feature_extractor_internal::feature_extractor_internal(const std::vector<std::string>& phai, std::string_view racy_path, int device) : impl_{ std::make_unique<impl>(phai, racy_path, device) }
 	{
 	}
 
 	feature_extractor_internal::~feature_extractor_internal()
 	{
-		if (impl_ != nullptr)
-		{
-			delete impl_;
-			impl_ = nullptr;
-		}
 	}
 
 	std::vector<std::vector<float>> feature_extractor_internal::get(exposing::param_span<std::uint8_t> bitmaps, std::size_t count, int order) const

@@ -342,7 +342,7 @@ namespace glasssix::exposing
 		/// <returns>The iterator</returns>
 		const_iterator cend() const noexcept
 		{
-			return cend();
+			return end();
 		}
 
 		/// <summary>

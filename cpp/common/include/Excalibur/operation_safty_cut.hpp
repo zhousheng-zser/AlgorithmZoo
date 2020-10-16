@@ -4,6 +4,7 @@
 #include "operation_make_border.hpp"
 #include "operation_cut_border.hpp"
 #include "operation_rotate.hpp"
+#include <algorithm>
 
 namespace glasssix
 {
@@ -75,6 +76,19 @@ namespace glasssix
 			point<Dtype> center()
 			{
 				return point<Dtype>(Dtype(x + w * 0.5f), Dtype(y + h * 0.5f));
+			}
+
+			rectangle& operator &= (const rectangle& b)
+			{
+				Dtype x1 = std::max(x, b.x);
+				Dtype y1 = std::max(y, b.y);
+				w = std::min(x + w, b.x + b.w) - x1;
+				h = std::min(y + h, b.y + b.h) - y1;
+				x = x1;
+				y = y1;
+				if (w <= 0 || h <= 0)
+					x = y = h = w = 0;
+				return *this;
 			}
 		};
 

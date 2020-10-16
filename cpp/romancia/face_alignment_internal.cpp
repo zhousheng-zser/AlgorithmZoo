@@ -1,16 +1,18 @@
 #include "face_alignment_internal.hpp"
 
-#include <abi/param_span.hpp>
-#include <memory>
 #include <cmath>
 #include <climits>
 
+#include <abi/param_span.hpp>
 #include <Primitives/tensor_conversions.hpp>
 #include <Excalibur/operation_safty_cut.hpp>
 #include <Excalibur/operation_rotate.hpp>
 #include <Excalibur/operation_equalize_hist.hpp>
 #include <Excalibur/operation_merge_channel.hpp>
 #include <Excalibur/operation_resize.hpp>
+#include <Excalibur/operation_rgb2gray.hpp>
+#include <opencv2/opencv.hpp>
+#include "svm.h"
 
 using glasssix::excalibur::rectangle;
 using glasssix::excalibur::point;
@@ -20,27 +22,47 @@ namespace glasssix::romancia
 	class face_alignment_internal::impl
 	{
 	public:
-		impl() : impl{ -1 }
+		impl() = delete;
+
+		impl(/*exposing::param_string mask_detector_model_path,*/exposing::param_string antispoofing_model_path, std::int32_t device) : device_{ device }
 		{
+			antispoofer_ = svm_load_model(antispoofing_model_path.data());
+			if (antispoofer_ == nullptr)
+				LOG(FATAL) << "Incorrect param file.";
+
+			//mask_detector_ = svm_load_model(mask_detector_model_path.data());
+			//if(mask_detector_ == nullptr)
+			//	LOG(FATAL) << "Incorrect param file.";
+
+			//int mask_feature_size = mask_image_size_ / mask_block_step_ * mask_image_size_ / mask_block_step_ * mask_histSize_[0] / 2;
+			//mask_feature_ = new struct svm_node[mask_feature_size + 1];
+			//mask_feature_[mask_feature_size].index = -1;
 		}
 
-		impl(std::int32_t device) : device_{ device }
+		~impl() 
 		{
+			svm_free_and_destroy_model(&antispoofer_);
+			//svm_free_and_destroy_model(&mask_detector_);
+			//delete[] mask_feature_;
 		}
 
-		~impl() = default;
-
-		exposing::param_vector<exposing::param_vector<std::uint8_t>> align(exposing::param_span<std::uint8_t>& gray_bitmap, std::int32_t height, std::int32_t width, 
-			exposing::param_vector<longinus::face_info>& faces)
+		exposing::param_vector<exposing::param_vector<std::uint8_t>> align(exposing::param_span<std::uint8_t>& bitmap, std::int32_t channels, std::int32_t height, std::int32_t width,
+			exposing::param_vector<longinus::face_info>& faces, std::int32_t order)
 		{
-			init_cache(gray_bitmap, height, width);
+			if (bitmap.empty())
+			{
+				throw exposing::abi_invalid_argument("current frame is empty");
+			}
+			init_cache(bitmap, channels, height, width, order);
 
-			std::shared_ptr<memory::tensor<unsigned char>> ROI, rotated_ROI, final_mat, final_mat_gray, color_img, resized_color_img;
-			std::vector<std::shared_ptr<memory::tensor<unsigned char>>> src_vector;
+			std::shared_ptr<memory::tensor<uint8_t>> ROI, rotated_ROI, final_mat, final_mat_gray, color_img, resized_color_img;
+			std::vector<std::shared_ptr<memory::tensor<uint8_t>>> src_vector;
 			auto res = exposing::make_param_vector<std::uint8_t, 2>();
-			
+
 			if (device_ < 0)
 			{
+				std::shared_ptr<memory::tensor<uint8_t>> gray;
+				excalibur::rgb2gray_cpu(cache_, gray);
 				for (size_t i = 0; i < faces.size(); i++)
 				{
 					src_vector.clear();
@@ -49,7 +71,7 @@ namespace glasssix::romancia
 						faces[i].height() * 1.4f,
 						faces[i].width() * 1.4f);
 
-					excalibur::safty_cut_cpu(cache_, ROI, &MarginRect);
+					excalibur::safty_cut_cpu(gray, ROI, &MarginRect);
 
 					point<float> ldmk5[5];
 					auto pts = faces[i].pts();
@@ -91,7 +113,7 @@ namespace glasssix::romancia
 					excalibur::resize_cpu(color_img, resized_color_img, 128, 128);
 
 					auto temp_vec = exposing::make_param_vector<std::uint8_t>();
-					
+
 					auto* ptr = resized_color_img->cpu_data();
 					for (size_t k = 0; k < resized_color_img->count(); k++)
 					{
@@ -109,55 +131,471 @@ namespace glasssix::romancia
 			return res;
 		}
 
+		double blur_detect(longinus::face_info& face, exposing::param_span<std::uint8_t>& bitmap, std::int32_t channels, std::int32_t height, std::int32_t width, std::int32_t order)
+		{
+			if (bitmap.empty())
+			{
+				throw exposing::abi_invalid_argument("current frame is empty");
+			}
+
+			cv::Mat src, srcBlur, gray1, gray2, gray3, dstImage;
+			if (channels == 1)
+			{
+				cv::Mat gray(height, width, CV_8UC1, bitmap.data());
+				cut(gray, src, cv::Rect(face.x(), face.y(), face.width(), face.height()));
+			}
+			if (channels == 3 && order == memory::NHWC)
+			{
+				cv::Mat img(height, width, CV_8UC3, bitmap.data());
+				cut(img, src, cv::Rect(face.x(), face.y(), face.width(), face.height()));
+			}
+			else
+				throw exposing::abi_invalid_argument("Not supported channels or order");
+
+			GaussianBlur(src, srcBlur, cv::Size(3, 3), 0, 0, cv::BORDER_DEFAULT); //高斯滤波
+			cv::convertScaleAbs(srcBlur, src); //使用线性变换转换输入数组元素成8位无符号整型 归一化为0-255
+			if (src.channels() != 1)
+			{
+				cv::cvtColor(src, gray1, CV_BGR2GRAY);
+			}
+			else
+			{
+				gray1 = src.clone();
+			}
+
+			cv::Mat tmp_m1, tmp_sd1;    //用来存储均值和方差  
+			double m1 = 0, sd1 = 0;
+			//使用3x3的Laplacian算子卷积滤波  
+			cv::Laplacian(gray1, gray2, CV_16S, 3, 1, 0, cv::BORDER_DEFAULT);
+			////归到0~255  
+			cv::convertScaleAbs(gray2, gray3);
+
+			//计算均值和方差  
+			cv::meanStdDev(gray3, tmp_m1, tmp_sd1);
+			m1 = tmp_m1.at<double>(0, 0);     //均值  
+			sd1 = tmp_sd1.at<double>(0, 0);       //标准差  
+			return sd1 * sd1; //方差
+		}
+
+		double antispoofing(longinus::face_info& face, exposing::param_span<std::uint8_t>& bitmap, int channels, int height, int width, int order)
+		{
+			cv::Mat src;
+			if (channels == 3 && order == memory::NHWC)
+			{
+				cv::Mat img(height, width, CV_8UC3, const_cast<uchar*>(bitmap.data()));
+				cut(img, src, cv::Rect(face.x(), face.y(), face.width(), face.height()));
+			}
+			else
+				throw exposing::abi_invalid_argument("Not supported channels or order");
+
+			cv::Mat featureMat = pretreatment(src);
+			//std::cout << featureMat << std::endl;
+
+			svm_node* features = new svm_node[featureMat.rows + 1];
+			for (int i = 0; i < featureMat.rows; i++)
+			{
+				features[i].index = i + 1;
+				features[i].value = featureMat.at<float>(i, 0);
+			}
+			features[featureMat.rows].index = -1;
+			features[featureMat.rows].value = 0;
+			double predict = svm_predict(antispoofer_, features);
+			delete[] features;
+
+			if (predict == 1.0 && !BlackWhiteDetect(src))
+				predict = 0.0;
+
+			return predict;
+		}
+
+		/*double mask_detect(face_info face, exposing::param_span<std::uint8_t>& bitmap, int channels, int height, int width, int order = 0)
+		{
+			cv::Mat src, gray, block;
+			if (channels == 1)
+				src = cv::Mat(height, width, CV_8UC1, const_cast<uchar *>(bitmap.data()))(cv::Rect(face.x(), face.y(), face.width(), face.height())).clone();
+			else if (channels == 3 && order == memory::NHWC)
+				src = cv::Mat(height, width, CV_8UC3, const_cast<uchar *>(bitmap.data()))(cv::Rect(face.x(), face.y(), face.width(), face.height())).clone();
+			else
+				throw exposing::abi_invalid_argument("Not supported channels or order");
+
+			if (src.channels() != 1)
+			{
+				cv::cvtColor(src, gray, CV_BGR2GRAY);
+			}
+			else
+			{
+				gray = src.clone();
+			}
+
+			if(gray.rows != 80 && gray.cols != 80)
+				cv::resize(gray, gray, cv::Size(mask_image_size_, mask_image_size_));
+			cv::equalizeHist(gray, gray);
+
+			const float* ranges[1] = { mask_range_ };
+			std::vector<cv::Mat> hists(mask_image_size_ / mask_block_step_ * mask_image_size_ / mask_block_step_, cv::Mat());
+			for (size_t i = 0; i < mask_image_size_ / mask_block_step_; i++)
+			{
+				for (size_t j = 0; j < mask_image_size_ / mask_block_step_; j++)
+				{
+					gray(cv::Rect(i * mask_block_step_, j * mask_block_step_, mask_block_step_, mask_block_step_)).copyTo(block);
+					cv::Mat lbp_map;
+					calcLBP(block, lbp_map);
+					cv::calcHist(&lbp_map, 1, 0, cv::Mat(), hists[i * mask_image_size_ / mask_block_step_ + j], 1, mask_histSize_, ranges);
+				}
+			}
+
+			for (size_t i = 0; i < mask_image_size_ / mask_block_step_ * mask_image_size_ / mask_block_step_; i++)
+			{
+				for (size_t j = 0; j < mask_histSize_[0] / 2; j++)
+				{
+					mask_feature_[i * mask_histSize_[0] / 2 + j].index = i * mask_histSize_[0] / 2 + j + 1;
+					mask_feature_[i * mask_histSize_[0] / 2 + j].value = hists[i].at<float>(j * 2) + hists[i].at<float>(j * 2 + 1);
+				}
+			}
+
+			double has_mask = svm_predict(mask_detector_, mask_feature_);
+
+			return has_mask;
+		}*/
+
+		double mask_detect(longinus::face_info& face, exposing::param_span<std::uint8_t>& bitmap, int channels, int height, int width, int order)
+		{
+			cv::Mat src;
+			if (channels == 3 && order == memory::NHWC)
+			{
+				cv::Mat img(height, width, CV_8UC3, const_cast<uchar*>(bitmap.data()));
+				cut(img, src, cv::Rect(face.x(), face.y(), face.width(), face.height()));
+			}
+			else
+				throw exposing::abi_invalid_argument("Not supported channels or order");
+
+			auto landmark = face.pts();
+			cv::Point face_start(face.x(), face.y());
+			std::vector<cv::Point> vec;
+			vec.emplace_back(landmark[2].key() - face_start.x, landmark[2].value() - face_start.y);
+			vec.emplace_back(landmark[3].key() - face_start.x, landmark[3].value() - face_start.y);
+			vec.emplace_back(landmark[4].key() - face_start.x, landmark[4].value() - face_start.y);
+
+			std::sort(vec.begin(), vec.end(), [](const cv::Point& first, const cv::Point& second) {return first.y < second.y; });
+			int topy = vec[2].y;
+			int bottomy = vec[0].y;
+			std::sort(vec.begin(), vec.end(), [](const cv::Point& first, const cv::Point& second) {return first.x < second.x; });
+			int rightx = vec[2].x;
+			int leftx = vec[0].x;
+
+			int w = rightx - leftx;
+			int h = topy - bottomy;
+
+			w = 1.3 * w;
+			int pad = int(0.15 * w);
+			leftx = leftx - pad;
+			rightx = rightx + pad;
+			int max_edge = std::max(w, h);
+			int min_edge = std::min(w, h);
+			int padding = (max_edge - min_edge) / 2;
+			if (h > w)
+			{
+				leftx = leftx - padding;
+				rightx = leftx + max_edge;
+			}
+			else if (h < w)
+			{
+				bottomy = bottomy - int(0.5 * padding);
+				topy = bottomy + max_edge;
+			}
+
+			cv::Mat crop;
+
+			cut(src, crop, cv::Rect(leftx, bottomy, rightx - leftx + 1, topy - bottomy + 1));
+			cv::resize(crop, crop, cv::Size(30, 30));
+
+			cv::cvtColor(crop, crop, CV_BGR2HSV);
+			std::vector<cv::Mat> splited;
+			cv::split(crop, splited);
+			cv::Mat mean, stddev;
+			cv::meanStdDev(splited[0], mean, stddev);
+
+			double m1 = mean.at<double>(0, 0);     //均值
+			//if (m1 < 30)
+			//	return 0.0;
+
+			//return 1.0;
+			return m1;
+		}
+
 		static std::string version()
 		{
 			return "1.0.0";
 		}
 	private:
-		void init_cache(exposing::param_span<std::uint8_t> &gray_bitmap, std::int32_t height, std::int32_t width)
+		void init_cache(exposing::param_span<std::uint8_t>& bitmap, std::int32_t channels, std::int32_t height, std::int32_t width, std::int32_t order)
 		{
-			if (cache_ == nullptr || cache_->height() != height  || cache_->width() != width)
+			if (cache_ == nullptr || cache_->channels() != channels || cache_->height() != height || cache_->width() != width || cache_->order() != order)
 			{
-				cache_ = std::make_shared<memory::tensor<std::uint8_t>>(std::vector<int>{ static_cast<int>(1), static_cast<int>(1), height, width }, device_, memory::NCHW, &memory::pool_allocator_default<std::uint8_t>::get());
+				std::vector<int> shape;
+				if (order == memory::NCHW)
+					shape = { static_cast<int>(1), channels, height, width };
+				else if (order == memory::NHWC)
+					shape = { static_cast<int>(1), height, width, channels };
+				else
+					NOT_IMPLEMENTED;
+
+				cache_ = std::make_shared<memory::tensor<std::uint8_t>>(shape, device_, (memory::orderType)order, &memory::pool_allocator_default<std::uint8_t>::get());
 			}
 
 			if (device_ > 0)
 			{
 #ifdef USE_CUDA
-				cudaMemcpy(cache_->mutable_gpu_data(), gray_bitmap, gray_bitmap + height * width, cudaMemcpyHostToDevice);
+				cudaMemcpy(cache_->mutable_gpu_data(), bitmap, channels * height * width, cudaMemcpyHostToDevice);
 #else
 				NO_GPU;
 #endif
 			}
 			else
-				std::copy(gray_bitmap.begin(), gray_bitmap.end(), cache_->mutable_cpu_data());
+				std::copy(bitmap.begin(), bitmap.end(), cache_->mutable_cpu_data());
+
+			if (order == memory::NHWC)
+				cache_->convert_order();
 		}
+
+		inline void calcLBP(cv::Mat& src, cv::Mat& dst)
+		{
+			dst.create(src.rows - 2, src.cols - 2, CV_8UC1);
+			dst.setTo(0);
+			for (int i = 1; i < src.rows - 1; i++)
+			{
+				for (int j = 1; j < src.cols - 1; j++)
+				{
+					uchar center = src.at<uchar>(i, j);
+					unsigned char lbpCode = 0;
+					lbpCode |= (src.at<uchar>(i - 1, j - 1) > center) << 7;
+					lbpCode |= (src.at<uchar>(i - 1, j) > center) << 6;
+					lbpCode |= (src.at<uchar>(i - 1, j + 1) > center) << 5;
+					lbpCode |= (src.at<uchar>(i, j + 1) > center) << 4;
+					lbpCode |= (src.at<uchar>(i + 1, j + 1) > center) << 3;
+					lbpCode |= (src.at<uchar>(i + 1, j) > center) << 2;
+					lbpCode |= (src.at<uchar>(i + 1, j - 1) > center) << 1;
+					lbpCode |= (src.at<uchar>(i, j - 1) > center) << 0;
+					dst.at<uchar>(i - 1, j - 1) = lbpCode;
+				}
+			}
+		}
+
+		inline void cut(cv::Mat& img, cv::Mat& dst, cv::Rect roi)
+		{
+			int width = roi.width;
+			int height = roi.height;
+			int x = roi.x;
+			int y = roi.y;
+
+			cv::Mat mat(height, width, img.type(), cv::Scalar(0));
+			int _x = x;
+			int _y = y;
+			int _width = width;
+			int _height = height;
+			if (x < 0)
+			{
+				_x = 0;
+				_width = width + x;
+			}
+
+			if (_x + _width > img.cols)
+				_width = img.cols - _x;
+
+			if (y < 0)
+			{
+				_y = 0;
+				_height = height + y;
+			}
+
+			if (_y + _height > img.rows)
+				_height = img.rows - _y;
+
+			img(cv::Rect(_x, _y, _width, _height)).copyTo(mat(cv::Rect(_x - x, _y - y, _width, _height)));
+			dst = mat;
+		}
+
+		//判断图像是否是黑白图片
+		bool BlackWhiteDetect(cv::Mat img)
+		{
+			cv::Mat resizeImg;
+			cv::resize(img, resizeImg, cv::Size(48, 48));
+			cv::cvtColor(resizeImg, resizeImg, CV_BGR2RGB);
+			std::vector<cv::Mat> RGB_split;
+			cv::split(resizeImg, RGB_split);
+			cv::Mat diffRG, diffGB, diffRB;
+			//计算两个通道元素差值的绝对值
+			cv::absdiff(RGB_split[0], RGB_split[1], diffRG);
+			cv::absdiff(RGB_split[1], RGB_split[2], diffGB);
+			cv::absdiff(RGB_split[0], RGB_split[2], diffRB);
+
+			cv::Mat meanRG, meanGB, meanRB, tempStdev;
+			cv::meanStdDev(diffRG, meanRG, tempStdev);
+			cv::meanStdDev(diffGB, meanGB, tempStdev);
+			cv::meanStdDev(diffRB, meanRB, tempStdev);
+
+			double mRG, mGB, mRB;
+			mRG = meanRG.at<double>(0, 0);
+			mGB = meanGB.at<double>(0, 0);
+			mRB = meanRB.at<double>(0, 0);
+			if ((mRG < 30 && mGB < 30) && mRB < 30)
+			{
+				return false;
+			}
+
+			return true;
+		}
+
+		cv::Mat fft2(cv::Mat src)
+		{
+			cv::Mat Fourier;
+			cv::Mat planes[] = { cv::Mat_<float>(src), cv::Mat::zeros(src.size(),CV_32F) };
+			cv::merge(planes, 2, Fourier);
+			cv::dft(Fourier, Fourier);
+			return Fourier;
+		}
+
+		void fftshift(cv::Mat& f)
+		{
+			int x = (int)floor(f.cols / 2.0);
+			int y = (int)floor(f.rows / 2.0);
+			int width = f.cols;
+			int height = f.rows;
+			std::vector<cv::Mat> planes;
+			cv::split(f, planes);
+
+			for (size_t i = 0; i < planes.size(); i++)
+			{
+				cv::Mat tmp0, tmp1, tmp2, tmp3;
+				cv::Mat q0(planes[i], cv::Rect(0, 0, width, height - y));
+				cv::Mat q1(planes[i], cv::Rect(0, height - y, width, y));
+				q0.copyTo(tmp0);
+				q1.copyTo(tmp1);
+				tmp0.copyTo(planes[i](cv::Rect(0, y, width, height - y)));
+				tmp1.copyTo(planes[i](cv::Rect(0, 0, width, y)));
+
+				cv::Mat q2(planes[i], cv::Rect(0, 0, width - x, height));
+				cv::Mat q3(planes[i], cv::Rect(width - x, 0, x, height));
+				q2.copyTo(tmp2);
+				q3.copyTo(tmp3);
+				tmp2.copyTo(planes[i](cv::Rect(x, 0, width - x, height)));
+				tmp3.copyTo(planes[i](cv::Rect(0, 0, x, height)));
+			}
+			cv::merge(planes, f);
+		}
+
+		cv::Mat fft2d(cv::Mat img)
+		{
+			cv::Mat gray;
+			cv::cvtColor(img, gray, CV_BGR2GRAY);
+			std::vector<cv::Mat> channels;
+			cv::split(gray, channels);
+			cv::Mat f = fft2(channels[0]);
+			fftshift(f);
+			std::vector<cv::Mat> planes;
+			cv::split(f, planes);
+			cv::magnitude(planes[0], planes[0], planes[0]);
+			cv::magnitude(planes[1], planes[1], planes[1]);
+			cv::Mat mag = planes[0] + planes[1];
+			mag += cv::Scalar::all(1);
+			cv::log(mag, mag);
+			cv::Mat show;
+			mag.convertTo(show, CV_8U);
+			cv::equalizeHist(show, show);
+			return show;
+		}
+
+		cv::Mat pretreatment(cv::Mat img)
+		{
+			cv::Mat resizeImg;
+			cv::resize(img, resizeImg, cv::Size(80, 80));
+			cv::Mat fftImg = fft2d(resizeImg);
+			//std::cout << fftImg << std::endl;
+			cv::Mat HSV, YCrCb;
+			cv::cvtColor(img, HSV, CV_BGR2HSV);
+			cv::cvtColor(img, YCrCb, CV_BGR2YCrCb);
+			std::vector<cv::Mat> HSV_split, YCrCb_split;
+			cv::split(HSV, HSV_split);
+			cv::split(YCrCb, YCrCb_split);
+
+			//计算LBP特征
+			cv::Mat fft_lbp, H_lbp, S_lbp, V_lbp, Y_lbp, Cr_lbp, Cb_lbp;
+			calcLBP(fftImg, fft_lbp);
+			calcLBP(HSV_split[0], H_lbp);
+			calcLBP(HSV_split[1], S_lbp);
+			calcLBP(HSV_split[2], V_lbp);
+			calcLBP(YCrCb_split[0], Y_lbp);
+			calcLBP(YCrCb_split[1], Cr_lbp);
+			calcLBP(YCrCb_split[2], Cb_lbp);
+
+			//计算直方图统计
+			const int histSize = 256;
+			float range[] = { 0, 256 };
+			const float* ranges[] = { range };
+			const int channels = 0;
+
+			cv::Mat fft_hist, H_hist, S_hist, V_hist, Y_hist, Cr_hist, Cb_hist;
+			cv::calcHist(&fft_lbp, 1, &channels, cv::Mat(), fft_hist, 1, &histSize, &ranges[0], true, false);
+			cv::calcHist(&H_lbp, 1, &channels, cv::Mat(), H_hist, 1, &histSize, &ranges[0], true, false);
+			cv::calcHist(&S_lbp, 1, &channels, cv::Mat(), S_hist, 1, &histSize, &ranges[0], true, false);
+			cv::calcHist(&V_lbp, 1, &channels, cv::Mat(), V_hist, 1, &histSize, &ranges[0], true, false);
+			cv::calcHist(&Y_lbp, 1, &channels, cv::Mat(), Y_hist, 1, &histSize, &ranges[0], true, false);
+			cv::calcHist(&Cb_lbp, 1, &channels, cv::Mat(), Cb_hist, 1, &histSize, &ranges[0], true, false);
+			cv::calcHist(&Cr_lbp, 1, &channels, cv::Mat(), Cr_hist, 1, &histSize, &ranges[0], true, false);
+
+			cv::Mat concatMat;
+			cv::vconcat(fft_hist, H_hist, concatMat);
+			cv::vconcat(concatMat, S_hist, concatMat);
+			cv::vconcat(concatMat, V_hist, concatMat);
+			cv::vconcat(concatMat, Y_hist, concatMat);
+			cv::vconcat(concatMat, Cb_hist, concatMat);
+			cv::vconcat(concatMat, Cr_hist, concatMat);
+
+			return concatMat;
+		}
+
+
+		struct svm_model* antispoofer_;
+		//struct svm_model* mask_detector_;
+		//struct svm_node* mask_feature_;
+
+		//const int mask_image_size_ = 80;
+		//const int mask_block_step_ = 16;
+		//const int mask_histSize_[1] = { 256 };
+		//const float mask_range_[2] = { 0.0 , 256.0 };
 
 		int device_;
 		std::shared_ptr<memory::tensor<std::uint8_t>> cache_;
 	};
 
-	face_alignment_internal::face_alignment_internal() : impl_{ new impl }
-	{
-	}
 
-	face_alignment_internal::face_alignment_internal(int device) : impl_{ new impl{ device } }
+	face_alignment_internal::face_alignment_internal(/*exposing::param_string mask_detector_model_path, */exposing::param_string antispoofing_model_path, int device) : impl_{ std::make_unique<impl>(antispoofing_model_path, device) }
 	{
 	}
 
 	face_alignment_internal::~face_alignment_internal()
 	{
-		if (impl_ != nullptr)
-		{
-			delete impl_;
-			impl_ = nullptr;
-		}
 	}
 
-	exposing::param_vector<exposing::param_vector<std::uint8_t>> face_alignment_internal::align(exposing::param_span<std::uint8_t>& gray_bitmap, std::int32_t height, std::int32_t width,
-		exposing::param_vector<longinus::face_info>& faces) const
+	exposing::param_vector<exposing::param_vector<std::uint8_t>> face_alignment_internal::align(exposing::param_span<std::uint8_t>& bitmap, std::int32_t channels, std::int32_t height, std::int32_t width,
+		exposing::param_vector<longinus::face_info>& faces, std::int32_t order) const
 	{
-		return impl_->align(gray_bitmap, height, width, faces);
+		return impl_->align(bitmap, channels, height, width, faces, order);
+	}
+
+	double face_alignment_internal::blur_detect(longinus::face_info& face, exposing::param_span<std::uint8_t>& bitmap, std::int32_t channels, std::int32_t height, std::int32_t width, std::int32_t order) const
+	{
+		return impl_->blur_detect(face, bitmap, channels, height, width, order);
+	}
+
+	double face_alignment_internal::antispoofing(longinus::face_info& face, exposing::param_span<std::uint8_t>& bitmap, int channels, int height, int width, int order) const
+	{
+		return impl_->antispoofing(face, bitmap, channels, height, width, order);
+	}
+
+	double face_alignment_internal::mask_detect(longinus::face_info& face, exposing::param_span<std::uint8_t>& bitmap, int channels, int height, int width, int order) const
+	{
+		return impl_->mask_detect(face, bitmap, channels, height, width, order);
 	}
 
 	std::string face_alignment_internal::version()

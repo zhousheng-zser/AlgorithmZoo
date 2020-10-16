@@ -111,6 +111,11 @@ namespace glasssix::exposing
 			return (data_ = std::exchange(right.data_, nullptr), size_ = std::exchange(right.size_, 0), *this);
 		}
 
+		explicit operator bool() const noexcept
+		{
+			return data_;
+		}
+
 		bool empty() const noexcept
 		{
 			return data_ == nullptr || size_ == 0;

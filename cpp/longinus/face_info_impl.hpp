@@ -25,6 +25,8 @@ namespace glasssix::longinus
 		float roll() const;
 		float clarity() const;
 		float confidence() const;
+		float has_mask() const;
+		std::int32_t is_alive() const;
 		exposing::param_vector<exposing::param_pair<float, float> > pts() const;
 
 		void set_pts(exposing::param_vector<exposing::param_pair<float, float>> input);
@@ -37,6 +39,8 @@ namespace glasssix::longinus
 		void set_width(std::int32_t input);
 		void set_height(std::int32_t input);
 		void set_confidence(float input);
+		void set_has_mask(float input);
+		void set_is_alive(std::int32_t);
 
 	private:
 		face_info_internal internal_;

@@ -48,10 +48,10 @@ namespace glasssix::exposing::meta
 	}
 
 	template<typename T, typename = void>
-	struct is_complete_type : std::false_type{};
+	struct is_complete_type : std::false_type {};
 
 	template<typename T>
-	struct is_complete_type<T, std::void_t<decltype(sizeof(T))>> : std::true_type{};
+	struct is_complete_type<T, std::void_t<decltype(sizeof(T))>> : std::true_type {};
 
 	template<typename T>
 	inline constexpr bool is_complete_type_v = is_complete_type<T>::value;
@@ -90,11 +90,11 @@ namespace glasssix::exposing::meta
 	using make_multidimensional_container_t = typename make_multidimensional_container<Container, T, Dimension>::type;
 
 	template<typename T, typename Category, typename = void>
-	struct is_iterator_category_same : std::false_type{};
+	struct is_iterator_category_same : std::false_type {};
 
 	template<typename T, typename Category>
 	struct is_iterator_category_same<T, Category, std::void_t<typename std::iterator_traits<typename T::iterator>::iterator_category>> : std::is_same<Category, typename std::iterator_traits<typename T::iterator>::iterator_category> {};
-	
+
 	template<typename T, typename Category>
 	inline constexpr bool is_iterator_category_same_v = is_iterator_category_same<T, Category>::value;
 
@@ -409,8 +409,8 @@ namespace glasssix::exposing::meta
 	/// <param name="data">The bytes</param>
 	/// <param name="big_endian">A boolean that indicates whether the byte order is big-endian</param>
 	/// <returns>The number</returns>
-	template<typename Number>
-	constexpr auto make_number(const std::array<std::uint8_t, sizeof(Number)>& data, bool big_endian = true) noexcept -> std::enable_if_t<std::is_arithmetic_v<Number>, Number>
+	template<typename Number, typename = std::enable_if_t<std::is_arithmetic_v<Number>>>
+	constexpr auto make_number(const std::array<std::uint8_t, sizeof(Number)>& data, bool big_endian = true) noexcept
 	{
 		return details::number_move_bits_helper<Number>(std::make_index_sequence<sizeof(Number)>{}, big_endian, [&](auto&&... parts)
 			{
@@ -425,8 +425,8 @@ namespace glasssix::exposing::meta
 	/// <param name="str">The string</param>
 	/// <param name="big_endian">A boolean that indicates whether the byte order is big-endian</param>
 	/// <returns>The number</returns>
-	template<typename Number>
-	constexpr auto to_number(std::string_view str, bool big_endian = true) noexcept -> std::enable_if_t<std::is_arithmetic_v<Number>, Number>
+	template<typename Number, typename = std::enable_if_t<std::is_arithmetic_v<Number>>>
+	constexpr auto to_number(std::string_view str, bool big_endian = true) noexcept
 	{
 		// Ensures security.
 		if (str.size() / hexadecimal_character_size_v<std::uint8_t> < sizeof(Number))
@@ -523,7 +523,7 @@ namespace glasssix::exposing::meta
 	{
 		return meta::apply_index_sequence<Size>([&](auto... indexes) { return meta::concat_arrays(to_char_array(numbers[indexes], big_endian)...); });
 	}
-	
+
 	/// <summary>
 	/// Computes the result of bitwise left-rotating the value of "number" by "bits" positions.
 	/// This operation is also known as a left circular shift.
