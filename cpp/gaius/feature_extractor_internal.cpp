@@ -26,16 +26,28 @@ namespace glasssix::gaius
 	class feature_extractor_internal::impl
 	{
 	public:
-		impl(std::string_view phai_path, std::string_view racy_path, int device) : device_{ device }, mobile_unicorn_{ std::string{ phai_path }, std::string{ racy_path }, device }
+		impl(std::string_view phai_path, std::string_view racy_path, std::string_view mask_phai_path, std::string_view mask_racy_path, int device) : device_{ device },
+			mobile_unicorn_{ std::string{ phai_path }, std::string{ racy_path }, device },
+			mask_mobile_unicorn_{ std::string{ mask_phai_path }, std::string{ mask_racy_path }, device }
 		{
 		}
 
-		std::vector<std::vector<float>> get(exposing::param_span<std::uint8_t> bitmaps, std::size_t count, int order)
+		std::vector<std::vector<float>> get(exposing::param_span<std::uint8_t> bitmaps, std::size_t count, int order, bool has_mask)
 		{
+			if (bitmaps.empty())
+			{
+				throw exposing::abi_invalid_argument("current frame is empty");
+			}
+
 			init_cache(bitmaps, count, order);
 
 			std::vector<std::vector<float>> result;
-			auto network_result = mobile_unicorn_.forward(cache_ | memory::tensor_convert_to<float>);
+			std::unordered_map<std::string, std::shared_ptr<memory::tensor<float>>> network_result;
+			
+			if(has_mask)
+				network_result = mask_mobile_unicorn_.forward(cache_ | memory::tensor_convert_to<float>);
+			else
+				network_result = mobile_unicorn_.forward(cache_ | memory::tensor_convert_to<float>);
 
 			if (auto iter = network_result.find("fc5"); iter != network_result.end())
 			{
@@ -81,10 +93,11 @@ namespace glasssix::gaius
 
 		int device_;
 		excalibur::pipeline<float> mobile_unicorn_;
+		excalibur::pipeline<float> mask_mobile_unicorn_;
 		std::shared_ptr<memory::tensor<std::uint8_t>> cache_;
 	};
 
-	feature_extractor_internal::feature_extractor_internal(std::string_view phai_path, std::string_view racy_path, int device) : impl_{ new impl{ phai_path, racy_path, device } }
+	feature_extractor_internal::feature_extractor_internal(std::string_view phai_path, std::string_view racy_path, std::string_view mask_phai_path, std::string_view mask_racy_path, int device) : impl_{ new impl{ phai_path, racy_path, mask_phai_path, mask_racy_path, device } }
 	{
 	}
 
@@ -97,9 +110,9 @@ namespace glasssix::gaius
 		}
 	}
 
-	std::vector<std::vector<float>> feature_extractor_internal::get(exposing::param_span<std::uint8_t> bitmaps, std::size_t count, int order) const
+	std::vector<std::vector<float>> feature_extractor_internal::get(exposing::param_span<std::uint8_t> bitmaps, std::size_t count, int order, bool has_mask) const
 	{
-		return impl_->get(bitmaps, count, order);
+		return impl_->get(bitmaps, count, order, has_mask);
 	}
 
 	std::string feature_extractor_internal::version()

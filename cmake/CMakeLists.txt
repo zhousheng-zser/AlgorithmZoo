@@ -18,6 +18,7 @@ option(USE_OPENMP "Use OpenMP" OFF)
 option(HAVE_SSE "Control CPU SSE options when using gcc or clang" OFF)
 option(HAVE_AVX "Control CPU AVX options when using gcc or clang" OFF)
 option(HAVE_AVX2 "Control CPU AVX2 options when using gcc or clang" OFF)
+option(USE_OPENCV "Use OpenCV library." ON)
 
 if(CMAKE_CXX_COMPILER_ID STREQUAL "MSVC")
 	set(CMAKE_FIND_LIBRARY_PREFIXES "lib")

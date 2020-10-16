@@ -21,7 +21,7 @@ namespace glasssix::exposing::impl
 		{
 			virtual std::int32_t G6_ABI_CALL init(abi_in_t<param_string> phai_path, abi_in_t<param_string> racy_path, abi_in_t<param_string> tracker_phai_path, abi_in_t<param_string> tracker_racy_path, float nms, std::int32_t device) noexcept = 0;
 			virtual std::int32_t G6_ABI_CALL get(abi_in_t<param_span<std::uint8_t>> bitmap, std::int32_t channels, std::int32_t height, std::int32_t width, std::int32_t min_size, float threshold, std::int32_t order, abi_out_t<param_vector<longinus::face_info>> result) noexcept = 0;
-			virtual std::int32_t G6_ABI_CALL get(abi_in_t<longinus::face_info> face, abi_in_t<param_span<std::uint8_t>> bitmap, std::int32_t channels, std::int32_t height, std::int32_t width, std::int32_t order, abi_out_t<longinus::face_info> result) noexcept = 0;
+			virtual std::int32_t G6_ABI_CALL single_trace(abi_in_t<longinus::face_info> face, abi_in_t<param_span<std::uint8_t>> bitmap, std::int32_t channels, std::int32_t height, std::int32_t width, std::int32_t order, abi_out_t<longinus::face_info> result) noexcept = 0;
 			virtual std::int32_t G6_ABI_CALL version(abi_out_t<param_string> result) noexcept = 0;
 		};
 	};
@@ -33,9 +33,9 @@ namespace glasssix::exposing::impl
 		{
 			return abi_safe_call([&] { *result = detach_abi(this->self().get(create_from_abi<param_span<std::uint8_t>>(bitmap), channels, height, width, min_size, threshold, order)); });
 		}
-		virtual std::int32_t G6_ABI_CALL get(abi_in_t<longinus::face_info> face, abi_in_t<param_span<std::uint8_t>> bitmap, std::int32_t channels, std::int32_t height, std::int32_t width, std::int32_t order, abi_out_t<longinus::face_info> result) noexcept override
+		virtual std::int32_t G6_ABI_CALL single_trace(abi_in_t<longinus::face_info> face, abi_in_t<param_span<std::uint8_t>> bitmap, std::int32_t channels, std::int32_t height, std::int32_t width, std::int32_t order, abi_out_t<longinus::face_info> result) noexcept override
 		{
-			return abi_safe_call([&] { *result = detach_abi(this->self().get(create_from_abi<longinus::face_info>(face), create_from_abi<param_span<std::uint8_t>>(bitmap), channels, height, width, order)); });
+			return abi_safe_call([&] { *result = detach_abi(this->self().single_trace(create_from_abi<longinus::face_info>(face), create_from_abi<param_span<std::uint8_t>>(bitmap), channels, height, width, order)); });
 		}
 
 		virtual std::int32_t G6_ABI_CALL version(abi_out_t<param_string> result) noexcept override
@@ -61,11 +61,11 @@ namespace glasssix::exposing::impl
 				return (check_abi_result(this->self_abi().get(get_abi(bitmap), get_abi(channels), get_abi(height), get_abi(width), get_abi(min_size), get_abi(threshold), get_abi(order), put_abi(result))), result);
 			}
 
-			longinus::face_info get(longinus::face_info face, param_span<std::uint8_t> bitmap, std::int32_t channels, std::int32_t height, std::int32_t width, std::int32_t order) const
+			longinus::face_info single_trace(longinus::face_info face, param_span<std::uint8_t> bitmap, std::int32_t channels, std::int32_t height, std::int32_t width, std::int32_t order) const
 			{
 				longinus::face_info result{nullptr};
 
-				return (check_abi_result(this->self_abi().get(get_abi(face), get_abi(bitmap), get_abi(channels), get_abi(height), get_abi(width), get_abi(order), put_abi(result))), result);
+				return (check_abi_result(this->self_abi().single_trace(get_abi(face), get_abi(bitmap), get_abi(channels), get_abi(height), get_abi(width), get_abi(order), put_abi(result))), result);
 			}
 
 			param_string version() const

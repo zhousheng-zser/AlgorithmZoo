@@ -26,7 +26,7 @@ namespace glasssix::gaius
 		/// </summary>
 		/// <param name="phai_path">The phai path</param>
 		/// <param name="device">The device ID; -1 for CPU or a non-negative number for a GPU core</param>
-		feature_extractor_internal(std::string_view phai_path, std::string_view racy_path, int device);
+		feature_extractor_internal(std::string_view phai_path, std::string_view racy_path, std::string_view mask_phai_path, std::string_view mask_racy_path, int device);
 
 		/// <summary>
 		/// The copy constructor must be disabled in PImpl pattern.
@@ -50,7 +50,7 @@ namespace glasssix::gaius
 		/// <param name="count">The count of bitmaps in the buffer</param>
 		/// <param name="order">The order that the bitmaps are arranged in</param>
 		/// <returns>The feature vectors</returns>
-		std::vector<std::vector<float>> get(exposing::param_span<std::uint8_t> bitmaps, std::size_t count, int order = 0) const;
+		std::vector<std::vector<float>> get(exposing::param_span<std::uint8_t> bitmaps, std::size_t count, int order=0, bool has_mask=false) const;
 
 		/// <summary>
 		/// Gets the version of the component.

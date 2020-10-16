@@ -50,12 +50,22 @@ namespace glasssix::longinus
 
 	float face_info_impl::clarity() const
 	{
-		return 0.0f;
+		return internal_.clarity;
 	}
 
 	float face_info_impl::confidence() const
 	{
 		return internal_.score;
+	}
+
+	float face_info_impl::has_mask() const
+	{
+		return internal_.has_mask;
+	}
+
+	std::int32_t face_info_impl::is_alive() const
+	{
+		return internal_.is_alive ? 1 : 0;
 	}
 
 	exposing::param_vector<exposing::param_pair<float, float>> face_info_impl::pts() const
@@ -95,6 +105,7 @@ namespace glasssix::longinus
 	}
 	void face_info_impl::set_clarity(float input)
 	{
+		internal_.clarity = input;
 	}
 	void face_info_impl::set_x(std::int32_t input)
 	{
@@ -115,5 +126,13 @@ namespace glasssix::longinus
 	void face_info_impl::set_confidence(float input)
 	{
 		internal_.score = input;
+	}
+	void face_info_impl::set_has_mask(float input)
+	{
+		internal_.has_mask = input;
+	}
+	void face_info_impl::set_is_alive(std::int32_t  input)
+	{
+		internal_.is_alive = input ? true : false;
 	}
 }

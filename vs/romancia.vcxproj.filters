@@ -4,10 +4,12 @@
     <ClCompile Include="..\cpp\romancia\exports.cpp" />
     <ClCompile Include="..\cpp\romancia\face_alignment_impl.cpp" />
     <ClCompile Include="..\cpp\romancia\face_alignment_internal.cpp" />
+    <ClCompile Include="..\cpp\romancia\svm.cpp" />
   </ItemGroup>
   <ItemGroup>
     <ClInclude Include="..\cpp\romancia\face_alignment.hpp" />
     <ClInclude Include="..\cpp\romancia\face_alignment_impl.hpp" />
     <ClInclude Include="..\cpp\romancia\face_alignment_internal.hpp" />
+    <ClInclude Include="..\cpp\romancia\svm.h" />
   </ItemGroup>
 </Project>

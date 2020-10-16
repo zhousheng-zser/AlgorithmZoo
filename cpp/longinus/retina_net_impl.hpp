@@ -20,7 +20,7 @@ namespace glasssix::longinus
 
 		exposing::param_string version() const;
 		exposing::param_vector<face_info> get(exposing::param_span<std::uint8_t> bitmap, std::int32_t channels, std::int32_t height, std::int32_t width, std::int32_t min_size, float threshold, std::int32_t order) const;
-		face_info get(face_info face, exposing::param_span<std::uint8_t> bitmap, std::int32_t channels, std::int32_t height, std::int32_t width, std::int32_t order) const;
+		face_info single_trace(face_info face, exposing::param_span<std::uint8_t> bitmap, std::int32_t channels, std::int32_t height, std::int32_t width, std::int32_t order) const;
 	private:
 		retina_net_internal* impl_;
 	};

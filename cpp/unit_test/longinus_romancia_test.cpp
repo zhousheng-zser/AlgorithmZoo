@@ -84,17 +84,15 @@ namespace unittest
 	TEST_CLASS(longinus_romancia_test)
 	{
 	public:
-		longinus_romancia_test() : retina_{ exposing::make_exported_interface<longinus::retina_net>(u8"models/retina.phai", u8"models/retina.racy",u8"models/pfld-sim.phai", u8"models/pfld-sim.racy",0.4,-1) },
-			face_alignment_{exposing::make_exported_interface<romancia::face_alignment>(-1)}
+		longinus_romancia_test() : retina_{ exposing::make_exported_interface<longinus::retina_net>(u8"models/retina.phai", u8"models/retina.racy",u8"models/pfld-sim.phai", u8"models/pfld-sim.racy", 0.4,-1) },
+			face_alignment_{exposing::make_exported_interface<romancia::face_alignment>(u8"models/libsvm_model_fft_HSV_YCrCb", -1)}
 		{
 		}
 
 		TEST_METHOD(detect_alignment_test)
 		{
-			cv::Mat img = cv::imread("C:/Users/Glasssix-ZYF/Desktop/test.jpg");
+			cv::Mat img = cv::imread("C:/Users/Glasssix-ZYF/Desktop/WeChat Image_20201010144107.jpg");
 			cv::resize(img, img, cv::Size(320, 240));
-			cv::Mat gray;
-			cv::cvtColor(img, gray, CV_BGR2GRAY);
 
 			std::shared_ptr<memory::tensor<std::uint8_t>> tensor_img;
 			mat2tensor_cpu(img, tensor_img);
@@ -118,8 +116,7 @@ namespace unittest
 			}
 
 
-			exposing::param_span<std::uint8_t> gray_span(gray.data, gray.rows * gray.cols);
-			auto align_result = face_alignment_.get(gray_span, gray.rows, gray.cols, detect_result);
+			auto align_result = face_alignment_.get(img_span, img.channels(), img.rows, img.cols, detect_result, 1);
 
 			Logger::WriteMessage((std::string("algin result num: ") + std::to_string(align_result.size())).c_str());
 		}
@@ -129,21 +126,19 @@ namespace unittest
 			cv::VideoCapture cap(0);
 			bool need_detect = true;
 			longinus::face_info tracker_face{ nullptr };
-			for (size_t i = 0; i < 1000; i++)
+			for (size_t i = 0; i < 10000; i++)
 			{
 				cv::Mat img;
 				cap >> img;
 
 				//cv::resize(img, img, cv::Size(320, 240));
 
-				std::shared_ptr<memory::tensor<std::uint8_t>> tensor_img;
-				mat2tensor_cpu(img, tensor_img);
-				exposing::param_span<std::uint8_t> img_span(tensor_img->mutable_cpu_data(), tensor_img->channels() * tensor_img->height() * tensor_img->width());
+				exposing::param_span<std::uint8_t> img_span(img.data, img.rows *img.cols * img.channels());
 
 				exposing::param_vector<longinus::face_info> detect_result;
 				if (need_detect)
 				{
-					detect_result = retina_.get(img_span, tensor_img->channels(), tensor_img->height(), tensor_img->width(), 16, 0.5, 0);
+					detect_result = retina_.get(img_span, img.channels(), img.rows, img.cols, 16, 0.5, 1);
 					if (detect_result.size())
 					{
 						need_detect = false;
@@ -174,14 +169,21 @@ namespace unittest
 				}
 				else
 				{
-					tracker_face = retina_.get(tracker_face, img_span, tensor_img->channels(), tensor_img->height(), tensor_img->width(), 0);
+					try
+					{
+						tracker_face = retina_.single_trace(tracker_face, img_span, img.channels(), img.rows, img.cols, 1);
+					}
+					catch (const exposing::abi_error& err)
+					{
+						std::cout << err.what_to_narrow() << std::endl;
+					}
 					if (tracker_face.confidence() > 0.1)
 					{
 						need_detect = false;
 						cv::rectangle(img, cv::Rect(tracker_face.x(), tracker_face.y(), tracker_face.width(), tracker_face.height()), cv::Scalar(0, 0, 255));
-						cv::putText(img, "yaw: " + std::to_string(tracker_face.yaw()), cv::Point(0, 20), 3, 1.0, cv::Scalar(255, 0, 0));
-						cv::putText(img, "pitch: " + std::to_string(tracker_face.pitch()), cv::Point(0, 60), 3, 1.0, cv::Scalar(255, 0, 0));
-						cv::putText(img, "roll: " + std::to_string(tracker_face.roll()), cv::Point(0, 100), 3, 1.0, cv::Scalar(255, 0, 0));
+						cv::putText(img, "yaw: " + std::to_string(tracker_face.yaw()), cv::Point(0, 20), 2, 1.0, cv::Scalar(0, 0, 255));
+						cv::putText(img, "pitch: " + std::to_string(tracker_face.pitch()), cv::Point(0, 50), 2, 1.0, cv::Scalar(0, 0, 255));
+						cv::putText(img, "roll: " + std::to_string(tracker_face.roll()), cv::Point(0, 80), 2, 1.0, cv::Scalar(0, 0, 255));
 						std::string face_str = "tracker:  {x: " + std::to_string(tracker_face.x()) + ", y: " + std::to_string(tracker_face.y()) + ", height: " + std::to_string(tracker_face.height()) + ", width: " + std::to_string(tracker_face.width());
 						face_str += ", pts:";
 						auto pts = tracker_face.pts();
@@ -192,6 +194,7 @@ namespace unittest
 						}
 						face_str += " }";
 
+						
 						Logger::WriteMessage(face_str.c_str());
 					}
 					else
@@ -200,6 +203,95 @@ namespace unittest
 
 				cv::imshow("img", img);
 				cv::waitKey(1);
+			}
+		}
+
+		TEST_METHOD(tracker_video_test)
+		{
+			
+			bool need_detect = true;
+			longinus::face_info tracker_face{ nullptr };
+			for (size_t i = 0; i < 2; i++)
+			{
+				cv::Mat img = cv::imread("C:\\Users\\Glasssix-ZYF\\Desktop\\111.png");
+				//cv::Mat img;
+				//cap >> img;
+
+				//cv::resize(img, img, cv::Size(320, 240));
+
+				exposing::param_span<std::uint8_t> img_span(img.data, img.rows * img.cols * img.channels());
+
+				exposing::param_vector<longinus::face_info> detect_result;
+				if (need_detect)
+				{
+					detect_result = retina_.get(img_span, img.channels(), img.rows, img.cols, 16, 0.5, 1);
+					if (detect_result.size())
+					{
+						need_detect = false;
+						int area = INT_MIN;
+						for (const auto& x : detect_result)
+						{
+							if (x.width() * x.height() > area)
+							{
+								tracker_face = x;
+								area = x.width() * x.height();
+							}
+
+							cv::rectangle(img, cv::Rect(x.x(), x.y(), x.width(), x.height()), cv::Scalar(0, 0, 255));
+							std::string face_str = "detect: {x: " + std::to_string(x.x()) + ", y: " + std::to_string(x.y()) + ", height: " + std::to_string(x.height()) + ", width: " + std::to_string(x.width());
+
+							face_str += ", pts:";
+							auto pts = x.pts();
+							for (const auto& y : pts)
+							{
+								cv::circle(img, cv::Point(y.key(), y.value()), 2, cv::Scalar(0, 255, 255));
+								face_str += " " + std::to_string(y.key()) + "," + std::to_string(y.value());
+							}
+							face_str += " }";
+
+							Logger::WriteMessage(face_str.c_str());
+						}
+					}
+				}
+				else
+				{
+					try
+					{
+						tracker_face = retina_.single_trace(tracker_face, img_span, img.channels(), img.rows, img.cols, 1);
+					}
+					catch (const exposing::abi_error& err)
+					{
+						std::cout << err.what_to_narrow() << std::endl;
+					}
+					if (tracker_face.confidence() > 0.1)
+					{
+						need_detect = false;
+						cv::rectangle(img, cv::Rect(tracker_face.x(), tracker_face.y(), tracker_face.width(), tracker_face.height()), cv::Scalar(0, 0, 255));
+						cv::putText(img, "yaw: " + std::to_string(tracker_face.yaw()), cv::Point(0, 20), 2, 1.0, cv::Scalar(0, 0, 255));
+						cv::putText(img, "pitch: " + std::to_string(tracker_face.pitch()), cv::Point(0, 50), 2, 1.0, cv::Scalar(0, 0, 255));
+						cv::putText(img, "roll: " + std::to_string(tracker_face.roll()), cv::Point(0, 80), 2, 1.0, cv::Scalar(0, 0, 255));
+						std::string face_str = "tracker:  {x: " + std::to_string(tracker_face.x()) + ", y: " + std::to_string(tracker_face.y()) + ", height: " + std::to_string(tracker_face.height()) + ", width: " + std::to_string(tracker_face.width());
+						face_str += ", pts:";
+						auto pts = tracker_face.pts();
+						for (const auto& y : pts)
+						{
+							cv::circle(img, cv::Point(y.key(), y.value()), 2, cv::Scalar(0, 255, 255));
+							face_str += " " + std::to_string(y.key()) + "," + std::to_string(y.value());
+						}
+						face_str += " }";
+
+
+						Logger::WriteMessage(face_str.c_str());
+
+						double value = face_alignment_.antispoofing(tracker_face, img_span, img.channels(), img.rows, img.cols, 1);
+						Logger::WriteMessage(std::to_string(value).c_str());
+					}
+					else
+						need_detect = true;
+				}
+
+				cv::imshow("img", img);
+				cv::waitKey();
 			}
 		}
 	private:

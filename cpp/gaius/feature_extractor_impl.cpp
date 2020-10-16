@@ -11,9 +11,9 @@ namespace glasssix::gaius
 		}
 	}
 
-	void feature_extractor_impl::init(const exposing::param_string& phai_path, const exposing::param_string& racy_path, std::int32_t device)
+	void feature_extractor_impl::init(const exposing::param_string& phai_path, const exposing::param_string& racy_path, const exposing::param_string& mask_phai_path, const exposing::param_string& mask_racy_path, std::int32_t device)
 	{
-		impl_ = new feature_extractor_internal{ exposing::to_narrow_string(phai_path), exposing::to_narrow_string(racy_path),device };
+		impl_ = new feature_extractor_internal{ exposing::to_narrow_string(phai_path), exposing::to_narrow_string(racy_path),exposing::to_narrow_string(mask_phai_path), exposing::to_narrow_string(mask_racy_path),device };
 	}
 
 	exposing::param_string feature_extractor_impl::version() const
@@ -21,9 +21,9 @@ namespace glasssix::gaius
 		return exposing::to_param_string(impl_->version());
 	}
 
-	exposing::param_vector<exposing::param_vector<float>> feature_extractor_impl::get(exposing::param_span<std::uint8_t> bitmaps, std::uint64_t count, std::int32_t order) const
+	exposing::param_vector<exposing::param_vector<float>> feature_extractor_impl::get(exposing::param_span<std::uint8_t> bitmaps, std::uint64_t count, std::int32_t order, bool has_mask) const
 	{
-		auto native_result = impl_->get(bitmaps, count, order);
+		auto native_result = impl_->get(bitmaps, count, order, has_mask);
 		auto result = exposing::make_param_vector<float, 2>();
 
 		for (const auto& item : native_result)

@@ -32,15 +32,15 @@ namespace glasssix::longinus
 	exposing::param_vector<longinus::face_info> retina_net_impl::get(exposing::param_span<std::uint8_t> bitmap, std::int32_t channels, std::int32_t height, std::int32_t width, std::int32_t min_size, float threshold, std::int32_t order) const
 	{
 		if (!impl_)
-			throw exposing::abi_not_initialized(u8"longinus internal object not initialized");
+			throw exposing::abi_invalid_operation(u8"longinus internal object not initialized");
 
 		return impl_->detect(bitmap, channels, height, width, min_size, threshold, order);
 	}
-	face_info retina_net_impl::get(face_info face, exposing::param_span<std::uint8_t> bitmap, std::int32_t channels, std::int32_t height, std::int32_t width, std::int32_t order) const
+	face_info retina_net_impl::single_trace(face_info face, exposing::param_span<std::uint8_t> bitmap, std::int32_t channels, std::int32_t height, std::int32_t width, std::int32_t order) const
 	{
 		if (!impl_)
-			throw exposing::abi_not_initialized(u8"longinus internal object not initialized");
+			throw exposing::abi_invalid_operation(u8"longinus internal object not initialized");
 
-		return impl_->single_track(face, bitmap, channels, height, width,  order);
+		return impl_->single_trace(face, bitmap, channels, height, width,  order);
 	}
 }

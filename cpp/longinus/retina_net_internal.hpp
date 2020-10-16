@@ -31,10 +31,13 @@ namespace glasssix::longinus
 
 	struct face_info_internal
 	{
+		float clarity;
+		float has_mask;
 		float score;
 		anchor_box rect;
 		face_pts pts;
 		float headpose[3];
+		bool is_alive;
 	};
 
 	struct anchor_cfg
@@ -78,7 +81,9 @@ namespace glasssix::longinus
 		//	|  caffe | ????ms | 1280£ø720 | ????ms | 44ms | ????ms      |
 		//	|  caffe | 17.3ms | 640£ø480 | 3.9ms | 13.4ms | 1.0ms |
 		exposing::param_vector<face_info> detect(exposing::param_span<std::uint8_t> &bitmap, int channels, int height, int width, int min_size = 16, float threshold = 0.5, int order = 0);
-		face_info single_track(face_info face, exposing::param_span<std::uint8_t>& bitmap, int channels, int height, int width, int order = 0);
+		
+		face_info single_trace(face_info face, exposing::param_span<std::uint8_t>& bitmap, int channels, int height, int width, int order = 0);
+
 		static std::string version();
 
 	private:
