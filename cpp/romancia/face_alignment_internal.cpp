@@ -317,10 +317,11 @@ namespace glasssix::romancia
 			cv::meanStdDev(splited[0], mean, stddev);
 
 			double m1 = mean.at<double>(0, 0);     //¾ùÖµ
-			if (m1 < 30)
-				return 0.0;
+			//if (m1 < 30)
+			//	return 0.0;
 
-			return 1.0;
+			//return 1.0;
+			return m1;
 		}
 
 		static std::string version()
