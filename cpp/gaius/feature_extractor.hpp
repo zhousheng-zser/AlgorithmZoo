@@ -17,7 +17,7 @@ namespace glasssix::exposing::impl
 
 		struct type : abi_unknown_object
 		{
-			virtual std::int32_t G6_ABI_CALL init(abi_in_t<param_string> phai_path, abi_in_t<param_string> racy_path, abi_in_t<param_string> mask_phai_path, abi_in_t<param_string> mask_racy_path, std::int32_t device) noexcept = 0;
+			virtual std::int32_t G6_ABI_CALL init(abi_in_t<exposing::param_span<const exposing::param_string>> phai, abi_in_t<param_string> racy_path, abi_in_t<exposing::param_span<const exposing::param_string>> mask_phai, abi_in_t<param_string> mask_racy_path, std::int32_t device) noexcept = 0;
 			virtual std::int32_t G6_ABI_CALL get(abi_in_t<param_span<std::uint8_t>> bitmaps, std::uint64_t count, std::int32_t order, bool has_mask, abi_out_t<param_vector<param_vector<float>>> result) noexcept = 0;
 			virtual std::int32_t G6_ABI_CALL init(abi_in_t<param_string> racy_path, abi_in_t<param_string> mask_racy_path, std::int32_t device) noexcept = 0;
 			virtual std::int32_t G6_ABI_CALL version(abi_out_t<param_string> result) noexcept = 0;
@@ -31,9 +31,9 @@ namespace glasssix::exposing::impl
 		{
 			return abi_safe_call([&] { this->self().init(create_from_abi<param_string>(racy_path), create_from_abi<param_string>(mask_racy_path), device); });
 		}
-		virtual std::int32_t G6_ABI_CALL init(abi_in_t<param_string> phai_path, abi_in_t<param_string> racy_path, abi_in_t<param_string> mask_phai_path, abi_in_t<param_string> mask_racy_path, std::int32_t device) noexcept override
+		virtual std::int32_t G6_ABI_CALL init(abi_in_t<exposing::param_span<const exposing::param_string>> phai, abi_in_t<param_string> racy_path, abi_in_t<exposing::param_span<const exposing::param_string>> mask_phai, abi_in_t<param_string> mask_racy_path, std::int32_t device) noexcept override
 		{
-			return abi_safe_call([&] { this->self().init(create_from_abi<param_string>(phai_path), create_from_abi<param_string>(racy_path), create_from_abi<param_string>(mask_phai_path), create_from_abi<param_string>(mask_racy_path), device); });
+			return abi_safe_call([&] { this->self().init(create_from_abi<exposing::param_span<const exposing::param_string>>(phai), create_from_abi<param_string>(racy_path), create_from_abi<exposing::param_span<const exposing::param_string>>(mask_phai), create_from_abi<param_string>(mask_racy_path), device); });
 		}
 
 		virtual std::int32_t G6_ABI_CALL get(abi_in_t<param_span<std::uint8_t>> bitmaps, std::uint64_t count, std::int32_t order, bool has_mask, abi_out_t<param_vector<param_vector<float>>> result) noexcept override
@@ -57,9 +57,9 @@ namespace glasssix::exposing::impl
 				check_abi_result(this->self_abi().init(get_abi(racy_path), get_abi(mask_racy_path), get_abi(device)));
 			}
 
-			void init(const param_string& phai_path, const param_string& racy_path, const param_string& mask_phai_path, const param_string& mask_racy_path, std::int32_t device) const
+			void init(const exposing::param_span<const exposing::param_string>& phai, const param_string& racy_path, const exposing::param_span<const exposing::param_string>& mask_phai, const param_string& mask_racy_path, std::int32_t device) const
 			{
-				check_abi_result(this->self_abi().init(get_abi(phai_path), get_abi(racy_path), get_abi(mask_phai_path), get_abi(mask_racy_path), get_abi(device)));
+				check_abi_result(this->self_abi().init(get_abi(phai), get_abi(racy_path), get_abi(mask_phai), get_abi(mask_racy_path), get_abi(device)));
 			}
 
 			param_vector<param_vector<float>> get(param_span<std::uint8_t> bitmaps, std::uint64_t count, std::int32_t order, bool has_mask) const

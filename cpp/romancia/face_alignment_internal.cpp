@@ -508,7 +508,7 @@ namespace glasssix::romancia
 		cv::Mat pretreatment(cv::Mat img)
 		{
 			cv::Mat resizeImg;
-			cv::resize(img, resizeImg, cv::Size(60, 60));
+			cv::resize(img, resizeImg, cv::Size(80, 80));
 			cv::Mat fftImg = fft2d(resizeImg);
 			//std::cout << fftImg << std::endl;
 			cv::Mat HSV, YCrCb;

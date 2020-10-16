@@ -20,7 +20,7 @@ namespace glasssix::exposing::impl
 		struct type : abi_unknown_object
 		{
 			virtual std::int32_t G6_ABI_CALL init(abi_in_t<param_string> racy_path, abi_in_t<param_string> tracker_racy_path, float nms, std::int32_t device) noexcept = 0;
-			virtual std::int32_t G6_ABI_CALL init(abi_in_t<param_span<const param_string>> phai, abi_in_t<param_string> racy_path, abi_in_t<param_string> tracker_phai, abi_in_t<param_string> tracker_racy_path, float nms, std::int32_t device) noexcept = 0;
+			virtual std::int32_t G6_ABI_CALL init(abi_in_t<param_span<const param_string>> phai, abi_in_t<param_string> racy_path, abi_in_t<param_span<const param_string>> tracker_phai, abi_in_t<param_string> tracker_racy_path, float nms, std::int32_t device) noexcept = 0;
 			virtual std::int32_t G6_ABI_CALL get(abi_in_t<param_span<std::uint8_t>> bitmap, std::int32_t channels, std::int32_t height, std::int32_t width, std::int32_t min_size, float threshold, std::int32_t order, abi_out_t<param_vector<longinus::face_info>> result) noexcept = 0;
 			virtual std::int32_t G6_ABI_CALL single_trace(abi_in_t<longinus::face_info> face, abi_in_t<param_span<std::uint8_t>> bitmap, std::int32_t channels, std::int32_t height, std::int32_t width, std::int32_t order, abi_out_t<longinus::face_info> result) noexcept = 0;
 			virtual std::int32_t G6_ABI_CALL version(abi_out_t<param_string> result) noexcept = 0;

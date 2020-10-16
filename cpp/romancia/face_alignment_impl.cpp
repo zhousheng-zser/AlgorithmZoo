@@ -43,7 +43,6 @@ namespace glasssix::romancia
 	{
 		if (!impl_)
 			throw exposing::abi_invalid_operation(u8"romancia internal object not initialized");
-		}
 
 		return impl_->mask_detect(face, bitmap, channels, height, width, order);
 	}

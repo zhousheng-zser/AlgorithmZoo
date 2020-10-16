@@ -45,8 +45,8 @@ namespace glasssix::longinus
 		}
 
 		impl(const std::vector<std::string>& phai, exposing::param_string racy_path, const std::vector<std::string>& tracker_phai, exposing::param_string tracker_racy_path, float nms_threshold = 0.4, int device = -1)
-			: nms_threshold_(nms_threshold), device_(device)
-			, tracker_{ tracker_phai, exposing::to_narrow_string(tracker_racy_path), device }
+			:retina_{ phai, exposing::to_narrow_string(racy_path), device }
+			,tracker_{ tracker_phai, exposing::to_narrow_string(tracker_racy_path), device }
 			,nms_threshold_(nms_threshold), device_(device)
 		{
 			ratio_ = { 1.0 };
