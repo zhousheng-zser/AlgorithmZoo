@@ -1,10 +1,9 @@
 #include "face_alignment_internal.hpp"
 
-#include <abi/param_span.hpp>
-#include <memory>
 #include <cmath>
 #include <climits>
 
+#include <abi/param_span.hpp>
 #include <Primitives/tensor_conversions.hpp>
 #include <Excalibur/operation_safty_cut.hpp>
 #include <Excalibur/operation_rotate.hpp>
@@ -569,17 +568,13 @@ namespace glasssix::romancia
 		std::shared_ptr<memory::tensor<std::uint8_t>> cache_;
 	};
 
-	face_alignment_internal::face_alignment_internal(/*exposing::param_string mask_detector_model_path, */exposing::param_string antispoofing_model_path, int device) : impl_{ new impl{/*mask_detector_model_path,*/antispoofing_model_path,  device } }
+
+	face_alignment_internal::face_alignment_internal(/*exposing::param_string mask_detector_model_path, */exposing::param_string antispoofing_model_path, int device) : impl_{ std::make_unique<impl>(antispoofing_model_path, device) }
 	{
 	}
 
 	face_alignment_internal::~face_alignment_internal()
 	{
-		if (impl_ != nullptr)
-		{
-			delete impl_;
-			impl_ = nullptr;
-		}
 	}
 
 	exposing::param_vector<exposing::param_vector<std::uint8_t>> face_alignment_internal::align(exposing::param_span<std::uint8_t>& bitmap, std::int32_t channels, std::int32_t height, std::int32_t width,

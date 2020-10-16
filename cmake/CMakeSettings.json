@@ -1,7 +1,7 @@
 ﻿{
   "configurations": [
     {
-      "name": "X64-Debug",
+      "name": "x64-Debug",
       "generator": "Ninja",
       "configurationType": "Debug",
       "inheritEnvironments": [ "msvc_x64_x64" ],
@@ -12,13 +12,13 @@
       "ctestCommandArgs": "",
       "variables": [
         {
-          "name": "COMMON_LIBRARY_DIRS",
-          "value": "E:/Research/Source/Repos/Excalibur/cmake/out/build/x64-Debug/lib",
+          "name": "Boost_INCLUDE_DIRS",
+          "value": "",
           "type": "STRING"
         },
         {
-          "name": "Boost_INCLUDE_DIRS",
-          "value": "",
+          "name": "COMMON_LIBRARY_DIRS",
+          "value": "E:/Code/Excalibur_new_arch/cmake/out/build/x64-Debug/lib",
           "type": "STRING"
         }
       ]
@@ -35,13 +35,13 @@
       "inheritEnvironments": [ "msvc_x64_x64" ],
       "variables": [
         {
-          "name": "COMMON_LIBRARY_DIRS",
-          "value": "E:/Research/Source/Repos/Excalibur/cmake/out/build/x64-Release/lib",
+          "name": "Boost_INCLUDE_DIRS",
+          "value": "",
           "type": "STRING"
         },
         {
-          "name": "Boost_INCLUDE_DIRS",
-          "value": "",
+          "name": "COMMON_LIBRARY_DIRS",
+          "value": "E:/Code/Excalibur_new_arch/cmake/out/build/x64-Release/lib",
           "type": "STRING"
         }
       ]

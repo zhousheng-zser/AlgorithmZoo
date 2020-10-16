@@ -11,6 +11,7 @@
 #include "Excalibur/operation_resize.hpp"
 #include "Excalibur/operation_rgb2gray.hpp"
 #include "Primitives/tensor_conversions.hpp"
+#include "hardcode.hpp"
 
 namespace
 {
@@ -39,13 +40,14 @@ namespace glasssix::longinus
 	class retina_net_internal::impl
 	{
 	public:
-		impl(exposing::param_string phai_path, exposing::param_string racy_path, 
-			exposing::param_string tracker_phai_path, exposing::param_string tracker_racy_path, 
-			float nms_threshold = 0.4, int device = -1)
-			: retina_{ exposing::to_narrow_string(phai_path), exposing::to_narrow_string(racy_path), device }
-			, tracker_{ exposing::to_narrow_string(tracker_phai_path), exposing::to_narrow_string(tracker_racy_path), device }
-			, nms_threshold_(nms_threshold)
-			, device_(device)
+		impl(exposing::param_string racy_path, exposing::param_string tracker_racy_path, float nms_threshold = 0.4, int device = -1) : impl{ hardcode::get_model_params("retina"), racy_path, hardcode::get_model_params("pfld-sim"), tracker_racy_path, nms_threshold, device }
+		{
+		}
+
+		impl(const std::vector<std::string>& phai, exposing::param_string racy_path, const std::vector<std::string>& tracker_phai, exposing::param_string tracker_racy_path, float nms_threshold = 0.4, int device = -1)
+			: nms_threshold_(nms_threshold), device_(device)
+			, tracker_{ tracker_phai, exposing::to_narrow_string(tracker_racy_path), device }
+			,nms_threshold_(nms_threshold), device_(device)
 		{
 			ratio_ = { 1.0 };
 			//anchor setting
@@ -260,7 +262,7 @@ namespace glasssix::longinus
 		}
 
 	private:
-		void init_cache(exposing::param_span<std::uint8_t>& gray_bitmap, std::int32_t channels, std::int32_t height, std::int32_t width, std::int32_t order)
+		void init_cache(exposing::param_span<std::uint8_t>& bitmap, std::int32_t channels, std::int32_t height, std::int32_t width, std::int32_t order)
 		{
 			if (cache_ == nullptr || cache_->channels() != channels || cache_->height() != height || cache_->width() != width || cache_->order() != order)
 			{
@@ -278,13 +280,13 @@ namespace glasssix::longinus
 			if (device_ > 0)
 			{
 #ifdef USE_CUDA
-				cudaMemcpy(cache_->mutable_gpu_data(), gray_bitmap, channels * height * width, cudaMemcpyHostToDevice);
+				cudaMemcpy(cache_->mutable_gpu_data(), bitmap, channels * height * width, cudaMemcpyHostToDevice);
 #else
 				NO_GPU;
 #endif
 			}
 			else
-				std::copy(gray_bitmap.begin(), gray_bitmap.end(), cache_->mutable_cpu_data());
+				std::copy(bitmap.begin(), bitmap.end(), cache_->mutable_cpu_data());
 
 			if (order == memory::NHWC)
 				cache_->convert_order();
@@ -924,20 +926,17 @@ namespace glasssix::longinus
 	//retina_net_internal
 	//######################################################################
 
-	retina_net_internal::retina_net_internal(exposing::param_string phai_path, exposing::param_string racy_path,
-		exposing::param_string tracker_phai_path, exposing::param_string tracker_racy_path,
-		float nms_threshold, int device)
-		: impl_{ new impl(phai_path, racy_path, tracker_phai_path, tracker_racy_path, nms_threshold, device) }
+	retina_net_internal::retina_net_internal(exposing::param_string racy_path, exposing::param_string tracker_racy_path, float nms_threshold, int device) : impl_{ std::make_unique<impl>(racy_path, tracker_racy_path, nms_threshold, device) }
+	{
+	}
+
+	retina_net_internal::retina_net_internal(const std::vector<std::string>& phai, exposing::param_string racy_path, const std::vector<std::string>& tracker_phai, exposing::param_string tracker_racy_path, float nms_threshold, int device)
+		: impl_{ std::make_unique<impl>(phai, racy_path, tracker_phai, tracker_racy_path, nms_threshold, device) }
 	{
 	}
 
 	retina_net_internal::~retina_net_internal()
 	{
-		if (impl_)
-		{
-			delete impl_;
-			impl_ = nullptr;
-		}
 	}
 
 	exposing::param_vector<face_info> retina_net_internal::detect(exposing::param_span<std::uint8_t>& bitmap, int channels, int height, int width, int min_size, float threshold, int order)

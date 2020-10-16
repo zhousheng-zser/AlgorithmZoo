@@ -19,6 +19,7 @@ namespace glasssix::exposing::impl
 		{
 			virtual std::int32_t G6_ABI_CALL init(abi_in_t<param_string> phai_path, abi_in_t<param_string> racy_path, abi_in_t<param_string> mask_phai_path, abi_in_t<param_string> mask_racy_path, std::int32_t device) noexcept = 0;
 			virtual std::int32_t G6_ABI_CALL get(abi_in_t<param_span<std::uint8_t>> bitmaps, std::uint64_t count, std::int32_t order, bool has_mask, abi_out_t<param_vector<param_vector<float>>> result) noexcept = 0;
+			virtual std::int32_t G6_ABI_CALL init(abi_in_t<param_string> racy_path, abi_in_t<param_string> mask_racy_path, std::int32_t device) noexcept = 0;
 			virtual std::int32_t G6_ABI_CALL version(abi_out_t<param_string> result) noexcept = 0;
 		};
 	};
@@ -26,6 +27,10 @@ namespace glasssix::exposing::impl
 	template<typename Derived>
 	struct interface_vtable<Derived, gaius::feature_extractor> : interface_vtable_base<Derived, gaius::feature_extractor>
 	{
+		virtual std::int32_t G6_ABI_CALL init(abi_in_t<param_string> racy_path, abi_in_t<param_string> mask_racy_path, std::int32_t device) noexcept override
+		{
+			return abi_safe_call([&] { this->self().init(create_from_abi<param_string>(racy_path), create_from_abi<param_string>(mask_racy_path), device); });
+		}
 		virtual std::int32_t G6_ABI_CALL init(abi_in_t<param_string> phai_path, abi_in_t<param_string> racy_path, abi_in_t<param_string> mask_phai_path, abi_in_t<param_string> mask_racy_path, std::int32_t device) noexcept override
 		{
 			return abi_safe_call([&] { this->self().init(create_from_abi<param_string>(phai_path), create_from_abi<param_string>(racy_path), create_from_abi<param_string>(mask_phai_path), create_from_abi<param_string>(mask_racy_path), device); });
@@ -47,6 +52,11 @@ namespace glasssix::exposing::impl
 		template<typename Derived>
 		struct type : enable_self_abi_awareness<Derived, gaius::feature_extractor>
 		{
+			void init(const param_string& racy_path, const param_string& mask_racy_path, std::int32_t device) const
+			{
+				check_abi_result(this->self_abi().init(get_abi(racy_path), get_abi(mask_racy_path), get_abi(device)));
+			}
+
 			void init(const param_string& phai_path, const param_string& racy_path, const param_string& mask_phai_path, const param_string& mask_racy_path, std::int32_t device) const
 			{
 				check_abi_result(this->self_abi().init(get_abi(phai_path), get_abi(racy_path), get_abi(mask_phai_path), get_abi(mask_racy_path), get_abi(device)));

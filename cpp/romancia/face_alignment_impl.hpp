@@ -1,6 +1,9 @@
 #pragma once
 
 #include "face_alignment.hpp"
+
+#include <memory>
+
 #include <abi/consumer.hpp>
 
 namespace glasssix::romancia
@@ -24,6 +27,6 @@ namespace glasssix::romancia
 		double antispoofing(longinus::face_info face, exposing::param_span<std::uint8_t> bitmap, int channels, int height, int width, int order) const;
 		double mask_detect(longinus::face_info face, exposing::param_span<std::uint8_t> bitmap, std::int32_t channels, std::int32_t height, std::int32_t width, std::int32_t order) const;
 	private:
-		face_alignment_internal* impl_;
+		std::unique_ptr<face_alignment_internal> impl_;
 	};
 }

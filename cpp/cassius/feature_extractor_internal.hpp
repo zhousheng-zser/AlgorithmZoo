@@ -3,6 +3,7 @@
 #ifndef _GAIUS_FEATURE_HPP_
 #define _GAIUS_FEATURE_HPP_
 
+#include <memory>
 #include <string>
 #include <vector>
 #include <cstddef>
@@ -23,9 +24,17 @@ namespace glasssix::cassius
 		/// <summary>
 		/// Creates an instance with a specified GPU core or the default CPU.
 		/// </summary>
-		/// <param name="phai_path">The phai path</param>
+		/// <param name="racy_path">The model path</param>
 		/// <param name="device">The device ID; -1 for CPU or a non-negative number for a GPU core</param>
-		feature_extractor_internal(std::string_view phai_path, std::string_view racy_path, int device);
+		feature_extractor_internal(std::string_view racy_path, int device);
+
+		/// <summary>
+		/// Creates an instance with a specified GPU core or the default CPU.
+		/// </summary>
+		/// <param name="phai_path">The phai</param>
+		/// <param name="racy_path">The model path</param>
+		/// <param name="device">The device ID; -1 for CPU or a non-negative number for a GPU core</param>
+		feature_extractor_internal(const std::vector<std::string>& phai, std::string_view racy_path, int device);
 
 		/// <summary>
 		/// The copy constructor must be disabled in PImpl pattern.
@@ -57,7 +66,7 @@ namespace glasssix::cassius
 		/// <returns>The version</returns>
 		static std::string version();
 	private:
-		impl* impl_;
+		std::unique_ptr<impl> impl_;
 	};
 }
 
