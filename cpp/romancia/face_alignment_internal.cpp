@@ -1,3 +1,4 @@
+#include "svm.h"
 #include "face_alignment_internal.hpp"
 
 #include <cmath>
@@ -12,7 +13,7 @@
 #include <Excalibur/operation_resize.hpp>
 #include <Excalibur/operation_rgb2gray.hpp>
 #include <opencv2/opencv.hpp>
-#include "svm.h"
+#include <opencv2/imgproc/types_c.h>
 
 using glasssix::excalibur::rectangle;
 using glasssix::excalibur::point;
