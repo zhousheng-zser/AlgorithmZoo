@@ -29,6 +29,8 @@ namespace glasssix::exposing::impl
 			virtual std::int32_t G6_ABI_CALL confidence(abi_out_t<float> result) noexcept = 0;
 			virtual std::int32_t G6_ABI_CALL has_mask(abi_out_t<float> result) noexcept = 0;
 			virtual std::int32_t G6_ABI_CALL is_alive(abi_out_t<std::int32_t> result) noexcept = 0;
+			virtual std::int32_t G6_ABI_CALL prob_age_index(abi_out_t<std::int32_t> result) noexcept = 0;
+			virtual std::int32_t G6_ABI_CALL prob_gender_index(abi_out_t<std::int32_t> result) noexcept = 0;
 
 			virtual std::int32_t G6_ABI_CALL set_pts(abi_in_t<param_vector<param_pair<float, float>>> input) noexcept = 0;
 			virtual std::int32_t G6_ABI_CALL set_yaw(abi_in_t<float> input) noexcept = 0;
@@ -42,6 +44,8 @@ namespace glasssix::exposing::impl
 			virtual std::int32_t G6_ABI_CALL set_confidence(abi_in_t<float> input) noexcept = 0;
 			virtual std::int32_t G6_ABI_CALL set_has_mask(abi_in_t<float> input) noexcept = 0;
 			virtual std::int32_t G6_ABI_CALL set_is_alive(abi_in_t<std::int32_t> input) noexcept = 0;
+			virtual std::int32_t G6_ABI_CALL set_prob_age_index(abi_in_t<std::int32_t> input) noexcept = 0;
+			virtual std::int32_t G6_ABI_CALL set_prob_gender_index(abi_in_t<std::int32_t> input) noexcept = 0;
 		};
 	};
 
@@ -108,6 +112,16 @@ namespace glasssix::exposing::impl
 			return abi_safe_call([&] {*result = detach_abi(this->self().is_alive()); });
 		}
 
+		virtual std::int32_t G6_ABI_CALL prob_age_index(abi_out_t<std::int32_t> result) noexcept override
+		{
+			return abi_safe_call([&] {*result = detach_abi(this->self().prob_age_index()); });
+		}
+
+		virtual std::int32_t G6_ABI_CALL prob_gender_index(abi_out_t<std::int32_t> result) noexcept override
+		{
+			return abi_safe_call([&] {*result = detach_abi(this->self().prob_gender_index()); });
+		}
+
 		virtual std::int32_t G6_ABI_CALL set_pts(abi_in_t<param_vector<param_pair<float, float>>> input) noexcept override
 		{
 			return abi_safe_call([&] { this->self().set_pts(create_from_abi<param_vector<param_pair<float, float>>>(input)); });
@@ -155,6 +169,14 @@ namespace glasssix::exposing::impl
 		virtual std::int32_t G6_ABI_CALL set_is_alive(abi_in_t<std::int32_t> input) noexcept override
 		{
 			return abi_safe_call([&] { this->self().set_is_alive(create_from_abi<std::int32_t>(input)); });
+		}
+		virtual std::int32_t G6_ABI_CALL set_prob_age_index(abi_in_t<std::int32_t> input) noexcept override
+		{
+			return abi_safe_call([&] { this->self().set_prob_age_index(create_from_abi<std::int32_t>(input)); });
+		}
+		virtual std::int32_t G6_ABI_CALL set_prob_gender_index(abi_in_t<std::int32_t> input) noexcept override
+		{
+			return abi_safe_call([&] { this->self().set_prob_gender_index(create_from_abi<std::int32_t>(input)); });
 		}
 	};
 
@@ -239,6 +261,20 @@ namespace glasssix::exposing::impl
 				return (check_abi_result(this->self_abi().is_alive(put_abi(result))), result);
 			}
 
+			std::int32_t prob_age_index() const
+			{
+				std::int32_t result = 0;
+
+				return (check_abi_result(this->self_abi().prob_age_index(put_abi(result))), result);
+			}
+
+			std::int32_t prob_gender_index() const
+			{
+				std::int32_t result = 0;
+
+				return (check_abi_result(this->self_abi().prob_gender_index(put_abi(result))), result);
+			}
+
 			void set_pts(param_vector<param_pair<float, float>> input)
 			{
 				check_abi_result(this->self_abi().set_pts(get_abi(input)));
@@ -286,6 +322,14 @@ namespace glasssix::exposing::impl
 			void set_is_alive(std::int32_t input)
 			{
 				check_abi_result(this->self_abi().set_is_alive(get_abi(input)));
+			}
+			void set_prob_age_index(std::int32_t input)
+			{
+				check_abi_result(this->self_abi().set_prob_age_index(get_abi(input)));
+			}
+			void set_prob_gender_index(std::int32_t input)
+			{
+				check_abi_result(this->self_abi().set_prob_gender_index(get_abi(input)));
 			}
 		};
 	};

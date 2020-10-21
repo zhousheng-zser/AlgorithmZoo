@@ -26,8 +26,13 @@ namespace glasssix::romancia
 
 		impl(/*exposing::param_string mask_detector_model_path,*/exposing::param_string antispoofing_model_path, std::int32_t device) : device_{ device }
 		{
-			antispoofer_ = svm_load_model(antispoofing_model_path.data());
-			if (antispoofer_ == nullptr)
+
+			{
+				std::scoped_lock<std::mutex> lck(svm_mut);
+				antispoofer_ = svm_load_model(antispoofing_model_path.data());
+			}
+			
+			if(antispoofer_ == nullptr)
 				LOG(FATAL) << "Incorrect param file.";
 
 			//mask_detector_ = svm_load_model(mask_detector_model_path.data());
@@ -553,8 +558,7 @@ namespace glasssix::romancia
 
 			return concatMat;
 		}
-
-
+		inline static std::mutex svm_mut;
 		struct svm_model* antispoofer_;
 		//struct svm_model* mask_detector_;
 		//struct svm_node* mask_feature_;

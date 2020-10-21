@@ -27,6 +27,8 @@ namespace glasssix::longinus
 		float confidence() const;
 		float has_mask() const;
 		std::int32_t is_alive() const;
+		std::int32_t prob_age_index() const;
+		std::int32_t prob_gender_index() const;
 		exposing::param_vector<exposing::param_pair<float, float> > pts() const;
 
 		void set_pts(exposing::param_vector<exposing::param_pair<float, float>> input);
@@ -41,6 +43,8 @@ namespace glasssix::longinus
 		void set_confidence(float input);
 		void set_has_mask(float input);
 		void set_is_alive(std::int32_t);
+		void set_prob_age_index(std::int32_t);
+		void set_prob_gender_index(std::int32_t);
 
 	private:
 		face_info_internal internal_;

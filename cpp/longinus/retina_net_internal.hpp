@@ -35,6 +35,8 @@ namespace glasssix::longinus
 	{
 		float clarity;
 		float has_mask;
+		int prob_age_index;
+		int prob_gender_index;
 		float score;
 		anchor_box rect;
 		face_pts pts;

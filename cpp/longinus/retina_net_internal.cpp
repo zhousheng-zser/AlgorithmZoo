@@ -40,7 +40,7 @@ namespace glasssix::longinus
 	class retina_net_internal::impl
 	{
 	public:
-		impl(exposing::param_string racy_path, exposing::param_string tracker_racy_path, float nms_threshold = 0.4, int device = -1) : impl{ hardcode::get_model_params("retina"), racy_path, hardcode::get_model_params("pfld-sim"), tracker_racy_path, nms_threshold, device }
+		impl(exposing::param_string racy_path, exposing::param_string tracker_racy_path, float nms_threshold = 0.4, int device = -1) : impl{ hardcode::get_model_params("retina"), racy_path, hardcode::get_model_params("pfld_small_gen_age_sim"), tracker_racy_path, nms_threshold, device }
 		{
 		}
 
@@ -839,6 +839,14 @@ namespace glasssix::longinus
 			trackfaceinfo.rect.h = y2 - y1 + 1;
 			trackfaceinfo.score = res["prob1"]->cpu_data()[1];
 
+			//pfld_small_gen_age_sim
+			const float* age_data = res["prob_age"]->cpu_data();
+			trackfaceinfo.prob_age_index = std::max_element(age_data, age_data + 5) - age_data;
+
+			const float* gender_data = res["prob_gender"]->cpu_data();
+			trackfaceinfo.prob_gender_index = std::max_element(gender_data, gender_data + 2) - gender_data;
+
+
 			//onet
 			//const float* landmark_data = res["conv6-3"]->cpu_data();
 			//for (size_t i = 0; i < 5; i++)
@@ -851,14 +859,14 @@ namespace glasssix::longinus
 			const float* landmark_data = res["ldmk7"]->cpu_data();
 			for (size_t i = 0; i < 2; i++)
 			{
-				trackfaceinfo.pts.x[i] = (landmark_data[4 * i] + landmark_data[4 * i + 2]) * width / 20 + offset_x;
-				trackfaceinfo.pts.y[i] = (landmark_data[4 * i + 1] + landmark_data[4 * i + 3]) * height / 20 + offset_y;
+				trackfaceinfo.pts.x[i] = (landmark_data[4 * i] + landmark_data[4 * i + 2]) * width / 80 + offset_x;
+				trackfaceinfo.pts.y[i] = (landmark_data[4 * i + 1] + landmark_data[4 * i + 3]) * height / 80 + offset_y;
 			}
 
 			for (size_t i = 2; i < 5; i++)
 			{
-				trackfaceinfo.pts.x[i] = landmark_data[2 * (i - 2) + 8] * width / 10 + offset_x;
-				trackfaceinfo.pts.y[i] = landmark_data[2 * (i - 2) + 9] * height / 10 + offset_y;
+				trackfaceinfo.pts.x[i] = landmark_data[2 * (i - 2) + 8] * width / 40 + offset_x;
+				trackfaceinfo.pts.y[i] = landmark_data[2 * (i - 2) + 9] * height / 40 + offset_y;
 			}
 
 			if (trackfaceinfo.score > 0.1)
@@ -880,8 +888,8 @@ namespace glasssix::longinus
 			float ldmk_mat[2 * 7 + 1];
 			for (size_t i = 0; i < 7; i++)
 			{
-				ldmk_mat[i * 2 + 0] = (ldmk7_data[i * 2 + 0] - bbox_data[0]) / 10 / ratio;
-				ldmk_mat[i * 2 + 1] = (ldmk7_data[i * 2 + 1] - bbox_data[1]) / 10 / ratio;
+				ldmk_mat[i * 2 + 0] = (ldmk7_data[i * 2 + 0] - bbox_data[0]) / 40 / ratio;
+				ldmk_mat[i * 2 + 1] = (ldmk7_data[i * 2 + 1] - bbox_data[1]) / 40 / ratio;
 			}
 
 			//最后一个防止奇异占位符
