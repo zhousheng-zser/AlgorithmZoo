@@ -89,6 +89,7 @@ endif()
 
 if((CMAKE_CXX_COMPILER_ID STREQUAL "GNU") OR (CMAKE_CXX_COMPILER_ID STREQUAL "Clang"))
 	add_compile_options(-fPIC -Wall -fpermissive)
+	set(CMAKE_CXX_VISIBILITY_PRESET hidden)
 endif()
 
 if(CMAKE_CXX_COMPILER_ID STREQUAL "MSVC")
