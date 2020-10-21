@@ -104,7 +104,9 @@ set(LIBRARY_OUTPUT_PATH ${PROJECT_BINARY_DIR}/lib)
 set(CMAKE_RUNTIME_OUTPUT_DIRECTORY ${PROJECT_BINARY_DIR}/bin)
 set(EXECUTABLE_OUTPUT_PATH ${PROJECT_BINARY_DIR}/bin)
 
-add_definitions(-DFMT_SHARED)
+if(CMAKE_CXX_COMPILER_ID STREQUAL "MSVC")
+	add_definitions(-DFMT_SHARED)
+endif()
 
 add_subdirectory(hardcode)
 add_subdirectory(Cassius)
