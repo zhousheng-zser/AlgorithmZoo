@@ -41,7 +41,7 @@
         },
         {
           "name": "COMMON_LIBRARY_DIRS",
-          "value": "E:/Code/Excalibur_new_arch/cmake/out/build/x64-Debug/lib",
+          "value": "E:/Code/Excalibur_new_arch/cmake/out/build/x64-Release/lib",
           "type": "STRING"
         }
       ]
