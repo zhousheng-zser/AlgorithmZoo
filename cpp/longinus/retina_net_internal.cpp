@@ -40,7 +40,7 @@ namespace glasssix::longinus
 	class retina_net_internal::impl
 	{
 	public:
-		impl(exposing::param_string racy_path, exposing::param_string tracker_racy_path, float nms_threshold = 0.4, int device = -1) : impl{ hardcode::get_model_params("retina"), racy_path, hardcode::get_model_params("pfld_small_gen_age_sim"), tracker_racy_path, nms_threshold, device }
+		impl(exposing::param_string racy_path, exposing::param_string tracker_racy_path, float nms_threshold = 0.4, int device = -1) : impl{ hardcode::get_model_params("longinus"), racy_path, hardcode::get_model_params("banshee"), tracker_racy_path, nms_threshold, device }
 		{
 		}
 
@@ -87,7 +87,7 @@ namespace glasssix::longinus
 		{
 		}
 
-		exposing::param_vector<face_info> detect(exposing::param_span<std::uint8_t>& bitmap, int channels, int height, int width, int min_size, float threshold, int order)
+		exposing::param_vector<face_info> detect(exposing::param_span<std::uint8_t>& bitmap, int channels, int height, int width, int min_size, float threshold, int order, bool do_attributing)
 		{
 			if (bitmap.empty())
 			{
@@ -209,6 +209,24 @@ namespace glasssix::longinus
 
 				refine(face, height, width, true);
 
+				if (do_attributing)
+				{
+					excalibur::rectangle<float> rect(face.rect.x, face.rect.y, face.rect.h, face.rect.w);
+					if (rect.h * rect.w <= 0)
+						throw exposing::abi_invalid_argument("rect.h * rect.w <= 0");
+
+					std::shared_ptr<memory::tensor<std::uint8_t>> faceROI_in_frame;
+					excalibur::safty_cut_cpu(cache_, faceROI_in_frame, &rect);
+
+					face.headpose[0] = face.headpose[1] = face.headpose[2] = std::numeric_limits<float>::min();
+					face.clarity = std::numeric_limits<float>::min();
+					face.is_alive = false;
+					face.has_mask = std::numeric_limits<float>::min();
+
+					tracking_landmark(faceROI_in_frame, face, rect.x, rect.y);
+					refine(face, height, width, true);
+				}
+
 				faces.push_back(exposing::make_as_first<face_info_impl>(face));
 			}
 
@@ -224,7 +242,6 @@ namespace glasssix::longinus
 			if (track_box.h * track_box.w <= 0)
 				throw exposing::abi_invalid_argument("track_box.h * track_box.w <= 0");
 
-
 			std::shared_ptr<memory::tensor<std::uint8_t>> face_in_prev_frame;
 			excalibur::safty_cut_cpu(cache_, face_in_prev_frame, &track_box);
 
@@ -233,18 +250,15 @@ namespace glasssix::longinus
 
 			CHECK_EQ(channels, 3);
 			CHECK_EQ(bitmap.size(), channels * height * width);
-
 			init_cache(bitmap, channels, height, width, order);
-
 			int min_edge = std::min(track_box.h, track_box.w);
-			float scale = min_edge / 40.0f;
+			float scale = min_edge / 20.0f;
 			if (scale < 1.0)
 				scale = 1.0;
 
 			tracking_corrfilter(cache_, face_in_prev_frame, track_box, scale);
 			std::shared_ptr<memory::tensor<std::uint8_t>> faceROI_in_frame;
 			excalibur::safty_cut_cpu(cache_, faceROI_in_frame, &track_box);
-
 			face_info_internal face_internal;
 			face_internal.headpose[0] = face_internal.headpose[1] = face_internal.headpose[2] = std::numeric_limits<float>::min();
 			face_internal.clarity = std::numeric_limits<float>::min();
@@ -947,9 +961,9 @@ namespace glasssix::longinus
 	{
 	}
 
-	exposing::param_vector<face_info> retina_net_internal::detect(exposing::param_span<std::uint8_t>& bitmap, int channels, int height, int width, int min_size, float threshold, int order)
+	exposing::param_vector<face_info> retina_net_internal::detect(exposing::param_span<std::uint8_t>& bitmap, int channels, int height, int width, int min_size, float threshold, int order, bool do_attributing)
 	{
-		return impl_->detect(bitmap, channels, height, width, min_size, threshold, order);
+		return impl_->detect(bitmap, channels, height, width, min_size, threshold, order, do_attributing);
 	}
 
 	face_info retina_net_internal::single_trace(face_info face, exposing::param_span<std::uint8_t>& bitmap, int channels, int height, int width, int order)

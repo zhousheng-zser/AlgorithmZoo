@@ -33,7 +33,7 @@ namespace glasssix::romancia
 
 		return impl_->blur_detect(face, bitmap, channels, height, width, order);
 	}
-	double face_alignment_impl::antispoofing(longinus::face_info face, exposing::param_span<std::uint8_t> bitmap, int channels, int height, int width, int order) const
+	bool face_alignment_impl::antispoofing(longinus::face_info face, exposing::param_span<std::uint8_t> bitmap, int channels, int height, int width, int order) const
 	{
 		if (!impl_)
 			throw exposing::abi_invalid_operation(u8"romancia internal object not initialized");

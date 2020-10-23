@@ -24,7 +24,7 @@ namespace glasssix::romancia
 		exposing::param_vector<exposing::param_vector<std::uint8_t>> get(exposing::param_span<std::uint8_t> bitmap, std::int32_t channels, std::int32_t height, std::int32_t width,
 			exposing::param_vector<longinus::face_info> faces, std::int32_t order) const;
 		double blur_detect(longinus::face_info face, exposing::param_span<std::uint8_t> bitmap, std::int32_t channels, std::int32_t height, std::int32_t width, std::int32_t order) const;
-		double antispoofing(longinus::face_info face, exposing::param_span<std::uint8_t> bitmap, int channels, int height, int width, int order) const;
+		bool antispoofing(longinus::face_info face, exposing::param_span<std::uint8_t> bitmap, int channels, int height, int width, int order) const;
 		double mask_detect(longinus::face_info face, exposing::param_span<std::uint8_t> bitmap, std::int32_t channels, std::int32_t height, std::int32_t width, std::int32_t order) const;
 	private:
 		std::unique_ptr<face_alignment_internal> impl_;
