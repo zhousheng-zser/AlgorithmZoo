@@ -16,10 +16,10 @@ namespace glasssix::longinus
 		face_info_impl(const face_info_internal& internal);
 		~face_info_impl();
 
-		std::int32_t x() const;
-		std::int32_t y() const;
-		std::int32_t width() const;
-		std::int32_t height() const;
+		float x() const;
+		float y() const;
+		float width() const;
+		float height() const;
 		float yaw() const;
 		float pitch() const;
 		float roll() const;
@@ -36,10 +36,10 @@ namespace glasssix::longinus
 		void set_pitch(float input);
 		void set_roll(float input);
 		void set_clarity(float input);
-		void set_x(std::int32_t input);
-		void set_y(std::int32_t input);
-		void set_width(std::int32_t input);
-		void set_height(std::int32_t input);
+		void set_x(float input);
+		void set_y(float input);
+		void set_width(float input);
+		void set_height(float input);
 		void set_confidence(float input);
 		void set_has_mask(float input);
 		void set_is_alive(std::int32_t);

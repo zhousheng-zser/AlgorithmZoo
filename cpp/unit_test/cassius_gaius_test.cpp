@@ -21,11 +21,11 @@ namespace unittest
 	public:
 		TEST_METHOD(cassius_extractor_test)
 		{
-			std::vector<std::uint8_t> input_bitmap(128 * 128 * 10);
+			std::vector<std::uint8_t> input_bitmap(128 * 128 * 10 * 3);
 
 			try
 			{
-				auto cassius_extractor = exposing::make_exported_interface<cassius::feature_extractor>(u8"models/unicorn.phai", u8"models/unicorn.racy", -1);
+				auto cassius_extractor = exposing::make_exported_interface<cassius::feature_extractor>(u8"models/unicorn.racy", -1);
 				auto result = cassius_extractor.get(input_bitmap, 10, 0);
 
 				Assert::AreEqual(10ULL, result.size());
@@ -44,11 +44,11 @@ namespace unittest
 
 		TEST_METHOD(gaius_extractor_test)
 		{
-			std::vector<std::uint8_t> input_bitmap(128 * 128 * 10);
+			std::vector<std::uint8_t> input_bitmap(128 * 128 * 10 * 3);
 
 			try
 			{
-				auto gaius_extractor = exposing::make_exported_interface<gaius::feature_extractor>(u8"models/mobile_unicorn.phai", u8"models/mobile_unicorn.racy", u8"models/mobile_unicorn.phai", u8"models/mobile_unicorn.racy", -1);
+				auto gaius_extractor = exposing::make_exported_interface<gaius::feature_extractor>(u8"models/mobile_unicorn.racy", u8"models/mobile_unicorn_mask.racy", -1);
 				auto result = gaius_extractor.get(input_bitmap, 10, 0, false);
 
 				Assert::AreEqual(10ULL, result.size());
@@ -76,10 +76,10 @@ namespace unittest
 		TEST_METHOD(multithread_test)
 		{
 			std::vector<std::uint8_t> input_bitmap(128 * 128 * 3);
-			auto cassius_extractor1 = exposing::make_exported_interface<cassius::feature_extractor>(u8"models/unicorn.phai", u8"models/unicorn.racy", -1);
-			auto cassius_extractor2 = exposing::make_exported_interface<cassius::feature_extractor>(u8"models/unicorn.phai", u8"models/unicorn.racy", -1);
-			auto cassius_extractor3 = exposing::make_exported_interface<cassius::feature_extractor>(u8"models/unicorn.phai", u8"models/unicorn.racy", -1);
-			auto cassius_extractor4 = exposing::make_exported_interface<cassius::feature_extractor>(u8"models/unicorn.phai", u8"models/unicorn.racy", -1);
+			auto cassius_extractor1 = exposing::make_exported_interface<cassius::feature_extractor>(u8"models/unicorn.racy", -1);
+			auto cassius_extractor2 = exposing::make_exported_interface<cassius::feature_extractor>(u8"models/unicorn.racy", -1);
+			auto cassius_extractor3 = exposing::make_exported_interface<cassius::feature_extractor>(u8"models/unicorn.racy", -1);
+			auto cassius_extractor4 = exposing::make_exported_interface<cassius::feature_extractor>(u8"models/unicorn.racy", -1);
 
 			std::thread t1([&]() {
 				for (size_t i = 0; i < 100000; i++)

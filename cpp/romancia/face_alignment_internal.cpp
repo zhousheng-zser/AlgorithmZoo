@@ -183,7 +183,7 @@ namespace glasssix::romancia
 			return sd1 * sd1; //·½²î
 		}
 
-		double antispoofing(longinus::face_info& face, exposing::param_span<std::uint8_t>& bitmap, int channels, int height, int width, int order)
+		bool antispoofing(longinus::face_info& face, exposing::param_span<std::uint8_t>& bitmap, int channels, int height, int width, int order)
 		{
 			cv::Mat src;
 			if (channels == 3 && order == memory::NHWC)
@@ -211,7 +211,7 @@ namespace glasssix::romancia
 			if (predict == 1.0 && !BlackWhiteDetect(src))
 				predict = 0.0;
 
-			return predict;
+			return (predict == 1.0)? true : false;
 		}
 
 		/*double mask_detect(face_info face, exposing::param_span<std::uint8_t>& bitmap, int channels, int height, int width, int order = 0)
@@ -593,7 +593,7 @@ namespace glasssix::romancia
 		return impl_->blur_detect(face, bitmap, channels, height, width, order);
 	}
 
-	double face_alignment_internal::antispoofing(longinus::face_info& face, exposing::param_span<std::uint8_t>& bitmap, int channels, int height, int width, int order) const
+	bool face_alignment_internal::antispoofing(longinus::face_info& face, exposing::param_span<std::uint8_t>& bitmap, int channels, int height, int width, int order) const
 	{
 		return impl_->antispoofing(face, bitmap, channels, height, width, order);
 	}

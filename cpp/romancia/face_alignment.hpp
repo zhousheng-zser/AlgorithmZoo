@@ -25,7 +25,7 @@ namespace glasssix::exposing::impl
 			virtual std::int32_t G6_ABI_CALL blur_detect(abi_in_t<longinus::face_info> face, abi_in_t<param_span<std::uint8_t>> bitmap, std::int32_t channels, std::int32_t height, std::int32_t width,
 				std::int32_t order, abi_out_t<double> result) noexcept = 0;
 			virtual std::int32_t G6_ABI_CALL antispoofing(abi_in_t<longinus::face_info> face, abi_in_t<param_span<std::uint8_t>> bitmap, std::int32_t channels, std::int32_t height, std::int32_t width,
-				std::int32_t order, abi_out_t<double> result) noexcept = 0;
+				std::int32_t order, abi_out_t<bool> result) noexcept = 0;
 			virtual std::int32_t G6_ABI_CALL mask_detect(abi_in_t<longinus::face_info> face, abi_in_t<param_span<std::uint8_t>> bitmap, std::int32_t channels, std::int32_t height, std::int32_t width,
 				std::int32_t order, abi_out_t<double> result) noexcept = 0;
 			virtual std::int32_t G6_ABI_CALL version(abi_out_t<param_string> result) noexcept = 0;
@@ -53,7 +53,7 @@ namespace glasssix::exposing::impl
 			return abi_safe_call([&] { *result = detach_abi(this->self().blur_detect(create_from_abi<longinus::face_info>(face), create_from_abi<param_span<std::uint8_t>>(bitmap), channels, height, width, order)); });
 		}
 		virtual std::int32_t G6_ABI_CALL antispoofing(abi_in_t<longinus::face_info> face, abi_in_t<param_span<std::uint8_t>> bitmap, std::int32_t channels, std::int32_t height, std::int32_t width,
-			std::int32_t order, abi_out_t<double> result) noexcept override
+			std::int32_t order, abi_out_t<bool> result) noexcept override
 		{
 			return abi_safe_call([&] { *result = detach_abi(this->self().antispoofing(create_from_abi<longinus::face_info>(face), create_from_abi<param_span<std::uint8_t>>(bitmap), channels, height, width, order)); });
 		}
@@ -99,9 +99,9 @@ namespace glasssix::exposing::impl
 				return (check_abi_result(this->self_abi().blur_detect(get_abi(face), get_abi(bitmap), channels, height, width, order, put_abi(result))), result);
 			}
 
-			double antispoofing(longinus::face_info face, param_span<std::uint8_t> bitmap, std::int32_t channels, std::int32_t height, std::int32_t width, std::int32_t order) const
+			bool antispoofing(longinus::face_info face, param_span<std::uint8_t> bitmap, std::int32_t channels, std::int32_t height, std::int32_t width, std::int32_t order) const
 			{
-				double result;
+				bool result;
 				return (check_abi_result(this->self_abi().antispoofing(get_abi(face), get_abi(bitmap), channels, height, width, order, put_abi(result))), result);
 			}
 
