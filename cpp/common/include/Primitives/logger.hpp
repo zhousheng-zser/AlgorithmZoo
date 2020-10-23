@@ -46,34 +46,47 @@ namespace glasssix
 	class logger_base
 	{
 	public:
-		virtual ~logger_base() = default;
-		auto operator()(const char* file, int line, enum log_level level = log_level::INFO)
+		class log_stream : public std::ostringstream
 		{
-			class log_stream : public std::ostringstream
+		public:
+			log_stream(logger_base& logger, const char* file, int line, log_level level) : line_{ line }, level_{ level }, logger_{ logger }, file_{ file }
 			{
-			public:
-				log_stream(logger_base& logger, const char* file, int line, log_level level) : line_{ line }, level_{ level }, logger_{ logger }, file_{ file }
-				{
-				};
-
-				log_stream(const log_stream& other) : line_{ other.line_ }, level_{ other.level_ }, logger_{ other.logger_ }, file_{ other.file_ }
-				{
-				};
-
-				~log_stream()
-				{
-					logger_.endline(file_, line_, level_, str().c_str());
-				}
-			private:
-				int line_;
-				log_level level_;
-				logger_base& logger_;
-				const char* file_;
 			};
 
+			log_stream(logger_base& logger, log_level level) : log_stream{ logger, nullptr, 0, level }
+			{
+			};
+
+			log_stream(const log_stream& other) : line_{ other.line_ }, level_{ other.level_ }, logger_{ other.logger_ }, file_{ other.file_ }
+			{
+			};
+
+			~log_stream()
+			{
+				logger_.endline(file_, line_, level_, str().c_str());
+			}
+		private:
+			int line_;
+			log_level level_;
+			logger_base& logger_;
+			const char* file_;
+		};
+
+		virtual ~logger_base()
+		{
+		}
+
+		auto operator()(const char* file, int line, enum log_level level = log_level::INFO)
+		{
 			return log_stream{ *this, file, line, level };
 		}
+
+		auto operator()(enum log_level level = log_level::INFO)
+		{
+			return log_stream{ *this, level };
+		}
 	protected:
+		virtual void output(const tm& time, const char* level, const char* message) = 0;
 		virtual void output(const tm& time, const char* level, const char* file, int line, const char* message) = 0;
 	private:
 		const tm& get_local_time()
@@ -88,7 +101,15 @@ namespace glasssix
 		void endline(const char* file, int line, log_level level, const char* message)
 		{
 			std::lock_guard<std::mutex> lock{ log_mutex };
-			output(get_local_time(), log_level_string_map.find(level)->second, file, line, message);
+			
+			if (file)
+			{
+				output(get_local_time(), log_level_string_map.find(level)->second, file, line, message);
+			}
+			else
+			{
+				output(get_local_time(), log_level_string_map.find(level)->second, message);
+			}
 
 			if (level == log_level::FATAL)
 			{
@@ -100,6 +121,22 @@ namespace glasssix
 	class standard_output_logger : public logger_base
 	{
 		using logger_base::logger_base;
+
+		virtual void output(const tm& time, const char* level, const char* message) override
+		{
+			std::cout << fmt::format(FMT_STRING("[{:04}-{:02}-{:02} {:02}:{:02}:{:02} {:5}][{}] {}"),
+				1900 + time.tm_year,
+				time.tm_mon + 1,
+				time.tm_mday,
+				time.tm_hour,
+				time.tm_min,
+				time.tm_sec,
+				get_current_thread_id(),
+				level,
+				message
+			) << std::endl;
+		}
+
 		virtual void output(const tm& time, const char* level, const char* file, int line, const char* message) override
 		{
 			std::cout << fmt::format(FMT_STRING("[{:04}-{:02}-{:02} {:02}:{:02}:{:02} {:5} {}:{}][{}] {}"),
@@ -118,6 +155,7 @@ namespace glasssix
 		}
 	};
 
+#define LOG_ND(level) glasssix::standard_output_logger{}(glasssix::log_level::level)
 #define LOG(level) glasssix::standard_output_logger{}(__FILE__, __LINE__, glasssix::log_level::level)
 #define LOG_IF(level, condition) if(condition) LOG(level)
 
