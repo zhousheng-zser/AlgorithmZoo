@@ -10,9 +10,9 @@ namespace glasssix::romancia
 	face_alignment_impl::~face_alignment_impl()
 	{
 	}
-	void face_alignment_impl::init(/*exposing::param_string mask_detector_model_path, */exposing::param_string antispoofing_model_path, std::int32_t device)
+	void face_alignment_impl::init(exposing::param_string mask_detector_model_path, exposing::param_string antispoofing_model_path, std::int32_t device)
 	{
-		impl_ = std::make_unique<face_alignment_internal>(antispoofing_model_path, device);
+		impl_ = std::make_unique<face_alignment_internal>(mask_detector_model_path, antispoofing_model_path, device);
 	}
 
 	exposing::param_string face_alignment_impl::version() const
@@ -39,7 +39,7 @@ namespace glasssix::romancia
 			throw exposing::abi_invalid_operation(u8"romancia internal object not initialized");
 		return impl_->antispoofing(face, bitmap, channels, height, width, order);
 	}
-	double face_alignment_impl::mask_detect(longinus::face_info face, exposing::param_span<std::uint8_t> bitmap, std::int32_t channels, std::int32_t height, std::int32_t width, std::int32_t order) const
+	bool face_alignment_impl::mask_detect(longinus::face_info face, exposing::param_span<std::uint8_t> bitmap, std::int32_t channels, std::int32_t height, std::int32_t width, std::int32_t order) const
 	{
 		if (!impl_)
 			throw exposing::abi_invalid_operation(u8"romancia internal object not initialized");

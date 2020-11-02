@@ -25,7 +25,7 @@ namespace glasssix::romancia
 		/// Creates an instance with a specified GPU core or the default CPU.
 		/// </summary>
 		/// <param name="device">The device ID; -1 for CPU or a non-negative number for a GPU core</param>
-		face_alignment_internal(/*exposing::param_string mask_detector_model_path,*/exposing::param_string antispoofing_model_path, int device);
+		face_alignment_internal(exposing::param_string mask_detector_model_path, exposing::param_string antispoofing_model_path, int device);
 
 		/// <summary>
 		/// The copy constructor must be disabled in PImpl pattern.
@@ -57,7 +57,7 @@ namespace glasssix::romancia
 
 		bool antispoofing(longinus::face_info& face, exposing::param_span<std::uint8_t>& bitmap, int channels, int height, int width, int order = 1) const;
 
-		double mask_detect(longinus::face_info& face, exposing::param_span<std::uint8_t>& bitmap, int channels, int height, int width, int order = 1) const;
+		bool mask_detect(longinus::face_info& face, exposing::param_span<std::uint8_t>& bitmap, int channels, int height, int width, int order = 1) const;
 
 		/// <summary>
 		/// Gets the version of the component.

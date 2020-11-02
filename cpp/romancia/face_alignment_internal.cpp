@@ -25,7 +25,7 @@ namespace glasssix::romancia
 	public:
 		impl() = delete;
 
-		impl(/*exposing::param_string mask_detector_model_path,*/exposing::param_string antispoofing_model_path, std::int32_t device) : device_{ device }
+		impl(exposing::param_string mask_detector_model_path, exposing::param_string antispoofing_model_path, std::int32_t device) : device_{ device }
 		{
 
 			{
@@ -36,9 +36,13 @@ namespace glasssix::romancia
 			if(antispoofer_ == nullptr)
 				LOG(FATAL) << "Incorrect param file.";
 
-			//mask_detector_ = svm_load_model(mask_detector_model_path.data());
-			//if(mask_detector_ == nullptr)
-			//	LOG(FATAL) << "Incorrect param file.";
+			{
+				std::scoped_lock<std::mutex> lck(svm_mut);
+				mask_detector_ = svm_load_model(mask_detector_model_path.data());
+			}
+
+			if(mask_detector_ == nullptr)
+				LOG(FATAL) << "Incorrect param file.";
 
 			//int mask_feature_size = mask_image_size_ / mask_block_step_ * mask_image_size_ / mask_block_step_ * mask_histSize_[0] / 2;
 			//mask_feature_ = new struct svm_node[mask_feature_size + 1];
@@ -48,7 +52,7 @@ namespace glasssix::romancia
 		~impl() 
 		{
 			svm_free_and_destroy_model(&antispoofer_);
-			//svm_free_and_destroy_model(&mask_detector_);
+			svm_free_and_destroy_model(&mask_detector_);
 			//delete[] mask_feature_;
 		}
 
@@ -148,12 +152,12 @@ namespace glasssix::romancia
 			if (channels == 1)
 			{
 				cv::Mat gray(height, width, CV_8UC1, bitmap.data());
-				cut(gray, src, cv::Rect(face.x(), face.y(), face.width(), face.height()));
+				safty_cut(gray, src, cv::Rect(face.x(), face.y(), face.width(), face.height()));
 			}
 			if (channels == 3 && order == memory::NHWC)
 			{
 				cv::Mat img(height, width, CV_8UC3, bitmap.data());
-				cut(img, src, cv::Rect(face.x(), face.y(), face.width(), face.height()));
+				safty_cut(img, src, cv::Rect(face.x(), face.y(), face.width(), face.height()));
 			}
 			else
 				throw exposing::abi_invalid_argument("Not supported channels or order");
@@ -189,7 +193,7 @@ namespace glasssix::romancia
 			if (channels == 3 && order == memory::NHWC)
 			{
 				cv::Mat img(height, width, CV_8UC3, const_cast<uchar*>(bitmap.data()));
-				cut(img, src, cv::Rect(face.x(), face.y(), face.width(), face.height()));
+				safty_cut(img, src, cv::Rect(face.x(), face.y(), face.width(), face.height()));
 			}
 			else
 				throw exposing::abi_invalid_argument("Not supported channels or order");
@@ -211,66 +215,16 @@ namespace glasssix::romancia
 			if (predict == 1.0 && !BlackWhiteDetect(src))
 				predict = 0.0;
 
-			return (predict == 1.0)? true : false;
+			return (predict == 1.0);
 		}
 
-		/*double mask_detect(face_info face, exposing::param_span<std::uint8_t>& bitmap, int channels, int height, int width, int order = 0)
-		{
-			cv::Mat src, gray, block;
-			if (channels == 1)
-				src = cv::Mat(height, width, CV_8UC1, const_cast<uchar *>(bitmap.data()))(cv::Rect(face.x(), face.y(), face.width(), face.height())).clone();
-			else if (channels == 3 && order == memory::NHWC)
-				src = cv::Mat(height, width, CV_8UC3, const_cast<uchar *>(bitmap.data()))(cv::Rect(face.x(), face.y(), face.width(), face.height())).clone();
-			else
-				throw exposing::abi_invalid_argument("Not supported channels or order");
-
-			if (src.channels() != 1)
-			{
-				cv::cvtColor(src, gray, CV_BGR2GRAY);
-			}
-			else
-			{
-				gray = src.clone();
-			}
-
-			if(gray.rows != 80 && gray.cols != 80)
-				cv::resize(gray, gray, cv::Size(mask_image_size_, mask_image_size_));
-			cv::equalizeHist(gray, gray);
-
-			const float* ranges[1] = { mask_range_ };
-			std::vector<cv::Mat> hists(mask_image_size_ / mask_block_step_ * mask_image_size_ / mask_block_step_, cv::Mat());
-			for (size_t i = 0; i < mask_image_size_ / mask_block_step_; i++)
-			{
-				for (size_t j = 0; j < mask_image_size_ / mask_block_step_; j++)
-				{
-					gray(cv::Rect(i * mask_block_step_, j * mask_block_step_, mask_block_step_, mask_block_step_)).copyTo(block);
-					cv::Mat lbp_map;
-					calcLBP(block, lbp_map);
-					cv::calcHist(&lbp_map, 1, 0, cv::Mat(), hists[i * mask_image_size_ / mask_block_step_ + j], 1, mask_histSize_, ranges);
-				}
-			}
-
-			for (size_t i = 0; i < mask_image_size_ / mask_block_step_ * mask_image_size_ / mask_block_step_; i++)
-			{
-				for (size_t j = 0; j < mask_histSize_[0] / 2; j++)
-				{
-					mask_feature_[i * mask_histSize_[0] / 2 + j].index = i * mask_histSize_[0] / 2 + j + 1;
-					mask_feature_[i * mask_histSize_[0] / 2 + j].value = hists[i].at<float>(j * 2) + hists[i].at<float>(j * 2 + 1);
-				}
-			}
-
-			double has_mask = svm_predict(mask_detector_, mask_feature_);
-
-			return has_mask;
-		}*/
-
-		double mask_detect(longinus::face_info& face, exposing::param_span<std::uint8_t>& bitmap, int channels, int height, int width, int order)
+		bool mask_detect(longinus::face_info& face, exposing::param_span<std::uint8_t>& bitmap, int channels, int height, int width, int order = 0)
 		{
 			cv::Mat src;
 			if (channels == 3 && order == memory::NHWC)
 			{
 				cv::Mat img(height, width, CV_8UC3, const_cast<uchar*>(bitmap.data()));
-				cut(img, src, cv::Rect(face.x(), face.y(), face.width(), face.height()));
+				safty_cut(img, src, cv::Rect(face.x(), face.y(), face.width(), face.height()));
 			}
 			else
 				throw exposing::abi_invalid_argument("Not supported channels or order");
@@ -312,22 +266,96 @@ namespace glasssix::romancia
 
 			cv::Mat crop;
 
-			cut(src, crop, cv::Rect(leftx, bottomy, rightx - leftx + 1, topy - bottomy + 1));
+			safty_cut(src, crop, cv::Rect(leftx, bottomy, rightx - leftx + 1, topy - bottomy + 1));
 			cv::resize(crop, crop, cv::Size(30, 30));
 
-			cv::cvtColor(crop, crop, CV_BGR2HSV);
-			std::vector<cv::Mat> splited;
-			cv::split(crop, splited);
-			cv::Mat mean, stddev;
-			cv::meanStdDev(splited[0], mean, stddev);
+			cv::HOGDescriptor hog(cv::Size(30, 30), cv::Size(30, 30), cv::Size(30, 30), cv::Size(5, 5), 9);
+			std::vector<float> descriptors;//HOG描述子向量
+			int DescriptorDim = 0;//HOG描述子的维数
 
-			double m1 = mean.at<double>(0, 0);     //均值
-			//if (m1 < 30)
-			//	return 0.0;
+			cv::Mat gray;
+			cv::cvtColor(crop, gray, CV_BGR2GRAY);
+			hog.compute(gray, descriptors);
 
-			//return 1.0;
-			return m1;
+			DescriptorDim = descriptors.size();
+			svm_node* node = new svm_node[DescriptorDim + 1];
+			node[DescriptorDim].index = -1;
+			for (size_t i = 0; i < DescriptorDim; i++)
+			{
+				node[i].value = descriptors[i];
+				node[i].index = i+1;
+			}
+
+			double value = svm_predict(mask_detector_, node);
+			delete[] node;
+
+			return (value == 1.0);
 		}
+
+		//double mask_detect(longinus::face_info& face, exposing::param_span<std::uint8_t>& bitmap, int channels, int height, int width, int order)
+		//{
+		//	cv::Mat src;
+		//	if (channels == 3 && order == memory::NHWC)
+		//	{
+		//		cv::Mat img(height, width, CV_8UC3, const_cast<uchar*>(bitmap.data()));
+		//		safty_cut(img, src, cv::Rect(face.x(), face.y(), face.width(), face.height()));
+		//	}
+		//	else
+		//		throw exposing::abi_invalid_argument("Not supported channels or order");
+
+		//	auto landmark = face.pts();
+		//	cv::Point face_start(face.x(), face.y());
+		//	std::vector<cv::Point> vec;
+		//	vec.emplace_back(landmark[2].key() - face_start.x, landmark[2].value() - face_start.y);
+		//	vec.emplace_back(landmark[3].key() - face_start.x, landmark[3].value() - face_start.y);
+		//	vec.emplace_back(landmark[4].key() - face_start.x, landmark[4].value() - face_start.y);
+
+		//	std::sort(vec.begin(), vec.end(), [](const cv::Point& first, const cv::Point& second) {return first.y < second.y; });
+		//	int topy = vec[2].y;
+		//	int bottomy = vec[0].y;
+		//	std::sort(vec.begin(), vec.end(), [](const cv::Point& first, const cv::Point& second) {return first.x < second.x; });
+		//	int rightx = vec[2].x;
+		//	int leftx = vec[0].x;
+
+		//	int w = rightx - leftx;
+		//	int h = topy - bottomy;
+
+		//	w = 1.3 * w;
+		//	int pad = int(0.15 * w);
+		//	leftx = leftx - pad;
+		//	rightx = rightx + pad;
+		//	int max_edge = std::max(w, h);
+		//	int min_edge = std::min(w, h);
+		//	int padding = (max_edge - min_edge) / 2;
+		//	if (h > w)
+		//	{
+		//		leftx = leftx - padding;
+		//		rightx = leftx + max_edge;
+		//	}
+		//	else if (h < w)
+		//	{
+		//		bottomy = bottomy - int(0.5 * padding);
+		//		topy = bottomy + max_edge;
+		//	}
+
+		//	cv::Mat crop;
+
+		//	safty_cut(src, crop, cv::Rect(leftx, bottomy, rightx - leftx + 1, topy - bottomy + 1));
+		//	cv::resize(crop, crop, cv::Size(30, 30));
+
+		//	cv::cvtColor(crop, crop, CV_BGR2HSV);
+		//	std::vector<cv::Mat> splited;
+		//	cv::split(crop, splited);
+		//	cv::Mat mean, stddev;
+		//	cv::meanStdDev(splited[0], mean, stddev);
+
+		//	double m1 = mean.at<double>(0, 0);     //均值
+		//	//if (m1 < 30)
+		//	//	return 0.0;
+
+		//	//return 1.0;
+		//	return m1;
+		//}
 
 		static std::string version()
 		{
@@ -387,7 +415,7 @@ namespace glasssix::romancia
 			}
 		}
 
-		inline void cut(cv::Mat& img, cv::Mat& dst, cv::Rect roi)
+		inline void safty_cut(cv::Mat& img, cv::Mat& dst, cv::Rect roi)
 		{
 			int width = roi.width;
 			int height = roi.height;
@@ -561,7 +589,7 @@ namespace glasssix::romancia
 		}
 		inline static std::mutex svm_mut;
 		struct svm_model* antispoofer_;
-		//struct svm_model* mask_detector_;
+		struct svm_model* mask_detector_;
 		//struct svm_node* mask_feature_;
 
 		//const int mask_image_size_ = 80;
@@ -574,7 +602,7 @@ namespace glasssix::romancia
 	};
 
 
-	face_alignment_internal::face_alignment_internal(/*exposing::param_string mask_detector_model_path, */exposing::param_string antispoofing_model_path, int device) : impl_{ std::make_unique<impl>(antispoofing_model_path, device) }
+	face_alignment_internal::face_alignment_internal(exposing::param_string mask_detector_model_path, exposing::param_string antispoofing_model_path, int device) : impl_{ std::make_unique<impl>(mask_detector_model_path, antispoofing_model_path, device) }
 	{
 	}
 
@@ -598,7 +626,7 @@ namespace glasssix::romancia
 		return impl_->antispoofing(face, bitmap, channels, height, width, order);
 	}
 
-	double face_alignment_internal::mask_detect(longinus::face_info& face, exposing::param_span<std::uint8_t>& bitmap, int channels, int height, int width, int order) const
+	bool face_alignment_internal::mask_detect(longinus::face_info& face, exposing::param_span<std::uint8_t>& bitmap, int channels, int height, int width, int order) const
 	{
 		return impl_->mask_detect(face, bitmap, channels, height, width, order);
 	}
