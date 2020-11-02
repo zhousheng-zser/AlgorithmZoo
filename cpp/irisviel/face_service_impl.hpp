@@ -15,6 +15,8 @@ namespace glasssix::irisviel
 	class face_service_impl : public exposing::implements<face_service_impl, face_service>, public exposing::make_external_qualified_name<irisviel_face_service_qualified_name>
 	{
 	public:
+		face_service_impl();
+		~face_service_impl();
 		void init(std::int32_t single_database_capacity, std::int32_t dimension, exposing::utf8_string_view working_directory);
 		void clear() const;
 		void remove_all() const;
@@ -28,9 +30,13 @@ namespace glasssix::irisviel
 		void remove_records(const exposing::param_vector<exposing::param_string>& keys) const;
 		void update_record(const irisviel::record& record) const;
 		void update_records(const exposing::param_vector<record>& records) const;
-		exposing::param_vector<irisviel::search_result> search(const exposing::param_vector<float>& feature, std::int32_t top_count_to_retrieve) const;
-		exposing::param_vector<irisviel::search_result> search(exposing::param_span<const float> feature, std::int32_t top_count_to_retrieve) const;
+		exposing::param_vector<irisviel::search_result> search(const exposing::param_vector<float>& feature, std::uint32_t top_count_to_retrieve) const;
+		exposing::param_vector<irisviel::search_result> search(const exposing::param_vector<float>& feature, float min_similarity) const;
+		exposing::param_vector<irisviel::search_result> search(const exposing::param_vector<float>& feature, float min_similarity, std::uint32_t top_count_to_retrieve) const;
+		exposing::param_vector<irisviel::search_result> search(exposing::param_span<const float> feature, std::uint32_t top_count_to_retrieve) const;
+		exposing::param_vector<irisviel::search_result> search(exposing::param_span<const float> feature, float min_similarity) const;
+		exposing::param_vector<irisviel::search_result> search(exposing::param_span<const float> feature, float min_similarity, std::uint32_t top_count_to_retrieve) const;
 	private:
-		std::shared_ptr<face_service_internal> impl_;
+		std::unique_ptr<face_service_internal> impl_;
 	};
 }

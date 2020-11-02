@@ -3,17 +3,12 @@
 
 namespace glasssix::irisviel
 {
-	search_result_impl::search_result_impl(const database_search_result& result) : impl_{ new database_search_result{ result } }
+	search_result_impl::search_result_impl(const database_search_result& result) : impl_{ std::make_unique<database_search_result>(result) }
 	{
 	}
 
 	search_result_impl::~search_result_impl()
 	{
-		if (impl_)
-		{
-			delete impl_;
-			impl_ = nullptr;
-		}
 	}
 
 	float search_result_impl::similarity() const

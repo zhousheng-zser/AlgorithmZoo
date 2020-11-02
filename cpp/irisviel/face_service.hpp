@@ -33,8 +33,12 @@ namespace glasssix::exposing::impl
 			virtual std::int32_t G6_ABI_CALL remove_records(abi_in_t<param_vector<param_string>> keys) noexcept = 0;
 			virtual std::int32_t G6_ABI_CALL update_record(abi_in_t<irisviel::record> record) noexcept = 0;
 			virtual std::int32_t G6_ABI_CALL update_records(abi_in_t<param_vector<irisviel::record>> records) noexcept = 0;
-			virtual std::int32_t G6_ABI_CALL search(abi_in_t<param_vector<float>> feature, std::int32_t top_count_to_retrieve, abi_out_t<param_vector<irisviel::search_result>> result) noexcept = 0;
-			virtual std::int32_t G6_ABI_CALL search(abi_in_t<param_span<const float>> feature, std::int32_t top_count_to_retrieve, abi_out_t<param_vector<irisviel::search_result>> result) noexcept = 0;
+			virtual std::int32_t G6_ABI_CALL search(abi_in_t<param_vector<float>> feature, std::uint32_t top_count_to_retrieve, abi_out_t<param_vector<irisviel::search_result>> result) noexcept = 0;
+			virtual std::int32_t G6_ABI_CALL search(abi_in_t<param_vector<float>> feature, float min_similarity, abi_out_t<param_vector<irisviel::search_result>> result) noexcept = 0;
+			virtual std::int32_t G6_ABI_CALL search(abi_in_t<param_vector<float>> feature, float min_similarity, std::uint32_t top_count_to_retrieve, abi_out_t<param_vector<irisviel::search_result>> result) noexcept = 0;
+			virtual std::int32_t G6_ABI_CALL search(abi_in_t<param_span<const float>> feature, std::uint32_t top_count_to_retrieve, abi_out_t<param_vector<irisviel::search_result>> result) noexcept = 0;
+			virtual std::int32_t G6_ABI_CALL search(abi_in_t<param_span<const float>> feature, float min_similarity, abi_out_t<param_vector<irisviel::search_result>> result) noexcept = 0;
+			virtual std::int32_t G6_ABI_CALL search(abi_in_t<param_span<const float>> feature, float min_similarity, std::uint32_t top_count_to_retrieve, abi_out_t<param_vector<irisviel::search_result>> result) noexcept = 0;
 		};
 	};
 
@@ -106,14 +110,34 @@ namespace glasssix::exposing::impl
 			return abi_safe_call([&] { this->self().update_records(create_from_abi<param_vector<irisviel::record>>(records)); });
 		}
 
-		virtual std::int32_t G6_ABI_CALL search(abi_in_t<param_vector<float>> feature, std::int32_t top_count_to_retrieve, abi_out_t<param_vector<irisviel::search_result>> result) noexcept override
+		virtual std::int32_t G6_ABI_CALL search(abi_in_t<param_vector<float>> feature, std::uint32_t top_count_to_retrieve, abi_out_t<param_vector<irisviel::search_result>> result) noexcept override
 		{
 			return abi_safe_call([&] { *result = detach_abi(this->self().search(create_from_abi<param_vector<float>>(feature), top_count_to_retrieve)); });
 		}
 
-		virtual std::int32_t G6_ABI_CALL search(abi_in_t<param_span<const float>> feature, std::int32_t top_count_to_retrieve, abi_out_t<param_vector<irisviel::search_result>> result) noexcept override
+		virtual std::int32_t G6_ABI_CALL search(abi_in_t<param_vector<float>> feature, float min_similarity, abi_out_t<param_vector<irisviel::search_result>> result) noexcept override
+		{
+			return abi_safe_call([&] { *result = detach_abi(this->self().search(create_from_abi<param_vector<float>>(feature), min_similarity)); });
+		}
+
+		virtual std::int32_t G6_ABI_CALL search(abi_in_t<param_vector<float>> feature, float min_similarity, std::uint32_t top_count_to_retrieve, abi_out_t<param_vector<irisviel::search_result>> result) noexcept override
+		{
+			return abi_safe_call([&] { *result = detach_abi(this->self().search(create_from_abi<param_vector<float>>(feature), min_similarity, top_count_to_retrieve)); });
+		}
+
+		virtual std::int32_t G6_ABI_CALL search(abi_in_t<param_span<const float>> feature, std::uint32_t top_count_to_retrieve, abi_out_t<param_vector<irisviel::search_result>> result) noexcept override
 		{
 			return abi_safe_call([&] { *result = detach_abi(this->self().search(create_from_abi<param_span<const float>>(feature), top_count_to_retrieve)); });
+		}
+
+		virtual std::int32_t G6_ABI_CALL search(abi_in_t<param_span<const float>> feature, float min_similarity, abi_out_t<param_vector<irisviel::search_result>> result) noexcept override
+		{
+			return abi_safe_call([&] { *result = detach_abi(this->self().search(create_from_abi<param_span<const float>>(feature), min_similarity)); });
+		}
+
+		virtual std::int32_t G6_ABI_CALL search(abi_in_t<param_span<const float>> feature, float min_similarity, std::uint32_t top_count_to_retrieve, abi_out_t<param_vector<irisviel::search_result>> result) noexcept override
+		{
+			return abi_safe_call([&] { *result = detach_abi(this->self().search(create_from_abi<param_span<const float>>(feature), min_similarity, top_count_to_retrieve)); });
 		}
 	};
 
@@ -193,18 +217,46 @@ namespace glasssix::exposing::impl
 				check_abi_result(this->self_abi().update_records(get_abi(records)));
 			}
 
-			param_vector<irisviel::search_result> search(const param_vector<float>& feature, std::int32_t top_count_to_retrieve) const
+			param_vector<irisviel::search_result> search(const param_vector<float>& feature, std::uint32_t top_count_to_retrieve) const
 			{
 				param_vector<irisviel::search_result> result{ nullptr };
 
 				return (check_abi_result(this->self_abi().search(get_abi(feature), get_abi(top_count_to_retrieve), put_abi(result))), result);
 			}
 
-			param_vector<irisviel::search_result> search(param_span<const float> feature, std::int32_t top_count_to_retrieve) const
+			param_vector<irisviel::search_result> search(const param_vector<float>& feature, float min_similarity) const
+			{
+				param_vector<irisviel::search_result> result{ nullptr };
+
+				return (check_abi_result(this->self_abi().search(get_abi(feature), get_abi(min_similarity), put_abi(result))), result);
+			}
+
+			param_vector<irisviel::search_result> search(const param_vector<float>& feature, float min_similarity, std::uint32_t top_count_to_retrieve) const
+			{
+				param_vector<irisviel::search_result> result{ nullptr };
+
+				return (check_abi_result(this->self_abi().search(get_abi(feature), get_abi(min_similarity), get_abi(top_count_to_retrieve), put_abi(result))), result);
+			}
+
+			param_vector<irisviel::search_result> search(param_span<const float> feature, std::uint32_t top_count_to_retrieve) const
 			{
 				param_vector<irisviel::search_result> result{ nullptr };
 
 				return (check_abi_result(this->self_abi().search(get_abi(feature), get_abi(top_count_to_retrieve), put_abi(result))), result);
+			}
+
+			param_vector<irisviel::search_result> search(param_span<const float> feature, float min_similarity) const
+			{
+				param_vector<irisviel::search_result> result{ nullptr };
+
+				return (check_abi_result(this->self_abi().search(get_abi(feature), get_abi(min_similarity), put_abi(result))), result);
+			}
+
+			param_vector<irisviel::search_result> search(param_span<const float> feature, float min_similarity, std::uint32_t top_count_to_retrieve) const
+			{
+				param_vector<irisviel::search_result> result{ nullptr };
+
+				return (check_abi_result(this->self_abi().search(get_abi(feature), get_abi(min_similarity), get_abi(top_count_to_retrieve), put_abi(result))), result);
 			}
 		};
 	};
