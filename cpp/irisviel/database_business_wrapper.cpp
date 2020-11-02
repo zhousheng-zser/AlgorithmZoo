@@ -5,6 +5,8 @@
 #include "nsg_calculate_error.hpp"
 #include "brute_force_search_impl.hpp"
 
+#include <cstddef>
+#include <utility>
 #include <fstream>
 #include <algorithm>
 
@@ -120,12 +122,12 @@ namespace glasssix
 				return true;
 			}
 
-			std::vector<std::vector<database_search_result>> search(const float* feature, int top) const
+			std::vector<database_search_result> search(const float* feature, std::optional<float> min_similarity, std::optional<std::uint32_t> top) const
 			{
-				return search_many({ feature }, top);
+				return search_many({ feature }, min_similarity, top).front();
 			}
 
-			std::vector<std::vector<database_search_result>> search_many(const std::vector<const float*>& features, int top) const
+			std::vector<std::vector<database_search_result>> search_many(const std::vector<const float*>& features, std::optional<float> min_similarity, std::optional<std::uint32_t> top) const
 			{
 				int dimension = observer_->dimension();
 				std::vector<std::vector<database_search_result>> result;
@@ -143,9 +145,7 @@ namespace glasssix
 						return result;
 					}
 
-					top = std::min(static_cast<int>(current_data_.size()), top);
-
-					auto raw_search_result = searcher_->search_vector(features, top);
+					auto raw_search_result = searcher_->search_vector(features, min_similarity, top);
 
 					for (const auto& item : raw_search_result)
 					{
@@ -193,17 +193,12 @@ namespace glasssix
 			std::shared_ptr<database_feature_observer> observer_;
 		};
 
-		database_business_wrapper::database_business_wrapper(const std::shared_ptr<database_feature_observer>& observer, std::string_view map_file_path, std::string_view cache_directory) : impl_{ new impl{ observer, utils::path_from_string_view(map_file_path), utils::path_from_string_view(cache_directory) } }
+		database_business_wrapper::database_business_wrapper(const std::shared_ptr<database_feature_observer>& observer, std::string_view map_file_path, std::string_view cache_directory) : impl_{ std::make_unique<impl>(observer, utils::path_from_string_view(map_file_path), utils::path_from_string_view(cache_directory)) }
 		{
 		}
 
 		database_business_wrapper::~database_business_wrapper()
 		{
-			if (impl_)
-			{
-				delete impl_;
-				impl_ = nullptr;
-			}
 		}
 
 		bool database_business_wrapper::build(bool rebuild)
@@ -221,14 +216,14 @@ namespace glasssix
 			return impl_->cache_file_path();
 		}
 
-		std::vector<std::vector<database_search_result>> database_business_wrapper::search(const float* feature, int top) const
+		std::vector<database_search_result> database_business_wrapper::search(const float* feature, std::optional<float> min_similarity, std::optional<std::uint32_t> top) const
 		{
-			return impl_->search(feature, top);
+			return impl_->search(feature, min_similarity, top);
 		}
 
-		std::vector<std::vector<database_search_result>> database_business_wrapper::search_many(const std::vector<const float*>& features, int top) const
+		std::vector<std::vector<database_search_result>> database_business_wrapper::search_many(const std::vector<const float*>& features, std::optional<float> min_similarity, std::optional<std::uint32_t> top) const
 		{
-			return impl_->search_many(features, top);
+			return impl_->search_many(features, min_similarity, top);
 		}
 	}
 }

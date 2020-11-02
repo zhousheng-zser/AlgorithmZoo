@@ -2,6 +2,8 @@
 
 #include "search_result.hpp"
 
+#include <memory>
+
 #include <abi/consumer.hpp>
 
 namespace glasssix::irisviel
@@ -17,6 +19,6 @@ namespace glasssix::irisviel
 		exposing::param_string key() const;
 		exposing::param_vector<float> feature() const;
 	private:
-		database_search_result* impl_;
+		std::unique_ptr<database_search_result> impl_;
 	};
 }

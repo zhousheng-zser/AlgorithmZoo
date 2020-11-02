@@ -3,6 +3,7 @@
 #include "irisviel_types.hpp"
 
 #include <vector>
+#include <optional>
 #include <string_view>
 
 namespace glasssix::irisviel
@@ -15,6 +16,6 @@ namespace glasssix::irisviel
 		virtual void save_cache(std::string_view path) const = 0;
 		virtual void load_cache(std::string_view path) const = 0;
 		virtual void current_data(const std::vector<const float*>& data) noexcept = 0;
-		virtual vector2d<std::tuple<std::uint32_t, float>> search_vector(const std::vector<const float*>& query_data, std::uint32_t top_k) const = 0;
+		virtual vector2d<std::tuple<std::uint32_t, float>> search_vector(const std::vector<const float*>& query_data, std::optional<float> min_similarity, std::optional<std::uint32_t> top_k) const = 0;
 	};
 }

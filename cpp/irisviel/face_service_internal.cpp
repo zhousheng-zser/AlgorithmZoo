@@ -5,6 +5,7 @@
 
 #include <list>
 #include <mutex>
+#include <limits>
 #include <fstream>
 #include <cstddef>
 #include <utility>
@@ -86,26 +87,14 @@ namespace glasssix
 				}
 			}
 
-			std::vector<database_search_result> search(const float* feature, int top)
+			std::vector<database_search_result> search(const float* feature, std::uint32_t top)
 			{
-				std::scoped_lock guard{ lock_ };
-				std::vector<database_search_result> result;
+				return search_internal(feature, std::nullopt, top);
+			}
 
-				for (auto& item : cache_)
-				{
-					auto search_result = item->wrapper->search(feature, top);
-
-					if (!search_result.empty())
-					{
-						auto single_result = search_result.front();
-						std::copy(single_result.begin(), single_result.end(), std::back_inserter(result));
-					}
-				}
-
-				std::sort(result.begin(), result.end(), [](const database_search_result& left, database_search_result& right) { return left.similarity > right.similarity; });
-				result.resize(std::min(static_cast<size_t>(top), result.size()));
-
-				return result;
+			std::vector<database_search_result> search(const float* feature, float min_similarity, std::optional<std::uint32_t> top)
+			{
+				return search_internal(feature, min_similarity, top);
 			}
 
 			void add(const std::vector<std::shared_ptr<database_record>>& records)
@@ -182,8 +171,28 @@ namespace glasssix
 					}
 				}
 			}
-
 		private:
+			std::vector<database_search_result> search_internal(const float* feature, std::optional<float> similarity, std::optional<std::uint32_t> top)
+			{
+				std::scoped_lock guard{ lock_ };
+				std::vector<database_search_result> result;
+
+				for (auto& item : cache_)
+				{
+					auto search_result = item->wrapper->search(feature, similarity, top);
+
+					if (!search_result.empty())
+					{
+						std::copy(search_result.begin(), search_result.end(), std::back_inserter(result));
+					}
+				}
+
+				std::sort(result.begin(), result.end(), [](const database_search_result& left, database_search_result& right) { return left.similarity > right.similarity; });
+				result.resize(std::min<std::size_t>(top ? *top : std::numeric_limits<std::uint32_t>::max(), result.size()));
+
+				return result;
+			}
+
 			template<typename Predicate>
 			void remove_if_core(Predicate&& predicate)
 			{
@@ -250,17 +259,12 @@ namespace glasssix
 			std::mutex lock_;
 		};
 
-		face_service_internal::face_service_internal(int single_database_capacity, int dimension, std::string_view working_directory) : impl_{ new impl{ single_database_capacity, dimension, utils::path_from_string_view(working_directory) } }
+		face_service_internal::face_service_internal(int single_database_capacity, int dimension, std::string_view working_directory) : impl_{ std::make_unique<impl>(single_database_capacity, dimension, utils::path_from_string_view(working_directory)) }
 		{
 		}
 
 		face_service_internal::~face_service_internal()
 		{
-			if (impl_)
-			{
-				delete impl_;
-				impl_ = nullptr;
-			}
 		}
 
 		void face_service_internal::clear() noexcept
@@ -293,9 +297,14 @@ namespace glasssix
 			impl_->load_databases();
 		}
 
-		std::vector<database_search_result> face_service_internal::search(const float* feature, int top) const
+		std::vector<database_search_result> face_service_internal::search(const float* feature, std::uint32_t top) const
 		{
 			return impl_->search(feature, top);
+		}
+
+		std::vector<database_search_result> face_service_internal::search(const float* feature, float min_similarity, std::optional<std::uint32_t> top) const
+		{
+			return impl_->search(feature, min_similarity, top);
 		}
 
 		void face_service_internal::add(database_record& record)

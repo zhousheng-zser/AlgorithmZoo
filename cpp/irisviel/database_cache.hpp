@@ -2,7 +2,7 @@
 #include "database_business_wrapper.hpp"
 
 #include <memory>
-#include <type_traits>
+#include <utility>
 
 namespace glasssix
 {
