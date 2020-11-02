@@ -87,7 +87,7 @@ namespace unittest
 	{
 	public:
 		longinus_romancia_test() : retina_{ exposing::make_exported_interface<longinus::retina_net>(u8"models/longinus.racy",u8"models/banshee.racy", 0.4,-1) },
-			face_alignment_{exposing::make_exported_interface<romancia::face_alignment>(u8"models/antispoofing80x80", -1)}
+			face_alignment_{exposing::make_exported_interface<romancia::face_alignment>(u8"models/mask30x30",u8"models/antispoofing80x80", -1)}
 		{
 		}
 
@@ -189,6 +189,7 @@ namespace unittest
 						cv::putText(img, "yaw: " + std::to_string(tracker_face.yaw()), cv::Point(0, 20), 2, 1.0, cv::Scalar(0, 0, 255));
 						cv::putText(img, "pitch: " + std::to_string(tracker_face.pitch()), cv::Point(0, 50), 2, 1.0, cv::Scalar(0, 0, 255));
 						cv::putText(img, "roll: " + std::to_string(tracker_face.roll()), cv::Point(0, 80), 2, 1.0, cv::Scalar(0, 0, 255));
+						cv::putText(img, face_alignment_.mask_detect(tracker_face, img_span, img.channels(), img.rows, img.cols, 1) ? "true" : "false", cv::Point(0, 110), 2, 1.0, cv::Scalar(0, 0, 255));
 						std::string face_str = "tracker:  {x: " + std::to_string(tracker_face.x()) + ", y: " + std::to_string(tracker_face.y()) + ", height: " + std::to_string(tracker_face.height()) + ", width: " + std::to_string(tracker_face.width());
 						face_str += ", pts:";
 						auto pts = tracker_face.pts();
@@ -209,6 +210,28 @@ namespace unittest
 				cv::imshow("img", img);
 				cv::waitKey(25);
 			}
+		}
+
+		TEST_METHOD(test_mask)
+		{
+			cv::Mat img = cv::imread("C:/Users/Glasssix-ZYF/Desktop/111.jpg");
+			auto face = exposing::make_exported_interface<longinus::face_info>();
+			face.set_x(277);
+			face.set_y(271);
+			face.set_height(202);
+			face.set_width(202);
+
+			exposing::param_vector<exposing::param_pair<float, float>> pts = exposing::make_param_vector<exposing::param_pair<float, float>>();
+			pts.push_back(exposing::make_param_pair(342.542f, 326.563f));
+			pts.push_back(exposing::make_param_pair(416.551f, 332.852f));
+			pts.push_back(exposing::make_param_pair(376.095f, 350.176f));
+			pts.push_back(exposing::make_param_pair(340.735f, 400.162f));
+			pts.push_back(exposing::make_param_pair(404.72f, 404.876f));
+
+			face.set_pts(pts);
+
+			exposing::param_span<std::uint8_t> img_span(img.data, img.rows * img.cols * img.channels());
+			bool result = face_alignment_.mask_detect(face, img_span, img.channels(), img.rows, img.cols, 1);
 		}
 
 		TEST_METHOD(tracker_video_test)
@@ -309,7 +332,7 @@ namespace unittest
 	{
 	public:
 		union_test():retina_{ exposing::make_exported_interface<longinus::retina_net>(u8"models/longinus.racy",u8"models/banshee.racy", 0.4,-1) },
-			face_alignment_{ exposing::make_exported_interface<romancia::face_alignment>(u8"models/antispoofing80x80", -1) },
+			face_alignment_{ exposing::make_exported_interface<romancia::face_alignment>(u8"models/mask30x30",u8"models/antispoofing80x80", -1) },
 			gaius_{ exposing::make_exported_interface<gaius::feature_extractor>(u8"models/mobile_unicorn.racy", u8"models/mobile_unicorn_mask.racy", -1) },
 			cassius_{ exposing::make_exported_interface<cassius::feature_extractor>(u8"models/unicorn.racy", -1) }
 		{}
