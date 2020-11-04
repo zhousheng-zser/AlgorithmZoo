@@ -151,7 +151,7 @@ namespace glasssix::exposing::impl
 	struct null_value;
 
 	template<typename T>
-	struct null_value<T, std::enable_if_t<std::is_convertible_v<std::nullptr_t, T>>>
+	struct null_value<T, std::enable_if_t<std::conjunction_v<std::is_convertible<std::nullptr_t, T>, std::negation<std::is_same<T, bool>>>>>
 	{
 		static constexpr std::nullptr_t value{};
 	};
