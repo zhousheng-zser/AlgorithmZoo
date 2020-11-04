@@ -64,7 +64,7 @@ namespace glasssix
 
 				std::for_each(cache_.begin(), cache_.end(), [](const std::shared_ptr<database_cache> item) { item->mark_for_deletion(); });
 				cache_.clear();
-
+				
 				// Removes all remaining contents.
 				utils::safe_remove_directories(cache_directory_);
 				utils::safe_remove_directories(database_directory_);
