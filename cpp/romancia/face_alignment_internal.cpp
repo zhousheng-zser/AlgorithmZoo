@@ -97,7 +97,7 @@ namespace glasssix::romancia
 
 					if (distance < std::numeric_limits<double>::epsilon())
 					{
-						LOG(FATAL) << "Illegal distance.";
+						throw exposing::abi_invalid_argument("Illegal distance. Error landmarks.");
 					}
 
 					double cos = (center_mouth.y - center_eye.y) / distance;
