@@ -36,9 +36,9 @@ namespace glasssix::irisviel
 		template<typename Container>
 		void check_dimension(Container&& feature, int dimension)
 		{
-			if (std::forward<Container>(feature).size() < static_cast<std::size_t>(dimension))
+			if (std::forward<Container>(feature).size() != static_cast<std::size_t>(dimension))
 			{
-				throw exposing::abi_invalid_argument{ exposing::format(u8"The size of the input feature cannot be less than {}.", dimension) };
+				throw exposing::abi_invalid_argument{ exposing::format(u8"The feature size {} is different from {}.", dimension) };
 			}
 		}
 	}
@@ -120,7 +120,7 @@ namespace glasssix::irisviel
 		impl_->remove(internal_keys);
 	}
 
-	void face_service_impl::update_record(const irisviel::record& record) const
+	void face_service_impl::update_record(const record& record) const
 	{
 		impl_->update(*create_internal_record(record));
 	}
@@ -146,7 +146,7 @@ namespace glasssix::irisviel
 		return create_search_result(internal_result);
 	}
 
-	exposing::param_vector<irisviel::search_result> face_service_impl::search(const exposing::param_vector<float>& feature, float min_similarity) const
+	exposing::param_vector<search_result> face_service_impl::search(const exposing::param_vector<float>& feature, float min_similarity) const
 	{
 		check_dimension(feature, dimension());
 
@@ -155,7 +155,7 @@ namespace glasssix::irisviel
 		return create_search_result(internal_result);
 	}
 
-	exposing::param_vector<irisviel::search_result> face_service_impl::search(const exposing::param_vector<float>& feature, float min_similarity, std::uint32_t top_count_to_retrieve) const
+	exposing::param_vector<search_result> face_service_impl::search(const exposing::param_vector<float>& feature, float min_similarity, std::uint32_t top_count_to_retrieve) const
 	{
 		check_dimension(feature, dimension());
 
@@ -173,7 +173,7 @@ namespace glasssix::irisviel
 		return create_search_result(internal_result);
 	}
 
-	exposing::param_vector<irisviel::search_result> face_service_impl::search(exposing::param_span<const float> feature, float min_similarity) const
+	exposing::param_vector<search_result> face_service_impl::search(exposing::param_span<const float> feature, float min_similarity) const
 	{
 		check_dimension(feature, dimension());
 
@@ -182,7 +182,7 @@ namespace glasssix::irisviel
 		return create_search_result(internal_result);
 	}
 
-	exposing::param_vector<irisviel::search_result> face_service_impl::search(exposing::param_span<const float> feature, float min_similarity, std::uint32_t top_count_to_retrieve) const
+	exposing::param_vector<search_result> face_service_impl::search(exposing::param_span<const float> feature, float min_similarity, std::uint32_t top_count_to_retrieve) const
 	{
 		check_dimension(feature, dimension());
 

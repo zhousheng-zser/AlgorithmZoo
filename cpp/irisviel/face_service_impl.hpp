@@ -28,14 +28,14 @@ namespace glasssix::irisviel
 		void add_records(const exposing::param_vector<record>& records) const;
 		void remove_record(const exposing::param_string& key) const;
 		void remove_records(const exposing::param_vector<exposing::param_string>& keys) const;
-		void update_record(const irisviel::record& record) const;
+		void update_record(const record& record) const;
 		void update_records(const exposing::param_vector<record>& records) const;
-		exposing::param_vector<irisviel::search_result> search(const exposing::param_vector<float>& feature, std::uint32_t top_count_to_retrieve) const;
-		exposing::param_vector<irisviel::search_result> search(const exposing::param_vector<float>& feature, float min_similarity) const;
-		exposing::param_vector<irisviel::search_result> search(const exposing::param_vector<float>& feature, float min_similarity, std::uint32_t top_count_to_retrieve) const;
-		exposing::param_vector<irisviel::search_result> search(exposing::param_span<const float> feature, std::uint32_t top_count_to_retrieve) const;
-		exposing::param_vector<irisviel::search_result> search(exposing::param_span<const float> feature, float min_similarity) const;
-		exposing::param_vector<irisviel::search_result> search(exposing::param_span<const float> feature, float min_similarity, std::uint32_t top_count_to_retrieve) const;
+		exposing::param_vector<search_result> search(const exposing::param_vector<float>& feature, std::uint32_t top_count_to_retrieve) const;
+		exposing::param_vector<search_result> search(const exposing::param_vector<float>& feature, float min_similarity) const;
+		exposing::param_vector<search_result> search(const exposing::param_vector<float>& feature, float min_similarity, std::uint32_t top_count_to_retrieve) const;
+		exposing::param_vector<search_result> search(exposing::param_span<const float> feature, std::uint32_t top_count_to_retrieve) const;
+		exposing::param_vector<search_result> search(exposing::param_span<const float> feature, float min_similarity) const;
+		exposing::param_vector<search_result> search(exposing::param_span<const float> feature, float min_similarity, std::uint32_t top_count_to_retrieve) const;
 	private:
 		std::unique_ptr<face_service_internal> impl_;
 	};

@@ -39,6 +39,27 @@ namespace glasssix::exposing::impl
 	/// </summary>
 	template<typename T>
 	inline constexpr bool is_param_span_v = is_param_span<T>::value;
+
+	template<typename T, typename = void>
+	struct has_data_and_size : std::false_type{};
+
+	template<typename T>
+	struct has_data_and_size<T, std::void_t<decltype(std::declval<T>().data()), decltype(std::declval<T>().size())>> : std::true_type{};
+
+	/// <summary>
+	/// Checks whether a type has a member function "data" and a member function "size".
+	/// </summary>
+	template<typename T>
+	inline constexpr bool has_data_and_size_v = has_data_and_size<T>::value;
+
+	template<typename T>
+	struct is_random_accessible_container : std::conjunction<std::negation<is_param_span<T>>, meta::is_iterator_category_same<T, std::random_access_iterator_tag>, has_data_and_size<T>> {};
+
+	/// <summary>
+	/// Checks whethera type is a random-accessible container.
+	/// </summary>
+	template<typename T>
+	inline constexpr bool is_random_accessible_container_v = is_random_accessible_container<T>::value;
 }
 
 namespace glasssix::exposing
@@ -71,8 +92,8 @@ namespace glasssix::exposing
 		/// </summary>
 		/// <typeparam name="Container">The container type</typeparam>
 		/// <param name="container">The container</param>
-		template<typename Container, typename = std::enable_if_t<std::conjunction_v<std::negation<std::is_same<std::decay_t<Container>, param_span>>, meta::is_iterator_category_same<std::decay_t<Container>, std::random_access_iterator_tag>>>>
-		param_span(Container&& container) noexcept : data_{ &*std::forward<Container>(container).begin() }, size_{ static_cast<std::size_t>(std::forward<Container>(container).end() - std::forward<Container>(container).begin()) }
+		template<typename Container, typename = std::enable_if_t<impl::is_random_accessible_container_v<std::decay_t<Container>>>>
+		param_span(Container&& container) noexcept : data_{ std::forward<Container>(container).data() }, size_{ std::forward<Container>(container).size() }
 		{
 		}
 
@@ -109,6 +130,11 @@ namespace glasssix::exposing
 		param_span& operator=(param_span&& right) noexcept
 		{
 			return (data_ = std::exchange(right.data_, nullptr), size_ = std::exchange(right.size_, 0), *this);
+		}
+
+		T& operator[](std::size_t index) const
+		{
+			return index < size_ ? data_[index] : throw abi_out_of_bounds{ format(FMT_STRING("Index: {}, Size: {}"), index, size_) };
 		}
 
 		explicit operator bool() const noexcept
@@ -193,12 +219,7 @@ namespace glasssix::exposing
 
 		param_span<T> sub_span(std::size_t index, std::size_t size)
 		{
-			if (index >= size_ || index + size > size_)
-			{
-				throw abi_out_of_bounds{ format(FMT_STRING("Index: {}, Size: {}"), index, size) };
-			}
-
-			return param_span<T>{ data_ + index, size };
+			return index < size_ && index + size <= size_ ? param_span<T>{ data_ + index, size } : throw abi_out_of_bounds{ format(FMT_STRING("Index: {}, Size: {}"), index, size) };
 		}
 	private:
 		T* data_;
