@@ -195,7 +195,7 @@ namespace glasssix::romancia
 			cv::Mat img;
 			if (channels == 3 && order == memory::NHWC)
 			{
-				cv::Mat img(height, width, CV_8UC3, const_cast<uchar*>(bitmap.data()));
+				img = cv::Mat(height, width, CV_8UC3, const_cast<uchar*>(bitmap.data()));
 			}
 			else
 				throw exposing::abi_invalid_argument("Not supported channels or order");
@@ -307,7 +307,7 @@ namespace glasssix::romancia
 			cv::Mat img;
 			if (channels == 3 && order == memory::NHWC)
 			{
-				cv::Mat img(height, width, CV_8UC3, const_cast<uchar*>(bitmap.data()));
+				img = cv::Mat(height, width, CV_8UC3, const_cast<uchar*>(bitmap.data()));
 			}
 			else
 				throw exposing::abi_invalid_argument("Not supported channels or order");
