@@ -56,7 +56,7 @@ namespace glasssix::exposing::impl
 	struct is_random_accessible_container : std::conjunction<std::negation<is_param_span<T>>, meta::is_iterator_category_same<T, std::random_access_iterator_tag>, has_data_and_size<T>> {};
 
 	/// <summary>
-	/// Checks whethera type is a random-accessible container.
+	/// Checks whether a type is a random-accessible container.
 	/// </summary>
 	template<typename T>
 	inline constexpr bool is_random_accessible_container_v = is_random_accessible_container<T>::value;
@@ -134,7 +134,7 @@ namespace glasssix::exposing
 
 		T& operator[](std::size_t index) const
 		{
-			return index < size_ ? data_[index] : throw abi_out_of_bounds{ format(FMT_STRING("Index: {}, Size: {}"), index, size_) };
+			return index < size_ ? data_[index] : throw abi_out_of_bounds{ format(FMT_STRING(u8"Index: {}, Size: {}"), index, size_) };
 		}
 
 		explicit operator bool() const noexcept
@@ -219,7 +219,7 @@ namespace glasssix::exposing
 
 		param_span<T> sub_span(std::size_t index, std::size_t size)
 		{
-			return index < size_ && index + size <= size_ ? param_span<T>{ data_ + index, size } : throw abi_out_of_bounds{ format(FMT_STRING("Index: {}, Size: {}"), index, size) };
+			return index < size_ && index + size <= size_ ? param_span<T>{ data_ + index, size } : throw abi_out_of_bounds{ format(FMT_STRING(u8"Index: {}, Size: {}"), index, size) };
 		}
 	private:
 		T* data_;

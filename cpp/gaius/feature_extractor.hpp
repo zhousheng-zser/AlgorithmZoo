@@ -57,7 +57,7 @@ namespace glasssix::exposing::impl
 				check_abi_result(this->self_abi().init(get_abi(racy_path), get_abi(mask_racy_path), get_abi(device)));
 			}
 
-			void init(const exposing::param_span<const exposing::param_string>& phai, const param_string& racy_path, const exposing::param_span<const exposing::param_string>& mask_phai, const param_string& mask_racy_path, std::int32_t device) const
+			void init(const exposing::param_span<const exposing::param_string> phai, const param_string& racy_path, const exposing::param_span<const exposing::param_string> mask_phai, const param_string& mask_racy_path, std::int32_t device) const
 			{
 				check_abi_result(this->self_abi().init(get_abi(phai), get_abi(racy_path), get_abi(mask_phai), get_abi(mask_racy_path), get_abi(device)));
 			}

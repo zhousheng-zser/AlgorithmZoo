@@ -9,6 +9,64 @@
 
 namespace glasssix::exposing
 {
+	template<typename T, typename = void>
+	class enum_ref;
+
+	/// <summary>
+	/// An assistant to prevent conversion between an enumeration and its underlying type from violating the strict aliasing rule.
+	/// </summary>
+	template<typename T>
+	class enum_ref<T, std::enable_if_t<std::is_enum_v<T>>>
+	{
+	public:
+		using underlying_type = std::underlying_type_t<T>;
+
+		enum_ref(T& value) noexcept : ref_{ value }, value_ { static_cast<underlying_type>(value) }
+		{
+		}
+
+		~enum_ref()
+		{
+			ref_ = static_cast<T>(value_);
+		}
+
+		operator T() const noexcept
+		{
+			return static_cast<T>(value_);
+		}
+
+		operator underlying_type() const noexcept
+		{
+			return value_;
+		}
+
+		operator underlying_type* () noexcept
+		{
+			return &value_;
+		}
+
+		operator const underlying_type* () const noexcept
+		{
+			return &value_;
+		}
+
+		underlying_type& operator&() noexcept
+		{
+			return &value_;
+		}
+
+		const underlying_type& operator&() const noexcept
+		{
+			return &value_;
+		}
+	private:
+		T& ref_;
+		underlying_type value_;
+	};
+
+	template<typename T>
+	enum_ref(T&)->enum_ref<T>;
+
 	/// <summary>
 	/// Indicates that an argument accepts a void pointer containing an ABI which is prepared to be taken over by another object.
 	/// </summary>

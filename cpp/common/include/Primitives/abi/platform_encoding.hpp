@@ -7,9 +7,12 @@
 #include <string>
 #include <cstddef>
 #include <cstdint>
-#include <cstring>
 #include <utility>
 #include <string_view>
+
+#ifndef _WIN32
+#include <algorithm>
+#endif
 
 namespace glasssix::exposing
 {
@@ -171,7 +174,7 @@ namespace glasssix::exposing::platform_encoding
 #else
 		std::string result(utf8_str.size(), '\0');
 
-		return (std::memcpy(result.data(), utf8_str.data(), utf8_str.size()), result);
+		return (std::copy(utf8_str.begin(), utf8_str.end(), result.begin()), result);
 #endif
 	}
 
@@ -189,7 +192,7 @@ namespace glasssix::exposing::platform_encoding
 #else
 		utf8_string result(narrow_str.size(), '\0');
 
-		return (std::memcpy(result.data(), narrow_str.data(), narrow_str.size()), result);
+		return (std::copy(narrow_str.begin(), narrow_str.end(), result.begin()), result);
 #endif
 	}
 }

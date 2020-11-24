@@ -25,7 +25,7 @@ namespace glasssix::romancia
 	public:
 		impl() = delete;
 
-		impl(/*exposing::param_string mask_detector_model_path, */exposing::param_string antispoofing_model_path, std::int32_t device) : device_{ device }
+		impl(/*const exposing::param_string& mask_detector_model_path, */const exposing::param_string& antispoofing_model_path, std::int32_t device) : device_{ device }
 		{
 
 			{
@@ -52,8 +52,8 @@ namespace glasssix::romancia
 			//svm_free_and_destroy_model(&mask_detector_);
 		}
 
-		exposing::param_vector<exposing::param_vector<std::uint8_t>> align(exposing::param_span<std::uint8_t>& bitmap, std::int32_t channels, std::int32_t height, std::int32_t width,
-			exposing::param_vector<longinus::face_info>& faces, std::int32_t order)
+		exposing::param_vector<exposing::param_vector<std::uint8_t>> align(exposing::param_span<std::uint8_t> bitmap, std::int32_t channels, std::int32_t height, std::int32_t width,
+			const exposing::param_vector<longinus::face_info>& faces, std::int32_t order)
 		{
 			if (bitmap.empty())
 			{
@@ -137,84 +137,98 @@ namespace glasssix::romancia
 			return res;
 		}
 
-		double blur_detect(longinus::face_info& face, exposing::param_span<std::uint8_t>& bitmap, std::int32_t channels, std::int32_t height, std::int32_t width, std::int32_t order)
+		exposing::param_vector<double> blur_detect(const exposing::param_vector<longinus::face_info>& faces, exposing::param_span<std::uint8_t> bitmap, std::int32_t channels, std::int32_t height, std::int32_t width, std::int32_t order)
 		{
 			if (bitmap.empty())
 			{
 				throw exposing::abi_invalid_argument("current frame is empty");
 			}
 
-			cv::Mat src, srcBlur, gray1, gray2, gray3, dstImage;
+			cv::Mat img;
 			if (channels == 1)
 			{
-				cv::Mat gray(height, width, CV_8UC1, bitmap.data());
-				safty_cut(gray, src, cv::Rect(face.x(), face.y(), face.width(), face.height()));
+				img = cv::Mat(height, width, CV_8UC1, bitmap.data());
 			}
 			if (channels == 3 && order == memory::NHWC)
 			{
-				cv::Mat img(height, width, CV_8UC3, bitmap.data());
-				safty_cut(img, src, cv::Rect(face.x(), face.y(), face.width(), face.height()));
+				img = cv::Mat(height, width, CV_8UC3, bitmap.data());
 			}
 			else
 				throw exposing::abi_invalid_argument("Not supported channels or order");
 
-			GaussianBlur(src, srcBlur, cv::Size(3, 3), 0, 0, cv::BORDER_DEFAULT); //高斯滤波
-			cv::convertScaleAbs(srcBlur, src); //使用线性变换转换输入数组元素成8位无符号整型 归一化为0-255
-			if (src.channels() != 1)
+			cv::Mat src, srcBlur, gray1, gray2, gray3, dstImage;
+			auto result = exposing::make_param_vector<double>();
+			for (const auto &i : faces)
 			{
-				cv::cvtColor(src, gray1, CV_BGR2GRAY);
-			}
-			else
-			{
-				gray1 = src.clone();
-			}
+				safty_cut(img, src, cv::Rect(i.x(), i.y(), i.width(), i.height()));
+				GaussianBlur(src, srcBlur, cv::Size(3, 3), 0, 0, cv::BORDER_DEFAULT); //高斯滤波
+				cv::convertScaleAbs(srcBlur, src); //使用线性变换转换输入数组元素成8位无符号整型 归一化为0-255
+				if (src.channels() != 1)
+				{
+					cv::cvtColor(src, gray1, CV_BGR2GRAY);
+				}
+				else
+				{
+					gray1 = src.clone();
+				}
 
-			cv::Mat tmp_m1, tmp_sd1;    //用来存储均值和方差  
-			double m1 = 0, sd1 = 0;
-			//使用3x3的Laplacian算子卷积滤波  
-			cv::Laplacian(gray1, gray2, CV_16S, 3, 1, 0, cv::BORDER_DEFAULT);
-			////归到0~255  
-			cv::convertScaleAbs(gray2, gray3);
+				cv::Mat tmp_m1, tmp_sd1;    //用来存储均值和方差  
+				double m1 = 0, sd1 = 0;
+				//使用3x3的Laplacian算子卷积滤波  
+				cv::Laplacian(gray1, gray2, CV_16S, 3, 1, 0, cv::BORDER_DEFAULT);
+				////归到0~255  
+				cv::convertScaleAbs(gray2, gray3);
 
-			//计算均值和方差  
-			cv::meanStdDev(gray3, tmp_m1, tmp_sd1);
-			m1 = tmp_m1.at<double>(0, 0);     //均值  
-			sd1 = tmp_sd1.at<double>(0, 0);       //标准差  
-			return sd1 * sd1; //方差
+				//计算均值和方差  
+				cv::meanStdDev(gray3, tmp_m1, tmp_sd1);
+				m1 = tmp_m1.at<double>(0, 0);     //均值  
+				sd1 = tmp_sd1.at<double>(0, 0);       //标准差  
+
+				result.push_back(sd1 * sd1); //方差
+			}
+			
+			return result;
 		}
 
-		bool antispoofing(longinus::face_info& face, exposing::param_span<std::uint8_t>& bitmap, int channels, int height, int width, int order)
+		exposing::param_vector<bool> antispoofing(const exposing::param_vector<longinus::face_info>& faces, exposing::param_span<std::uint8_t> bitmap, int channels, int height, int width, int order)
 		{
-			cv::Mat src;
+			cv::Mat img;
 			if (channels == 3 && order == memory::NHWC)
 			{
 				cv::Mat img(height, width, CV_8UC3, const_cast<uchar*>(bitmap.data()));
-				safty_cut(img, src, cv::Rect(face.x(), face.y(), face.width(), face.height()));
 			}
 			else
 				throw exposing::abi_invalid_argument("Not supported channels or order");
-
-			cv::Mat featureMat = pretreatment(src);
-			//std::cout << featureMat << std::endl;
-
-			svm_node* features = new svm_node[featureMat.rows + 1];
-			for (int i = 0; i < featureMat.rows; i++)
+			
+			cv::Mat src;
+			auto result = exposing::make_param_vector<bool>();
+			for (const auto& i : faces)
 			{
-				features[i].index = i + 1;
-				features[i].value = featureMat.at<float>(i, 0);
+				safty_cut(img, src, cv::Rect(i.x(), i.y(), i.width(), i.height()));
+				cv::Mat featureMat = pretreatment(src);
+				//std::cout << featureMat << std::endl;
+
+				svm_node* features = new svm_node[featureMat.rows + 1];
+				for (int i = 0; i < featureMat.rows; i++)
+				{
+					features[i].index = i + 1;
+					features[i].value = featureMat.at<float>(i, 0);
+				}
+				features[featureMat.rows].index = -1;
+				features[featureMat.rows].value = 0;
+				double predict = svm_predict(antispoofer_, features);
+				delete[] features;
+
+				if (predict == 1.0 && !BlackWhiteDetect(src))
+					predict = 0.0;
+
+				result.push_back(predict == 1.0);
 			}
-			features[featureMat.rows].index = -1;
-			features[featureMat.rows].value = 0;
-			double predict = svm_predict(antispoofer_, features);
-			delete[] features;
 
-			if (predict == 1.0 && !BlackWhiteDetect(src))
-				predict = 0.0;
-
-			return (predict == 1.0);
+			return result;
 		}
 
-		//bool mask_detect(longinus::face_info& face, exposing::param_span<std::uint8_t>& bitmap, int channels, int height, int width, int order = 0)
+		//bool mask_detect(const exposing::param_vector<longinus::face_info>& faces, exposing::param_span<std::uint8_t> bitmap, int channels, int height, int width, int order = 0)
 		//{
 		//	cv::Mat src;
 		//	if (channels == 3 && order == memory::NHWC)
@@ -288,69 +302,75 @@ namespace glasssix::romancia
 		//	return (value == 1.0);
 		//}
 
-		double mask_detect(longinus::face_info& face, exposing::param_span<std::uint8_t>& bitmap, int channels, int height, int width, int order)
+		exposing::param_vector<double> mask_detect(const exposing::param_vector<longinus::face_info>& faces, exposing::param_span<std::uint8_t> bitmap, int channels, int height, int width, int order)
 		{
-			cv::Mat src;
+			cv::Mat img;
 			if (channels == 3 && order == memory::NHWC)
 			{
 				cv::Mat img(height, width, CV_8UC3, const_cast<uchar*>(bitmap.data()));
-				safty_cut(img, src, cv::Rect(face.x(), face.y(), face.width(), face.height()));
 			}
 			else
 				throw exposing::abi_invalid_argument("Not supported channels or order");
 
-			auto landmark = face.pts();
-			cv::Point face_start(face.x(), face.y());
-			std::vector<cv::Point> vec;
-			vec.emplace_back(landmark[2].key() - face_start.x, landmark[2].value() - face_start.y);
-			vec.emplace_back(landmark[3].key() - face_start.x, landmark[3].value() - face_start.y);
-			vec.emplace_back(landmark[4].key() - face_start.x, landmark[4].value() - face_start.y);
-
-			std::sort(vec.begin(), vec.end(), [](const cv::Point& first, const cv::Point& second) {return first.y < second.y; });
-			int topy = vec[2].y;
-			int bottomy = vec[0].y;
-			std::sort(vec.begin(), vec.end(), [](const cv::Point& first, const cv::Point& second) {return first.x < second.x; });
-			int rightx = vec[2].x;
-			int leftx = vec[0].x;
-
-			int w = rightx - leftx;
-			int h = topy - bottomy;
-
-			w = 1.3 * w;
-			int pad = int(0.15 * w);
-			leftx = leftx - pad;
-			rightx = rightx + pad;
-			int max_edge = std::max(w, h);
-			int min_edge = std::min(w, h);
-			int padding = (max_edge - min_edge) / 2;
-			if (h > w)
+			cv::Mat src;
+			auto result = exposing::make_param_vector<double>();
+			for (const auto& i : faces)
 			{
-				leftx = leftx - padding;
-				rightx = leftx + max_edge;
+				safty_cut(img, src, cv::Rect(i.x(), i.y(), i.width(), i.height()));
+				auto landmark = i.pts();
+				cv::Point face_start(i.x(), i.y());
+				std::vector<cv::Point> vec;
+				vec.emplace_back(landmark[2].key() - face_start.x, landmark[2].value() - face_start.y);
+				vec.emplace_back(landmark[3].key() - face_start.x, landmark[3].value() - face_start.y);
+				vec.emplace_back(landmark[4].key() - face_start.x, landmark[4].value() - face_start.y);
+
+				std::sort(vec.begin(), vec.end(), [](const cv::Point& first, const cv::Point& second) {return first.y < second.y; });
+				int topy = vec[2].y;
+				int bottomy = vec[0].y;
+				std::sort(vec.begin(), vec.end(), [](const cv::Point& first, const cv::Point& second) {return first.x < second.x; });
+				int rightx = vec[2].x;
+				int leftx = vec[0].x;
+
+				int w = rightx - leftx;
+				int h = topy - bottomy;
+
+				w = 1.3 * w;
+				int pad = int(0.15 * w);
+				leftx = leftx - pad;
+				rightx = rightx + pad;
+				int max_edge = std::max(w, h);
+				int min_edge = std::min(w, h);
+				int padding = (max_edge - min_edge) / 2;
+				if (h > w)
+				{
+					leftx = leftx - padding;
+					rightx = leftx + max_edge;
+				}
+				else if (h < w)
+				{
+					bottomy = bottomy - int(0.5 * padding);
+					topy = bottomy + max_edge;
+				}
+
+				cv::Mat crop;
+
+				safty_cut(src, crop, cv::Rect(leftx, bottomy, rightx - leftx + 1, topy - bottomy + 1));
+				cv::resize(crop, crop, cv::Size(30, 30));
+
+				cv::cvtColor(crop, crop, CV_BGR2HSV);
+				std::vector<cv::Mat> splited;
+				cv::split(crop, splited);
+				cv::Mat mean, stddev;
+				cv::meanStdDev(splited[0], mean, stddev);
+
+				double m1 = mean.at<double>(0, 0);     //均值
+				//if (m1 < 30)
+				//	return 0.0;
+
+				result.push_back(m1);
 			}
-			else if (h < w)
-			{
-				bottomy = bottomy - int(0.5 * padding);
-				topy = bottomy + max_edge;
-			}
-
-			cv::Mat crop;
-
-			safty_cut(src, crop, cv::Rect(leftx, bottomy, rightx - leftx + 1, topy - bottomy + 1));
-			cv::resize(crop, crop, cv::Size(30, 30));
-
-			cv::cvtColor(crop, crop, CV_BGR2HSV);
-			std::vector<cv::Mat> splited;
-			cv::split(crop, splited);
-			cv::Mat mean, stddev;
-			cv::meanStdDev(splited[0], mean, stddev);
-
-			double m1 = mean.at<double>(0, 0);     //均值
-			//if (m1 < 30)
-			//	return 0.0;
-
-			//return 1.0;
-			return m1;
+			
+			return result;
 		}
 
 		static std::string version()
@@ -592,7 +612,7 @@ namespace glasssix::romancia
 	};
 
 
-	face_alignment_internal::face_alignment_internal(/*exposing::param_string mask_detector_model_path, */exposing::param_string antispoofing_model_path, int device) : impl_{ std::make_unique<impl>(/*mask_detector_model_path, */antispoofing_model_path, device) }
+	face_alignment_internal::face_alignment_internal(/*const exposing::param_string& mask_detector_model_path, */const exposing::param_string& antispoofing_model_path, int device) : impl_{ std::make_unique<impl>(/*mask_detector_model_path, */antispoofing_model_path, device) }
 	{
 	}
 
@@ -600,30 +620,30 @@ namespace glasssix::romancia
 	{
 	}
 
-	exposing::param_vector<exposing::param_vector<std::uint8_t>> face_alignment_internal::align(exposing::param_span<std::uint8_t>& bitmap, std::int32_t channels, std::int32_t height, std::int32_t width,
-		exposing::param_vector<longinus::face_info>& faces, std::int32_t order) const
+	exposing::param_vector<exposing::param_vector<std::uint8_t>> face_alignment_internal::align(exposing::param_span<std::uint8_t> bitmap, std::int32_t channels, std::int32_t height, std::int32_t width,
+		const exposing::param_vector<longinus::face_info>& faces, std::int32_t order) const
 	{
 		return impl_->align(bitmap, channels, height, width, faces, order);
 	}
 
-	double face_alignment_internal::blur_detect(longinus::face_info& face, exposing::param_span<std::uint8_t>& bitmap, std::int32_t channels, std::int32_t height, std::int32_t width, std::int32_t order) const
+	exposing::param_vector<double> face_alignment_internal::blur_detect(const exposing::param_vector<longinus::face_info>& faces, exposing::param_span<std::uint8_t> bitmap, std::int32_t channels, std::int32_t height, std::int32_t width, std::int32_t order) const
 	{
-		return impl_->blur_detect(face, bitmap, channels, height, width, order);
+		return impl_->blur_detect(faces, bitmap, channels, height, width, order);
 	}
 
-	bool face_alignment_internal::antispoofing(longinus::face_info& face, exposing::param_span<std::uint8_t>& bitmap, int channels, int height, int width, int order) const
+	exposing::param_vector<bool> face_alignment_internal::antispoofing(const exposing::param_vector<longinus::face_info>& faces, exposing::param_span<std::uint8_t> bitmap, int channels, int height, int width, int order) const
 	{
-		return impl_->antispoofing(face, bitmap, channels, height, width, order);
+		return impl_->antispoofing(faces, bitmap, channels, height, width, order);
 	}
 
-	//bool face_alignment_internal::mask_detect(longinus::face_info& face, exposing::param_span<std::uint8_t>& bitmap, int channels, int height, int width, int order) const
+	//exposing::param_vector<bool> face_alignment_internal::mask_detect(const exposing::param_vector<longinus::face_info>& faces, exposing::param_span<std::uint8_t> bitmap, int channels, int height, int width, int order) const
 	//{
-	//	return impl_->mask_detect(face, bitmap, channels, height, width, order);
+	//	return impl_->mask_detect(faces, bitmap, channels, height, width, order);
 	//}
 
-	double face_alignment_internal::mask_detect(longinus::face_info& face, exposing::param_span<std::uint8_t>& bitmap, int channels, int height, int width, int order) const
+	exposing::param_vector<double> face_alignment_internal::mask_detect(const exposing::param_vector<longinus::face_info>& faces, exposing::param_span<std::uint8_t> bitmap, int channels, int height, int width, int order) const
 	{
-		return impl_->mask_detect(face, bitmap, channels, height, width, order);
+		return impl_->mask_detect(faces, bitmap, channels, height, width, order);
 	}
 
 	std::string face_alignment_internal::version()
