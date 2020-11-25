@@ -1,22 +1,25 @@
 #pragma once
 
 #include "dllexport.hpp"
-#include "param_string.hpp"
 #include "g6_attributes.hpp"
+#include "param_string_allocations.hpp"
+
 #include "fmt/format.h"
 
 #include <cstdint>
+#include <utility>
+#include <optional>
 #include <stdexcept>
 #include <type_traits>
-#include <unordered_map>
 
 namespace glasssix::exposing::allocations
 {
-	extern "C" EXPORT_EXCALIBUR_PRIMITIVES void* G6_ABI_CALL get_current_exception_what() noexcept;
-	extern "C" EXPORT_EXCALIBUR_PRIMITIVES void G6_ABI_CALL clear_current_exception_what() noexcept;
-	extern "C" EXPORT_EXCALIBUR_PRIMITIVES void G6_ABI_CALL set_current_exception_what(void* what_abi) noexcept;
-	extern "C" EXPORT_EXCALIBUR_PRIMITIVES std::int32_t G6_ABI_CALL set_current_exception_what_from_abi_result(std::int32_t code, const char* optional_inner_narrow_what = nullptr) noexcept;
-	extern "C" EXPORT_EXCALIBUR_PRIMITIVES void* G6_ABI_CALL create_error_message_from_abi_result(std::int32_t code, void* optional_inner_what_abi = nullptr) noexcept;
+	extern "C" EXPORT_EXCALIBUR_PRIMITIVES void* G6_ABI_CALL get_abi_exception_what() noexcept;
+	extern "C" EXPORT_EXCALIBUR_PRIMITIVES void G6_ABI_CALL clear_abi_exception_what() noexcept;
+	extern "C" EXPORT_EXCALIBUR_PRIMITIVES void G6_ABI_CALL set_abi_exception_what(void* what_abi) noexcept;
+	extern "C" EXPORT_EXCALIBUR_PRIMITIVES void* G6_ABI_CALL create_abi_exception_message(std::int32_t code, void* optional_inner_what_abi = nullptr) noexcept;
+	extern "C" EXPORT_EXCALIBUR_PRIMITIVES std::int32_t G6_ABI_CALL set_abi_exception_what_ex(std::int32_t code, void* optional_inner_what_abi = nullptr) noexcept;
+	extern "C" EXPORT_EXCALIBUR_PRIMITIVES std::int32_t G6_ABI_CALL set_abi_exception_what_ex_narrow(std::int32_t code, const char* optional_inner_narrow_what = nullptr) noexcept;
 }
 
 #define IMPLEMENT_ABI_ERROR(name, code) struct name : glasssix::exposing::abi_error_impl<code>{ using abi_error_impl::abi_error_impl; }
@@ -88,15 +91,15 @@ namespace glasssix::exposing
 	class abi_error
 	{
 	public:
-		abi_error(abi_result result) noexcept : result_{ result }, what_{ take_over_abi_from_void_ptr{ allocations::create_error_message_from_abi_result(result) } }
+		abi_error(abi_result result) noexcept : result_{ result }, what_{ take_over_abi_from_void_ptr{ allocations::create_abi_exception_message(result) } }
 		{
 		}
 
-		abi_error(abi_result result, utf8_string_view inner_what) noexcept : result_{ result }, what_{ take_over_abi_from_void_ptr{ allocations::create_error_message_from_abi_result(result, get_abi(inner_what)) } }
+		abi_error(abi_result result, utf8_string_view inner_what) noexcept : result_{ result }, what_{ take_over_abi_from_void_ptr{ allocations::create_abi_exception_message(result, get_abi(basic_param_string{ inner_what })) } }
 		{
 		}
 
-		abi_error(abi_result result, void* what_abi) noexcept : result_{ result }, what_{ create_from_abi<param_string>(what_abi) }
+		abi_error(abi_result result, void* what_abi) noexcept : result_{ result }, what_{ create_from_abi<basic_param_string>(what_abi) }
 		{
 		}
 
@@ -105,7 +108,7 @@ namespace glasssix::exposing
 			return result_;
 		}
 
-		param_string what() const noexcept
+		basic_param_string what() const noexcept
 		{
 			return what_;
 		}
@@ -116,7 +119,7 @@ namespace glasssix::exposing
 		}
 	private:
 		abi_result result_;
-		param_string what_;
+		basic_param_string what_;
 	};
 
 	template<std::int32_t code>
@@ -126,7 +129,8 @@ namespace glasssix::exposing
 		{
 		}
 
-		abi_error_impl(utf8_string_view inner_what) noexcept : abi_error{ code, inner_what }
+		template<typename T, typename = std::enable_if_t<std::is_convertible_v<T, utf8_string_view>>>
+		abi_error_impl(T&& inner_what) noexcept : abi_error{ code, std::forward<T>(inner_what) }
 		{
 		}
 
@@ -158,27 +162,27 @@ namespace glasssix::exposing
 		}
 		catch (const std::bad_alloc& ex)
 		{
-			return allocations::set_current_exception_what_from_abi_result(error_bad_alloc, ex.what());
+			return allocations::set_abi_exception_what_ex_narrow(error_bad_alloc, ex.what());
 		}
 		catch (const std::out_of_range& ex)
 		{
-			return allocations::set_current_exception_what_from_abi_result(error_out_of_bounds, ex.what());
+			return allocations::set_abi_exception_what_ex_narrow(error_out_of_bounds, ex.what());
 		}
 		catch (const std::invalid_argument& ex)
 		{
-			return allocations::set_current_exception_what_from_abi_result(error_invalid_argument, ex.what());
+			return allocations::set_abi_exception_what_ex_narrow(error_invalid_argument, ex.what());
 		}
 		catch (const fmt::format_error& ex)
 		{
-			return allocations::set_current_exception_what_from_abi_result(error_invalid_argument, ex.what());
+			return allocations::set_abi_exception_what_ex_narrow(error_invalid_argument, ex.what());
 		}
 		catch (const std::exception& ex)
 		{
-			return allocations::set_current_exception_what_from_abi_result(error_failure, ex.what());
+			return allocations::set_abi_exception_what_ex_narrow(error_failure, ex.what());
 		}
 		catch (const abi_error& ex)
 		{
-			return (allocations::set_current_exception_what(detach_abi(ex.what())), ex.result());
+			return (allocations::set_abi_exception_what(detach_abi(ex.what())), ex.result());
 		}
 	}
 
@@ -199,7 +203,7 @@ namespace glasssix::exposing
 		}
 		else
 		{
-			return (std::forward<Callable>(handler)(), allocations::clear_current_exception_what(), error_success);
+			return (std::forward<Callable>(handler)(), allocations::clear_abi_exception_what(), error_success);
 		}
 	}
 	catch (...)
@@ -214,7 +218,7 @@ namespace glasssix::exposing
 	template<typename Exception, typename = std::enable_if_t<std::is_base_of_v<abi_error, Exception>>>
 	void rethrow_exception_across_boundary()
 	{
-		if (auto what_abi = allocations::get_current_exception_what())
+		if (auto what_abi = allocations::get_abi_exception_what())
 		{
 			throw Exception{ what_abi };
 		}

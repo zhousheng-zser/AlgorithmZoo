@@ -157,7 +157,7 @@ namespace glasssix::exposing::impl
 	};
 
 	template<typename T>
-	struct null_value<T, std::enable_if_t<is_primitive_v<T>>>
+	struct null_value<T, std::enable_if_t<std::disjunction_v<is_primitive<T>, std::is_enum<T>>>>
 	{
 		static constexpr T value{};
 	};
@@ -352,10 +352,10 @@ namespace glasssix::exposing
 	/// <typeparam name="T">The object type</typeparam>
 	/// <param name="object">The object</param>
 	/// <returns>The ABI</returns>
-	template<typename T, typename = std::enable_if_t<impl::is_primitive_v<T>>>
-	decltype(auto) get_abi(const T& object) noexcept
+	template<typename T, typename = std::enable_if_t<std::disjunction_v<impl::is_primitive<T>, std::is_enum<T>>>>
+	auto get_abi(const T& object) noexcept
 	{
-		return meta::get_standard_layout_first_member<impl::abi_t<T>>(object);
+		return impl::abi_t<T>{ object };
 	}
 
 	/// <summary>
@@ -376,10 +376,22 @@ namespace glasssix::exposing
 	/// <typeparam name="T">The object type</typeparam>
 	/// <param name="object">The object</param>
 	/// <returns>The pointer to the ABI</returns>
-	template<typename T, typename = std::enable_if_t<impl::is_primitive_v<T>>>
+	template<typename T, std::enable_if_t<impl::is_primitive_v<T>>* = nullptr>
 	auto put_abi_dangerous(T& object) noexcept
 	{
-		return &meta::get_standard_layout_first_member<impl::abi_t<T>>(object);
+		return &static_cast<impl::abi_t<T>&>(object);
+	}
+
+	/// <summary>
+	/// Gets a pointer to the ABI of an enumeration.
+	/// </summary>
+	/// <typeparam name="T">The enumeration type</typeparam>
+	/// <param name="object">The enumeration</param>
+	/// <returns>The pointer to the ABI</returns>
+	template<typename T, std::enable_if_t<std::is_enum_v<T>>* = nullptr>
+	auto put_abi_dangerous(T& object) noexcept
+	{
+		return enum_ref{ object };
 	}
 
 	/// <summary>
@@ -398,7 +410,7 @@ namespace glasssix::exposing
 	/// <typeparam name="T">The object type</typeparam>
 	/// <param name="object">The object</param>
 	/// <returns>The pointer to the ABI</returns>
-	template<typename T, typename = std::enable_if_t<impl::is_primitive_v<T>>>
+	template<typename T, typename = std::enable_if_t<std::disjunction_v<impl::is_primitive<T>, std::is_enum<T>>>>
 	auto put_abi(T& object) noexcept
 	{
 		return (object = {}, put_abi_dangerous(object));
@@ -429,12 +441,10 @@ namespace glasssix::exposing
 	/// </summary>
 	/// <param name="object">The object</param>
 	/// <returns>The ABI detached from the object</returns>
-	template<typename T, std::enable_if_t<impl::is_primitive_v<std::decay_t<T>>>* = nullptr>
+	template<typename T, std::enable_if_t<std::disjunction_v<impl::is_primitive<std::decay_t<T>>, std::is_enum<std::decay_t<T>>>>* = nullptr>
 	auto detach_abi(T&& object) noexcept
 	{
-		impl::abi_t<std::decay_t<T>> result{};
-
-		return (meta::get_standard_layout_from_first_member<std::decay_t<T>>(result) = std::forward<T>(object), result);
+		return impl::abi_t<std::decay_t<T>>{ (std::forward<T>(object)) };
 	}
 
 	/// <summary>
@@ -461,7 +471,7 @@ namespace glasssix::exposing
 	/// <typeparam name="ABI">The ABI type</typeparam>
 	/// <param name="abi">The ABI</param>
 	/// <returns>The result</returns>
-	template<typename T, typename Abi, typename = std::enable_if_t<std::conjunction_v<impl::is_primitive<T>, std::is_same<impl::abi_t<T>, std::decay_t<Abi>>>>>
+	template<typename T, typename Abi, typename = std::enable_if_t<std::conjunction_v<std::disjunction<impl::is_primitive<T>, std::is_enum<T>>, std::is_same<impl::abi_t<T>, std::decay_t<Abi>>>>>
 	T create_from_abi(Abi&& abi) noexcept
 	{
 		return T{ std::forward<Abi>(abi) };

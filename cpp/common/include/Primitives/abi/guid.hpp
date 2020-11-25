@@ -118,8 +118,6 @@ namespace glasssix::exposing
 		);
 	}
 
-	
-
 	/// <summary>
 	/// Creates a GUID from a byte buffer.
 	/// </summary>

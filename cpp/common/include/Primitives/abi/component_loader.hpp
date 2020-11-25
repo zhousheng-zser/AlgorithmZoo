@@ -37,7 +37,7 @@ namespace glasssix::exposing::dll_routines
 
 namespace glasssix::exposing
 {
-	extern "C" EXPORT_EXCALIBUR_PRIMITIVES void* component_loader_add_ref_get_singleton_abi();
+	extern "C" EXPORT_EXCALIBUR_PRIMITIVES void* glasssix_add_ref_get_component_loader_abi();
 
 	struct component_loader;
 }
@@ -362,7 +362,7 @@ namespace glasssix::exposing
 	/// <returns>The singleton</returns>
 	inline component_loader get_component_loader()
 	{
-		return component_loader{ take_over_abi_from_void_ptr{ component_loader_add_ref_get_singleton_abi() } };
+		return component_loader{ take_over_abi_from_void_ptr{ glasssix_add_ref_get_component_loader_abi() } };
 	}
 
 	/// <summary>
