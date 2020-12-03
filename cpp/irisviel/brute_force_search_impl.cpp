@@ -68,7 +68,7 @@ namespace glasssix::irisviel
 			}
 
 			// Calculates the scores of all features.
-			excalibur::juliusblas::cblas_sgemv_AnoTrans(static_cast<int>(current_data_->size()), dimension_, 1.f, input_buffer.data(), dimension_, query_data, 1, 1.f, output_buffer.data(), 1);
+			excalibur::juliusblas::cblas_sgemv_AnoTrans(static_cast<int>(current_data_->size()), dimension_, 1.f, input_buffer.data(), dimension_, query_data, 1, 0.f, output_buffer.data(), 1);
 			std::sort(output_indexes.begin(), output_indexes.end(), [&](std::size_t left, std::size_t right) { return output_buffer[left] > output_buffer[right]; });
 
 			// Creates a handler to check the similarity condition.

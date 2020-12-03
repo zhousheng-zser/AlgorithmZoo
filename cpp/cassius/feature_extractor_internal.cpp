@@ -35,9 +35,9 @@ namespace glasssix::cassius
 
 		std::vector<std::vector<float>> get(exposing::param_span<std::uint8_t> bitmaps, std::size_t count, int order)
 		{
-			if (bitmaps.empty())
+			if (bitmaps.empty() || count <= 0)
 			{
-				throw exposing::abi_invalid_argument("current frame is empty");
+				return {};
 			}
 
 			init_cache(bitmaps, count, order);
