@@ -301,6 +301,14 @@ __forceinline float _mm512_sumall_ps(__m512 r)
 #define mm_fmadd_ps _mm512_fmadd_ps
 #endif
 
+#if (SIMD_ARM_INSTR_SET >= SIMD_ARM8_64_NEON_VERSION)
+#define mm_align_size 4
+#define simd_registers 32
+#elif (SIMD_ARM_INSTR_SET >= SIMD_ARM7_NEON_VERSION)
+#define mm_align_size 4
+#define simd_registers 16
+#endif
+
 #ifndef mm_align_size
 #define mm_align_size 1
 #endif // !mm_align_size

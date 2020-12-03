@@ -35,9 +35,9 @@ namespace glasssix::cassius
 
 		std::vector<std::vector<float>> get(exposing::param_span<std::uint8_t> bitmaps, std::size_t count, int order)
 		{
-			if (bitmaps.empty())
+			if (bitmaps.empty() || count <= 0)
 			{
-				throw exposing::abi_invalid_argument("current frame is empty");
+				return {};
 			}
 
 			init_cache(bitmaps, count, order);
@@ -72,8 +72,8 @@ namespace glasssix::cassius
 			if (cache_ == nullptr || cache_->num() != count || cache_->order() != order)
 			{
 				cache_ = order == memory::NCHW ?
-					std::make_shared<memory::tensor<std::uint8_t>>(std::vector<int>{  static_cast<int>(count), single_bitmap_channels, single_bitmap_height, single_bitmap_width }, device_, static_cast<memory::orderType>(order), &memory::pool_allocator_default<std::uint8_t>::get()) :
-					std::make_shared<memory::tensor<std::uint8_t>>(std::vector<int>{ static_cast<int>(count), single_bitmap_height, single_bitmap_width, single_bitmap_channels }, device_, static_cast<memory::orderType>(order), & memory::pool_allocator_default<std::uint8_t>::get());
+					std::make_shared<memory::tensor<std::uint8_t>>(std::vector<int>{  static_cast<int>(count), single_bitmap_channels, single_bitmap_height, single_bitmap_width }, device_, static_cast<memory::orderType>(order)/*, &memory::pool_allocator_default<std::uint8_t>::get()*/) :
+					std::make_shared<memory::tensor<std::uint8_t>>(std::vector<int>{ static_cast<int>(count), single_bitmap_height, single_bitmap_width, single_bitmap_channels }, device_, static_cast<memory::orderType>(order)/*, & memory::pool_allocator_default<std::uint8_t>::get()*/);
 			}
 			if (device_ > 0)
 			{

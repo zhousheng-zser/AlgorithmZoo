@@ -351,7 +351,7 @@ namespace glasssix::longinus
 				else
 					NOT_IMPLEMENTED;
 
-				cache = std::make_shared<memory::tensor<std::uint8_t>>(shape, device_, (memory::orderType)order, &memory::pool_allocator_default<std::uint8_t>::get());
+				cache = std::make_shared<memory::tensor<std::uint8_t>>(shape, device_, (memory::orderType)order/*, &memory::pool_allocator_default<std::uint8_t>::get()*/);
 			}
 
 			if (device_ > 0)
@@ -797,7 +797,7 @@ namespace glasssix::longinus
 
 		void matchTemplateCpu(const std::shared_ptr<memory::tensor<std::uint8_t>>& img, const std::shared_ptr<memory::tensor<std::uint8_t>>& templ, std::shared_ptr<memory::tensor<float>>& result)
 		{
-			result.reset(new memory::tensor<float>(std::vector<int>{1, 1, img->height() - templ->height() + 1, img->width() - templ->width() + 1 }, -1, memory::NCHW, & memory::pool_allocator_default<float>::get()));
+			result.reset(new memory::tensor<float>(std::vector<int>{1, 1, img->height() - templ->height() + 1, img->width() - templ->width() + 1 }, -1, memory::NCHW/*, & memory::pool_allocator_default<float>::get()*/));
 			const std::uint8_t* img_data = img->cpu_data();
 			const std::uint8_t* templ_data = templ->cpu_data();
 			float* result_data = result->mutable_cpu_data();

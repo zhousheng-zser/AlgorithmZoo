@@ -390,7 +390,7 @@ namespace glasssix::romancia
 				else
 					NOT_IMPLEMENTED;
 
-				cache_ = std::make_shared<memory::tensor<std::uint8_t>>(shape, device_, (memory::orderType)order, &memory::pool_allocator_default<std::uint8_t>::get());
+				cache_ = std::make_shared<memory::tensor<std::uint8_t>>(shape, device_, (memory::orderType)order/*, &memory::pool_allocator_default<std::uint8_t>::get()*/);
 			}
 
 			if (device_ > 0)
