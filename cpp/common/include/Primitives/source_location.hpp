@@ -1,8 +1,6 @@
 #pragma once
 
 #include <cstdint>
-#include <utility>
-#include <type_traits>
 #include <string_view>
 
 namespace glasssix
@@ -28,19 +26,4 @@ namespace glasssix
 			return source_location{ line, file, function };
 		}
 	};
-
-	template<typename T>
-	struct arg_with_current_location
-	{
-		T arg;
-		source_location location;
-
-		template<typename U, typename = std::enable_if_t<std::is_convertible_v<U, T>>>
-		arg_with_current_location(U&& arg, const source_location& location = source_location::current()) : arg{ std::forward<U>(arg) }, location{ location }
-		{
-		}
-	};
-
-	template<typename T>
-	arg_with_current_location(T&&)->arg_with_current_location<T&&>;
 }

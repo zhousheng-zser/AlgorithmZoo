@@ -3,6 +3,7 @@
 #include "base.hpp"
 #include "guid.hpp"
 #include "meta.hpp"
+#include "demangle.hpp"
 #include "exceptions.hpp"
 #include "param_string.hpp"
 #include "g6_attributes.hpp"

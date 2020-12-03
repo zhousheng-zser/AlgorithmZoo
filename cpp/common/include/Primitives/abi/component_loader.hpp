@@ -37,7 +37,7 @@ namespace glasssix::exposing::dll_routines
 
 namespace glasssix::exposing
 {
-	extern "C" EXPORT_EXCALIBUR_PRIMITIVES void* glasssix_add_ref_get_component_loader_abi();
+	extern "C" EXPORT_EXCALIBUR_PRIMITIVES void* G6_ABI_CALL glasssix_add_ref_get_component_loader_abi();
 
 	struct component_loader;
 }
