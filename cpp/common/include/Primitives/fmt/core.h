@@ -210,7 +210,7 @@
 #  define FMT_CLASS_API
 #endif
 #ifndef FMT_API
-#  define FMT_API
+#  define FMT_API  __attribute__((visibility("default")))
 #endif
 #ifndef FMT_EXTERN_TEMPLATE_API
 #  define FMT_EXTERN_TEMPLATE_API

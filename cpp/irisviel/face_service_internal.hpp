@@ -6,6 +6,7 @@
 #include <memory>
 #include <vector>
 #include <string>
+#include <cstdint>
 #include <string_view>
 
 namespace glasssix
@@ -25,7 +26,8 @@ namespace glasssix
 			std::string database_directory() const;
 			std::string cache_directory() const;
 			void load_databases();
-			std::vector<database_search_result> search(const float* feature, int top) const;
+			std::vector<database_search_result> search(const float* feature, std::uint32_t top) const;
+			std::vector<database_search_result> search(const float* feature, float min_similarity, std::optional<std::uint32_t> top) const;
 			void add(database_record& record);
 			void add(const std::vector<std::shared_ptr<database_record>>& records);
 			void remove(std::string_view key);
@@ -33,7 +35,7 @@ namespace glasssix
 			void update(database_record& record);
 			void update(const std::vector<std::shared_ptr<database_record>>& records);
 		private:
-			impl* impl_;
+			std::unique_ptr<impl> impl_;
 		};
 	}
 }

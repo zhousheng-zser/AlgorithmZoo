@@ -6,6 +6,8 @@
 #include <memory>
 #include <vector>
 #include <string>
+#include <cstdint>
+#include <optional>
 #include <string_view>
 
 namespace glasssix
@@ -22,10 +24,10 @@ namespace glasssix
 			bool build(bool rebuild);
 			void mark_for_deletion() noexcept;
 			std::string cache_file_path() const;
-			std::vector<std::vector<database_search_result>> search(const float* feature, int top) const;
-			std::vector<std::vector<database_search_result>> search_many(const std::vector<const float*>& features, int top) const;
+			std::vector<database_search_result> search(const float* feature, std::optional<float> min_similarity, std::optional<std::uint32_t> top) const;
+			std::vector<std::vector<database_search_result>> search_many(const std::vector<const float*>& features, std::optional<float> min_similarity, std::optional<std::uint32_t> top) const;
 		private:
-			impl* impl_;
+			std::unique_ptr<impl> impl_;
 		};
 	}
 }

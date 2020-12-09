@@ -12,22 +12,22 @@ namespace glasssix::longinus
 	{
 	}
 
-	int face_info_impl::x() const
+	float face_info_impl::x() const
 	{
 		return internal_.rect.x;
 	}
 
-	int face_info_impl::y() const
+	float face_info_impl::y() const
 	{
 		return internal_.rect.y;
 	}
 
-	int face_info_impl::width() const
+	float face_info_impl::width() const
 	{
 		return internal_.rect.w;
 	}
 
-	int face_info_impl::height() const
+	float face_info_impl::height() const
 	{
 		return internal_.rect.h;
 	}
@@ -66,6 +66,16 @@ namespace glasssix::longinus
 	std::int32_t face_info_impl::is_alive() const
 	{
 		return internal_.is_alive ? 1 : 0;
+	}
+
+	std::int32_t face_info_impl::prob_age_index() const
+	{
+		return internal_.prob_age_index;
+	}
+
+	std::int32_t face_info_impl::prob_gender_index() const
+	{
+		return internal_.prob_gender_index;
 	}
 
 	exposing::param_vector<exposing::param_pair<float, float>> face_info_impl::pts() const
@@ -107,19 +117,19 @@ namespace glasssix::longinus
 	{
 		internal_.clarity = input;
 	}
-	void face_info_impl::set_x(std::int32_t input)
+	void face_info_impl::set_x(float input)
 	{
 		internal_.rect.x = input;
 	}
-	void face_info_impl::set_y(std::int32_t input)
+	void face_info_impl::set_y(float input)
 	{
 		internal_.rect.y = input;
 	}
-	void face_info_impl::set_width(std::int32_t input)
+	void face_info_impl::set_width(float input)
 	{
 		internal_.rect.w = input;
 	}
-	void face_info_impl::set_height(std::int32_t input)
+	void face_info_impl::set_height(float input)
 	{
 		internal_.rect.h = input;
 	}
@@ -134,5 +144,13 @@ namespace glasssix::longinus
 	void face_info_impl::set_is_alive(std::int32_t  input)
 	{
 		internal_.is_alive = input ? true : false;
+	}
+	void face_info_impl::set_prob_age_index(std::int32_t  input)
+	{
+		internal_.prob_age_index = input;
+	}
+	void face_info_impl::set_prob_gender_index(std::int32_t  input)
+	{
+		internal_.prob_gender_index = input;
 	}
 }

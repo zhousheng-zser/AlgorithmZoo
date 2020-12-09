@@ -10,6 +10,7 @@
 #include "Excalibur/operation_safty_cut.hpp"
 #include "Excalibur/operation_resize.hpp"
 #include "Excalibur/operation_rgb2gray.hpp"
+#include "Excalibur/operation_rotate.hpp"
 #include "Primitives/tensor_conversions.hpp"
 #include "hardcode.hpp"
 
@@ -40,11 +41,11 @@ namespace glasssix::longinus
 	class retina_net_internal::impl
 	{
 	public:
-		impl(exposing::param_string racy_path, exposing::param_string tracker_racy_path, float nms_threshold = 0.4, int device = -1) : impl{ hardcode::get_model_params("retina"), racy_path, hardcode::get_model_params("pfld-sim"), tracker_racy_path, nms_threshold, device }
+		impl(const exposing::param_string racy_path, const exposing::param_string tracker_racy_path, float nms_threshold = 0.4, int device = -1) : impl{ hardcode::get_model_params("longinus"), racy_path, hardcode::get_model_params("banshee"), tracker_racy_path, nms_threshold, device }
 		{
 		}
 
-		impl(const std::vector<std::string>& phai, exposing::param_string racy_path, const std::vector<std::string>& tracker_phai, exposing::param_string tracker_racy_path, float nms_threshold = 0.4, int device = -1)
+		impl(const std::vector<std::string>& phai, const exposing::param_string racy_path, const std::vector<std::string>& tracker_phai, const exposing::param_string tracker_racy_path, float nms_threshold = 0.4, int device = -1)
 			:retina_{ phai, exposing::to_narrow_string(racy_path), device }
 			,tracker_{ tracker_phai, exposing::to_narrow_string(tracker_racy_path), device }
 			,nms_threshold_(nms_threshold), device_(device)
@@ -87,7 +88,7 @@ namespace glasssix::longinus
 		{
 		}
 
-		exposing::param_vector<face_info> detect(exposing::param_span<std::uint8_t>& bitmap, int channels, int height, int width, int min_size, float threshold, int order)
+		exposing::param_vector<face_info> detect(exposing::param_span<std::uint8_t> bitmap, int channels, int height, int width, int min_size, float threshold, int order, bool do_attributing)
 		{
 			if (bitmap.empty())
 			{
@@ -96,7 +97,9 @@ namespace glasssix::longinus
 
 			CHECK_EQ(channels, 3);
 			CHECK_EQ(bitmap.size(), channels * height * width);
-			init_cache(bitmap, channels, height, width, order);
+
+			std::shared_ptr<memory::tensor<std::uint8_t>> cache_temp;
+			init_cache(bitmap, channels, height, width, order, cache_temp);
 
 			if (min_size < 16)
 				min_size = 16;
@@ -105,11 +108,11 @@ namespace glasssix::longinus
 			int ws = (int(width / scale) + 31) / 32 * 32;
 			int hs = (int(height / scale) + 31) / 32 * 32;
 
-			std::shared_ptr<memory::tensor<std::uint8_t>> temp;
-			excalibur::resize_cpu(cache_, temp, int(height / scale), int(width / scale));
-			excalibur::make_border(temp, temp, 0, hs - int(height / scale), 0, ws - int(width / scale));
+			std::shared_ptr<memory::tensor<std::uint8_t>> cache_forward;
+			excalibur::resize_cpu(cache_temp, cache_forward, int(height / scale), int(width / scale));
+			excalibur::make_border(cache_forward, cache_forward, 0, hs - int(height / scale), 0, ws - int(width / scale));
 
-			auto blob_data = retina_.forward(temp | memory::tensor_convert_to<float>);
+			auto blob_data = retina_.forward(cache_forward | memory::tensor_convert_to<float>);
 
 			std::string name_bbox = "face_rpn_bbox_pred_";
 			std::string name_score = "face_rpn_cls_prob_reshape_";
@@ -191,7 +194,7 @@ namespace glasssix::longinus
 
 			face_infos = nms(face_infos, nms_threshold_);
 
-			auto faces = exposing::make_param_vector<face_info>();
+			std::vector<face_info_internal> temp_vec;
 			for (auto& face : face_infos)
 			{
 				if (scale != 1.0f)
@@ -209,24 +212,62 @@ namespace glasssix::longinus
 
 				refine(face, height, width, true);
 
-				faces.push_back(exposing::make_as_first<face_info_impl>(face));
+				if (do_attributing)
+				{
+					excalibur::rectangle<float> rect(face.rect.x, face.rect.y, face.rect.h, face.rect.w);
+					if (rect.h * rect.w <= 0)
+						throw exposing::abi_invalid_argument("rect.h * rect.w <= 0");
+
+					std::shared_ptr<memory::tensor<std::uint8_t>> faceROI_in_frame;
+					excalibur::safty_cut_cpu(cache_temp, faceROI_in_frame, &rect);
+
+					face.headpose[0] = face.headpose[1] = face.headpose[2] = std::numeric_limits<float>::min();
+					face.clarity = std::numeric_limits<float>::min();
+					face.is_alive = false;
+					face.has_mask = std::numeric_limits<float>::min();
+
+					float score = face.score;
+					tracking_landmark(faceROI_in_frame, face, rect.x, rect.y);
+					face.score = score;
+					refine(face, height, width, true);
+				}
+
+				excalibur::point<float> center_eye = excalibur::point<float>((face.pts.x[0] + face.pts.x[1]) / 2, (face.pts.y[0] + face.pts.y[1] / 2));
+				excalibur::point<float> center_mouth = excalibur::point<float>((face.pts.x[3] + face.pts.x[4]) / 2, (face.pts.y[3] + face.pts.y[4]) / 2);
+				double distance = std::sqrt((center_eye.x - center_mouth.x) * (center_eye.x - center_mouth.x) + (center_eye.y - center_mouth.y) * (center_eye.y - center_mouth.y));
+
+				if (distance > std::numeric_limits<double>::epsilon())
+				{
+					temp_vec.push_back(face);
+				}
 			}
+
+			std::sort(temp_vec.begin(), temp_vec.end(), [](const face_info_internal& a, const face_info_internal& b) {return a.rect.h * a.rect.w > b.rect.h * b.rect.w;});
+
+			if (temp_vec.size() > 0)
+			{
+				cache0_.swap(cache1_);
+				cache1_.swap(cache_temp);
+			}
+
+			auto faces = exposing::make_param_vector<face_info>();
+			for (auto& i : temp_vec)
+				faces.push_back(exposing::make_as_first<face_info_impl>(i));
 
 			return faces;
 		}
 
-		face_info single_trace(face_info face, exposing::param_span<std::uint8_t>& bitmap, int channels, int height, int width, int order)
+		face_info single_trace(face_info& face, exposing::param_span<std::uint8_t> bitmap, int channels, int height, int width, int order)
 		{
-			if (cache_->empty())
+			if (cache1_->empty())
 				throw exposing::abi_invalid_argument("previous frame cache is empty");
 
 			excalibur::rectangle<float> track_box(face.x(), face.y(), face.height(), face.width());
 			if (track_box.h * track_box.w <= 0)
 				throw exposing::abi_invalid_argument("track_box.h * track_box.w <= 0");
 
-
 			std::shared_ptr<memory::tensor<std::uint8_t>> face_in_prev_frame;
-			excalibur::safty_cut_cpu(cache_, face_in_prev_frame, &track_box);
+			excalibur::safty_cut_cpu(cache1_, face_in_prev_frame, &track_box);
 
 			if (bitmap.empty())
 				throw exposing::abi_invalid_argument("current frame is empty");
@@ -234,17 +275,16 @@ namespace glasssix::longinus
 			CHECK_EQ(channels, 3);
 			CHECK_EQ(bitmap.size(), channels * height * width);
 
-			init_cache(bitmap, channels, height, width, order);
-
+			std::shared_ptr<memory::tensor<std::uint8_t>> cache_temp;
+			init_cache(bitmap, channels, height, width, order, cache_temp);
 			int min_edge = std::min(track_box.h, track_box.w);
-			float scale = min_edge / 40.0f;
+			float scale = min_edge / 20.0f;
 			if (scale < 1.0)
 				scale = 1.0;
 
-			tracking_corrfilter(cache_, face_in_prev_frame, track_box, scale);
+			tracking_corrfilter(cache_temp, face_in_prev_frame, track_box, scale);
 			std::shared_ptr<memory::tensor<std::uint8_t>> faceROI_in_frame;
-			excalibur::safty_cut_cpu(cache_, faceROI_in_frame, &track_box);
-
+			excalibur::safty_cut_cpu(cache_temp, faceROI_in_frame, &track_box);
 			face_info_internal face_internal;
 			face_internal.headpose[0] = face_internal.headpose[1] = face_internal.headpose[2] = std::numeric_limits<float>::min();
 			face_internal.clarity = std::numeric_limits<float>::min();
@@ -253,7 +293,44 @@ namespace glasssix::longinus
 			tracking_landmark(faceROI_in_frame, face_internal, track_box.x, track_box.y);
 			refine(face_internal, height, width, true);
 
+			excalibur::point<float> center_eye = excalibur::point<float>((face_internal.pts.x[0] + face_internal.pts.x[1]) / 2, (face_internal.pts.y[0] + face_internal.pts.y[1] / 2));
+			excalibur::point<float> center_mouth = excalibur::point<float>((face_internal.pts.x[3] + face_internal.pts.x[4]) / 2, (face_internal.pts.y[3] + face_internal.pts.y[4]) / 2);
+			double distance = std::sqrt((center_eye.x - center_mouth.x) * (center_eye.x - center_mouth.x) + (center_eye.y - center_mouth.y) * (center_eye.y - center_mouth.y));
+
+			if (face_internal.score > 0.1f && distance > std::numeric_limits<double>::epsilon())
+			{
+				cache0_.swap(cache1_);
+				cache1_.swap(cache_temp);
+			}
+
+			if (distance <= std::numeric_limits<double>::epsilon())
+				face_internal.score = 0.0f;
+
 			return exposing::make_as_first<face_info_impl>(face_internal);
+		}
+
+		double match_faces_in_last_two_frame(const face_info& prev_face, const face_info& current_face)
+		{
+			CHECK(cache0_.get());
+			CHECK(cache1_.get());
+
+			excalibur::rectangle<float> rect1(prev_face.x(), prev_face.y(), prev_face.height(), prev_face.width());
+			excalibur::rectangle<float> rect2(current_face.x(), current_face.y(), current_face.height(), current_face.width());
+
+			std::shared_ptr<memory::tensor<std::uint8_t>> tensor_face1, tensor_face2;
+			excalibur::safty_cut_cpu(cache0_, tensor_face1, &rect1);
+			excalibur::safty_cut_cpu(cache1_, tensor_face2, &rect2);
+
+			excalibur::rgb2gray_cpu(tensor_face1, tensor_face1);
+			excalibur::rgb2gray_cpu(tensor_face2, tensor_face2);
+
+			excalibur::resize_cpu(tensor_face1, tensor_face1, 64, 64);
+			excalibur::resize_cpu(tensor_face2, tensor_face2, 64, 64);
+
+			std::shared_ptr<memory::tensor<float>> result;
+			matchTemplateCpu(tensor_face1, tensor_face2, result);
+
+			return result->cpu_data()[0];
 		}
 
 		static std::string version()
@@ -262,9 +339,9 @@ namespace glasssix::longinus
 		}
 
 	private:
-		void init_cache(exposing::param_span<std::uint8_t>& bitmap, std::int32_t channels, std::int32_t height, std::int32_t width, std::int32_t order)
+		void init_cache(exposing::param_span<std::uint8_t>& bitmap, std::int32_t channels, std::int32_t height, std::int32_t width, std::int32_t order, std::shared_ptr<memory::tensor<std::uint8_t>>& cache)
 		{
-			if (cache_ == nullptr || cache_->channels() != channels || cache_->height() != height || cache_->width() != width || cache_->order() != order)
+			if (cache == nullptr || cache->channels() != channels || cache->height() != height || cache->width() != width || cache->order() != order)
 			{
 				std::vector<int> shape;
 				if (order == memory::NCHW)
@@ -274,22 +351,22 @@ namespace glasssix::longinus
 				else
 					NOT_IMPLEMENTED;
 
-				cache_ = std::make_shared<memory::tensor<std::uint8_t>>(shape, device_, (memory::orderType)order, &memory::pool_allocator_default<std::uint8_t>::get());
+				cache = std::make_shared<memory::tensor<std::uint8_t>>(shape, device_, (memory::orderType)order/*, &memory::pool_allocator_default<std::uint8_t>::get()*/);
 			}
 
 			if (device_ > 0)
 			{
 #ifdef USE_CUDA
-				cudaMemcpy(cache_->mutable_gpu_data(), bitmap, channels * height * width, cudaMemcpyHostToDevice);
+				cudaMemcpy(cache->mutable_gpu_data(), bitmap, channels * height * width, cudaMemcpyHostToDevice);
 #else
 				NO_GPU;
 #endif
 			}
 			else
-				std::copy(bitmap.begin(), bitmap.end(), cache_->mutable_cpu_data());
+				std::copy(bitmap.begin(), bitmap.end(), cache->mutable_cpu_data());
 
 			if (order == memory::NHWC)
-				cache_->convert_order();
+				cache->convert_order();
 		}
 
 		//processing
@@ -720,7 +797,7 @@ namespace glasssix::longinus
 
 		void matchTemplateCpu(const std::shared_ptr<memory::tensor<std::uint8_t>>& img, const std::shared_ptr<memory::tensor<std::uint8_t>>& templ, std::shared_ptr<memory::tensor<float>>& result)
 		{
-			result.reset(new memory::tensor<float>(std::vector<int>{1, 1, img->height() - templ->height() + 1, img->width() - templ->width() + 1 }, -1, memory::NCHW, & memory::pool_allocator_default<float>::get()));
+			result.reset(new memory::tensor<float>(std::vector<int>{1, 1, img->height() - templ->height() + 1, img->width() - templ->width() + 1 }, -1, memory::NCHW/*, & memory::pool_allocator_default<float>::get()*/));
 			const std::uint8_t* img_data = img->cpu_data();
 			const std::uint8_t* templ_data = templ->cpu_data();
 			float* result_data = result->mutable_cpu_data();
@@ -839,6 +916,14 @@ namespace glasssix::longinus
 			trackfaceinfo.rect.h = y2 - y1 + 1;
 			trackfaceinfo.score = res["prob1"]->cpu_data()[1];
 
+			//pfld_small_gen_age_sim
+			const float* age_data = res["prob_age"]->cpu_data();
+			trackfaceinfo.prob_age_index = std::max_element(age_data, age_data + 5) - age_data;
+
+			const float* gender_data = res["prob_gender"]->cpu_data();
+			trackfaceinfo.prob_gender_index = std::max_element(gender_data, gender_data + 2) - gender_data;
+
+
 			//onet
 			//const float* landmark_data = res["conv6-3"]->cpu_data();
 			//for (size_t i = 0; i < 5; i++)
@@ -851,25 +936,22 @@ namespace glasssix::longinus
 			const float* landmark_data = res["ldmk7"]->cpu_data();
 			for (size_t i = 0; i < 2; i++)
 			{
-				trackfaceinfo.pts.x[i] = (landmark_data[4 * i] + landmark_data[4 * i + 2]) * width / 20 + offset_x;
-				trackfaceinfo.pts.y[i] = (landmark_data[4 * i + 1] + landmark_data[4 * i + 3]) * height / 20 + offset_y;
+				trackfaceinfo.pts.x[i] = (landmark_data[4 * i] + landmark_data[4 * i + 2]) * width / 80 + offset_x;
+				trackfaceinfo.pts.y[i] = (landmark_data[4 * i + 1] + landmark_data[4 * i + 3]) * height / 80 + offset_y;
 			}
 
 			for (size_t i = 2; i < 5; i++)
 			{
-				trackfaceinfo.pts.x[i] = landmark_data[2 * (i - 2) + 8] * width / 10 + offset_x;
-				trackfaceinfo.pts.y[i] = landmark_data[2 * (i - 2) + 9] * height / 10 + offset_y;
+				trackfaceinfo.pts.x[i] = landmark_data[2 * (i - 2) + 8] * width / 40 + offset_x;
+				trackfaceinfo.pts.y[i] = landmark_data[2 * (i - 2) + 9] * height / 40 + offset_y;
 			}
 
-			if (trackfaceinfo.score > 0.1)
-			{
-				float yaw, pitch, roll;
-				estimate_head_pose(landmark_data, bbox_data, yaw, pitch, roll);
-				trackfaceinfo.headpose[0] = yaw;
-				trackfaceinfo.headpose[1] = pitch;
-				trackfaceinfo.headpose[2] = atan(((trackfaceinfo.pts.y[0] - trackfaceinfo.pts.y[1]) / (trackfaceinfo.pts.x[0] - trackfaceinfo.pts.x[1])
-					+ (trackfaceinfo.pts.y[3] - trackfaceinfo.pts.y[4]) / (trackfaceinfo.pts.x[3] - trackfaceinfo.pts.x[4])) / 2) * 180 / 3.1415926;
-			}
+			float yaw, pitch, roll;
+			estimate_head_pose(landmark_data, bbox_data, yaw, pitch, roll);
+			trackfaceinfo.headpose[0] = yaw;
+			trackfaceinfo.headpose[1] = pitch;
+			trackfaceinfo.headpose[2] = atan(((trackfaceinfo.pts.y[0] - trackfaceinfo.pts.y[1]) / (trackfaceinfo.pts.x[0] - trackfaceinfo.pts.x[1])
+				+ (trackfaceinfo.pts.y[3] - trackfaceinfo.pts.y[4]) / (trackfaceinfo.pts.x[3] - trackfaceinfo.pts.x[4])) / 2) * 180 / 3.1415926;
 		}
 
 		inline void estimate_head_pose(const float* ldmk7_data, const float* bbox_data, float& yaw, float& pitch, float& roll)
@@ -880,8 +962,8 @@ namespace glasssix::longinus
 			float ldmk_mat[2 * 7 + 1];
 			for (size_t i = 0; i < 7; i++)
 			{
-				ldmk_mat[i * 2 + 0] = (ldmk7_data[i * 2 + 0] - bbox_data[0]) / 10 / ratio;
-				ldmk_mat[i * 2 + 1] = (ldmk7_data[i * 2 + 1] - bbox_data[1]) / 10 / ratio;
+				ldmk_mat[i * 2 + 0] = (ldmk7_data[i * 2 + 0] - bbox_data[0]) / 40 / ratio;
+				ldmk_mat[i * 2 + 1] = (ldmk7_data[i * 2 + 1] - bbox_data[1]) / 40 / ratio;
 			}
 
 			//最后一个防止奇异占位符
@@ -919,18 +1001,19 @@ namespace glasssix::longinus
 		//each layer's fpn has how many shapes of anchor = number of ratio * number of scales
 		std::map<std::string, int> num_anchors_;
 
-		std::shared_ptr<memory::tensor<std::uint8_t>> cache_;
+		std::shared_ptr<memory::tensor<std::uint8_t>> cache0_;
+		std::shared_ptr<memory::tensor<std::uint8_t>> cache1_;
 	};
 
 	//######################################################################
 	//retina_net_internal
 	//######################################################################
 
-	retina_net_internal::retina_net_internal(exposing::param_string racy_path, exposing::param_string tracker_racy_path, float nms_threshold, int device) : impl_{ std::make_unique<impl>(racy_path, tracker_racy_path, nms_threshold, device) }
+	retina_net_internal::retina_net_internal(const exposing::param_string racy_path, const  exposing::param_string tracker_racy_path, float nms_threshold, int device) : impl_{ std::make_unique<impl>(racy_path, tracker_racy_path, nms_threshold, device) }
 	{
 	}
 
-	retina_net_internal::retina_net_internal(const std::vector<std::string>& phai, exposing::param_string racy_path, const std::vector<std::string>& tracker_phai, exposing::param_string tracker_racy_path, float nms_threshold, int device)
+	retina_net_internal::retina_net_internal(const std::vector<std::string>& phai, const exposing::param_string racy_path, const std::vector<std::string>& tracker_phai, const exposing::param_string tracker_racy_path, float nms_threshold, int device)
 		: impl_{ std::make_unique<impl>(phai, racy_path, tracker_phai, tracker_racy_path, nms_threshold, device) }
 	{
 	}
@@ -939,14 +1022,19 @@ namespace glasssix::longinus
 	{
 	}
 
-	exposing::param_vector<face_info> retina_net_internal::detect(exposing::param_span<std::uint8_t>& bitmap, int channels, int height, int width, int min_size, float threshold, int order)
+	exposing::param_vector<face_info> retina_net_internal::detect(exposing::param_span<std::uint8_t> bitmap, int channels, int height, int width, int min_size, float threshold, int order, bool do_attributing)
 	{
-		return impl_->detect(bitmap, channels, height, width, min_size, threshold, order);
+		return impl_->detect(bitmap, channels, height, width, min_size, threshold, order, do_attributing);
 	}
 
-	face_info retina_net_internal::single_trace(face_info face, exposing::param_span<std::uint8_t>& bitmap, int channels, int height, int width, int order)
+	face_info retina_net_internal::single_trace(face_info face, exposing::param_span<std::uint8_t> bitmap, int channels, int height, int width, int order)
 	{
 		return impl_->single_trace(face, bitmap, channels, height, width, order);
+	}
+
+	double retina_net_internal::match_faces_in_last_two_frame(const face_info& prev_face, const face_info& current_face)
+	{
+		return impl_->match_faces_in_last_two_frame(prev_face, current_face);
 	}
 
 	std::string retina_net_internal::version()

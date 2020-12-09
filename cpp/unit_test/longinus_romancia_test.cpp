@@ -1,6 +1,8 @@
 #include "CppUnitTest.h"
 #include "../longinus/retina_net.hpp"
 #include "../romancia/face_alignment.hpp"
+#include "../gaius/feature_extractor.hpp"
+#include "../cassius/feature_extractor.hpp"
 #include "../common/include/Primitives/tensor.hpp"
 
 #include <random>
@@ -8,7 +10,7 @@
 #include <filesystem>
 
 #include <abi/consumer.hpp>
-
+#include <profiler.hpp>
 #include <opencv2/opencv.hpp>
 
 using namespace glasssix;
@@ -84,8 +86,8 @@ namespace unittest
 	TEST_CLASS(longinus_romancia_test)
 	{
 	public:
-		longinus_romancia_test() : retina_{ exposing::make_exported_interface<longinus::retina_net>(u8"models/retina.phai", u8"models/retina.racy",u8"models/pfld-sim.phai", u8"models/pfld-sim.racy", 0.4,-1) },
-			face_alignment_{exposing::make_exported_interface<romancia::face_alignment>(u8"models/libsvm_model_fft_HSV_YCrCb", -1)}
+		longinus_romancia_test() : retina_{ exposing::make_exported_interface<longinus::retina_net>(u8"models/longinus.racy",u8"models/banshee.racy", 0.4,-1) },
+			face_alignment_{exposing::make_exported_interface<romancia::face_alignment>(u8"models/mask30x30",u8"models/antispoofing80x80", -1)}
 		{
 		}
 
@@ -97,11 +99,10 @@ namespace unittest
 			std::shared_ptr<memory::tensor<std::uint8_t>> tensor_img;
 			mat2tensor_cpu(img, tensor_img);
 			exposing::param_span<std::uint8_t> img_span(tensor_img->mutable_cpu_data(), tensor_img->channels() * tensor_img->height() * tensor_img->width());
-			auto detect_result = retina_.get(img_span, tensor_img->channels(), tensor_img->height(), tensor_img->width(), 16, 0.5, 0);
+			auto detect_result = retina_.detect(img_span, tensor_img->channels(), tensor_img->height(), tensor_img->width(), 16, 0.5, 0, false);
 
 			for (const auto& x : detect_result)
 			{
-				
 				std::string face_str = "{x: " + std::to_string(x.x()) + ", y: " + std::to_string(x.y()) + ", height: " + std::to_string(x.height()) + ", width: " + std::to_string(x.width());
 				
 				face_str += ", pts:";
@@ -116,7 +117,7 @@ namespace unittest
 			}
 
 
-			auto align_result = face_alignment_.get(img_span, img.channels(), img.rows, img.cols, detect_result, 1);
+			auto align_result = face_alignment_.get(img_span, img.channels(), img.rows, img.cols, detect_result, 0);
 
 			Logger::WriteMessage((std::string("algin result num: ") + std::to_string(align_result.size())).c_str());
 		}
@@ -126,6 +127,7 @@ namespace unittest
 			cv::VideoCapture cap(0);
 			bool need_detect = true;
 			longinus::face_info tracker_face{ nullptr };
+			glasssix::timer t;
 			for (size_t i = 0; i < 10000; i++)
 			{
 				cv::Mat img;
@@ -138,11 +140,11 @@ namespace unittest
 				exposing::param_vector<longinus::face_info> detect_result;
 				if (need_detect)
 				{
-					detect_result = retina_.get(img_span, img.channels(), img.rows, img.cols, 16, 0.5, 1);
+					detect_result = retina_.detect(img_span, img.channels(), img.rows, img.cols, 16, 0.5, 1, false);
 					if (detect_result.size())
 					{
 						need_detect = false;
-						int area = INT_MIN;
+						float area = 0.0f;
 						for (const auto& x : detect_result)
 						{
 							if (x.width() * x.height() > area)
@@ -169,6 +171,7 @@ namespace unittest
 				}
 				else
 				{
+					t.start();
 					try
 					{
 						tracker_face = retina_.single_trace(tracker_face, img_span, img.channels(), img.rows, img.cols, 1);
@@ -177,6 +180,8 @@ namespace unittest
 					{
 						std::cout << err.what_to_narrow() << std::endl;
 					}
+					t.stop();
+					Logger::WriteMessage(std::to_string(t.get_elapsed_milli_seconds()).c_str());
 					if (tracker_face.confidence() > 0.1)
 					{
 						need_detect = false;
@@ -184,6 +189,7 @@ namespace unittest
 						cv::putText(img, "yaw: " + std::to_string(tracker_face.yaw()), cv::Point(0, 20), 2, 1.0, cv::Scalar(0, 0, 255));
 						cv::putText(img, "pitch: " + std::to_string(tracker_face.pitch()), cv::Point(0, 50), 2, 1.0, cv::Scalar(0, 0, 255));
 						cv::putText(img, "roll: " + std::to_string(tracker_face.roll()), cv::Point(0, 80), 2, 1.0, cv::Scalar(0, 0, 255));
+						cv::putText(img, face_alignment_.mask_detect(tracker_face, img_span, img.channels(), img.rows, img.cols, 1) ? "true" : "false", cv::Point(0, 110), 2, 1.0, cv::Scalar(0, 0, 255));
 						std::string face_str = "tracker:  {x: " + std::to_string(tracker_face.x()) + ", y: " + std::to_string(tracker_face.y()) + ", height: " + std::to_string(tracker_face.height()) + ", width: " + std::to_string(tracker_face.width());
 						face_str += ", pts:";
 						auto pts = tracker_face.pts();
@@ -202,8 +208,30 @@ namespace unittest
 				}
 
 				cv::imshow("img", img);
-				cv::waitKey(1);
+				cv::waitKey(25);
 			}
+		}
+
+		TEST_METHOD(test_mask)
+		{
+			cv::Mat img = cv::imread("C:/Users/Glasssix-ZYF/Desktop/111.jpg");
+			auto face = exposing::make_exported_interface<longinus::face_info>();
+			face.set_x(277);
+			face.set_y(271);
+			face.set_height(202);
+			face.set_width(202);
+
+			exposing::param_vector<exposing::param_pair<float, float>> pts = exposing::make_param_vector<exposing::param_pair<float, float>>();
+			pts.push_back(exposing::make_param_pair(342.542f, 326.563f));
+			pts.push_back(exposing::make_param_pair(416.551f, 332.852f));
+			pts.push_back(exposing::make_param_pair(376.095f, 350.176f));
+			pts.push_back(exposing::make_param_pair(340.735f, 400.162f));
+			pts.push_back(exposing::make_param_pair(404.72f, 404.876f));
+
+			face.set_pts(pts);
+
+			exposing::param_span<std::uint8_t> img_span(img.data, img.rows * img.cols * img.channels());
+			bool result = face_alignment_.mask_detect(face, img_span, img.channels(), img.rows, img.cols, 1);
 		}
 
 		TEST_METHOD(tracker_video_test)
@@ -224,7 +252,7 @@ namespace unittest
 				exposing::param_vector<longinus::face_info> detect_result;
 				if (need_detect)
 				{
-					detect_result = retina_.get(img_span, img.channels(), img.rows, img.cols, 16, 0.5, 1);
+					detect_result = retina_.detect(img_span, img.channels(), img.rows, img.cols, 16, 0.5, 1, false);
 					if (detect_result.size())
 					{
 						need_detect = false;
@@ -297,5 +325,66 @@ namespace unittest
 	private:
 		longinus::retina_net retina_;
 		romancia::face_alignment face_alignment_;
+	};
+
+
+	TEST_CLASS(union_test)
+	{
+	public:
+		union_test():retina_{ exposing::make_exported_interface<longinus::retina_net>(u8"models/longinus.racy",u8"models/banshee.racy", 0.4,-1) },
+			face_alignment_{ exposing::make_exported_interface<romancia::face_alignment>(u8"models/mask30x30",u8"models/antispoofing80x80", -1) },
+			gaius_{ exposing::make_exported_interface<gaius::feature_extractor>(u8"models/mobile_unicorn.racy", u8"models/mobile_unicorn_mask.racy", -1) },
+			cassius_{ exposing::make_exported_interface<cassius::feature_extractor>(u8"models/unicorn.racy", -1) }
+		{}
+
+		TEST_METHOD(union_test1)
+		{
+			cv::Mat img1 = cv::imread("a1.jpg");
+			cv::Mat img2 = cv::imread("a2.jpg");
+
+			std::shared_ptr<memory::tensor<std::uint8_t>> tensor_img1, tensor_img2;
+			mat2tensor_cpu(img1, tensor_img1);
+			mat2tensor_cpu(img2, tensor_img2);
+			/*exposing::param_span<std::uint8_t> img_span1(tensor_img1->mutable_cpu_data(), tensor_img1->channels() * tensor_img1->height() * tensor_img1->width());
+			exposing::param_span<std::uint8_t> img_span2(tensor_img2->mutable_cpu_data(), tensor_img2->channels() * tensor_img2->height() * tensor_img2->width());
+			auto detect_result1 = retina_.detect(img_span1, tensor_img1->channels(), tensor_img1->height(), tensor_img1->width(), 16, 0.5, 0, false);
+			auto detect_result2 = retina_.detect(img_span2, tensor_img2->channels(), tensor_img2->height(), tensor_img2->width(), 16, 0.5, 0, false);
+
+			auto align_result1 = face_alignment_.get(img_span1, img1.channels(), img1.rows, img1.cols, detect_result1, 0);
+			auto align_result2 = face_alignment_.get(img_span2, img2.channels(), img2.rows, img2.cols, detect_result2, 0);*/
+
+			auto forward_result1 = gaius_.get(exposing::param_span<uint8_t>(const_cast<uint8_t *>(tensor_img1->cpu_data()), 3 * 128 * 128), 1, 0, false);
+			auto forward_result2 = gaius_.get(exposing::param_span<uint8_t>(const_cast<uint8_t *>(tensor_img2->cpu_data()), 3 * 128 * 128), 1, 0, false);
+
+			float sum0 = 0.0f;
+			float sum1 = 0.0f;
+			float sum2 = 0.0f;
+			for (int j = 0; j < forward_result1[0].size(); j++)
+			{
+				sum0 += forward_result1[0][j] * forward_result2[0][j];
+				sum1 += forward_result1[0][j] * forward_result1[0][j];
+				sum2 += forward_result2[0][j] * forward_result2[0][j];
+			}
+			Logger::WriteMessage(("gaius cosine: " + std::to_string(sum0 / sqrt(sum1 * sum2))).c_str());
+
+			auto forward_result3 = cassius_.get(exposing::param_span<uint8_t>(const_cast<uint8_t*>(tensor_img1->cpu_data()), 3 * 128 * 128), 1, 0);
+			auto forward_result4 = cassius_.get(exposing::param_span<uint8_t>(const_cast<uint8_t*>(tensor_img2->cpu_data()), 3 * 128 * 128), 1, 0);
+
+			std::vector<float> fea1;
+			std::vector<float> fea2;
+			sum0 = sum1 = sum2 = 0.0f;
+			for (int j = 0; j < forward_result3[0].size(); j++)
+			{
+				sum0 += forward_result3[0][j] * forward_result4[0][j];
+				sum1 += forward_result3[0][j] * forward_result3[0][j];
+				sum2 += forward_result4[0][j] * forward_result4[0][j];
+			}
+			Logger::WriteMessage(("cassius cosine: " + std::to_string(sum0 / sqrt(sum1 * sum2))).c_str());
+		}
+	private:
+		longinus::retina_net retina_;
+		romancia::face_alignment face_alignment_;
+		gaius::feature_extractor gaius_;
+		cassius::feature_extractor cassius_;
 	};
 }

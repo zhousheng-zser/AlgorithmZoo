@@ -125,6 +125,24 @@ namespace glasssix::exposing::meta
 	template<typename Tuple>
 	using tuple_first_t = typename tuple_first<Tuple>::type;
 
+	template<std::size_t Index, typename Tuple>
+	struct tuple_take_from_position;
+
+	template<std::size_t Index, typename... Args>
+	struct tuple_take_from_position<Index, std::tuple<Args...>>
+	{
+		template<std::size_t... Indexes>
+		static constexpr auto helper(std::index_sequence<Indexes...>) noexcept
+		{
+			return std::tuple{ std::declval<std::tuple_element_t<Index + Indexes, std::tuple<Args...>>>()... };
+		}
+
+		using type = decltype(helper(std::make_index_sequence<sizeof...(Args) - Index>{}));
+	};
+
+	template<std::size_t Index, typename Tuple>
+	using tuple_take_from_position_t = typename tuple_take_from_position<Index, Tuple>::type;
+
 	template<template<typename> typename Selector, typename Tuple>
 	struct tuple_select;
 

@@ -12,6 +12,7 @@ namespace glasssix
 {
 	namespace utils
 	{
+
 #ifdef GLASSSIX_ENVIRONMENT_32_BITS
 		template<typename T>
 		void hash_combine(std::size_t& result, T&& value)
@@ -47,7 +48,7 @@ namespace glasssix
 		std::size_t hash_all(Args&&... args)
 		{
 			std::size_t result = 0;
-			int dummy[] = { (hash_combine(result, std::forward<Args>(args)), 0)... };
+			(hash_combine(result, std::forward<Args>(args)), ...);
 
 			return result;
 		}

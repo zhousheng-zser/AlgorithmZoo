@@ -12,12 +12,12 @@ namespace glasssix::longinus
 	{
 	}
 
-	void retina_net_impl::init(exposing::param_string racy_path, exposing::param_string tracker_racy_path, float nms_threshold, std::int32_t device)
+	void retina_net_impl::init(const exposing::param_string& racy_path, const exposing::param_string& tracker_racy_path, float nms_threshold, std::int32_t device)
 	{
 		impl_ = std::make_unique<retina_net_internal>(racy_path, tracker_racy_path, nms_threshold, device);
 	}
 
-	void retina_net_impl::init(exposing::param_span<const exposing::param_string> phai, exposing::param_string racy_path, exposing::param_span<const exposing::param_string> tracker_phai, exposing::param_string tracker_racy_path, float nms_threshold, std::int32_t device)
+	void retina_net_impl::init(exposing::param_span<const exposing::param_string> phai, const exposing::param_string& racy_path, exposing::param_span<const exposing::param_string> tracker_phai, const exposing::param_string& tracker_racy_path, float nms_threshold, std::int32_t device)
 	{
 		std::vector<std::string> phai_internal(phai.size());
 		std::vector<std::string> tracker_phai_internal(tracker_phai.size());
@@ -32,12 +32,12 @@ namespace glasssix::longinus
 		return exposing::to_param_string(impl_->version());
 	}
 
-	exposing::param_vector<longinus::face_info> retina_net_impl::get(exposing::param_span<std::uint8_t> bitmap, std::int32_t channels, std::int32_t height, std::int32_t width, std::int32_t min_size, float threshold, std::int32_t order) const
+	exposing::param_vector<longinus::face_info> retina_net_impl::detect(exposing::param_span<std::uint8_t> bitmap, std::int32_t channels, std::int32_t height, std::int32_t width, std::int32_t min_size, float threshold, std::int32_t order, bool do_attributing) const
 	{
 		if (!impl_)
 			throw exposing::abi_invalid_operation(u8"longinus internal object not initialized");
 
-		return impl_->detect(bitmap, channels, height, width, min_size, threshold, order);
+		return impl_->detect(bitmap, channels, height, width, min_size, threshold, order, do_attributing);
 	}
 	face_info retina_net_impl::single_trace(face_info face, exposing::param_span<std::uint8_t> bitmap, std::int32_t channels, std::int32_t height, std::int32_t width, std::int32_t order) const
 	{
@@ -45,5 +45,12 @@ namespace glasssix::longinus
 			throw exposing::abi_invalid_operation(u8"longinus internal object not initialized");
 
 		return impl_->single_trace(face, bitmap, channels, height, width,  order);
+	}
+	double retina_net_impl::match_faces_in_last_two_frame(const face_info& prev_face, const face_info& current_face) const
+	{
+		if (!impl_)
+			throw exposing::abi_invalid_operation(u8"longinus internal object not initialized");
+
+		return impl_->match_faces_in_last_two_frame(prev_face, current_face);
 	}
 }

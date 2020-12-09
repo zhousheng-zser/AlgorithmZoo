@@ -16,10 +16,10 @@ namespace glasssix::longinus
 		face_info_impl(const face_info_internal& internal);
 		~face_info_impl();
 
-		std::int32_t x() const;
-		std::int32_t y() const;
-		std::int32_t width() const;
-		std::int32_t height() const;
+		float x() const;
+		float y() const;
+		float width() const;
+		float height() const;
 		float yaw() const;
 		float pitch() const;
 		float roll() const;
@@ -27,6 +27,8 @@ namespace glasssix::longinus
 		float confidence() const;
 		float has_mask() const;
 		std::int32_t is_alive() const;
+		std::int32_t prob_age_index() const;
+		std::int32_t prob_gender_index() const;
 		exposing::param_vector<exposing::param_pair<float, float> > pts() const;
 
 		void set_pts(exposing::param_vector<exposing::param_pair<float, float>> input);
@@ -34,13 +36,15 @@ namespace glasssix::longinus
 		void set_pitch(float input);
 		void set_roll(float input);
 		void set_clarity(float input);
-		void set_x(std::int32_t input);
-		void set_y(std::int32_t input);
-		void set_width(std::int32_t input);
-		void set_height(std::int32_t input);
+		void set_x(float input);
+		void set_y(float input);
+		void set_width(float input);
+		void set_height(float input);
 		void set_confidence(float input);
 		void set_has_mask(float input);
 		void set_is_alive(std::int32_t);
+		void set_prob_age_index(std::int32_t);
+		void set_prob_gender_index(std::int32_t);
 
 	private:
 		face_info_internal internal_;

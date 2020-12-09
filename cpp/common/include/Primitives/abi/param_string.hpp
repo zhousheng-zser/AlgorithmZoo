@@ -2,17 +2,16 @@
 
 #include "guid.hpp"
 #include "meta.hpp"
-#include "dllexport.hpp"
 #include "hash_utils.hpp"
-#include "g6_attributes.hpp"
+#include "exceptions.hpp"
 #include "platform_encoding.hpp"
 #include "fundamental_semantics.hpp"
-#include "pure_c_handle_utils.h"
+#include "param_string_allocations.hpp"
+
 #include "fmt/format.h"
 
 #include <string>
 #include <cstddef>
-#include <cstdint>
 #include <ostream>
 #include <utility>
 #include <iterator>
@@ -24,30 +23,15 @@
 namespace glasssix::exposing
 {
 	struct abi_result;
+
 	class param_string;
+
+	template<typename String, typename... Args>
+	param_string format(String&& format_str, Args&&... args);
 
 	template<typename Callable>
 	abi_result abi_safe_call(Callable&& handler) noexcept;
 	void check_abi_result(abi_result result);
-}
-
-namespace glasssix::exposing::allocations
-{
-	DEFINE_PURE_C_HANDLE(param_string);
-
-	extern "C" EXPORT_EXCALIBUR_PRIMITIVES param_string_handle G6_ABI_CALL create_param_string(const utf8_char * str, std::size_t size) noexcept;
-	extern "C" EXPORT_EXCALIBUR_PRIMITIVES param_string_handle G6_ABI_CALL create_param_string_from_narrow(const char* narrow_str, std::size_t size) noexcept;
-	extern "C" EXPORT_EXCALIBUR_PRIMITIVES param_string_handle G6_ABI_CALL create_param_string_ref(param_string_handle str) noexcept;
-	extern "C" EXPORT_EXCALIBUR_PRIMITIVES param_string_handle G6_ABI_CALL duplicate_param_string(param_string_handle str) noexcept;
-	extern "C" EXPORT_EXCALIBUR_PRIMITIVES param_string_handle G6_ABI_CALL concat_c_string_with_param_string(const utf8_char * left, param_string_handle right) noexcept;
-	extern "C" EXPORT_EXCALIBUR_PRIMITIVES param_string_handle G6_ABI_CALL concat_param_string_with_c_string(param_string_handle left, const utf8_char * right) noexcept;
-	extern "C" EXPORT_EXCALIBUR_PRIMITIVES param_string_handle G6_ABI_CALL concat_param_string(param_string_handle left, param_string_handle right) noexcept;
-	extern "C" EXPORT_EXCALIBUR_PRIMITIVES bool G6_ABI_CALL compare_c_string_with_param_string(const utf8_char * left, param_string_handle right) noexcept;
-	extern "C" EXPORT_EXCALIBUR_PRIMITIVES bool G6_ABI_CALL compare_param_string_with_c_string(param_string_handle left, const utf8_char * right) noexcept;
-	extern "C" EXPORT_EXCALIBUR_PRIMITIVES bool G6_ABI_CALL compare_param_string(param_string_handle left, param_string_handle right) noexcept;
-	extern "C" EXPORT_EXCALIBUR_PRIMITIVES std::uint32_t G6_ABI_CALL free_param_string(param_string_handle str) noexcept;
-	extern "C" EXPORT_EXCALIBUR_PRIMITIVES const utf8_char * G6_ABI_CALL get_param_string_data(param_string_handle str) noexcept;
-	extern "C" EXPORT_EXCALIBUR_PRIMITIVES std::size_t G6_ABI_CALL get_param_string_size(param_string_handle str) noexcept;
 }
 
 namespace glasssix::exposing
@@ -103,6 +87,14 @@ namespace glasssix::exposing
 		}
 
 		/// <summary>
+		/// Creates an instance from a basic string.
+		/// </summary>
+		/// <param name="str">The basic string</param>
+		param_string(const basic_param_string& str) : param_string{ take_over_abi_from_void_ptr{ str.get_add_ref() } }
+		{
+		}
+
+		/// <summary>
 		/// Creates an instance.
 		/// </summary>
 		/// <param name="str">The string</param>
@@ -126,18 +118,12 @@ namespace glasssix::exposing
 
 		param_string& operator=(const param_string& right) noexcept
 		{
-			clear();
-			handle_ = allocations::create_param_string_ref(right.handle_);
-
-			return *this;
+			return (clear(), handle_ = allocations::create_param_string_ref(right.handle_), *this);
 		}
 
 		param_string& operator=(param_string&& right) noexcept
 		{
-			clear();
-			handle_ = std::exchange(right.handle_, nullptr);
-
-			return *this;
+			return (clear(), handle_ = std::exchange(right.handle_, nullptr), *this);
 		}
 
 		friend bool operator==(const utf8_char* left, const param_string& right) noexcept
@@ -192,34 +178,34 @@ namespace glasssix::exposing
 
 		friend param_string operator+(const utf8_char* left, const param_string& right) noexcept
 		{
-			return param_string{ allocations::concat_c_string_with_param_string(left, right.handle_) };
+			return param_string{ take_over_abi_from_void_ptr{ allocations::concat_c_string_with_param_string(left, right.handle_) } };
 		}
 
 		friend param_string operator+(const param_string& left, const utf8_char* right) noexcept
 		{
-			return param_string{ allocations::concat_param_string_with_c_string(left.handle_, right) };
+			return param_string{ take_over_abi_from_void_ptr{ allocations::concat_param_string_with_c_string(left.handle_, right) } };
 		}
 
 		friend param_string operator+(utf8_string_view left, const param_string& right) noexcept
 		{
-			return param_string{ allocations::concat_c_string_with_param_string(left.data(), right.handle_) };
+			return param_string{ take_over_abi_from_void_ptr{ allocations::concat_c_string_with_param_string(left.data(), right.handle_) } };
 		}
 
 		friend param_string operator+(const param_string& left, utf8_string_view right) noexcept
 		{
-			return param_string{ allocations::concat_param_string_with_c_string(left.handle_, right.data()) };
+			return param_string{ take_over_abi_from_void_ptr{ allocations::concat_param_string_with_c_string(left.handle_, right.data()) } };
 		}
 
 		friend param_string operator+(const param_string& left, const param_string& right) noexcept
 		{
-			return param_string{ allocations::concat_param_string(left.handle_, right.handle_) };
+			return param_string{ take_over_abi_from_void_ptr{ allocations::concat_param_string(left.handle_, right.handle_) } };
 		}
 
 		/// <summary>
 		/// Indicates whether the string buffer is null.
 		/// </summary>
 		/// <returns>True if the string buffer is null; otherwise false</returns>
-		operator bool() const noexcept
+		explicit operator bool() const noexcept
 		{
 			return handle_;
 		}
@@ -229,9 +215,14 @@ namespace glasssix::exposing
 		/// </summary>
 		/// <param name="index">The index</param>
 		/// <returns>A const reference to the element</returns>
-		const value_type& operator[](std::size_t index) const noexcept
+		const value_type& operator[](std::size_t index) const
 		{
-			return data()[index];
+			if (index < size())
+			{
+				return data()[index];
+			}
+
+			throw abi_out_of_bounds{ format(FMT_STRING(u8"Index: {}, Size: {}"), index, size()) };
 		}
 
 		/// <summary>
@@ -358,23 +349,13 @@ namespace glasssix::exposing
 	};
 
 	/// <summary>
-	/// Converts a string to a platform-dependent narrow string.
-	/// </summary>
-	/// <param name="str">The string</param>
-	/// <returns>The narrow string</returns>
-	inline std::string to_narrow_string(const utf8_string_view str) noexcept
-	{
-		return platform_encoding::utf8_to_narrow(str);
-	}
-
-	/// <summary>
 	/// Converts a narrow string to a string.
 	/// </summary>
 	/// <param name="narrow_str">The narrow string</param>
 	/// <returns>The string</returns>
 	inline param_string to_param_string(std::string_view narrow_str) noexcept
 	{
-		return param_string{ allocations::create_param_string_from_narrow(narrow_str.data(), narrow_str.size()) };
+		return param_string{ take_over_abi_from_void_ptr{  allocations::create_param_string_from_narrow(narrow_str.data(), narrow_str.size()) } };
 	}
 
 	/// <summary>
@@ -405,6 +386,7 @@ namespace glasssix::exposing
 	/// <summary>
 	/// Formats one or more arguments to a string.
 	/// </summary>
+	/// <typeparam name="String">The string type</typeparam>
 	/// <typeparam name="...Args">The argument types</typeparam>
 	/// <param name="format_str">The format string</param>
 	/// <param name="...args">The arguments</param>

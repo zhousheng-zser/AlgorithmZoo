@@ -46,11 +46,11 @@ namespace glasssix::memory
 
 		if constexpr (Shared)
 		{
-			return std::make_shared<tensor<Destination>>(input_vector, source.device(), source.order(), &memory::pool_allocator_default<Destination>::get());
+			return std::make_shared<tensor<Destination>>(input_vector, source.device(), source.order()/*, &memory::pool_allocator_default<Destination>::get()*/);
 		}
 		else
 		{
-			return tensor<Destination>{ input_vector, source.device(), source.order(), & memory::pool_allocator_default<Destination>::get() };
+			return tensor<Destination>{ input_vector, source.device(), source.order()/*, & memory::pool_allocator_default<Destination>::get()*/ };
 		}
 	}
 
