@@ -351,10 +351,10 @@ namespace glasssix::longinus
 				else
 					NOT_IMPLEMENTED;
 
-				cache = std::make_shared<memory::tensor<std::uint8_t>>(shape, device_, (memory::orderType)order/*, &memory::pool_allocator_default<std::uint8_t>::get()*/);
+				cache = std::make_shared<memory::tensor<std::uint8_t>>(shape, -1, (memory::orderType)order/*, &memory::pool_allocator_default<std::uint8_t>::get()*/);
 			}
 
-			if (device_ > 0)
+			if (cache->device() > 0)
 			{
 #ifdef USE_CUDA
 				cudaMemcpy(cache->mutable_gpu_data(), bitmap, channels * height * width, cudaMemcpyHostToDevice);
