@@ -27,7 +27,7 @@ namespace glasssix::gaius
 		/// </summary>
 		/// <param name="racy_path">The model path</param>
 		/// <param name="device">The device ID; -1 for CPU or a non-negative number for a GPU core</param>
-		feature_extractor_internal(std::string_view racy_path, std::string_view mask_racy_path, int device);
+		feature_extractor_internal(std::string_view racy_path, std::string_view mask_racy_path, int device, bool use_int8);
 
 		/// Creates an instance with a specified GPU core or the default CPU.
 		/// </summary>

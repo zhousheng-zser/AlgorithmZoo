@@ -26,7 +26,7 @@ namespace glasssix::gaius
 	class feature_extractor_internal::impl
 	{
 	public:
-		impl(std::string_view racy_path, std::string_view mask_racy_path, int device) : impl{ hardcode::get_model_params("mobile_unicorn"), std::string{ racy_path }, hardcode::get_model_params("mobile_unicorn_mask"), std::string{ mask_racy_path }, device }
+		impl(std::string_view racy_path, std::string_view mask_racy_path, int device, bool use_int8) : impl{ hardcode::get_model_params("mobile_unicorn", use_int8), std::string{ racy_path }, hardcode::get_model_params("mobile_unicorn_mask", use_int8), std::string{ mask_racy_path }, device }
 		{
 		}
 
@@ -99,7 +99,7 @@ namespace glasssix::gaius
 		std::shared_ptr<memory::tensor<std::uint8_t>> cache_;
 	};
 
-	feature_extractor_internal::feature_extractor_internal(std::string_view racy_path, std::string_view mask_racy_path, int device) : impl_{ std::make_unique<impl>(racy_path, mask_racy_path, device) }
+	feature_extractor_internal::feature_extractor_internal(std::string_view racy_path, std::string_view mask_racy_path, int device, bool use_int8) : impl_{ std::make_unique<impl>(racy_path, mask_racy_path, device, use_int8) }
 	{
 	}
 

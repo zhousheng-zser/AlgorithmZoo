@@ -26,7 +26,7 @@ namespace glasssix::cassius
 		/// </summary>
 		/// <param name="racy_path">The model path</param>
 		/// <param name="device">The device ID; -1 for CPU or a non-negative number for a GPU core</param>
-		feature_extractor_internal(std::string_view racy_path, int device);
+		feature_extractor_internal(std::string_view racy_path, int device, bool use_int8);
 
 		/// <summary>
 		/// Creates an instance with a specified GPU core or the default CPU.
@@ -34,7 +34,7 @@ namespace glasssix::cassius
 		/// <param name="phai_path">The phai</param>
 		/// <param name="racy_path">The model path</param>
 		/// <param name="device">The device ID; -1 for CPU or a non-negative number for a GPU core</param>
-		feature_extractor_internal(const std::vector<std::string>& phai, std::string_view racy_path, int device);
+		feature_extractor_internal(const std::vector<std::string>& phai, std::string_view racy_path, int device, bool use_int8);
 
 		/// <summary>
 		/// The copy constructor must be disabled in PImpl pattern.
