@@ -41,7 +41,7 @@ namespace glasssix::longinus
 	class retina_net_internal::impl
 	{
 	public:
-		impl(const exposing::param_string racy_path, const exposing::param_string tracker_racy_path, float nms_threshold = 0.4, int device = -1) : impl{ hardcode::get_model_params("longinus"), racy_path, hardcode::get_model_params("banshee"), tracker_racy_path, nms_threshold, device }
+		impl(const exposing::param_string racy_path, const exposing::param_string tracker_racy_path, float nms_threshold = 0.4, int device = -1) : impl{ hardcode::get_model_params("longinus", false), racy_path, hardcode::get_model_params("banshee", false), tracker_racy_path, nms_threshold, device }
 		{
 		}
 
@@ -351,10 +351,10 @@ namespace glasssix::longinus
 				else
 					NOT_IMPLEMENTED;
 
-				cache = std::make_shared<memory::tensor<std::uint8_t>>(shape, device_, (memory::orderType)order/*, &memory::pool_allocator_default<std::uint8_t>::get()*/);
+				cache = std::make_shared<memory::tensor<std::uint8_t>>(shape, -1, (memory::orderType)order/*, &memory::pool_allocator_default<std::uint8_t>::get()*/);
 			}
 
-			if (device_ > 0)
+			if (cache->device() > 0)
 			{
 #ifdef USE_CUDA
 				cudaMemcpy(cache->mutable_gpu_data(), bitmap, channels * height * width, cudaMemcpyHostToDevice);

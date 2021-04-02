@@ -25,7 +25,7 @@ namespace glasssix::cassius
 	class feature_extractor_internal::impl
 	{
 	public:
-		impl(std::string_view racy_path, int device) : impl{ hardcode::get_model_params("unicorn"), racy_path, device }
+		impl(std::string_view racy_path, int device, bool use_int8) : impl{ hardcode::get_model_params("unicorn", use_int8), racy_path, device }
 		{
 		}
 
@@ -72,10 +72,10 @@ namespace glasssix::cassius
 			if (cache_ == nullptr || cache_->num() != count || cache_->order() != order)
 			{
 				cache_ = order == memory::NCHW ?
-					std::make_shared<memory::tensor<std::uint8_t>>(std::vector<int>{  static_cast<int>(count), single_bitmap_channels, single_bitmap_height, single_bitmap_width }, device_, static_cast<memory::orderType>(order)/*, &memory::pool_allocator_default<std::uint8_t>::get()*/) :
-					std::make_shared<memory::tensor<std::uint8_t>>(std::vector<int>{ static_cast<int>(count), single_bitmap_height, single_bitmap_width, single_bitmap_channels }, device_, static_cast<memory::orderType>(order)/*, & memory::pool_allocator_default<std::uint8_t>::get()*/);
+					std::make_shared<memory::tensor<std::uint8_t>>(std::vector<int>{  static_cast<int>(count), single_bitmap_channels, single_bitmap_height, single_bitmap_width }, -1, static_cast<memory::orderType>(order)/*, &memory::pool_allocator_default<std::uint8_t>::get()*/) :
+					std::make_shared<memory::tensor<std::uint8_t>>(std::vector<int>{ static_cast<int>(count), single_bitmap_height, single_bitmap_width, single_bitmap_channels }, -1, static_cast<memory::orderType>(order)/*, & memory::pool_allocator_default<std::uint8_t>::get()*/);
 			}
-			if (device_ > 0)
+			if (cache_->device() > 0)
 			{
 #ifdef USE_CUDA
 				cudaMemcpy(cache_->mutable_gpu_data(), bitmaps.data(), bitmaps.size(), cudaMemcpyHostToDevice);
@@ -92,11 +92,11 @@ namespace glasssix::cassius
 		std::shared_ptr<memory::tensor<std::uint8_t>> cache_;
 	};
 
-	feature_extractor_internal::feature_extractor_internal(std::string_view racy_path, int device) : impl_{ std::make_unique<impl>(racy_path, device) }
+	feature_extractor_internal::feature_extractor_internal(std::string_view racy_path, int device, bool use_int8) : impl_{ std::make_unique<impl>(racy_path, device, use_int8) }
 	{
 	}
 
-	feature_extractor_internal::feature_extractor_internal(const std::vector<std::string>& phai, std::string_view racy_path, int device) : impl_{ std::make_unique<impl>(phai, racy_path, device) }
+	feature_extractor_internal::feature_extractor_internal(const std::vector<std::string>& phai, std::string_view racy_path, int device, bool use_int8) : impl_{ std::make_unique<impl>(phai, racy_path, device) }
 	{
 	}
 

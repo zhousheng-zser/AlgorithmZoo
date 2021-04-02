@@ -17,8 +17,8 @@ namespace glasssix::cassius
 	public:
 		feature_extractor_impl();
 		~feature_extractor_impl();
-		void init(const exposing::param_string& racy_path, std::int32_t device);
-		void init(exposing::param_span<const exposing::param_string> phai, const exposing::param_string& racy_path, std::int32_t device);
+		void init(const exposing::param_string& racy_path, std::int32_t device, bool use_int8);
+		void init(exposing::param_span<const exposing::param_string> phai, const exposing::param_string& racy_path, std::int32_t device, bool use_int8);
 		exposing::param_string version() const;
 		exposing::param_vector<exposing::param_vector<float>> get(exposing::param_span<std::uint8_t> bitmaps, std::uint64_t count, std::int32_t order) const;
 	private:
