@@ -61,21 +61,19 @@ namespace glasssix::romancia
 			}
 			init_cache(bitmap, channels, height, width, order);
 
-			std::shared_ptr<memory::tensor<uint8_t>> ROI, rotated_ROI, final_mat, final_mat_gray, color_img, resized_color_img;
+			std::shared_ptr<memory::tensor<uint8_t>> ROI, rotated_ROI, final_mat, final_mat_gray, resized_color_img;
 			std::vector<std::shared_ptr<memory::tensor<uint8_t>>> src_vector;
 			auto res = exposing::make_param_vector<std::uint8_t, 2>();
 
-			std::shared_ptr<memory::tensor<uint8_t>> gray;
-			excalibur::rgb2gray_cpu(cache_, gray);
 			for (size_t i = 0; i < faces.size(); i++)
 			{
 				src_vector.clear();
-				rectangle<int> MarginRect = rectangle<int>(faces[i].x() - faces[i].width() * 0.2,
-					faces[i].y() - faces[i].height() * 0.2,
-					faces[i].height() * 1.4f,
-					faces[i].width() * 1.4f);
+				rectangle<int> MarginRect = rectangle<int>(faces[i].x() - faces[i].width() * 0.0f,
+					faces[i].y() - faces[i].height() * 0.0f,
+					faces[i].height() * 1.0f,
+					faces[i].width() * 1.0f);
 
-				excalibur::safty_cut_cpu(gray, ROI, &MarginRect);
+				excalibur::safty_cut_cpu(cache_, ROI, &MarginRect);
 
 				point<float> ldmk5[5];
 				auto pts = faces[i].pts();
@@ -102,19 +100,12 @@ namespace glasssix::romancia
 				double sin = (center_mouth.x - center_eye.x) / distance;
 				point<float> new_center_eye = point<float>(center_eye.x + (float)(sin * distance / 2), (float)(center_eye.y - (1 - cos) * distance / 2));
 				point<float> new_center_mouth = point<float>(center_mouth.x - (float)(sin * distance / 2), (float)(center_mouth.y + (1 - cos) * distance / 2));
-				rectangle<float> final_rect = rectangle<float>(new_center_eye.x - distance,
-					new_center_eye.y - distance / 2,
-					distance * 2, distance * 2);
+				rectangle<float> final_rect = rectangle<float>(new_center_eye.x - distance * 1.25f,
+					new_center_eye.y - distance * 0.75f,
+					distance * 2.5f, distance * 2.5f);
 				excalibur::safty_cut_cpu(rotated_ROI, final_mat, &final_rect);
-				excalibur::equalize_hist_cpu(final_mat, final_mat);
 
-				for (size_t k = 0; k < 3; k++)
-				{
-					src_vector.push_back(final_mat);
-				}
-
-				excalibur::merge_channel_cpu(src_vector, color_img);
-				excalibur::resize_cpu(color_img, resized_color_img, 128, 128);
+				excalibur::resize_cpu(final_mat, resized_color_img, 128, 128);
 
 				auto temp_vec = exposing::make_param_vector<std::uint8_t>();
 
