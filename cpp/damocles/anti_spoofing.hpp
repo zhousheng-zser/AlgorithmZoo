@@ -1,31 +1,33 @@
 #pragma once
 
 #include <abi/consumer.hpp>
+#include "../longinus/face_info.hpp"
 
-namespace glasssix::cassius
+namespace glasssix::damocles
 {
-	struct feature_extractor;
+	struct anti_spoofing;
 }
 
 namespace glasssix::exposing::impl
 {
-	template<> struct abi<cassius::feature_extractor>
+	template<> struct abi<damocles::anti_spoofing>
 	{
 		using identity_type = type_identity_interface;
 
-		static constexpr guid id{ "34AF10F9-C02F-427D-9037-E547BC1A7E97" };
+		static constexpr guid id{ "CA161DB5-85C1-4D22-A70C-08469734F283" };
 
 		struct type : abi_unknown_object
 		{
 			virtual std::int32_t G6_ABI_CALL init(abi_in_t<param_string> racy_path, std::int32_t device, bool use_int8) noexcept = 0;
 			virtual std::int32_t G6_ABI_CALL init(abi_in_t<param_span<const param_string>> phai, abi_in_t<param_string> racy_path, std::int32_t device) noexcept = 0;
-			virtual std::int32_t G6_ABI_CALL get(abi_in_t<param_span<std::uint8_t>> bitmaps, std::uint64_t count, std::int32_t order, abi_out_t<param_vector<param_vector<float>>> result) noexcept = 0;
+			virtual std::int32_t G6_ABI_CALL spoofing_detect(abi_in_t<longinus::face_info> face, abi_in_t<param_span<std::uint8_t>> bitmap, std::int32_t channels, std::int32_t height, std::int32_t width,
+				std::int32_t order, abi_out_t<param_vector<param_vector<float>>> result) noexcept = 0;
 			virtual std::int32_t G6_ABI_CALL version(abi_out_t<param_string> result) noexcept = 0;
 		};
 	};
 
 	template<typename Derived>
-	struct interface_vtable<Derived, cassius::feature_extractor> : interface_vtable_base<Derived, cassius::feature_extractor>
+	struct interface_vtable<Derived, damocles::anti_spoofing> : interface_vtable_base<Derived, damocles::anti_spoofing>
 	{
 		virtual std::int32_t G6_ABI_CALL init(abi_in_t<param_string> racy_path, std::int32_t device, bool use_int8) noexcept override
 		{
@@ -37,9 +39,10 @@ namespace glasssix::exposing::impl
 			return abi_safe_call([&] { this->self().init(create_from_abi<param_span<const param_string>>(phai), create_from_abi<param_string>(racy_path), device); });
 		}
 
-		virtual std::int32_t G6_ABI_CALL get(abi_in_t<param_span<std::uint8_t>> bitmaps, std::uint64_t count, std::int32_t order, abi_out_t<param_vector<param_vector<float>>> result) noexcept override
+		virtual std::int32_t G6_ABI_CALL spoofing_detect(abi_in_t<param_vector<longinus::face_info>> faces, abi_in_t<param_span<std::uint8_t>> bitmap, std::int32_t channels, std::int32_t height, std::int32_t width,
+			std::int32_t order, abi_out_t<param_vector<param_vector<float>>> result) noexcept override
 		{
-			return abi_safe_call([&] { *result = detach_abi(this->self().get(create_from_abi<param_span<std::uint8_t>>(bitmaps), count, order)); });
+			return abi_safe_call([&] { *result = detach_abi(this->self().spoofing_detect(create_from_abi<param_vector<longinus::face_info>>(faces), create_from_abi<param_span<std::uint8_t>>(bitmap), channels, height, width, order)); });
 		}
 
 		virtual std::int32_t G6_ABI_CALL version(abi_out_t<param_string> result) noexcept override
@@ -48,10 +51,10 @@ namespace glasssix::exposing::impl
 		}
 	};
 
-	template<> struct abi_adapter<cassius::feature_extractor>
+	template<> struct abi_adapter<damocles::anti_spoofing>
 	{
 		template<typename Derived>
-		struct type : enable_self_abi_awareness<Derived, cassius::feature_extractor>
+		struct type : enable_self_abi_awareness<Derived, damocles::anti_spoofing>
 		{
 			void init(const param_string& racy_path, std::int32_t device, bool use_int8) const
 			{
@@ -63,11 +66,10 @@ namespace glasssix::exposing::impl
 				check_abi_result(this->self_abi().init(get_abi(phai), get_abi(racy_path), get_abi(device)));
 			}
 
-			param_vector<param_vector<float>> get(param_span<std::uint8_t> bitmaps, std::uint64_t count, std::int32_t order) const
+			param_vector<param_vector<float>> spoofing_detect(const param_vector<longinus::face_info>& faces, param_span<std::uint8_t> bitmap, std::int32_t channels, std::int32_t height, std::int32_t width, std::int32_t order) const
 			{
 				param_vector<param_vector<float>> result{ nullptr };
-
-				return (check_abi_result(this->self_abi().get(get_abi(bitmaps), get_abi(count), get_abi(order), put_abi(result))), result);
+				return (check_abi_result(this->self_abi().spoofing_detect(get_abi(faces), get_abi(bitmap), channels, height, width, order, put_abi(result))), result);
 			}
 
 			param_string version() const
@@ -80,9 +82,9 @@ namespace glasssix::exposing::impl
 	};
 }
 
-namespace glasssix::cassius
+namespace glasssix::damocles
 {
-	struct feature_extractor : exposing::inherits<feature_extractor>
+	struct anti_spoofing : exposing::inherits<anti_spoofing>
 	{
 		using inherits::inherits;
 	};
