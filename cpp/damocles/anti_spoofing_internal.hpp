@@ -1,23 +1,20 @@
 #pragma once
 
-#ifndef _GAIUS_FEATURE_HPP_
-#define _GAIUS_FEATURE_HPP_
-
+#include <memory>
 #include <string>
 #include <vector>
-#include <memory>
 #include <cstddef>
 #include <cstdint>
-#include <string_view>
 
 #include <abi/param_span.hpp>
+#include "../longinus/face_info.hpp"
 
-namespace glasssix::gaius
+namespace glasssix::damocles
 {
 	/// <summary>
-	/// A common component supporting feature extraction. 
+	/// A common component supporting anti-spoofing. 
 	/// </summary>
-	class feature_extractor_internal
+	class anti_spoofing_internal
 	{
 	public:
 		class impl;
@@ -27,29 +24,30 @@ namespace glasssix::gaius
 		/// </summary>
 		/// <param name="racy_path">The model path</param>
 		/// <param name="device">The device ID; -1 for CPU or a non-negative number for a GPU core</param>
-		feature_extractor_internal(std::string_view racy_path, std::string_view mask_racy_path, int device, bool use_int8);
+		anti_spoofing_internal(std::string_view racy_path, int device, bool use_int8);
 
+		/// <summary>
 		/// Creates an instance with a specified GPU core or the default CPU.
 		/// </summary>
 		/// <param name="phai_path">The phai</param>
 		/// <param name="racy_path">The model path</param>
 		/// <param name="device">The device ID; -1 for CPU or a non-negative number for a GPU core</param>
-		feature_extractor_internal(const std::vector<std::string>& phai, std::string_view racy_path, const std::vector<std::string>& mask_phai, std::string_view mask_racy_path, int device);
+		anti_spoofing_internal(const std::vector<std::string>& phai, std::string_view racy_path, int device);
 
 		/// <summary>
 		/// The copy constructor must be disabled in PImpl pattern.
 		/// </summary>
-		feature_extractor_internal(const feature_extractor_internal&) = delete;
-		
+		anti_spoofing_internal(const anti_spoofing_internal&) = delete;
+
 		/// <summary>
 		/// Destroys the instance.
 		/// </summary>
-		virtual ~feature_extractor_internal();
+		virtual ~anti_spoofing_internal();
 
 		/// <summary>
 		/// The copy assignment operator must be disabled in PImpl pattern.
 		/// </summary>
-		feature_extractor_internal& operator=(const feature_extractor_internal&) = delete;
+		anti_spoofing_internal& operator=(const anti_spoofing_internal&) = delete;
 
 		/// <summary>
 		/// Extracts the feature data.
@@ -58,7 +56,7 @@ namespace glasssix::gaius
 		/// <param name="count">The count of bitmaps in the buffer</param>
 		/// <param name="order">The order that the bitmaps are arranged in</param>
 		/// <returns>The feature vectors</returns>
-		std::vector<std::vector<float>> get(exposing::param_span<std::uint8_t> bitmaps, std::size_t count, int order=0, bool has_mask=false) const;
+		std::vector<std::vector<float>> spoofing_detect(const exposing::param_vector<longinus::face_info>& faces, exposing::param_span<std::uint8_t> bitmap, int channels, int height, int width, int order) const;
 
 		/// <summary>
 		/// Gets the version of the component.
@@ -69,5 +67,3 @@ namespace glasssix::gaius
 		std::unique_ptr<impl> impl_;
 	};
 }
-
-#endif // !_GAIUS_FEATURE_HPP_

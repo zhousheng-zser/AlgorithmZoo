@@ -1,7 +1,7 @@
 #pragma once
 
-#ifndef _GAIUS_FEATURE_HPP_
-#define _GAIUS_FEATURE_HPP_
+#ifndef _CASSIUS_FEATURE_HPP_
+#define _CASSIUS_FEATURE_HPP_
 
 #include <memory>
 #include <string>
@@ -26,7 +26,7 @@ namespace glasssix::cassius
 		/// </summary>
 		/// <param name="racy_path">The model path</param>
 		/// <param name="device">The device ID; -1 for CPU or a non-negative number for a GPU core</param>
-		feature_extractor_internal(std::string_view racy_path, int device);
+		feature_extractor_internal(std::string_view racy_path, int device, bool use_int8);
 
 		/// <summary>
 		/// Creates an instance with a specified GPU core or the default CPU.

@@ -1,18 +1,17 @@
 #pragma once
 
-#ifndef _GAIUS_FEATURE_HPP_
-#define _GAIUS_FEATURE_HPP_
+#ifndef _SELENE_FEATURE_HPP_
+#define _SELENE_FEATURE_HPP_
 
+#include <memory>
 #include <string>
 #include <vector>
-#include <memory>
 #include <cstddef>
 #include <cstdint>
-#include <string_view>
 
 #include <abi/param_span.hpp>
 
-namespace glasssix::gaius
+namespace glasssix::selene
 {
 	/// <summary>
 	/// A common component supporting feature extraction. 
@@ -27,20 +26,21 @@ namespace glasssix::gaius
 		/// </summary>
 		/// <param name="racy_path">The model path</param>
 		/// <param name="device">The device ID; -1 for CPU or a non-negative number for a GPU core</param>
-		feature_extractor_internal(std::string_view racy_path, std::string_view mask_racy_path, int device, bool use_int8);
+		feature_extractor_internal(std::string_view general_racy_path, std::string_view id_racy_path, int device, bool use_int8);
 
+		/// <summary>
 		/// Creates an instance with a specified GPU core or the default CPU.
 		/// </summary>
 		/// <param name="phai_path">The phai</param>
 		/// <param name="racy_path">The model path</param>
 		/// <param name="device">The device ID; -1 for CPU or a non-negative number for a GPU core</param>
-		feature_extractor_internal(const std::vector<std::string>& phai, std::string_view racy_path, const std::vector<std::string>& mask_phai, std::string_view mask_racy_path, int device);
+		feature_extractor_internal(const std::vector<std::string>& phai, std::string_view general_racy_path, std::string_view id_racy_path, int device);
 
 		/// <summary>
 		/// The copy constructor must be disabled in PImpl pattern.
 		/// </summary>
 		feature_extractor_internal(const feature_extractor_internal&) = delete;
-		
+
 		/// <summary>
 		/// Destroys the instance.
 		/// </summary>
@@ -58,7 +58,7 @@ namespace glasssix::gaius
 		/// <param name="count">The count of bitmaps in the buffer</param>
 		/// <param name="order">The order that the bitmaps are arranged in</param>
 		/// <returns>The feature vectors</returns>
-		std::vector<std::vector<float>> get(exposing::param_span<std::uint8_t> bitmaps, std::size_t count, int order=0, bool has_mask=false) const;
+		std::vector<std::vector<float>> get(exposing::param_span<std::uint8_t> bitmaps, std::size_t count, int order, bool is_id_image) const;
 
 		/// <summary>
 		/// Gets the version of the component.
