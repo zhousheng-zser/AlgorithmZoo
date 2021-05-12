@@ -219,7 +219,7 @@ namespace glasssix
 			case 128:
 				return std::make_shared<database_record_impl<128>>(*reinterpret_cast<basic_database_record<128>*>(ptr));
 			case 256:
-				return std::make_shared<database_record_impl<512>>(*reinterpret_cast<basic_database_record<256>*>(ptr));
+				return std::make_shared<database_record_impl<256>>(*reinterpret_cast<basic_database_record<256>*>(ptr));
 			case 512:
 				return std::make_shared<database_record_impl<512>>(*reinterpret_cast<basic_database_record<512>*>(ptr));
 			default:
@@ -234,7 +234,7 @@ namespace glasssix
 			case 128:
 				return std::make_shared<database_record_ref_impl<128>>(reinterpret_cast<basic_database_record<128>*>(ptr));
 			case 256:
-				return std::make_shared<database_record_ref_impl<512>>(reinterpret_cast<basic_database_record<256>*>(ptr));
+				return std::make_shared<database_record_ref_impl<256>>(reinterpret_cast<basic_database_record<256>*>(ptr));
 			case 512:
 				return std::make_shared<database_record_ref_impl<512>>(reinterpret_cast<basic_database_record<512>*>(ptr));
 			default:
