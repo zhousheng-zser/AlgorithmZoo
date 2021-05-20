@@ -13,8 +13,8 @@ if(USE_OPENCV)
 	if(NOT OPENCV_FOUND)
 		message(WARNING "Not Found installed OpenCV, use mannual configuration.")
 
-		set(OpenCV_INCLUDE_DIRS E:/OpenCV-android-sdk/sdk/native/jni/include)
-		set(OpenCV_LIBRARY_DIRS E:/OpenCV-android-sdk/sdk/native/libs/${ANDROID_ABI})
+		set(OpenCV_INCLUDE_DIRS E:/Libs/OpenCV-android-sdk/sdk/native/jni/include)
+		set(OpenCV_LIBRARY_DIRS E:/Libs/OpenCV-android-sdk/sdk/native/libs/${ANDROID_ABI})
 		set(OpenCV_LIBS opencv_java4)
 
 		message(STATUS "OpenCV_INCLUDE_DIRS: ${OpenCV_INCLUDE_DIRS}")
