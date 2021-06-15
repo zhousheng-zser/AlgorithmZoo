@@ -39,6 +39,7 @@ namespace glasssix::longinus
 
 		return impl_->detect(bitmap, channels, height, width, min_size, threshold, order, do_attributing);
 	}
+    
 	face_info retina_net_impl::single_trace(face_info face, exposing::param_span<std::uint8_t> bitmap, std::int32_t channels, std::int32_t height, std::int32_t width, std::int32_t order) const
 	{
 		if (!impl_)
