@@ -51,6 +51,7 @@ namespace glasssix::romancia
 		/// <param name="faces">The faces informations</param>
 		/// <returns>The feature vectors</returns>
 		exposing::param_vector<exposing::param_vector<std::uint8_t>> align(exposing::param_span<std::uint8_t> bitmap, std::int32_t channels, std::int32_t height, std::int32_t width, const exposing::param_vector<longinus::face_info>& faces, std::int32_t order = 1) const;
+		exposing::param_vector<exposing::param_vector<std::uint8_t>> align256(exposing::param_span<std::uint8_t> bitmap, std::int32_t channels, std::int32_t height, std::int32_t width, const exposing::param_vector<longinus::face_info>& faces, std::int32_t order = 1) const;
 		
 		exposing::param_vector<double> blur_detect(const exposing::param_vector<longinus::face_info>& faces, exposing::param_span<std::uint8_t> bitmap, std::int32_t channels, std::int32_t height, std::int32_t width, std::int32_t order = 1) const;
 

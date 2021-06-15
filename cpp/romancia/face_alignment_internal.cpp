@@ -61,6 +61,84 @@ namespace glasssix::romancia
 			}
 			init_cache(bitmap, channels, height, width, order);
 
+			std::shared_ptr<memory::tensor<uint8_t>> ROI, rotated_ROI, final_mat, final_mat_gray, color_img, resized_color_img;
+			std::vector<std::shared_ptr<memory::tensor<uint8_t>>> src_vector;
+			auto res = exposing::make_param_vector<std::uint8_t, 2>();
+
+			std::shared_ptr<memory::tensor<uint8_t>> gray;
+			excalibur::rgb2gray_cpu(cache_, gray);
+			for (size_t i = 0; i < faces.size(); i++)
+			{
+				src_vector.clear();
+				rectangle<int> MarginRect = rectangle<int>(faces[i].x() - faces[i].width() * 0.2f,
+					faces[i].y() - faces[i].height() * 0.2f,
+					faces[i].height() * 1.4f,
+					faces[i].width() * 1.4f);
+
+				excalibur::safty_cut_cpu(gray, ROI, &MarginRect);
+
+				point<float> ldmk5[5];
+				auto pts = faces[i].pts();
+				for (size_t j = 0; j < pts.size(); j++)
+				{
+					ldmk5[j] = point<float>(pts[j].key() - MarginRect.x, pts[j].value() - MarginRect.y);
+				}
+				point<float> center_eye = point<float>((ldmk5[0].x + ldmk5[1].x) / 2, (ldmk5[0].y + ldmk5[1].y) / 2);
+				point<float> center_mouth = point<float>((ldmk5[3].x + ldmk5[4].x) / 2, (ldmk5[3].y + ldmk5[4].y) / 2);
+				point<float> center = point<float>((center_eye.x + center_mouth.x) / 2, (center_eye.y + center_mouth.y) / 2);
+				double tan = (center_eye.x - center_mouth.x) / (center_eye.y - center_mouth.y);
+				double arctan = atan(tan) * 180 / 3.1415926;
+
+				excalibur::rotate_with_points_cpu(ROI, rotated_ROI, center, -1 * arctan);
+
+				double distance = std::sqrt((center_eye.x - center_mouth.x) * (center_eye.x - center_mouth.x) + (center_eye.y - center_mouth.y) * (center_eye.y - center_mouth.y));
+
+				if (distance < std::numeric_limits<double>::epsilon())
+				{
+					throw exposing::abi_invalid_argument("Illegal distance. Error landmarks.");
+				}
+
+				double cos = (center_mouth.y - center_eye.y) / distance;
+				double sin = (center_mouth.x - center_eye.x) / distance;
+				point<float> new_center_eye = point<float>(center_eye.x + (float)(sin * distance / 2), (float)(center_eye.y - (1 - cos) * distance / 2));
+				point<float> new_center_mouth = point<float>(center_mouth.x - (float)(sin * distance / 2), (float)(center_mouth.y + (1 - cos) * distance / 2));
+				rectangle<float> final_rect = rectangle<float>(new_center_eye.x - distance,
+					new_center_eye.y - distance / 2,
+					distance * 2, distance * 2);
+				excalibur::safty_cut_cpu(rotated_ROI, final_mat, &final_rect);
+				excalibur::equalize_hist_cpu(final_mat, final_mat);
+
+				for (size_t k = 0; k < 3; k++)
+				{
+					src_vector.push_back(final_mat);
+				}
+
+				excalibur::merge_channel_cpu(src_vector, color_img);
+				excalibur::resize_cpu(color_img, resized_color_img, 128, 128);
+
+				auto temp_vec = exposing::make_param_vector<std::uint8_t>();
+
+				auto* ptr = resized_color_img->cpu_data();
+				for (size_t k = 0; k < resized_color_img->count(); k++)
+				{
+					temp_vec.push_back(ptr[k]);
+				}
+
+				res.push_back(temp_vec);
+			}
+
+			return res;
+		}
+
+		exposing::param_vector<exposing::param_vector<std::uint8_t>> align256(exposing::param_span<std::uint8_t> bitmap, std::int32_t channels, std::int32_t height, std::int32_t width,
+			const exposing::param_vector<longinus::face_info>& faces, std::int32_t order)
+		{
+			if (bitmap.empty())
+			{
+				throw exposing::abi_invalid_argument("current frame is empty");
+			}
+			init_cache(bitmap, channels, height, width, order);
+
 			std::shared_ptr<memory::tensor<uint8_t>> ROI, rotated_ROI, final_mat, final_mat_gray, resized_color_img;
 			std::vector<std::shared_ptr<memory::tensor<uint8_t>>> src_vector;
 			auto res = exposing::make_param_vector<std::uint8_t, 2>();
@@ -608,6 +686,12 @@ namespace glasssix::romancia
 		const exposing::param_vector<longinus::face_info>& faces, std::int32_t order) const
 	{
 		return impl_->align(bitmap, channels, height, width, faces, order);
+	}
+
+	exposing::param_vector<exposing::param_vector<std::uint8_t>> face_alignment_internal::align256(exposing::param_span<std::uint8_t> bitmap, std::int32_t channels, std::int32_t height, std::int32_t width,
+		const exposing::param_vector<longinus::face_info>& faces, std::int32_t order) const
+	{
+		return impl_->align256(bitmap, channels, height, width, faces, order);
 	}
 
 	exposing::param_vector<double> face_alignment_internal::blur_detect(const exposing::param_vector<longinus::face_info>& faces, exposing::param_span<std::uint8_t> bitmap, std::int32_t channels, std::int32_t height, std::int32_t width, std::int32_t order) const

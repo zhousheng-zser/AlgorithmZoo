@@ -29,7 +29,9 @@ if(CMAKE_CXX_COMPILER_ID STREQUAL "MSVC")
 	set(CMAKE_PREFIX_PATH "C:/Tools/vcpkg/installed/x64-windows")
 endif()
 
-set(Boost_INCLUDE_DIRS C:/Tools/vcpkg/installed/x64-windows/include)
+if (NOT DEFINED Boost_INCLUDE_DIRS)
+	set(Boost_INCLUDE_DIRS C:/Tools/vcpkg/installed/x64-windows/include)
+endif()
 
 set(COMMON_INCLUDE_DIRS ${CMAKE_CURRENT_SOURCE_DIR}/../cpp/common/include ${CMAKE_CURRENT_SOURCE_DIR}/../cpp/common/include/Primitives)
 
