@@ -25,15 +25,15 @@ namespace glasssix::selene
 	class feature_extractor_internal::impl
 	{
 	public:
-		impl(std::string_view general_racy_path, std::string_view id_racy_path, int device, bool use_int8) : impl{ hardcode::get_model_params("unicorn_light", use_int8), general_racy_path, id_racy_path, device }
+		impl(std::string_view universal_racy_path, std::string_view id_racy_path, std::string_view universal_mask_racy_path, int device, bool use_int8) : impl{ hardcode::get_model_params("unicorn_light", use_int8), universal_racy_path, id_racy_path, universal_mask_racy_path, device }
 		{
 		}
 
-		impl(const std::vector<std::string>& phai, std::string_view general_racy_path, std::string_view id_racy_path, int device) : device_{ device }, unicorn_light_general_{ phai, std::string{ general_racy_path }, device }, unicorn_light_identity_{ phai, std::string{ id_racy_path }, device }
+		impl(const std::vector<std::string>& phai, std::string_view universal_racy_path, std::string_view id_racy_path, std::string_view universal_mask_racy_path, int device) : device_{ device }, unicorn_light_universal_{ phai, std::string{ universal_racy_path }, device }, unicorn_light_id_{ phai, std::string{ id_racy_path }, device }, unicorn_light_universal_mask_{ phai, std::string{ universal_mask_racy_path }, device }
 		{
 		}
 
-		std::vector<std::vector<float>> get(exposing::param_span<std::uint8_t> bitmaps, std::size_t count, int order, bool is_id_image)
+		std::vector<std::vector<float>> get_universal(exposing::param_span<std::uint8_t> bitmaps, std::size_t count, int order)
 		{
 			if (bitmaps.empty() || count <= 0)
 			{
@@ -44,10 +44,67 @@ namespace glasssix::selene
 
 			std::vector<std::vector<float>> result;
 			std::unordered_map<std::string, std::shared_ptr<memory::tensor<float>>> network_result;
-			if(is_id_image)
-				network_result = unicorn_light_identity_.forward(cache_ | memory::tensor_convert_to<float>);
-			else
-				network_result = unicorn_light_general_.forward(cache_ | memory::tensor_convert_to<float>);
+			network_result = unicorn_light_universal_.forward(cache_ | memory::tensor_convert_to<float>);
+
+			if (auto iter = network_result.find("conv5_dw"); iter != network_result.end())
+			{
+				auto iter_conv5_dw = iter->second->cpu_data();
+
+				for (std::size_t i = 0; i < count; i++)
+				{
+					std::vector<float> feature(feature_size);
+
+					std::copy(iter_conv5_dw, iter_conv5_dw + feature_size, feature.data());
+					iter_conv5_dw += feature_size;
+					result.emplace_back(feature);
+				}
+			}
+
+			return result;
+		}
+
+		std::vector<std::vector<float>> get_id(exposing::param_span<std::uint8_t> bitmaps, std::size_t count, int order)
+		{
+			if (bitmaps.empty() || count <= 0)
+			{
+				return {};
+			}
+
+			init_cache(bitmaps, count, order);
+
+			std::vector<std::vector<float>> result;
+			std::unordered_map<std::string, std::shared_ptr<memory::tensor<float>>> network_result;
+			network_result = unicorn_light_id_.forward(cache_ | memory::tensor_convert_to<float>);
+
+			if (auto iter = network_result.find("conv5_dw"); iter != network_result.end())
+			{
+				auto iter_conv5_dw = iter->second->cpu_data();
+
+				for (std::size_t i = 0; i < count; i++)
+				{
+					std::vector<float> feature(feature_size);
+
+					std::copy(iter_conv5_dw, iter_conv5_dw + feature_size, feature.data());
+					iter_conv5_dw += feature_size;
+					result.emplace_back(feature);
+				}
+			}
+
+			return result;
+		}
+
+		std::vector<std::vector<float>> get_universal_mask(exposing::param_span<std::uint8_t> bitmaps, std::size_t count, int order)
+		{
+			if (bitmaps.empty() || count <= 0)
+			{
+				return {};
+			}
+
+			init_cache(bitmaps, count, order);
+
+			std::vector<std::vector<float>> result;
+			std::unordered_map<std::string, std::shared_ptr<memory::tensor<float>>> network_result;
+			network_result = unicorn_light_universal_mask_.forward(cache_ | memory::tensor_convert_to<float>);
 
 			if (auto iter = network_result.find("conv5_dw"); iter != network_result.end())
 			{
@@ -92,16 +149,17 @@ namespace glasssix::selene
 		}
 
 		int device_;
-		excalibur::pipeline<float> unicorn_light_general_;
-		excalibur::pipeline<float> unicorn_light_identity_;
+		excalibur::pipeline<float> unicorn_light_universal_;
+		excalibur::pipeline<float> unicorn_light_id_;
+		excalibur::pipeline<float> unicorn_light_universal_mask_;
 		std::shared_ptr<memory::tensor<std::uint8_t>> cache_;
 	};
 
-	feature_extractor_internal::feature_extractor_internal(std::string_view general_racy_path, std::string_view id_racy_path, int device, bool use_int8) : impl_{ std::make_unique<impl>(general_racy_path, id_racy_path, device, use_int8) }
+	feature_extractor_internal::feature_extractor_internal(std::string_view universal_racy_path, std::string_view id_racy_path, std::string_view universal_mask_racy_path, int device, bool use_int8) : impl_{ std::make_unique<impl>(universal_racy_path, id_racy_path, universal_mask_racy_path,device, use_int8) }
 	{
 	}
 
-	feature_extractor_internal::feature_extractor_internal(const std::vector<std::string>& phai, std::string_view general_racy_path, std::string_view id_racy_path, int device) : impl_{ std::make_unique<impl>(phai, general_racy_path, id_racy_path, device) }
+	feature_extractor_internal::feature_extractor_internal(const std::vector<std::string>& phai, std::string_view universal_racy_path, std::string_view id_racy_path, std::string_view universal_mask_racy_path, int device) : impl_{ std::make_unique<impl>(phai, universal_racy_path, id_racy_path, universal_mask_racy_path, device) }
 	{
 	}
 
@@ -109,9 +167,19 @@ namespace glasssix::selene
 	{
 	}
 
-	std::vector<std::vector<float>> feature_extractor_internal::get(exposing::param_span<std::uint8_t> bitmaps, std::size_t count, int order, bool is_id_image) const
+	std::vector<std::vector<float>> feature_extractor_internal::get_universal(exposing::param_span<std::uint8_t> bitmaps, std::size_t count, int order) const
 	{
-		return impl_->get(bitmaps, count, order, is_id_image);
+		return impl_->get_universal(bitmaps, count, order);
+	}
+
+	std::vector<std::vector<float>> feature_extractor_internal::get_id(exposing::param_span<std::uint8_t> bitmaps, std::size_t count, int order) const
+	{
+		return impl_->get_id(bitmaps, count, order);
+	}
+
+	std::vector<std::vector<float>> feature_extractor_internal::get_universal_mask(exposing::param_span<std::uint8_t> bitmaps, std::size_t count, int order) const
+	{
+		return impl_->get_universal_mask(bitmaps, count, order);
 	}
 
 	std::string feature_extractor_internal::version()
