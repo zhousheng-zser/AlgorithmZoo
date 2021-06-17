@@ -9,6 +9,8 @@
 #include <Excalibur/operation_safty_cut.hpp>
 #include <Excalibur/operation_resize.hpp>
 
+#include <cfloat>
+
 #ifdef USE_CUDA
 #include <cuda_runtime_api.h>
 #endif

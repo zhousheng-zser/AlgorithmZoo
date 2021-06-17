@@ -72,7 +72,7 @@ namespace glasssix::exposing::impl
 
             param_vector<gungnir::hat_info> detect(param_span<std::uint8_t> bitmap, std::int32_t channels, std::int32_t height, std::int32_t width, std::int32_t order) const
             {
-                param_vector<hat_info> result{nullptr};
+                param_vector<gungnir::hat_info> result{nullptr};
                 return (check_abi_result(this->self_abi().detect(get_abi(bitmap), channels, height, width, order, put_abi(result))), result);
             }
 
