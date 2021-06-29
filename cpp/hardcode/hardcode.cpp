@@ -118,7 +118,7 @@ namespace glasssix::hardcode
                 "Convolution      conv5_ex         1 1 res4_2 conv5_ex 0=512 1=1 2=1 3=1 4=0 5=1 6=65536",
                 "PReLU            relu5_ex         1 1 conv5_ex conv5_ex_relu5_ex 0=512",
                 "ConvolutionDepthWise conv5_dw         1 1 conv5_ex_relu5_ex conv5_dw 0=512 1=8 2=1 3=1 4=0 5=1 6=32768 7=512",
-                "InnerProduct     fc5              1 1 conv5_dw fc5 0=128 1=0 2=65536"};
+                "InnerProduct     fc5              1 1 conv5_dw fc5 0=128 1=0 2=65536" };
 
             inline static const std::vector<std::string> mobile_unicorn_int8{
                 "glsv1 Unicorn_Mobile_INT8_Net",
@@ -230,95 +230,96 @@ namespace glasssix::hardcode
                 "Convolution      conv5_ex         1 1 res4_2 conv5_ex 0=512 1=1 2=1 3=1 4=0 5=1 6=65536 8=2",
                 "PReLU            relu5_ex         1 1 conv5_ex conv5_ex_relu5_ex 0=512",
                 "ConvolutionDepthWise conv5_dw         1 1 conv5_ex_relu5_ex conv5_dw 0=512 1=8 2=1 3=1 4=0 5=1 6=32768 7=512 8=1",
-                "InnerProduct     fc5              1 1 conv5_dw fc5 0=128 1=0 2=65536"};
+                "InnerProduct     fc5              1 1 conv5_dw fc5 0=128 1=0 2=65536"
+            };
 
             inline static const std::vector<std::string> unicorn{
                 "glsv1 Unicorn_Net",
                 "84 96",
-                "Input            data             0 1 data 0=128 1=128 2=3 3=123.0,117.0,104.0 4=0.0078125",
+                "Input            data             0 1 data 0=128 1=128 2=3 3=104,117,123 4=0.0078125",
                 "Convolution      conv1a           1 1 data conv1a 0=32 1=3 2=1 3=1 4=0 5=1 6=864",
-                "PReLU            relu1a           1 1 conv1a conv1a_relu1a 0=32",
+                "ReLU             relu1a           1 1 conv1a conv1a_relu1a",
                 "Convolution      conv1b           1 1 conv1a_relu1a conv1b 0=64 1=3 2=1 3=1 4=0 5=1 6=18432",
-                "PReLU            relu1b           1 1 conv1b conv1b_relu1b 0=64",
+                "ReLU             relu1b           1 1 conv1b conv1b_relu1b",
                 "Pooling          pool1b           1 1 conv1b_relu1b pool1b 0=0 1=2 2=2 3=0 4=0",
                 "Split            splitexcalibur_0 1 2 pool1b pool1b_splitexcalibur_0 pool1b_splitexcalibur_1",
                 "Convolution      conv2_1          1 1 pool1b_splitexcalibur_1 conv2_1 0=64 1=3 2=1 3=1 4=1 5=1 6=36864",
-                "PReLU            relu2_1          1 1 conv2_1 conv2_1_relu2_1 0=64",
+                "ReLU             relu2_1          1 1 conv2_1 conv2_1_relu2_1",
                 "Convolution      conv2_2          1 1 conv2_1_relu2_1 conv2_2 0=64 1=3 2=1 3=1 4=1 5=1 6=36864",
-                "PReLU            relu2_2          1 1 conv2_2 conv2_2_relu2_2 0=64",
+                "ReLU             relu2_2          1 1 conv2_2 conv2_2_relu2_2",
                 "Eltwise          res2_2           2 1 pool1b_splitexcalibur_0 conv2_2_relu2_2 res2_2 0=1 -23301=0",
                 "Convolution      conv2            1 1 res2_2 conv2 0=128 1=3 2=1 3=1 4=0 5=1 6=73728",
-                "PReLU            relu2            1 1 conv2 conv2_relu2 0=128",
+                "ReLU             relu2            1 1 conv2 conv2_relu2",
                 "Pooling          pool2            1 1 conv2_relu2 pool2 0=0 1=2 2=2 3=0 4=0",
                 "Split            splitexcalibur_1 1 2 pool2 pool2_splitexcalibur_0 pool2_splitexcalibur_1",
                 "Convolution      conv3_1          1 1 pool2_splitexcalibur_1 conv3_1 0=128 1=3 2=1 3=1 4=1 5=1 6=147456",
-                "PReLU            relu3_1          1 1 conv3_1 conv3_1_relu3_1 0=128",
+                "ReLU             relu3_1          1 1 conv3_1 conv3_1_relu3_1",
                 "Convolution      conv3_2          1 1 conv3_1_relu3_1 conv3_2 0=128 1=3 2=1 3=1 4=1 5=1 6=147456",
-                "PReLU            relu3_2          1 1 conv3_2 conv3_2_relu3_2 0=128",
+                "ReLU             relu3_2          1 1 conv3_2 conv3_2_relu3_2",
                 "Eltwise          res3_2           2 1 pool2_splitexcalibur_0 conv3_2_relu3_2 res3_2 0=1 -23301=0",
                 "Split            splitexcalibur_2 1 2 res3_2 res3_2_splitexcalibur_0 res3_2_splitexcalibur_1",
                 "Convolution      conv3_3          1 1 res3_2_splitexcalibur_1 conv3_3 0=128 1=3 2=1 3=1 4=1 5=1 6=147456",
-                "PReLU            relu3_3          1 1 conv3_3 conv3_3_relu3_3 0=128",
+                "ReLU             relu3_3          1 1 conv3_3 conv3_3_relu3_3",
                 "Convolution      conv3_4          1 1 conv3_3_relu3_3 conv3_4 0=128 1=3 2=1 3=1 4=1 5=1 6=147456",
-                "PReLU            relu3_4          1 1 conv3_4 conv3_4_relu3_4 0=128",
+                "ReLU             relu3_4          1 1 conv3_4 conv3_4_relu3_4",
                 "Eltwise          res3_4           2 1 res3_2_splitexcalibur_0 conv3_4_relu3_4 res3_4 0=1 -23301=0",
                 "Convolution      conv3            1 1 res3_4 conv3 0=256 1=3 2=1 3=1 4=0 5=1 6=294912",
-                "PReLU            relu3            1 1 conv3 conv3_relu3 0=256",
+                "ReLU             relu3            1 1 conv3 conv3_relu3",
                 "Pooling          pool3            1 1 conv3_relu3 pool3 0=0 1=2 2=2 3=0 4=0",
                 "Split            splitexcalibur_3 1 2 pool3 pool3_splitexcalibur_0 pool3_splitexcalibur_1",
                 "Convolution      conv4_1          1 1 pool3_splitexcalibur_1 conv4_1 0=256 1=3 2=1 3=1 4=1 5=1 6=589824",
-                "PReLU            relu4_1          1 1 conv4_1 conv4_1_relu4_1 0=256",
+                "ReLU             relu4_1          1 1 conv4_1 conv4_1_relu4_1",
                 "Convolution      conv4_2          1 1 conv4_1_relu4_1 conv4_2 0=256 1=3 2=1 3=1 4=1 5=1 6=589824",
-                "PReLU            relu4_2          1 1 conv4_2 conv4_2_relu4_2 0=256",
+                "ReLU             relu4_2          1 1 conv4_2 conv4_2_relu4_2",
                 "Eltwise          res4_2           2 1 pool3_splitexcalibur_0 conv4_2_relu4_2 res4_2 0=1 -23301=0",
                 "Split            splitexcalibur_4 1 2 res4_2 res4_2_splitexcalibur_0 res4_2_splitexcalibur_1",
                 "Convolution      conv4_3          1 1 res4_2_splitexcalibur_1 conv4_3 0=256 1=3 2=1 3=1 4=1 5=1 6=589824",
-                "PReLU            relu4_3          1 1 conv4_3 conv4_3_relu4_3 0=256",
+                "ReLU             relu4_3          1 1 conv4_3 conv4_3_relu4_3",
                 "Convolution      conv4_4          1 1 conv4_3_relu4_3 conv4_4 0=256 1=3 2=1 3=1 4=1 5=1 6=589824",
-                "PReLU            relu4_4          1 1 conv4_4 conv4_4_relu4_4 0=256",
+                "ReLU             relu4_4          1 1 conv4_4 conv4_4_relu4_4",
                 "Eltwise          res4_4           2 1 res4_2_splitexcalibur_0 conv4_4_relu4_4 res4_4 0=1 -23301=0",
                 "Split            splitexcalibur_5 1 2 res4_4 res4_4_splitexcalibur_0 res4_4_splitexcalibur_1",
                 "Convolution      conv4_5          1 1 res4_4_splitexcalibur_1 conv4_5 0=256 1=3 2=1 3=1 4=1 5=1 6=589824",
-                "PReLU            relu4_5          1 1 conv4_5 conv4_5_relu4_5 0=256",
+                "ReLU             relu4_5          1 1 conv4_5 conv4_5_relu4_5",
                 "Convolution      conv4_6          1 1 conv4_5_relu4_5 conv4_6 0=256 1=3 2=1 3=1 4=1 5=1 6=589824",
-                "PReLU            relu4_6          1 1 conv4_6 conv4_6_relu4_6 0=256",
+                "ReLU             relu4_6          1 1 conv4_6 conv4_6_relu4_6",
                 "Eltwise          res4_6           2 1 res4_4_splitexcalibur_0 conv4_6_relu4_6 res4_6 0=1 -23301=0",
                 "Split            splitexcalibur_6 1 2 res4_6 res4_6_splitexcalibur_0 res4_6_splitexcalibur_1",
                 "Convolution      conv4_7          1 1 res4_6_splitexcalibur_1 conv4_7 0=256 1=3 2=1 3=1 4=1 5=1 6=589824",
-                "PReLU            relu4_7          1 1 conv4_7 conv4_7_relu4_7 0=256",
+                "ReLU             relu4_7          1 1 conv4_7 conv4_7_relu4_7",
                 "Convolution      conv4_8          1 1 conv4_7_relu4_7 conv4_8 0=256 1=3 2=1 3=1 4=1 5=1 6=589824",
-                "PReLU            relu4_8          1 1 conv4_8 conv4_8_relu4_8 0=256",
+                "ReLU             relu4_8          1 1 conv4_8 conv4_8_relu4_8",
                 "Eltwise          res4_8           2 1 res4_6_splitexcalibur_0 conv4_8_relu4_8 res4_8 0=1 -23301=0",
                 "Split            splitexcalibur_7 1 2 res4_8 res4_8_splitexcalibur_0 res4_8_splitexcalibur_1",
                 "Convolution      conv4_9          1 1 res4_8_splitexcalibur_1 conv4_9 0=256 1=3 2=1 3=1 4=1 5=1 6=589824",
-                "PReLU            relu4_9          1 1 conv4_9 conv4_9_relu4_9 0=256",
+                "ReLU             relu4_9          1 1 conv4_9 conv4_9_relu4_9",
                 "Convolution      conv4_10         1 1 conv4_9_relu4_9 conv4_10 0=256 1=3 2=1 3=1 4=1 5=1 6=589824",
-                "PReLU            relu4_10         1 1 conv4_10 conv4_10_relu4_10 0=256",
+                "ReLU             relu4_10         1 1 conv4_10 conv4_10_relu4_10",
                 "Eltwise          res4_10          2 1 res4_8_splitexcalibur_0 conv4_10_relu4_10 res4_10 0=1 -23301=0",
                 "Convolution      conv4            1 1 res4_10 conv4 0=512 1=3 2=1 3=1 4=0 5=1 6=1179648",
-                "PReLU            relu4            1 1 conv4 conv4_relu4 0=512",
+                "ReLU             relu4            1 1 conv4 conv4_relu4",
                 "Pooling          pool4            1 1 conv4_relu4 pool4 0=0 1=2 2=2 3=0 4=0",
                 "Split            splitexcalibur_8 1 2 pool4 pool4_splitexcalibur_0 pool4_splitexcalibur_1",
                 "Convolution      conv5_1          1 1 pool4_splitexcalibur_1 conv5_1 0=512 1=3 2=1 3=1 4=1 5=1 6=2359296",
-                "PReLU            relu5_1          1 1 conv5_1 conv5_1_relu5_1 0=512",
+                "ReLU             relu5_1          1 1 conv5_1 conv5_1_relu5_1",
                 "Convolution      conv5_2          1 1 conv5_1_relu5_1 conv5_2 0=512 1=3 2=1 3=1 4=1 5=1 6=2359296",
-                "PReLU            relu5_2          1 1 conv5_2 conv5_2_relu5_2 0=512",
+                "ReLU             relu5_2          1 1 conv5_2 conv5_2_relu5_2",
                 "Eltwise          res5_2           2 1 pool4_splitexcalibur_0 conv5_2_relu5_2 res5_2 0=1 -23301=0",
                 "Split            splitexcalibur_9 1 2 res5_2 res5_2_splitexcalibur_0 res5_2_splitexcalibur_1",
                 "Convolution      conv5_3          1 1 res5_2_splitexcalibur_1 conv5_3 0=512 1=3 2=1 3=1 4=1 5=1 6=2359296",
-                "PReLU            relu5_3          1 1 conv5_3 conv5_3_relu5_3 0=512",
+                "ReLU             relu5_3          1 1 conv5_3 conv5_3_relu5_3",
                 "Convolution      conv5_4          1 1 conv5_3_relu5_3 conv5_4 0=512 1=3 2=1 3=1 4=1 5=1 6=2359296",
-                "PReLU            relu5_4          1 1 conv5_4 conv5_4_relu5_4 0=512",
+                "ReLU             relu5_4          1 1 conv5_4 conv5_4_relu5_4",
                 "Eltwise          res5_4           2 1 res5_2_splitexcalibur_0 conv5_4_relu5_4 res5_4 0=1 -23301=0",
                 "Split            splitexcalibur_10 1 2 res5_4 res5_4_splitexcalibur_0 res5_4_splitexcalibur_1",
                 "Convolution      conv5_5          1 1 res5_4_splitexcalibur_1 conv5_5 0=512 1=3 2=1 3=1 4=1 5=1 6=2359296",
-                "PReLU            relu5_5          1 1 conv5_5 conv5_5_relu5_5 0=512",
+                "ReLU             relu5_5          1 1 conv5_5 conv5_5_relu5_5",
                 "Convolution      conv5_6          1 1 conv5_5_relu5_5 conv5_6 0=512 1=3 2=1 3=1 4=1 5=1 6=2359296",
-                "PReLU            relu5_6          1 1 conv5_6 conv5_6_relu5_6 0=512",
+                "ReLU             relu5_6          1 1 conv5_6 conv5_6_relu5_6",
                 "Eltwise          res5_6           2 1 res5_4_splitexcalibur_0 conv5_6_relu5_6 res5_6 0=1 -23301=0",
                 "Convolution      conv5            1 1 res5_6 conv5 0=512 1=3 2=1 3=1 4=0 5=1 6=2359296",
-                "PReLU            relu5            1 1 conv5 conv5_relu5 0=512",
-                "ConvolutionDepthWise conv5_dw         1 1 conv5_relu5 conv5_dw 0=512 1=4 2=1 3=1 4=0 5=1 6=8192 7=512",
+                "ReLU             relu5            1 1 conv5 conv5_relu5",
+                "ConvolutionDepthWise conv5_dw         1 1 conv5_relu5 conv5_dw 0=512 1=4 2=1 3=1 4=0 5=1 6=8192 7=512"
             };
 
             inline static const std::vector<std::string> unicorn_int8{
@@ -407,7 +408,8 @@ namespace glasssix::hardcode
                 "Eltwise          res5_6           2 1 res5_4_splitexcalibur_0 conv5_6_relu5_6 res5_6 0=1 -23301=0",
                 "Convolution      conv5            1 1 res5_6 conv5 0=512 1=3 2=1 3=1 4=0 5=1 6=2359296 8=2",
                 "PReLU            relu5            1 1 conv5 conv5_relu5 0=512",
-                "ConvolutionDepthWise conv5_dw         1 1 conv5_relu5 conv5_dw 0=512 1=4 2=1 3=1 4=0 5=1 6=8192 7=512 8=1"};
+                "ConvolutionDepthWise conv5_dw         1 1 conv5_relu5 conv5_dw 0=512 1=4 2=1 3=1 4=0 5=1 6=8192 7=512 8=1"
+            };
 
             inline static const std::vector<std::string> longinus{
                 "glsv1 Rrtina_Face_Net",
@@ -540,7 +542,7 @@ namespace glasssix::hardcode
                 "Softmax          face_rpn_cls_prob_stride8 1 1 face_rpn_cls_score_reshape_stride8 face_rpn_cls_prob_stride8 0=0 1=1",
                 "Reshape          face_rpn_cls_prob_reshape_stride8 1 1 face_rpn_cls_prob_stride8 face_rpn_cls_prob_reshape_stride8 0=0 1=-1 2=4 3=0",
                 "Convolution      face_rpn_bbox_pred_stride8 1 1 rf_c1_det_concat_relu_rf_c1_det_concat_relu_0_split_1 face_rpn_bbox_pred_stride8 0=8 1=1 2=1 3=1 4=0 5=1 6=512",
-                "Convolution      face_rpn_landmark_pred_stride8 1 1 rf_c1_det_concat_relu_rf_c1_det_concat_relu_0_split_2 face_rpn_landmark_pred_stride8 0=20 1=1 2=1 3=1 4=0 5=1 6=1280"};
+                "Convolution      face_rpn_landmark_pred_stride8 1 1 rf_c1_det_concat_relu_rf_c1_det_concat_relu_0_split_2 face_rpn_landmark_pred_stride8 0=20 1=1 2=1 3=1 4=0 5=1 6=1280" };
 
             inline static const std::vector<std::string> banshee{
                 "glsv1",
@@ -735,7 +737,7 @@ namespace glasssix::hardcode
                 "Flatten          view1            1 1 conv_blob49 view_blob1",
                 "InnerProduct     fc1              1 1 view_blob1 fc_blob1 0=128 1=1 2=65536",
                 "InnerProduct     fc2              1 1 fc_blob1 fc_blob2 0=3 1=0 2=384",
-                "Softmax          softmax          1 1 fc_blob2 softmax 0=0 1=1"};
+                "Softmax          softmax          1 1 fc_blob2 softmax 0=0 1=1" };
 
             inline static const std::vector<std::string> unicorn_light{
                 "glsv1 Unicorn_Light",
@@ -823,7 +825,7 @@ namespace glasssix::hardcode
                 "Eltwise          res5_6           2 1 res5_4_splitexcalibur_0 conv5_6_relu5_6 res5_6 0=1 -23301=0",
                 "Convolution      conv5            1 1 res5_6 conv5 0=256 1=3 2=1 3=1 4=0 5=1 6=589824",
                 "ReLU             relu5            1 1 conv5 conv5_relu5",
-                "ConvolutionDepthWise conv5_dw         1 1 conv5_relu5 conv5_dw 0=256 1=4 2=1 3=1 4=0 5=1 6=4096 7=256"};
+                "ConvolutionDepthWise conv5_dw         1 1 conv5_relu5 conv5_dw 0=256 1=4 2=1 3=1 4=0 5=1 6=4096 7=256" };
 
             inline static const std::vector<std::string> hat_simp
             {
@@ -1035,7 +1037,7 @@ namespace glasssix::hardcode
             {"banshee", hardcode_model_params::banshee},
             {"FASMV2", hardcode_model_params::FASMV2},
             {"unicorn_light", hardcode_model_params::unicorn_light},
-            {"hat_simp", hardcode_model_params::hat_simp}};
+            {"hat_simp", hardcode_model_params::hat_simp} };
     }
 
     std::vector<std::string> get_model_params(std::string_view name, bool use_int8)
