@@ -11,17 +11,22 @@ namespace glasssix::selene
 	{
 	}
 
-	void feature_extractor_impl::init(const exposing::param_string& universal_racy_path, const exposing::param_string& id_racy_path, const exposing::param_string& universal_mask_racy_path, std::int32_t device, bool use_int8)
+	void feature_extractor_impl::init(const exposing::param_string& racy_path, std::int32_t model_type, std::int32_t device, bool use_int8)
 	{
-		impl_ = std::make_unique<feature_extractor_internal>(exposing::to_narrow_string(universal_racy_path), exposing::to_narrow_string(id_racy_path), exposing::to_narrow_string(universal_mask_racy_path), device, use_int8);
+		impl_ = std::make_unique<feature_extractor_internal>(exposing::to_narrow_string(racy_path), model_type, device, use_int8);
 	}
 
-	void feature_extractor_impl::init(exposing::param_span<const exposing::param_string> phai, const exposing::param_string& universal_racy_path, const exposing::param_string& id_racy_path, const exposing::param_string& universal_mask_racy_path, std::int32_t device)
+	void feature_extractor_impl::init(exposing::param_span<const exposing::param_string> phai, const exposing::param_string& racy_path, std::int32_t model_type, std::int32_t device)
 	{
 		std::vector<std::string> phai_internal(phai.size());
 
 		std::transform(phai.begin(), phai.end(), phai_internal.begin(), &exposing::to_narrow_string);
-		impl_ = std::make_unique<feature_extractor_internal>(phai_internal, exposing::to_narrow_string(universal_racy_path), exposing::to_narrow_string(id_racy_path), exposing::to_narrow_string(universal_mask_racy_path), device);
+		impl_ = std::make_unique<feature_extractor_internal>(phai_internal, exposing::to_narrow_string(racy_path), model_type, device);
+	}
+
+	std::int32_t feature_extractor_impl::get_model_type() const
+	{
+		return impl_->get_model_type();
 	}
 
 	exposing::param_string feature_extractor_impl::version() const
@@ -29,35 +34,9 @@ namespace glasssix::selene
 		return exposing::to_param_string(impl_->version());
 	}
 
-	exposing::param_vector<exposing::param_vector<float>> feature_extractor_impl::get_universal(exposing::param_span<std::uint8_t> bitmaps, std::uint64_t count, std::int32_t order) const
+	exposing::param_vector<exposing::param_vector<float>> feature_extractor_impl::get(exposing::param_span<std::uint8_t> bitmaps, std::uint64_t count, std::int32_t order) const
 	{
-		auto native_result = impl_->get_universal(bitmaps, count, order);
-		auto result = exposing::make_param_vector<float, 2>();
-
-		for (const auto& item : native_result)
-		{
-			result.push_back(exposing::make_param_vector<float>(item));
-		}
-
-		return result;
-	}
-
-	exposing::param_vector<exposing::param_vector<float>> feature_extractor_impl::get_id(exposing::param_span<std::uint8_t> bitmaps, std::uint64_t count, std::int32_t order) const
-	{
-		auto native_result = impl_->get_id(bitmaps, count, order);
-		auto result = exposing::make_param_vector<float, 2>();
-
-		for (const auto& item : native_result)
-		{
-			result.push_back(exposing::make_param_vector<float>(item));
-		}
-
-		return result;
-	}
-
-	exposing::param_vector<exposing::param_vector<float>> feature_extractor_impl::get_universal_mask(exposing::param_span<std::uint8_t> bitmaps, std::uint64_t count, std::int32_t order) const
-	{
-		auto native_result = impl_->get_universal_mask(bitmaps, count, order);
+		auto native_result = impl_->get(bitmaps, count, order);
 		auto result = exposing::make_param_vector<float, 2>();
 
 		for (const auto& item : native_result)

@@ -26,7 +26,7 @@ namespace glasssix::selene
 		/// </summary>
 		/// <param name="racy_path">The model path</param>
 		/// <param name="device">The device ID; -1 for CPU or a non-negative number for a GPU core</param>
-		feature_extractor_internal(std::string_view universal_racy_path, std::string_view id_racy_path, std::string_view universal_mask_racy_path, int device, bool use_int8);
+		feature_extractor_internal(std::string_view racy_path, std::int32_t model_type, int device, bool use_int8);
 
 		/// <summary>
 		/// Creates an instance with a specified GPU core or the default CPU.
@@ -34,7 +34,7 @@ namespace glasssix::selene
 		/// <param name="phai_path">The phai</param>
 		/// <param name="racy_path">The model path</param>
 		/// <param name="device">The device ID; -1 for CPU or a non-negative number for a GPU core</param>
-		feature_extractor_internal(const std::vector<std::string>& phai, std::string_view universal_racy_path, std::string_view id_racy_path, std::string_view universal_mask_racy_path, int device);
+		feature_extractor_internal(const std::vector<std::string>& phai, std::string_view racy_path, std::int32_t model_type, int device);
 
 		/// <summary>
 		/// The copy constructor must be disabled in PImpl pattern.
@@ -58,9 +58,13 @@ namespace glasssix::selene
 		/// <param name="count">The count of bitmaps in the buffer</param>
 		/// <param name="order">The order that the bitmaps are arranged in</param>
 		/// <returns>The feature vectors</returns>
-		std::vector<std::vector<float>> get_universal(exposing::param_span<std::uint8_t> bitmaps, std::size_t count, int order) const;
-		std::vector<std::vector<float>> get_id(exposing::param_span<std::uint8_t> bitmaps, std::size_t count, int order) const;
-		std::vector<std::vector<float>> get_universal_mask(exposing::param_span<std::uint8_t> bitmaps, std::size_t count, int order) const;
+		std::vector<std::vector<float>> get(exposing::param_span<std::uint8_t> bitmaps, std::size_t count, int order) const;
+
+		/// <summary>
+		/// Gets the model type of the component.
+		/// </summary>
+		/// <returns>The model type</returns>
+		std::int32_t get_model_type();
 
 		/// <summary>
 		/// Gets the version of the component.
