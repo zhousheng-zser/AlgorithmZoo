@@ -18,6 +18,7 @@
 using glasssix::excalibur::rectangle;
 using glasssix::excalibur::point;
 
+
 namespace glasssix::romancia
 {
 	class face_alignment_internal::impl
@@ -223,8 +224,8 @@ namespace glasssix::romancia
 			for (const auto &i : faces)
 			{
 				safty_cut(img, src, cv::Rect(i.x(), i.y(), i.width(), i.height()));
-				GaussianBlur(src, srcBlur, cv::Size(3, 3), 0, 0, cv::BORDER_DEFAULT); //¸ßË¹ÂË²¨
-				cv::convertScaleAbs(srcBlur, src); //Ê¹ÓÃÏßÐÔ±ä»»×ª»»ÊäÈëÊý×éÔªËØ³É8Î»ÎÞ·ûºÅÕûÐÍ ¹éÒ»»¯Îª0-255
+				GaussianBlur(src, srcBlur, cv::Size(3, 3), 0, 0, cv::BORDER_DEFAULT); //ï¿½ï¿½Ë¹ï¿½Ë²ï¿½
+				cv::convertScaleAbs(srcBlur, src); //Ê¹ï¿½ï¿½ï¿½ï¿½ï¿½Ô±ä»»×ªï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½Ôªï¿½Ø³ï¿½8Î»ï¿½Þ·ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ ï¿½ï¿½Ò»ï¿½ï¿½Îª0-255
 				if (src.channels() != 1)
 				{
 					cv::cvtColor(src, gray1, CV_BGR2GRAY);
@@ -234,19 +235,19 @@ namespace glasssix::romancia
 					gray1 = src.clone();
 				}
 
-				cv::Mat tmp_m1, tmp_sd1;    //ÓÃÀ´´æ´¢¾ùÖµºÍ·½²î  
+				cv::Mat tmp_m1, tmp_sd1;    //ï¿½ï¿½ï¿½ï¿½ï¿½æ´¢ï¿½ï¿½Öµï¿½Í·ï¿½ï¿½ï¿½  
 				double m1 = 0, sd1 = 0;
-				//Ê¹ÓÃ3x3µÄLaplacianËã×Ó¾í»ýÂË²¨  
+				//Ê¹ï¿½ï¿½3x3ï¿½ï¿½Laplacianï¿½ï¿½ï¿½Ó¾ï¿½ï¿½ï¿½ï¿½Ë²ï¿½  
 				cv::Laplacian(gray1, gray2, CV_16S, 3, 1, 0, cv::BORDER_DEFAULT);
-				////¹éµ½0~255  
+				////ï¿½éµ½0~255  
 				cv::convertScaleAbs(gray2, gray3);
 
-				//¼ÆËã¾ùÖµºÍ·½²î  
+				//ï¿½ï¿½ï¿½ï¿½ï¿½Öµï¿½Í·ï¿½ï¿½ï¿½  
 				cv::meanStdDev(gray3, tmp_m1, tmp_sd1);
-				m1 = tmp_m1.at<double>(0, 0);     //¾ùÖµ  
-				sd1 = tmp_sd1.at<double>(0, 0);       //±ê×¼²î  
+				m1 = tmp_m1.at<double>(0, 0);     //ï¿½ï¿½Öµ  
+				sd1 = tmp_sd1.at<double>(0, 0);       //ï¿½ï¿½×¼ï¿½ï¿½  
 
-				result.push_back(sd1 * sd1); //·½²î
+				result.push_back(sd1 * sd1); //ï¿½ï¿½ï¿½ï¿½
 			}
 			
 			return result;
@@ -342,8 +343,8 @@ namespace glasssix::romancia
 		//	cv::resize(crop, crop, cv::Size(30, 30));
 
 		//	cv::HOGDescriptor hog(cv::Size(30, 30), cv::Size(30, 30), cv::Size(30, 30), cv::Size(5, 5), 9);
-		//	std::vector<float> descriptors;//HOGÃèÊö×ÓÏòÁ¿
-		//	int DescriptorDim = 0;//HOGÃèÊö×ÓµÄÎ¬Êý
+		//	std::vector<float> descriptors;//HOGï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½
+		//	int DescriptorDim = 0;//HOGï¿½ï¿½ï¿½ï¿½ï¿½Óµï¿½Î¬ï¿½ï¿½
 
 		//	cv::Mat gray;
 		//	cv::cvtColor(crop, gray, CV_BGR2GRAY);
@@ -425,7 +426,7 @@ namespace glasssix::romancia
 				cv::Mat mean, stddev;
 				cv::meanStdDev(splited[0], mean, stddev);
 
-				double m1 = mean.at<double>(0, 0);     //¾ùÖµ
+				double m1 = mean.at<double>(0, 0);     //ï¿½ï¿½Öµ
 				//if (m1 < 30)
 				//	return 0.0;
 
@@ -527,7 +528,7 @@ namespace glasssix::romancia
 			dst = mat;
 		}
 
-		//ÅÐ¶ÏÍ¼ÏñÊÇ·ñÊÇºÚ°×Í¼Æ¬
+		//ï¿½Ð¶ï¿½Í¼ï¿½ï¿½ï¿½Ç·ï¿½ï¿½ÇºÚ°ï¿½Í¼Æ¬
 		bool BlackWhiteDetect(cv::Mat img)
 		{
 			cv::Mat resizeImg;
@@ -536,7 +537,7 @@ namespace glasssix::romancia
 			std::vector<cv::Mat> RGB_split;
 			cv::split(resizeImg, RGB_split);
 			cv::Mat diffRG, diffGB, diffRB;
-			//¼ÆËãÁ½¸öÍ¨µÀÔªËØ²îÖµµÄ¾ø¶ÔÖµ
+			//ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½Í¨ï¿½ï¿½Ôªï¿½Ø²ï¿½Öµï¿½Ä¾ï¿½ï¿½ï¿½Öµ
 			cv::absdiff(RGB_split[0], RGB_split[1], diffRG);
 			cv::absdiff(RGB_split[1], RGB_split[2], diffGB);
 			cv::absdiff(RGB_split[0], RGB_split[2], diffRB);
@@ -630,7 +631,7 @@ namespace glasssix::romancia
 			cv::split(HSV, HSV_split);
 			cv::split(YCrCb, YCrCb_split);
 
-			//¼ÆËãLBPÌØÕ÷
+			//ï¿½ï¿½ï¿½ï¿½LBPï¿½ï¿½ï¿½ï¿½
 			cv::Mat fft_lbp, H_lbp, S_lbp, V_lbp, Y_lbp, Cr_lbp, Cb_lbp;
 			calcLBP(fftImg, fft_lbp);
 			calcLBP(HSV_split[0], H_lbp);
@@ -640,7 +641,7 @@ namespace glasssix::romancia
 			calcLBP(YCrCb_split[1], Cr_lbp);
 			calcLBP(YCrCb_split[2], Cb_lbp);
 
-			//¼ÆËãÖ±·½Í¼Í³¼Æ
+			//ï¿½ï¿½ï¿½ï¿½Ö±ï¿½ï¿½Í¼Í³ï¿½ï¿½
 			const int histSize = 256;
 			float range[] = { 0, 256 };
 			const float* ranges[] = { range };

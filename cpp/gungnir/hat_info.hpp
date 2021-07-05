@@ -25,11 +25,6 @@ namespace glasssix::exposing::impl
             virtual std::int32_t G6_ABI_CALL height(abi_out_t<float> result) noexcept = 0;
             virtual std::int32_t G6_ABI_CALL prob(abi_out_t<float> result) noexcept = 0;
             virtual std::int32_t G6_ABI_CALL label(abi_out_t<float> result) noexcept = 0;
-
-            // virtual std::int32_t G6_ABI_CALL set_x(abi_in_t<float> input) noexcept = 0;
-            // virtual std::int32_t G6_ABI_CALL set_y(abi_in_t<float> input) noexcept = 0;
-            // virtual std::int32_t G6_ABI_CALL set_width(abi_in_t<float> input) noexcept = 0;
-            // virtual std::int32_t G6_ABI_CALL set_height(abi_in_t<float> input) noexcept = 0;
         };
     };
 
