@@ -199,14 +199,6 @@ namespace glasssix::mjollner
             }
             ppt.push_back(box_tmp);
             cv::fillPoly(mask, ppt, cv::Scalar(1));
-            ///////////////////////
-            // float sum = 0;
-            // for (int i = 0; i < mask.total(); ++i)
-            // {
-            //     sum += mask.data[i];
-            // }
-            // std::cout << "sum: " << sum << std::endl;
-            ///////////////////////
             float result = cv::mean(bitmap(cv::Rect(xmin, ymin, xmax + 1 - xmin, ymax + 1 - ymin)), mask)[0];
             return result;
         }
@@ -230,14 +222,6 @@ namespace glasssix::mjollner
             int height = mask.rows;
             // 轮廓检测
             std::vector<std::vector<cv::Point>> contours;
-            /////////////////////////////////
-            // float sum = 0;
-            // for (int i = 0; i < mask.cols * mask.rows; ++i)
-            // {
-            //     sum += mask.data[i];
-            // }
-            // std::cout << "sum: " << sum << std::endl;
-            /////////////////////////////////
             cv::findContours(mask, contours, cv::RETR_LIST, cv::CHAIN_APPROX_SIMPLE, cv::Point(0, 0));
             size_t num_contours = std::min(contours.size(), max_candidates);
             for (size_t i = 0; i < num_contours; ++i)
@@ -251,14 +235,6 @@ namespace glasssix::mjollner
                 {
                     continue;
                 }
-                // if (score_mode == "fast")
-                // {
-                //     score = box_score_fast(out, points);
-                // }
-                // else
-                // {
-                //     score = box_score_slow(out, contour);
-                // }
                 float score = box_score_fast(out, points);
                 if (score < box_thresh)
                 {
@@ -347,7 +323,6 @@ namespace glasssix::mjollner
 
         void init_character(std::vector<std::string> &character)
         {
-            // std::string alphabet_path = "../../../src/Test/ppocr_keys_v1.txt";
             std::ifstream in(alphabet_path_);
             std::string line;
             if (in)
@@ -413,8 +388,6 @@ namespace glasssix::mjollner
             float input_h = 32.f;
             float resize_ratio = input_h / img.rows;
             cv::resize(img, img, cv::Size(0, 0), resize_ratio, resize_ratio, cv::INTER_LINEAR);
-            float mean[] = {0.5, 0.5, 0.5};
-            float std[] = {0.5, 0.5, 0.5};
             int channels = img.channels();
             int width = img.cols;
             int height = img.rows;

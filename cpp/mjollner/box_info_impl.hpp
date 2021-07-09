@@ -22,5 +22,4 @@ namespace glasssix::mjollner
         box_info_internal internal_;
     };
 }
-
 #endif
