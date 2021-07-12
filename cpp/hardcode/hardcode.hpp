@@ -5,5 +5,5 @@
 
 namespace glasssix::hardcode
 {
-	std::vector<std::string> get_model_params(std::string_view name, bool use_int8);
+	std::vector<std::string> get_model_params(std::string_view name, bool use_int8 = false);
 }

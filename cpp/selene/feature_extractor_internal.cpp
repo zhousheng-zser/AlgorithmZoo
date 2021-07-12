@@ -25,15 +25,15 @@ namespace glasssix::selene
 	class feature_extractor_internal::impl
 	{
 	public:
-		impl(std::string_view general_racy_path, std::string_view id_racy_path, int device, bool use_int8) : impl{ hardcode::get_model_params("unicorn_light", use_int8), general_racy_path, id_racy_path, device }
+		impl(std::string_view racy_path, std::int32_t model_type, int device, bool use_int8) : impl{ hardcode::get_model_params("unicorn_light", use_int8), racy_path, model_type, device }
 		{
 		}
 
-		impl(const std::vector<std::string>& phai, std::string_view general_racy_path, std::string_view id_racy_path, int device) : device_{ device }, unicorn_light_general_{ phai, std::string{ general_racy_path }, device }, unicorn_light_identity_{ phai, std::string{ id_racy_path }, device }
+		impl(const std::vector<std::string>& phai, std::string_view racy_path, std::int32_t model_type, int device) : device_{ device }, unicorn_light_{ phai, std::string{ racy_path }, device }, model_type_(model_type)
 		{
 		}
 
-		std::vector<std::vector<float>> get(exposing::param_span<std::uint8_t> bitmaps, std::size_t count, int order, bool is_id_image)
+		std::vector<std::vector<float>> get(exposing::param_span<std::uint8_t> bitmaps, std::size_t count, int order)
 		{
 			if (bitmaps.empty() || count <= 0)
 			{
@@ -44,10 +44,7 @@ namespace glasssix::selene
 
 			std::vector<std::vector<float>> result;
 			std::unordered_map<std::string, std::shared_ptr<memory::tensor<float>>> network_result;
-			if(is_id_image)
-				network_result = unicorn_light_identity_.forward(cache_ | memory::tensor_convert_to<float>);
-			else
-				network_result = unicorn_light_general_.forward(cache_ | memory::tensor_convert_to<float>);
+			network_result = unicorn_light_.forward(cache_ | memory::tensor_convert_to<float>);
 
 			if (auto iter = network_result.find("conv5_dw"); iter != network_result.end())
 			{
@@ -64,6 +61,11 @@ namespace glasssix::selene
 			}
 
 			return result;
+		}
+
+		std::int32_t get_model_type()
+		{
+			return model_type_;
 		}
 
 		static std::string version()
@@ -91,17 +93,17 @@ namespace glasssix::selene
 			std::copy(bitmaps.begin(), bitmaps.end(), cache_->mutable_cpu_data());
 		}
 
+		int model_type_;
 		int device_;
-		excalibur::pipeline<float> unicorn_light_general_;
-		excalibur::pipeline<float> unicorn_light_identity_;
+		excalibur::pipeline<float> unicorn_light_;
 		std::shared_ptr<memory::tensor<std::uint8_t>> cache_;
 	};
 
-	feature_extractor_internal::feature_extractor_internal(std::string_view general_racy_path, std::string_view id_racy_path, int device, bool use_int8) : impl_{ std::make_unique<impl>(general_racy_path, id_racy_path, device, use_int8) }
+	feature_extractor_internal::feature_extractor_internal(std::string_view racy_path, std::int32_t model_type, int device, bool use_int8) : impl_{ std::make_unique<impl>(racy_path, model_type, device, use_int8) }
 	{
 	}
 
-	feature_extractor_internal::feature_extractor_internal(const std::vector<std::string>& phai, std::string_view general_racy_path, std::string_view id_racy_path, int device) : impl_{ std::make_unique<impl>(phai, general_racy_path, id_racy_path, device) }
+	feature_extractor_internal::feature_extractor_internal(const std::vector<std::string>& phai, std::string_view racy_path, std::int32_t model_type, int device) : impl_{ std::make_unique<impl>(phai, racy_path, model_type, device) }
 	{
 	}
 
@@ -109,9 +111,14 @@ namespace glasssix::selene
 	{
 	}
 
-	std::vector<std::vector<float>> feature_extractor_internal::get(exposing::param_span<std::uint8_t> bitmaps, std::size_t count, int order, bool is_id_image) const
+	std::vector<std::vector<float>> feature_extractor_internal::get(exposing::param_span<std::uint8_t> bitmaps, std::size_t count, int order) const
 	{
-		return impl_->get(bitmaps, count, order, is_id_image);
+		return impl_->get(bitmaps, count, order);
+	}
+
+	std::int32_t feature_extractor_internal::get_model_type()
+	{
+		return impl_->get_model_type();
 	}
 
 	std::string feature_extractor_internal::version()

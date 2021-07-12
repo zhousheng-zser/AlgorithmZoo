@@ -18,6 +18,7 @@
 using glasssix::excalibur::rectangle;
 using glasssix::excalibur::point;
 
+
 namespace glasssix::romancia
 {
 	class face_alignment_internal::impl
@@ -53,6 +54,84 @@ namespace glasssix::romancia
 		}
 
 		exposing::param_vector<exposing::param_vector<std::uint8_t>> align(exposing::param_span<std::uint8_t> bitmap, std::int32_t channels, std::int32_t height, std::int32_t width,
+			const exposing::param_vector<longinus::face_info>& faces, std::int32_t order)
+		{
+			if (bitmap.empty())
+			{
+				throw exposing::abi_invalid_argument("current frame is empty");
+			}
+			init_cache(bitmap, channels, height, width, order);
+
+			std::shared_ptr<memory::tensor<uint8_t>> ROI, rotated_ROI, final_mat, final_mat_gray, color_img, resized_color_img;
+			std::vector<std::shared_ptr<memory::tensor<uint8_t>>> src_vector;
+			auto res = exposing::make_param_vector<std::uint8_t, 2>();
+
+			std::shared_ptr<memory::tensor<uint8_t>> gray;
+			excalibur::rgb2gray_cpu(cache_, gray);
+			for (size_t i = 0; i < faces.size(); i++)
+			{
+				src_vector.clear();
+				rectangle<int> MarginRect = rectangle<int>(faces[i].x() - faces[i].width() * 0.2f,
+					faces[i].y() - faces[i].height() * 0.2f,
+					faces[i].height() * 1.4f,
+					faces[i].width() * 1.4f);
+
+				excalibur::safty_cut_cpu(gray, ROI, &MarginRect);
+
+				point<float> ldmk5[5];
+				auto pts = faces[i].pts();
+				for (size_t j = 0; j < pts.size(); j++)
+				{
+					ldmk5[j] = point<float>(pts[j].key() - MarginRect.x, pts[j].value() - MarginRect.y);
+				}
+				point<float> center_eye = point<float>((ldmk5[0].x + ldmk5[1].x) / 2, (ldmk5[0].y + ldmk5[1].y) / 2);
+				point<float> center_mouth = point<float>((ldmk5[3].x + ldmk5[4].x) / 2, (ldmk5[3].y + ldmk5[4].y) / 2);
+				point<float> center = point<float>((center_eye.x + center_mouth.x) / 2, (center_eye.y + center_mouth.y) / 2);
+				double tan = (center_eye.x - center_mouth.x) / (center_eye.y - center_mouth.y);
+				double arctan = atan(tan) * 180 / 3.1415926;
+
+				excalibur::rotate_with_points_cpu(ROI, rotated_ROI, center, -1 * arctan);
+
+				double distance = std::sqrt((center_eye.x - center_mouth.x) * (center_eye.x - center_mouth.x) + (center_eye.y - center_mouth.y) * (center_eye.y - center_mouth.y));
+
+				if (distance < std::numeric_limits<double>::epsilon())
+				{
+					throw exposing::abi_invalid_argument("Illegal distance. Error landmarks.");
+				}
+
+				double cos = (center_mouth.y - center_eye.y) / distance;
+				double sin = (center_mouth.x - center_eye.x) / distance;
+				point<float> new_center_eye = point<float>(center_eye.x + (float)(sin * distance / 2), (float)(center_eye.y - (1 - cos) * distance / 2));
+				point<float> new_center_mouth = point<float>(center_mouth.x - (float)(sin * distance / 2), (float)(center_mouth.y + (1 - cos) * distance / 2));
+				rectangle<float> final_rect = rectangle<float>(new_center_eye.x - distance,
+					new_center_eye.y - distance / 2,
+					distance * 2, distance * 2);
+				excalibur::safty_cut_cpu(rotated_ROI, final_mat, &final_rect);
+				excalibur::equalize_hist_cpu(final_mat, final_mat);
+
+				for (size_t k = 0; k < 3; k++)
+				{
+					src_vector.push_back(final_mat);
+				}
+
+				excalibur::merge_channel_cpu(src_vector, color_img);
+				excalibur::resize_cpu(color_img, resized_color_img, 128, 128);
+
+				auto temp_vec = exposing::make_param_vector<std::uint8_t>();
+
+				auto* ptr = resized_color_img->cpu_data();
+				for (size_t k = 0; k < resized_color_img->count(); k++)
+				{
+					temp_vec.push_back(ptr[k]);
+				}
+
+				res.push_back(temp_vec);
+			}
+
+			return res;
+		}
+
+		exposing::param_vector<exposing::param_vector<std::uint8_t>> align256(exposing::param_span<std::uint8_t> bitmap, std::int32_t channels, std::int32_t height, std::int32_t width,
 			const exposing::param_vector<longinus::face_info>& faces, std::int32_t order)
 		{
 			if (bitmap.empty())
@@ -145,8 +224,8 @@ namespace glasssix::romancia
 			for (const auto &i : faces)
 			{
 				safty_cut(img, src, cv::Rect(i.x(), i.y(), i.width(), i.height()));
-				GaussianBlur(src, srcBlur, cv::Size(3, 3), 0, 0, cv::BORDER_DEFAULT); //¸ßË¹ÂË²¨
-				cv::convertScaleAbs(srcBlur, src); //Ê¹ÓÃÏßÐÔ±ä»»×ª»»ÊäÈëÊý×éÔªËØ³É8Î»ÎÞ·ûºÅÕûÐÍ ¹éÒ»»¯Îª0-255
+				GaussianBlur(src, srcBlur, cv::Size(3, 3), 0, 0, cv::BORDER_DEFAULT); //ï¿½ï¿½Ë¹ï¿½Ë²ï¿½
+				cv::convertScaleAbs(srcBlur, src); //Ê¹ï¿½ï¿½ï¿½ï¿½ï¿½Ô±ä»»×ªï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½Ôªï¿½Ø³ï¿½8Î»ï¿½Þ·ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ ï¿½ï¿½Ò»ï¿½ï¿½Îª0-255
 				if (src.channels() != 1)
 				{
 					cv::cvtColor(src, gray1, CV_BGR2GRAY);
@@ -156,19 +235,19 @@ namespace glasssix::romancia
 					gray1 = src.clone();
 				}
 
-				cv::Mat tmp_m1, tmp_sd1;    //ÓÃÀ´´æ´¢¾ùÖµºÍ·½²î  
+				cv::Mat tmp_m1, tmp_sd1;    //ï¿½ï¿½ï¿½ï¿½ï¿½æ´¢ï¿½ï¿½Öµï¿½Í·ï¿½ï¿½ï¿½  
 				double m1 = 0, sd1 = 0;
-				//Ê¹ÓÃ3x3µÄLaplacianËã×Ó¾í»ýÂË²¨  
+				//Ê¹ï¿½ï¿½3x3ï¿½ï¿½Laplacianï¿½ï¿½ï¿½Ó¾ï¿½ï¿½ï¿½ï¿½Ë²ï¿½  
 				cv::Laplacian(gray1, gray2, CV_16S, 3, 1, 0, cv::BORDER_DEFAULT);
-				////¹éµ½0~255  
+				////ï¿½éµ½0~255  
 				cv::convertScaleAbs(gray2, gray3);
 
-				//¼ÆËã¾ùÖµºÍ·½²î  
+				//ï¿½ï¿½ï¿½ï¿½ï¿½Öµï¿½Í·ï¿½ï¿½ï¿½  
 				cv::meanStdDev(gray3, tmp_m1, tmp_sd1);
-				m1 = tmp_m1.at<double>(0, 0);     //¾ùÖµ  
-				sd1 = tmp_sd1.at<double>(0, 0);       //±ê×¼²î  
+				m1 = tmp_m1.at<double>(0, 0);     //ï¿½ï¿½Öµ  
+				sd1 = tmp_sd1.at<double>(0, 0);       //ï¿½ï¿½×¼ï¿½ï¿½  
 
-				result.push_back(sd1 * sd1); //·½²î
+				result.push_back(sd1 * sd1); //ï¿½ï¿½ï¿½ï¿½
 			}
 			
 			return result;
@@ -264,8 +343,8 @@ namespace glasssix::romancia
 		//	cv::resize(crop, crop, cv::Size(30, 30));
 
 		//	cv::HOGDescriptor hog(cv::Size(30, 30), cv::Size(30, 30), cv::Size(30, 30), cv::Size(5, 5), 9);
-		//	std::vector<float> descriptors;//HOGÃèÊö×ÓÏòÁ¿
-		//	int DescriptorDim = 0;//HOGÃèÊö×ÓµÄÎ¬Êý
+		//	std::vector<float> descriptors;//HOGï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½
+		//	int DescriptorDim = 0;//HOGï¿½ï¿½ï¿½ï¿½ï¿½Óµï¿½Î¬ï¿½ï¿½
 
 		//	cv::Mat gray;
 		//	cv::cvtColor(crop, gray, CV_BGR2GRAY);
@@ -347,7 +426,7 @@ namespace glasssix::romancia
 				cv::Mat mean, stddev;
 				cv::meanStdDev(splited[0], mean, stddev);
 
-				double m1 = mean.at<double>(0, 0);     //¾ùÖµ
+				double m1 = mean.at<double>(0, 0);     //ï¿½ï¿½Öµ
 				//if (m1 < 30)
 				//	return 0.0;
 
@@ -449,7 +528,7 @@ namespace glasssix::romancia
 			dst = mat;
 		}
 
-		//ÅÐ¶ÏÍ¼ÏñÊÇ·ñÊÇºÚ°×Í¼Æ¬
+		//ï¿½Ð¶ï¿½Í¼ï¿½ï¿½ï¿½Ç·ï¿½ï¿½ÇºÚ°ï¿½Í¼Æ¬
 		bool BlackWhiteDetect(cv::Mat img)
 		{
 			cv::Mat resizeImg;
@@ -458,7 +537,7 @@ namespace glasssix::romancia
 			std::vector<cv::Mat> RGB_split;
 			cv::split(resizeImg, RGB_split);
 			cv::Mat diffRG, diffGB, diffRB;
-			//¼ÆËãÁ½¸öÍ¨µÀÔªËØ²îÖµµÄ¾ø¶ÔÖµ
+			//ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½Í¨ï¿½ï¿½Ôªï¿½Ø²ï¿½Öµï¿½Ä¾ï¿½ï¿½ï¿½Öµ
 			cv::absdiff(RGB_split[0], RGB_split[1], diffRG);
 			cv::absdiff(RGB_split[1], RGB_split[2], diffGB);
 			cv::absdiff(RGB_split[0], RGB_split[2], diffRB);
@@ -552,7 +631,7 @@ namespace glasssix::romancia
 			cv::split(HSV, HSV_split);
 			cv::split(YCrCb, YCrCb_split);
 
-			//¼ÆËãLBPÌØÕ÷
+			//ï¿½ï¿½ï¿½ï¿½LBPï¿½ï¿½ï¿½ï¿½
 			cv::Mat fft_lbp, H_lbp, S_lbp, V_lbp, Y_lbp, Cr_lbp, Cb_lbp;
 			calcLBP(fftImg, fft_lbp);
 			calcLBP(HSV_split[0], H_lbp);
@@ -562,7 +641,7 @@ namespace glasssix::romancia
 			calcLBP(YCrCb_split[1], Cr_lbp);
 			calcLBP(YCrCb_split[2], Cb_lbp);
 
-			//¼ÆËãÖ±·½Í¼Í³¼Æ
+			//ï¿½ï¿½ï¿½ï¿½Ö±ï¿½ï¿½Í¼Í³ï¿½ï¿½
 			const int histSize = 256;
 			float range[] = { 0, 256 };
 			const float* ranges[] = { range };
@@ -608,6 +687,12 @@ namespace glasssix::romancia
 		const exposing::param_vector<longinus::face_info>& faces, std::int32_t order) const
 	{
 		return impl_->align(bitmap, channels, height, width, faces, order);
+	}
+
+	exposing::param_vector<exposing::param_vector<std::uint8_t>> face_alignment_internal::align256(exposing::param_span<std::uint8_t> bitmap, std::int32_t channels, std::int32_t height, std::int32_t width,
+		const exposing::param_vector<longinus::face_info>& faces, std::int32_t order) const
+	{
+		return impl_->align256(bitmap, channels, height, width, faces, order);
 	}
 
 	exposing::param_vector<double> face_alignment_internal::blur_detect(const exposing::param_vector<longinus::face_info>& faces, exposing::param_span<std::uint8_t> bitmap, std::int32_t channels, std::int32_t height, std::int32_t width, std::int32_t order) const

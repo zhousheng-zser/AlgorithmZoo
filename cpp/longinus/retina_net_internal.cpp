@@ -84,6 +84,7 @@ namespace glasssix::longinus
 				num_anchors_[key] = anchors_fpn[i].size();
 			}
 		}
+        
 		~impl()
 		{
 		}
@@ -738,7 +739,7 @@ namespace glasssix::longinus
 					anchor_box& bbox_i = bboxes[i].rect;
 					float x = std::max<float>(x1, static_cast<float>(bbox_i.x));
 					float y = std::max<float>(y1, static_cast<float>(bbox_i.y));
-					float w = std::min<float>(x2, static_cast<float>(bbox_i.w + bbox_i.x - 1)) - x + 1;   //<- float ÐÍ²»¼Ó1
+					float w = std::min<float>(x2, static_cast<float>(bbox_i.w + bbox_i.x - 1)) - x + 1;   //<- float ï¿½Í²ï¿½ï¿½ï¿½1
 					float h = std::min<float>(y2, static_cast<float>(bbox_i.h + bbox_i.y - 1)) - y + 1;
 					if (w <= 0 || h <= 0)
 						continue;
@@ -966,10 +967,10 @@ namespace glasssix::longinus
 				ldmk_mat[i * 2 + 1] = (ldmk7_data[i * 2 + 1] - bbox_data[1]) / 40 / ratio;
 			}
 
-			//×îºóÒ»¸ö·ÀÖ¹ÆæÒìÕ¼Î»·û
+			//ï¿½ï¿½ï¿½Ò»ï¿½ï¿½ï¿½ï¿½Ö¹ï¿½ï¿½ï¿½ï¿½Õ¼Î»ï¿½ï¿½
 			ldmk_mat[2 * 7] = 1.0f;
 
-			//×îÐ¡¶þ³Ë·¨ÄâºÏµÃµ½½á¹û ldmk_mat * weights_mat
+			//ï¿½ï¿½Ð¡ï¿½ï¿½ï¿½Ë·ï¿½ï¿½ï¿½ÏµÃµï¿½ï¿½ï¿½ï¿½ ldmk_mat * weights_mat
 			float predict[2] = { 0.0f };
 
 			for (size_t i = 0; i < 2; i++)

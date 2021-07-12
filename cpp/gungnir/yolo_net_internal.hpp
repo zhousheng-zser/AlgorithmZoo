@@ -1,22 +1,36 @@
-#pragma once
-
-#ifndef _SELENE_FEATURE_HPP_
-#define _SELENE_FEATURE_HPP_
+#ifndef __YOLO_NET_INTERNAL_HPP__
+#define __YOLO_NET_INTERNAL_HPP__
 
 #include <memory>
 #include <string>
 #include <vector>
 #include <cstddef>
 #include <cstdint>
-
 #include <abi/param_span.hpp>
 
-namespace glasssix::selene
+#include "hat_info.hpp"
+
+namespace glasssix::gungnir
 {
+    struct anchor_box
+	{
+		float x;
+		float y;
+		float height;
+		float width;
+	};
+
+    struct hat_info_internal
+    {
+       anchor_box rect;
+       int label;
+       float prob;
+    };
+
 	/// <summary>
-	/// A common component supporting feature extraction. 
+	/// A common component supporting anti-spoofing. 
 	/// </summary>
-	class feature_extractor_internal
+	class yolo_net_internal
 	{
 	public:
 		class impl;
@@ -26,7 +40,7 @@ namespace glasssix::selene
 		/// </summary>
 		/// <param name="racy_path">The model path</param>
 		/// <param name="device">The device ID; -1 for CPU or a non-negative number for a GPU core</param>
-		feature_extractor_internal(std::string_view racy_path, std::int32_t model_type, int device, bool use_int8);
+		yolo_net_internal(std::string_view racy_path, int device);
 
 		/// <summary>
 		/// Creates an instance with a specified GPU core or the default CPU.
@@ -34,22 +48,22 @@ namespace glasssix::selene
 		/// <param name="phai_path">The phai</param>
 		/// <param name="racy_path">The model path</param>
 		/// <param name="device">The device ID; -1 for CPU or a non-negative number for a GPU core</param>
-		feature_extractor_internal(const std::vector<std::string>& phai, std::string_view racy_path, std::int32_t model_type, int device);
+		yolo_net_internal(const std::vector<std::string>& phai, std::string_view racy_path, int device);
 
 		/// <summary>
 		/// The copy constructor must be disabled in PImpl pattern.
 		/// </summary>
-		feature_extractor_internal(const feature_extractor_internal&) = delete;
+		yolo_net_internal(const yolo_net_internal&) = delete;
 
 		/// <summary>
 		/// Destroys the instance.
 		/// </summary>
-		virtual ~feature_extractor_internal();
+		virtual ~yolo_net_internal();
 
 		/// <summary>
 		/// The copy assignment operator must be disabled in PImpl pattern.
 		/// </summary>
-		feature_extractor_internal& operator=(const feature_extractor_internal&) = delete;
+		yolo_net_internal& operator=(const yolo_net_internal&) = delete;
 
 		/// <summary>
 		/// Extracts the feature data.
@@ -58,13 +72,7 @@ namespace glasssix::selene
 		/// <param name="count">The count of bitmaps in the buffer</param>
 		/// <param name="order">The order that the bitmaps are arranged in</param>
 		/// <returns>The feature vectors</returns>
-		std::vector<std::vector<float>> get(exposing::param_span<std::uint8_t> bitmaps, std::size_t count, int order) const;
-
-		/// <summary>
-		/// Gets the model type of the component.
-		/// </summary>
-		/// <returns>The model type</returns>
-		std::int32_t get_model_type();
+		exposing::param_vector<hat_info> detect(exposing::param_span<std::uint8_t> bitmap, int channels, int height, int width, int order) const;
 
 		/// <summary>
 		/// Gets the version of the component.
@@ -75,5 +83,4 @@ namespace glasssix::selene
 		std::unique_ptr<impl> impl_;
 	};
 }
-
-#endif // !_GAIUS_FEATURE_HPP_
+#endif
