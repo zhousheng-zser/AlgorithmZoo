@@ -68,14 +68,14 @@ namespace glasssix::longinus
 		return internal_.is_alive ? 1 : 0;
 	}
 
-	std::int32_t face_info_impl::prob_age_index() const
+	std::int32_t face_info_impl::glass_index() const
 	{
-		return internal_.prob_age_index;
+		return internal_.glass_index;
 	}
 
-	std::int32_t face_info_impl::prob_gender_index() const
+    std::int32_t face_info_impl::mask_index() const
 	{
-		return internal_.prob_gender_index;
+		return internal_.mask_index;
 	}
 
 	exposing::param_vector<exposing::param_pair<float, float>> face_info_impl::pts() const
@@ -145,12 +145,12 @@ namespace glasssix::longinus
 	{
 		internal_.is_alive = input ? true : false;
 	}
-	void face_info_impl::set_prob_age_index(std::int32_t  input)
+	void face_info_impl::set_glass_index(std::int32_t  input)
 	{
-		internal_.prob_age_index = input;
+		internal_.glass_index = input;
 	}
-	void face_info_impl::set_prob_gender_index(std::int32_t  input)
+    void face_info_impl::set_mask_index(std::int32_t  input)
 	{
-		internal_.prob_gender_index = input;
+		internal_.mask_index = input;
 	}
 }

@@ -219,13 +219,13 @@ namespace glasssix::romancia
 			else
 				throw exposing::abi_invalid_argument("Not supported channels or order");
 
-			cv::Mat src, srcBlur, gray1, gray2, gray3, dstImage;
+			cv::Mat src, srcBlur, gray1, gray2;
+
 			auto result = exposing::make_param_vector<double>();
 			for (const auto &i : faces)
 			{
 				safty_cut(img, src, cv::Rect(i.x(), i.y(), i.width(), i.height()));
-				GaussianBlur(src, srcBlur, cv::Size(3, 3), 0, 0, cv::BORDER_DEFAULT); //��˹�˲�
-				cv::convertScaleAbs(srcBlur, src); //ʹ�����Ա任ת����������Ԫ�س�8λ�޷������� ��һ��Ϊ0-255
+				cv::resize(src, src, cv::Size(64, 64));
 				if (src.channels() != 1)
 				{
 					cv::cvtColor(src, gray1, CV_BGR2GRAY);
@@ -234,20 +234,18 @@ namespace glasssix::romancia
 				{
 					gray1 = src.clone();
 				}
+				cv::medianBlur(gray1, srcBlur, 3);
 
-				cv::Mat tmp_m1, tmp_sd1;    //�����洢��ֵ�ͷ���  
+				cv::Mat tmp_m1, tmp_sd1; 
 				double m1 = 0, sd1 = 0;
-				//ʹ��3x3��Laplacian���Ӿ����˲�  
-				cv::Laplacian(gray1, gray2, CV_16S, 3, 1, 0, cv::BORDER_DEFAULT);
-				////�鵽0~255  
-				cv::convertScaleAbs(gray2, gray3);
+				
+				cv::Laplacian(srcBlur, gray2, CV_16S, 3, 1, 0, cv::BORDER_DEFAULT);
 
-				//�����ֵ�ͷ���  
-				cv::meanStdDev(gray3, tmp_m1, tmp_sd1);
-				m1 = tmp_m1.at<double>(0, 0);     //��ֵ  
-				sd1 = tmp_sd1.at<double>(0, 0);       //��׼��  
+				cv::meanStdDev(gray2, tmp_m1, tmp_sd1);
+				m1 = tmp_m1.at<double>(0, 0);
+				sd1 = tmp_sd1.at<double>(0, 0);
 
-				result.push_back(sd1 * sd1); //����
+				result.push_back(sd1 * sd1);
 			}
 			
 			return result;
