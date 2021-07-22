@@ -11,7 +11,6 @@
 #include <Excalibur/operation_safty_cut.hpp>
 #include "Primitives/tensor_conversions.hpp"
 #include <opencv2/core/core.hpp>
-#include <opencv2/highgui/highgui.hpp>
 #include <opencv2/imgproc/imgproc.hpp>
 
 #include <cfloat>

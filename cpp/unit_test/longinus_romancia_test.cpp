@@ -86,7 +86,7 @@ namespace unittest
 	TEST_CLASS(longinus_romancia_test)
 	{
 	public:
-		longinus_romancia_test() : retina_{ exposing::make_exported_interface<longinus::retina_net>(u8"models/longinus.racy",u8"models/banshee.racy", 0.4,-1) },
+		longinus_romancia_test() : retina_{ exposing::make_exported_interface<longinus::retina_net>(u8"models/longinus.racy",u8"models/pfld_land71_simp.racy", 0.4,-1) },
 			face_alignment_{exposing::make_exported_interface<romancia::face_alignment>(u8"models/mask30x30",u8"models/antispoofing80x80", -1)}
 		{
 		}
@@ -331,7 +331,7 @@ namespace unittest
 	TEST_CLASS(union_test)
 	{
 	public:
-		union_test():retina_{ exposing::make_exported_interface<longinus::retina_net>(u8"models/longinus.racy",u8"models/banshee.racy", 0.4,-1) },
+		union_test():retina_{ exposing::make_exported_interface<longinus::retina_net>(u8"models/longinus.racy",u8"models/pfld_land71_simp.racy", 0.4,-1) },
 			face_alignment_{ exposing::make_exported_interface<romancia::face_alignment>(u8"models/mask30x30",u8"models/antispoofing80x80", -1) },
 			gaius_{ exposing::make_exported_interface<gaius::feature_extractor>(u8"models/mobile_unicorn.racy", u8"models/mobile_unicorn_mask.racy", -1) },
 			cassius_{ exposing::make_exported_interface<cassius::feature_extractor>(u8"models/unicorn.racy", -1) }
