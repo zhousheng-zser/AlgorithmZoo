@@ -10,6 +10,7 @@
 #include <Primitives/tensor_conversions.hpp>
 #include <Excalibur/operation_safty_cut.hpp>
 #include "Primitives/tensor_conversions.hpp"
+#include "operation_make_border.hpp"
 #include <opencv2/core/core.hpp>
 #include <opencv2/imgproc/imgproc.hpp>
 
@@ -37,10 +38,6 @@ namespace glasssix::mjollner
             if (bitmap.empty())
             {
                 throw exposing::abi_invalid_argument("current frame is empty");
-            }
-            if (std::min(width, height) < 640 || height % 32 != 0)
-            {
-                throw exposing::abi_invalid_argument("min(width, height) not less than 640 or height % 32 != 0");
             }
             CHECK_EQ(channels, 3);
             CHECK_EQ(bitmap.size(), channels * height * width);
@@ -284,6 +281,9 @@ namespace glasssix::mjollner
             float std[] = {0.229, 0.224, 0.225};
             std::shared_ptr<memory::tensor<uint8_t>> input(new memory::tensor<uint8_t>(channels, width, height, -1, memory::NHWC, nullptr));
             std::copy(cache_->cpu_data(), cache_->cpu_data() + cache_->count(), input->mutable_cpu_data());
+            // pre process
+            int hpad = 32 - height % 32;
+            make_border(input, input, hpad / 2, hpad - hpad / 2, 0, 0, border_constant);
             input->convert_order();
 
             auto input_tensor = input | memory::tensor_convert_to<float>;
