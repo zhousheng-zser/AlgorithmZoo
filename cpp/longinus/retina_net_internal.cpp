@@ -922,6 +922,7 @@ namespace glasssix::longinus
             trackfaceinfo.rect.w = x2 - x1 + 1;
             trackfaceinfo.rect.y = y1;
             trackfaceinfo.rect.h = y2 - y1 + 1;
+            trackfaceinfo.score = res["prob1"]->cpu_data()[1];
 
             //pfld_small_gen_age_sim
             const float *glass_data = res["prob2"]->cpu_data();
