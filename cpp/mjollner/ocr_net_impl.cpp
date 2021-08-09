@@ -32,11 +32,11 @@ namespace glasssix::mjollner
 		return exposing::to_param_string(impl_->version());
 	}
 
-	exposing::param_vector<box_info> ocr_net_impl::detect(exposing::param_span<std::uint8_t> bitmap, int channels, int height, int width, int order) const
+	exposing::param_vector<box_info> ocr_net_impl::detect(exposing::param_span<std::uint8_t> bitmap, int channels, int height, int width, int order, int x, int y, int roi_width, int roi_height) const
 	{
 		if (!impl_)
 			throw exposing::abi_invalid_operation(u8"mjollner internal object not initialized");
 
-		return impl_->detect(bitmap, channels, height, width, order);
+		return impl_->detect(bitmap, channels, height, width, order, x, y, roi_width, roi_height);
 	}
 }
