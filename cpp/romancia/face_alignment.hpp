@@ -20,9 +20,9 @@ namespace glasssix::exposing::impl
 		struct type : abi_unknown_object
 		{
 			virtual std::int32_t G6_ABI_CALL init(/*abi_in_t<param_string> mask_detector_model_path, */abi_in_t<param_string> antispoofing_model_path, std::int32_t device) noexcept = 0;
-			virtual std::int32_t G6_ABI_CALL align(abi_in_t<param_span<std::uint8_t>> bitmap, std::int32_t channels, std::int32_t height, std::int32_t width,
+			virtual std::int32_t G6_ABI_CALL align128(abi_in_t<param_span<std::uint8_t>> bitmap, std::int32_t channels, std::int32_t height, std::int32_t width,
 				abi_in_t<exposing::param_vector<longinus::face_info>> faces, std::int32_t order, abi_out_t<param_vector< param_vector<std::uint8_t>>> result) noexcept = 0;
-			virtual std::int32_t G6_ABI_CALL align256(abi_in_t<param_span<std::uint8_t>> bitmap, std::int32_t channels, std::int32_t height, std::int32_t width,
+			virtual std::int32_t G6_ABI_CALL align(abi_in_t<param_span<std::uint8_t>> bitmap, std::int32_t channels, std::int32_t height, std::int32_t width,
 				abi_in_t<exposing::param_vector<longinus::face_info>> faces, std::int32_t order, abi_out_t<param_vector< param_vector<std::uint8_t>>> result) noexcept = 0;
 			virtual std::int32_t G6_ABI_CALL blur_detect(abi_in_t<longinus::face_info> face, abi_in_t<param_span<std::uint8_t>> bitmap, std::int32_t channels, std::int32_t height, std::int32_t width,
 				std::int32_t order, abi_out_t<param_vector<double>> result) noexcept = 0;
@@ -44,17 +44,17 @@ namespace glasssix::exposing::impl
 			return abi_safe_call([&] { this->self().init(/*create_from_abi<param_string>(mask_detector_model_path), */create_from_abi<param_string>(antispoofing_model_path), device); });
 		}
 
-		virtual std::int32_t G6_ABI_CALL align(abi_in_t<param_span<std::uint8_t>> bitmap, std::int32_t channels, std::int32_t height, std::int32_t width,
+		virtual std::int32_t G6_ABI_CALL align128(abi_in_t<param_span<std::uint8_t>> bitmap, std::int32_t channels, std::int32_t height, std::int32_t width,
 			abi_in_t<exposing::param_vector<longinus::face_info>> faces, std::int32_t order, abi_out_t<param_vector< param_vector<std::uint8_t>>> result) noexcept override
 		{
-			return abi_safe_call([&] { *result = detach_abi(this->self().align(create_from_abi<param_span<std::uint8_t>>(bitmap), channels, height, width, 
+			return abi_safe_call([&] { *result = detach_abi(this->self().align128(create_from_abi<param_span<std::uint8_t>>(bitmap), channels, height, width, 
 				create_from_abi<exposing::param_vector<longinus::face_info>>(faces), order)); });
 		}
 
-		virtual std::int32_t G6_ABI_CALL align256(abi_in_t<param_span<std::uint8_t>> bitmap, std::int32_t channels, std::int32_t height, std::int32_t width,
+		virtual std::int32_t G6_ABI_CALL align(abi_in_t<param_span<std::uint8_t>> bitmap, std::int32_t channels, std::int32_t height, std::int32_t width,
 			abi_in_t<exposing::param_vector<longinus::face_info>> faces, std::int32_t order, abi_out_t<param_vector< param_vector<std::uint8_t>>> result) noexcept override
 		{
-			return abi_safe_call([&] { *result = detach_abi(this->self().align256(create_from_abi<param_span<std::uint8_t>>(bitmap), channels, height, width,
+			return abi_safe_call([&] { *result = detach_abi(this->self().align(create_from_abi<param_span<std::uint8_t>>(bitmap), channels, height, width,
 				create_from_abi<exposing::param_vector<longinus::face_info>>(faces), order)); });
 		}
 
@@ -98,18 +98,18 @@ namespace glasssix::exposing::impl
 				return (check_abi_result(this->self_abi().version(put_abi(result))), result);
 			}
 
+			param_vector< param_vector<std::uint8_t>> align128(param_span<std::uint8_t> bitmap, std::int32_t channels, std::int32_t height, std::int32_t width,
+				const exposing::param_vector<longinus::face_info>& faces, std::int32_t order) const
+			{
+				param_vector< param_vector<std::uint8_t>> result{ nullptr };
+				return (check_abi_result(this->self_abi().align128(get_abi(bitmap), channels, height, width, get_abi(faces), order, put_abi(result))), result);
+			}
+
 			param_vector< param_vector<std::uint8_t>> align(param_span<std::uint8_t> bitmap, std::int32_t channels, std::int32_t height, std::int32_t width,
 				const exposing::param_vector<longinus::face_info>& faces, std::int32_t order) const
 			{
 				param_vector< param_vector<std::uint8_t>> result{ nullptr };
 				return (check_abi_result(this->self_abi().align(get_abi(bitmap), channels, height, width, get_abi(faces), order, put_abi(result))), result);
-			}
-
-			param_vector< param_vector<std::uint8_t>> align256(param_span<std::uint8_t> bitmap, std::int32_t channels, std::int32_t height, std::int32_t width,
-				const exposing::param_vector<longinus::face_info>& faces, std::int32_t order) const
-			{
-				param_vector< param_vector<std::uint8_t>> result{ nullptr };
-				return (check_abi_result(this->self_abi().align256(get_abi(bitmap), channels, height, width, get_abi(faces), order, put_abi(result))), result);
 			}
 
 			param_vector<double> blur_detect(const param_vector<longinus::face_info>& faces, param_span<std::uint8_t> bitmap, std::int32_t channels, std::int32_t height, std::int32_t width, std::int32_t order) const

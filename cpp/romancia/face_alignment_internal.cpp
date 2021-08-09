@@ -53,7 +53,7 @@ namespace glasssix::romancia
 			//svm_free_and_destroy_model(&mask_detector_);
 		}
 
-		exposing::param_vector<exposing::param_vector<std::uint8_t>> align(exposing::param_span<std::uint8_t> bitmap, std::int32_t channels, std::int32_t height, std::int32_t width,
+		exposing::param_vector<exposing::param_vector<std::uint8_t>> align128(exposing::param_span<std::uint8_t> bitmap, std::int32_t channels, std::int32_t height, std::int32_t width,
 			const exposing::param_vector<longinus::face_info>& faces, std::int32_t order)
 		{
 			if (bitmap.empty())
@@ -131,7 +131,7 @@ namespace glasssix::romancia
 			return res;
 		}
 
-		exposing::param_vector<exposing::param_vector<std::uint8_t>> align256(exposing::param_span<std::uint8_t> bitmap, std::int32_t channels, std::int32_t height, std::int32_t width,
+		exposing::param_vector<exposing::param_vector<std::uint8_t>> align(exposing::param_span<std::uint8_t> bitmap, std::int32_t channels, std::int32_t height, std::int32_t width,
 			const exposing::param_vector<longinus::face_info>& faces, std::int32_t order)
 		{
 			if (bitmap.empty())
@@ -681,16 +681,16 @@ namespace glasssix::romancia
 	{
 	}
 
+	exposing::param_vector<exposing::param_vector<std::uint8_t>> face_alignment_internal::align128(exposing::param_span<std::uint8_t> bitmap, std::int32_t channels, std::int32_t height, std::int32_t width,
+		const exposing::param_vector<longinus::face_info>& faces, std::int32_t order) const
+	{
+		return impl_->align128(bitmap, channels, height, width, faces, order);
+	}
+
 	exposing::param_vector<exposing::param_vector<std::uint8_t>> face_alignment_internal::align(exposing::param_span<std::uint8_t> bitmap, std::int32_t channels, std::int32_t height, std::int32_t width,
 		const exposing::param_vector<longinus::face_info>& faces, std::int32_t order) const
 	{
 		return impl_->align(bitmap, channels, height, width, faces, order);
-	}
-
-	exposing::param_vector<exposing::param_vector<std::uint8_t>> face_alignment_internal::align256(exposing::param_span<std::uint8_t> bitmap, std::int32_t channels, std::int32_t height, std::int32_t width,
-		const exposing::param_vector<longinus::face_info>& faces, std::int32_t order) const
-	{
-		return impl_->align256(bitmap, channels, height, width, faces, order);
 	}
 
 	exposing::param_vector<double> face_alignment_internal::blur_detect(const exposing::param_vector<longinus::face_info>& faces, exposing::param_span<std::uint8_t> bitmap, std::int32_t channels, std::int32_t height, std::int32_t width, std::int32_t order) const
