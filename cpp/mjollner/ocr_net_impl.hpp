@@ -20,7 +20,7 @@ namespace glasssix::mjollner
         void init(const exposing::param_string &det_racy_path, const exposing::param_string &rec_racy_path, const exposing::param_string &alphabet_path, std::int32_t device);
         void init(exposing::param_span<const exposing::param_string> det_phai, const exposing::param_string &det_racy_path, exposing::param_span<const exposing::param_string> rec_phai, const exposing::param_string &rec_racy_path, const exposing::param_string &alphabet_path, std::int32_t device);
         exposing::param_string version() const;
-        exposing::param_vector<box_info> detect(exposing::param_span<std::uint8_t> bitmap, int channels, int height, int width, int order) const;
+        exposing::param_vector<box_info> detect(exposing::param_span<std::uint8_t> bitmap, int channels, int height, int width, int order, int x, int y, int roi_width, int roi_height) const;
 
     private:
         std::unique_ptr<ocr_net_internal> impl_;

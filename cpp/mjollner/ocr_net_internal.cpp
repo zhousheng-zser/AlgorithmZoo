@@ -1,6 +1,5 @@
 #include "ocr_net_internal.hpp"
 #include "hardcode.hpp"
-// #include "ppocr_keys_v1.hpp"
 
 #include <fstream>
 #include <algorithm>
@@ -10,7 +9,7 @@
 #include <Primitives/tensor_conversions.hpp>
 #include <Excalibur/operation_safty_cut.hpp>
 #include "Primitives/tensor_conversions.hpp"
-#include "operation_make_border.hpp"
+#include "Excalibur/operation_make_border.hpp"
 #include <opencv2/core/core.hpp>
 #include <opencv2/imgproc/imgproc.hpp>
 
@@ -33,18 +32,23 @@ namespace glasssix::mjollner
         {
         }
 
-        exposing::param_vector<box_info> detect(exposing::param_span<std::uint8_t> bitmap, int channels, int height, int width, int order)
+        exposing::param_vector<box_info> detect(exposing::param_span<std::uint8_t> bitmap, int channels, int height, int width, int order, int x, int y, int roi_width, int roi_height)
         {
             if (bitmap.empty())
             {
                 throw exposing::abi_invalid_argument("current frame is empty");
             }
+            if (std::min(width, height) < 640)
+            {
+                throw exposing::abi_invalid_argument("min(width, height) must be less than 640!");
+            }
             CHECK_EQ(channels, 3);
             CHECK_EQ(bitmap.size(), channels * height * width);
-            init_cache(bitmap, channels, height, width, order);
-
+            // roi params
+            std::vector<int> roi{x, y, roi_width, roi_height};
+            init_cache(bitmap, channels, height, width, order, roi);
             std::vector<box_info_internal> results;
-            run_pipeline(results);
+            run_pipeline(results, roi);
             auto result = exposing::make_param_vector<box_info>();
             for (auto &i : results)
             {
@@ -59,7 +63,7 @@ namespace glasssix::mjollner
         }
 
     private:
-        void init_cache(exposing::param_span<std::uint8_t> &bitmap, std::int32_t channels, std::int32_t height, std::int32_t width, std::int32_t order)
+        void init_cache(exposing::param_span<std::uint8_t> &bitmap, std::int32_t channels, std::int32_t height, std::int32_t width, std::int32_t order, std::vector<int> &roi)
         {
             if (cache_ == nullptr || cache_->channels() != channels || cache_->height() != height || cache_->width() != width || cache_->order() != order)
             {
@@ -84,6 +88,9 @@ namespace glasssix::mjollner
             }
             else
                 std::copy(bitmap.begin(), bitmap.end(), cache_->mutable_cpu_data());
+            
+            if (order == memory::NHWC)
+                cache_->convert_order();
         }
 
         void expand_polygon(const std::vector<cv::Point2f> &pList, std::vector<cv::Point2f> &out, float SAFELINE)
@@ -272,20 +279,13 @@ namespace glasssix::mjollner
             boxes_from_bitmap(out, mask, src_w, src_h, boxes, scores);
         }
 
-        std::pair<std::vector<std::vector<cv::Point2f>>, std::vector<float>> detect_resnet18()
+        std::pair<std::vector<std::vector<cv::Point2f>>, std::vector<float>> detect_resnet18(std::shared_ptr<memory::tensor<std::uint8_t>> &input)
         {
-            int channels = cache_->channels();
-            int width = cache_->width();
-            int height = cache_->height();
+            int channels = input->channels();
+            int width = input->width();
+            int height = input->height();
             float mean[] = {0.485, 0.456, 0.406};
             float std[] = {0.229, 0.224, 0.225};
-            std::shared_ptr<memory::tensor<uint8_t>> input(new memory::tensor<uint8_t>(channels, width, height, -1, memory::NHWC, nullptr));
-            std::copy(cache_->cpu_data(), cache_->cpu_data() + cache_->count(), input->mutable_cpu_data());
-            // pre process
-            int hpad = 32 - height % 32;
-            make_border(input, input, hpad / 2, hpad - hpad / 2, 0, 0, border_constant);
-            input->convert_order();
-
             auto input_tensor = input | memory::tensor_convert_to<float>;
             float *input_tensor_data = input_tensor->mutable_cpu_data();
             // div std
@@ -444,11 +444,32 @@ namespace glasssix::mjollner
             return src;
         }
 
-        void run_pipeline(std::vector<box_info_internal> &results)
+        void run_pipeline(std::vector<box_info_internal> &results, std::vector<int> &roi)
         {
-            cv::Mat img(cache_->height(), cache_->width(), CV_8UC3);
-            memcpy(img.data, cache_->cpu_data(), cache_->count());
-            std::pair<std::vector<std::vector<cv::Point2f>>, std::vector<float>> result = detect_resnet18();
+            excalibur::rectangle<int> rect((int)roi[0], (int)roi[1], (int)roi[3], (int)roi[2]);
+            std::shared_ptr<memory::tensor<std::uint8_t>> tmp;
+            std::shared_ptr<memory::tensor<uint8_t>> input;
+            excalibur::safty_cut_cpu(cache_, tmp, &rect);
+            int height = tmp->height();
+            int width = tmp->width();
+            int hpad = (height + 31) / 32 * 32 - height;
+            int wpad = (width + 31) / 32 * 32 - width;
+            excalibur::make_border(tmp, input, hpad / 2, hpad - hpad / 2, wpad / 2, wpad - wpad / 2, excalibur::border_constant);
+            // convert NCHW TO NHWC
+            const uint8_t *in_data = input->cpu_data();
+            int step = input->width() * input->height();
+            int channels = input->channels();
+            cv::Mat img(input->height(), input->width(), CV_8UC3);
+            for (int i = 0; i < step; ++i)
+            {
+                for (int c = 0; c < channels; ++c)
+                {
+                    *(img.data + channels * i + c) = *(in_data + input->offset(0, c) + i);
+                }
+            }
+            // cv::imshow("img", img);
+            // cv::waitKey();
+            std::pair<std::vector<std::vector<cv::Point2f>>, std::vector<float>> result = detect_resnet18(input);
             std::vector<std::vector<cv::Point2f>> box_list = result.first;
             std::vector<float> score_list = result.second;
             for (int i = 0; i < box_list.size(); ++i)
@@ -497,9 +518,9 @@ namespace glasssix::mjollner
     {
     }
 
-    exposing::param_vector<box_info> ocr_net_internal::detect(exposing::param_span<std::uint8_t> bitmap, int channels, int height, int width, int order) const
+    exposing::param_vector<box_info> ocr_net_internal::detect(exposing::param_span<std::uint8_t> bitmap, int channels, int height, int width, int order, int x, int y, int roi_width, int roi_height) const
     {
-        return impl_->detect(bitmap, channels, height, width, order);
+        return impl_->detect(bitmap, channels, height, width, order, x, y, roi_width, roi_height);
     }
 
     std::string ocr_net_internal::version()
