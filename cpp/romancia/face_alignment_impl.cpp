@@ -19,19 +19,19 @@ namespace glasssix::romancia
 	{
 		return exposing::to_param_string(impl_->version());
 	}
+	exposing::param_vector<exposing::param_vector<std::uint8_t>> face_alignment_impl::align128(exposing::param_span<std::uint8_t> bitmap, std::int32_t channels, std::int32_t height, std::int32_t width, const exposing::param_vector<longinus::face_info>& faces, std::int32_t order) const
+	{
+		if (!impl_)
+			throw exposing::abi_invalid_operation(u8"romancia internal object not initialized");
+
+		return impl_->align128(bitmap, channels, height, width, faces, order);
+	}
 	exposing::param_vector<exposing::param_vector<std::uint8_t>> face_alignment_impl::align(exposing::param_span<std::uint8_t> bitmap, std::int32_t channels, std::int32_t height, std::int32_t width, const exposing::param_vector<longinus::face_info>& faces, std::int32_t order) const
 	{
 		if (!impl_)
 			throw exposing::abi_invalid_operation(u8"romancia internal object not initialized");
 
 		return impl_->align(bitmap, channels, height, width, faces, order);
-	}
-	exposing::param_vector<exposing::param_vector<std::uint8_t>> face_alignment_impl::align256(exposing::param_span<std::uint8_t> bitmap, std::int32_t channels, std::int32_t height, std::int32_t width, const exposing::param_vector<longinus::face_info>& faces, std::int32_t order) const
-	{
-		if (!impl_)
-			throw exposing::abi_invalid_operation(u8"romancia internal object not initialized");
-
-		return impl_->align256(bitmap, channels, height, width, faces, order);
 	}
 	exposing::param_vector<double> face_alignment_impl::blur_detect(const exposing::param_vector<longinus::face_info>& faces, exposing::param_span<std::uint8_t> bitmap, std::int32_t channels, std::int32_t height, std::int32_t width, std::int32_t order) const
 	{

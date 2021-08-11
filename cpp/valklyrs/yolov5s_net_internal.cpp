@@ -505,7 +505,7 @@ namespace glasssix::valklyrs
 
         void detect(std::vector<float> &box, std::shared_ptr<memory::tensor<float>> &output, std::vector<float> mean_ = {}, std::vector<float> std_ = {})
         {
-            //// cut img
+            // cut img
             std::shared_ptr<memory::tensor<std::uint8_t>> input;
             excalibur::rectangle<int> rect((int)box[0], (int)box[1], (int)box[3], (int)box[2]);
             excalibur::safty_cut_cpu(cache_, input, &rect);
