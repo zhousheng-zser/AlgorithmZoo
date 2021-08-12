@@ -133,7 +133,7 @@ namespace glasssix
 			search_->optimize_graph();
 		}
 
-		std::tuple<vector2d<uint32_t>, vector2d<float>> irisviel_search::search_vector(const std::vector<const float*>& query_data, uint32_t top_k)
+		vector2d<std::tuple<std::uint32_t, float>> irisviel_search::search_vector(const std::vector<const float*>& query_data, uint32_t top_k) const
 		{
 			auto lock = mutex_wrapper_->guard();
 

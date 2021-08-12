@@ -2,6 +2,7 @@
 
 #include "database_search_result.hpp"
 #include "database_feature_observer.hpp"
+#include "face_service_implemention.hpp"
 
 #include <memory>
 #include <vector>
@@ -19,7 +20,7 @@ namespace glasssix
 		public:
 			class impl;
 
-			database_business_wrapper(const std::shared_ptr<database_feature_observer>& observer, std::string_view map_file_path, std::string_view cache_directory);
+			database_business_wrapper(face_service_implemention implementation, const std::shared_ptr<database_feature_observer>& observer, std::string_view map_file_path, std::string_view cache_directory);
 			virtual ~database_business_wrapper();
 			bool build(bool rebuild);
 			void mark_for_deletion() noexcept;

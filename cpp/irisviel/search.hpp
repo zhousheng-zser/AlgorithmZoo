@@ -27,7 +27,7 @@ namespace glasssix
 			bool load_graph(const char* graph_path, const char* base_data_path);
 			const std::vector<const float*>* get_base_data();
 			void optimize_graph();
-			std::tuple<vector2d<uint32_t>, vector2d<float>> search_vector(const std::vector<const float*>& query_data, uint32_t top_k);
+			vector2d<std::tuple<std::uint32_t, float>> search_vector(const std::vector<const float*>& query_data, uint32_t top_k);
 			void save_result(const char* path, const std::vector<std::vector<uint32_t> >& return_ids);
 
 			uint32_t navigate_node = 0;
@@ -51,7 +51,7 @@ namespace glasssix
 
 			uint32_t neighbors_max_length = 0;
 			using compact_graph_type = std::vector<std::vector<uint32_t>>;
-			void search_with_opt_graph(const float* single_query_data, uint32_t top_k, std::vector<uint32_t>& return_ids, std::vector<float>& return_similarities);
+			void search_with_opt_graph(const float* single_query_data, uint32_t top_k, std::vector<std::tuple<std::uint32_t, float>>& result);
 		};
 	}
 }

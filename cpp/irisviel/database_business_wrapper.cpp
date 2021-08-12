@@ -4,6 +4,7 @@
 #include "feature_searcher.hpp"
 #include "nsg_calculate_error.hpp"
 #include "brute_force_search_impl.hpp"
+#include "feature_searcher_factory.hpp"
 
 #include <cstddef>
 #include <utility>
@@ -22,7 +23,7 @@ namespace glasssix
 		class database_business_wrapper::impl
 		{
 		public:
-			impl(const std::shared_ptr<database_feature_observer>& observer, const fs::path& map_file_path, const fs::path& cache_directory) : valid_state_{}, mark_for_deletion_{}, map_file_path_{ map_file_path }, cache_file_path_{ cache_directory / map_file_path_.filename().replace_extension(cache_extension) }, cache_directory_{ cache_directory }, observer_{ observer }
+			impl(face_service_implemention implementation, const std::shared_ptr<database_feature_observer>& observer, const fs::path& map_file_path, const fs::path& cache_directory) : valid_state_{}, mark_for_deletion_{}, map_file_path_{ map_file_path }, cache_file_path_{ cache_directory / map_file_path_.filename().replace_extension(cache_extension) }, cache_directory_{ cache_directory }, implementation_{ implementation }, observer_{ observer }
 			{
 			}
 
@@ -78,7 +79,7 @@ namespace glasssix
 
 				// Build the data.
 				// We must catch the exceptions of infinite numbers here.
-				if (!safe_handler([&] { searcher_ = std::make_shared<brute_force_search_impl>(dimension); }))
+				if (!safe_handler([&] { searcher_ = make_shared_feature_searcher(implementation_, dimension); }))
 				{
 					return false;
 				}
@@ -147,7 +148,7 @@ namespace glasssix
 
 					auto raw_search_result = searcher_->search_vector(features, min_similarity, top);
 
-					for (const auto& item : raw_search_result)
+					for (auto&& item : raw_search_result)
 					{
 						std::vector<database_search_result> inner;
 
@@ -189,11 +190,12 @@ namespace glasssix
 			fs::path cache_file_path_;
 			fs::path cache_directory_;
 			std::vector<const float*> current_data_;
+			face_service_implemention implementation_;
 			std::shared_ptr<feature_searcher> searcher_;
 			std::shared_ptr<database_feature_observer> observer_;
 		};
 
-		database_business_wrapper::database_business_wrapper(const std::shared_ptr<database_feature_observer>& observer, std::string_view map_file_path, std::string_view cache_directory) : impl_{ std::make_unique<impl>(observer, utils::path_from_string_view(map_file_path), utils::path_from_string_view(cache_directory)) }
+		database_business_wrapper::database_business_wrapper(face_service_implemention implementation, const std::shared_ptr<database_feature_observer>& observer, std::string_view map_file_path, std::string_view cache_directory) : impl_{ std::make_unique<impl>(implementation, observer, utils::path_from_string_view(map_file_path), utils::path_from_string_view(cache_directory)) }
 		{
 		}
 

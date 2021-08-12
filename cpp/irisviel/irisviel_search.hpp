@@ -111,7 +111,7 @@ namespace glasssix
 			/// <param name="query_data">The vectors to be queried</param>
 			/// <param name="top_k">The most similar K results to return</param>
 			/// <returns>The indexes and similarities of the results</returns>
-			std::tuple<vector2d<uint32_t>, vector2d<float>> search_vector(const std::vector<const float*>& query_data, uint32_t top_k);
+			vector2d<std::tuple<std::uint32_t, float>> search_vector(const std::vector<const float*>& query_data, uint32_t top_k) const;
 			
 			/// <summary>
 			/// Saves the results to the disk.

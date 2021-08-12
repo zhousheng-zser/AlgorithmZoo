@@ -51,9 +51,9 @@ namespace glasssix::irisviel
 	{
 	}
 
-	void face_service_impl::init(std::int32_t single_database_capacity, std::int32_t dimension, exposing::utf8_string_view working_directory)
+	void face_service_impl::init(face_service_implemention implementation, std::int32_t single_database_capacity, std::int32_t dimension, exposing::utf8_string_view working_directory)
 	{
-		impl_ = std::make_unique<face_service_internal>(single_database_capacity, dimension, exposing::to_narrow_string(working_directory));
+		impl_ = std::make_unique<face_service_internal>(implementation, single_database_capacity, dimension, exposing::to_narrow_string(working_directory));
 	}
 
 	void face_service_impl::clear() const
