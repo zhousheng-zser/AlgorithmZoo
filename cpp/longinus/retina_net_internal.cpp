@@ -308,28 +308,95 @@ namespace glasssix::longinus
             return exposing::make_as_first<face_info_impl>(face_internal);
         }
 
-        double match_faces_in_last_two_frame(const face_info &prev_face, const face_info &current_face)
+        exposing::param_vector<exposing::param_vector<std::uint8_t>> center_scale_align(exposing::param_span<std::uint8_t> bitmap, std::int32_t channels, std::int32_t height, std::int32_t width,
+            float scale, std::int32_t order)
         {
-            CHECK(cache0_.get());
-            CHECK(cache1_.get());
+            if (bitmap.empty())
+            {
+                throw exposing::abi_invalid_argument("current frame is empty");
+            }
+            auto img = std::make_shared<memory::tensor<uint8_t>>(channels, height, width, -1, static_cast<memory::orderType>(order));
+            std::copy(bitmap.begin(), bitmap.end(), img->mutable_cpu_data());
+            if (order == memory::NHWC)
+                img->convert_order();
 
-            excalibur::rectangle<float> rect1(prev_face.x(), prev_face.y(), prev_face.height(), prev_face.width());
-            excalibur::rectangle<float> rect2(current_face.x(), current_face.y(), current_face.height(), current_face.width());
+            int center_x = width / 2;
+            int center_y = height / 2;
+            int ori_width = width * scale;
+            int ori_height = height * scale;
 
-            std::shared_ptr<memory::tensor<std::uint8_t>> tensor_face1, tensor_face2;
-            excalibur::safty_cut_cpu(cache0_, tensor_face1, &rect1);
-            excalibur::safty_cut_cpu(cache1_, tensor_face2, &rect2);
+            int ori_x = center_x - ori_width / 2;
+            int ori_y = center_y - ori_height / 2;
 
-            excalibur::rgb2gray_cpu(tensor_face1, tensor_face1);
-            excalibur::rgb2gray_cpu(tensor_face2, tensor_face2);
+            face_info_internal ori_face;
+            ori_face.rect.x = ori_x;
+            ori_face.rect.y = ori_y;
+            ori_face.rect.h = ori_height;
+            ori_face.rect.w = ori_width;
 
-            excalibur::resize_cpu(tensor_face1, tensor_face1, 64, 64);
-            excalibur::resize_cpu(tensor_face2, tensor_face2, 64, 64);
+            refine(ori_face, height, width, true);
 
-            std::shared_ptr<memory::tensor<float>> result;
-            matchTemplateCpu(tensor_face1, tensor_face2, result);
+            excalibur::rectangle<int> ori_rect = excalibur::rectangle<int>(ori_face.rect.x, ori_face.rect.y, ori_face.rect.h, ori_face.rect.w);
+            std::shared_ptr<memory::tensor<uint8_t>> ori_img;
+            excalibur::safty_cut_cpu(img, ori_img, &ori_rect);
 
-            return result->cpu_data()[0];
+            ori_face.headpose[0] = ori_face.headpose[1] = ori_face.headpose[2] = std::numeric_limits<float>::min();
+            ori_face.clarity = std::numeric_limits<float>::min();
+            ori_face.is_alive = false;
+            ori_face.has_mask = std::numeric_limits<float>::min();
+
+            tracking_landmark(ori_img, ori_face, ori_rect.x, ori_rect.y);
+            refine(ori_face, height, width, true);
+
+
+            std::shared_ptr<memory::tensor<uint8_t>> ROI, rotated_ROI, final_mat, final_mat_gray, resized_color_img;
+            std::vector<std::shared_ptr<memory::tensor<uint8_t>>> src_vector;
+            auto res = exposing::make_param_vector<std::uint8_t, 2>();
+
+            excalibur::rectangle<int> MarginRect = excalibur::rectangle<int>(ori_face.rect.x - ori_face.rect.w * 0.0f,
+                ori_face.rect.y - ori_face.rect.h * 0.0f,
+                ori_face.rect.h * 1.0f,
+                ori_face.rect.w * 1.0f);
+
+            excalibur::safty_cut_cpu(img, ROI, &MarginRect);
+
+            excalibur::point<float> center_eye = excalibur::point<float>((ori_face.pts.x[0] + ori_face.pts.x[1]) / 2, (ori_face.pts.y[0] + ori_face.pts.y[1]) / 2);
+            excalibur::point<float> center_mouth = excalibur::point<float>((ori_face.pts.x[3] + ori_face.pts.x[4]) / 2, (ori_face.pts.y[3] + ori_face.pts.y[4]) / 2);
+            excalibur::point<float> center = excalibur::point<float>((center_eye.x + center_mouth.x) / 2, (center_eye.y + center_mouth.y) / 2);
+            double tan = (center_eye.x - center_mouth.x) / (center_eye.y - center_mouth.y);
+            double arctan = atan(tan) * 180 / 3.1415926;
+
+            excalibur::rotate_with_points_cpu(ROI, rotated_ROI, center, -1 * arctan);
+
+            double distance = std::sqrt((center_eye.x - center_mouth.x) * (center_eye.x - center_mouth.x) + (center_eye.y - center_mouth.y) * (center_eye.y - center_mouth.y));
+
+            if (distance < std::numeric_limits<double>::epsilon())
+            {
+                throw exposing::abi_invalid_argument("Illegal distance. Error landmarks.");
+            }
+
+            double cos = (center_mouth.y - center_eye.y) / distance;
+            double sin = (center_mouth.x - center_eye.x) / distance;
+            excalibur::point<float> new_center_eye = excalibur::point<float>(center_eye.x + (float)(sin * distance / 2), (float)(center_eye.y - (1 - cos) * distance / 2));
+            excalibur::point<float> new_center_mouth = excalibur::point<float>(center_mouth.x - (float)(sin * distance / 2), (float)(center_mouth.y + (1 - cos) * distance / 2));
+            excalibur::rectangle<float> final_rect = excalibur::rectangle<float>(new_center_eye.x - distance * 1.25f,
+                new_center_eye.y - distance * 0.75f,
+                distance * 2.5f, distance * 2.5f);
+            excalibur::safty_cut_cpu(rotated_ROI, final_mat, &final_rect);
+
+            excalibur::resize_cpu(final_mat, resized_color_img, 128, 128);
+
+            auto temp_vec = exposing::make_param_vector<std::uint8_t>();
+
+            auto* ptr = resized_color_img->cpu_data();
+            for (size_t k = 0; k < resized_color_img->count(); k++)
+            {
+                temp_vec.push_back(ptr[k]);
+            }
+
+            res.push_back(temp_vec);
+
+            return res;
         }
 
         static std::string version()
@@ -1038,9 +1105,10 @@ namespace glasssix::longinus
         return impl_->single_trace(face, bitmap, channels, height, width, order);
     }
 
-    double retina_net_internal::match_faces_in_last_two_frame(const face_info &prev_face, const face_info &current_face)
+    exposing::param_vector<exposing::param_vector<std::uint8_t>> retina_net_internal::center_scale_align(exposing::param_span<std::uint8_t> bitmap, std::int32_t channels, std::int32_t height, std::int32_t width,
+        float scale, std::int32_t order) const
     {
-        return impl_->match_faces_in_last_two_frame(prev_face, current_face);
+        return impl_->center_scale_align(bitmap, channels, height, width, scale, order);
     }
 
     std::string retina_net_internal::version()

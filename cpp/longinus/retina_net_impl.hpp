@@ -24,7 +24,8 @@ namespace glasssix::longinus
 		exposing::param_string version() const;
 		exposing::param_vector<face_info> detect(exposing::param_span<std::uint8_t> bitmap, std::int32_t channels, std::int32_t height, std::int32_t width, std::int32_t min_size, float threshold, std::int32_t order, bool do_attributing) const;
 		face_info single_trace(face_info face, exposing::param_span<std::uint8_t> bitmap, std::int32_t channels, std::int32_t height, std::int32_t width, std::int32_t order) const;
-		double match_faces_in_last_two_frame(const face_info& prev_face, const face_info& current_face) const;
+		exposing::param_vector<exposing::param_vector<std::uint8_t>> center_scale_align(exposing::param_span<std::uint8_t> bitmap, std::int32_t channels, std::int32_t height, std::int32_t width,
+			float scale, std::int32_t order) const;
 	private:
 		std::unique_ptr<retina_net_internal> impl_;
 	};

@@ -23,7 +23,8 @@ namespace glasssix::exposing::impl
 			virtual std::int32_t G6_ABI_CALL init(abi_in_t<param_span<const param_string>> phai, abi_in_t<param_string> racy_path, abi_in_t<param_span<const param_string>> tracker_phai, abi_in_t<param_string> tracker_racy_path, float nms, std::int32_t device) noexcept = 0;
 			virtual std::int32_t G6_ABI_CALL detect(abi_in_t<param_span<std::uint8_t>> bitmap, std::int32_t channels, std::int32_t height, std::int32_t width, std::int32_t min_size, float threshold, std::int32_t order, bool do_attributing, abi_out_t<param_vector<longinus::face_info>> result) noexcept = 0;
 			virtual std::int32_t G6_ABI_CALL single_trace(abi_in_t<longinus::face_info> face, abi_in_t<param_span<std::uint8_t>> bitmap, std::int32_t channels, std::int32_t height, std::int32_t width, std::int32_t order, abi_out_t<longinus::face_info> result) noexcept = 0;
-			virtual std::int32_t G6_ABI_CALL match_faces_in_last_two_frame(abi_in_t<longinus::face_info> prev_face, abi_in_t<longinus::face_info> current_face, abi_out_t<double> result) noexcept = 0;
+			virtual std::int32_t G6_ABI_CALL center_scale_align(abi_in_t<param_span<std::uint8_t>> bitmap, std::int32_t channels, std::int32_t height, std::int32_t width,
+				float scale, std::int32_t order, abi_out_t<param_vector< param_vector<std::uint8_t>>> result) noexcept = 0;
 			virtual std::int32_t G6_ABI_CALL version(abi_out_t<param_string> result) noexcept = 0;
 		};
 	};
@@ -50,9 +51,11 @@ namespace glasssix::exposing::impl
 			return abi_safe_call([&] { *result = detach_abi(this->self().single_trace(create_from_abi<longinus::face_info>(face), create_from_abi<param_span<std::uint8_t>>(bitmap), channels, height, width, order)); });
 		}
 
-		virtual std::int32_t G6_ABI_CALL match_faces_in_last_two_frame(abi_in_t<longinus::face_info> prev_face, abi_in_t<longinus::face_info> current_face, abi_out_t<double> result) noexcept override
+		virtual std::int32_t G6_ABI_CALL center_scale_align(abi_in_t<param_span<std::uint8_t>> bitmap, std::int32_t channels, std::int32_t height, std::int32_t width,
+			float scale, std::int32_t order, abi_out_t<param_vector< param_vector<std::uint8_t>>> result) noexcept override
 		{
-			return abi_safe_call([&] { *result = detach_abi(this->self().match_faces_in_last_two_frame(create_from_abi<longinus::face_info>(prev_face), create_from_abi<longinus::face_info>(current_face))); });
+			return abi_safe_call([&] { *result = detach_abi(this->self().center_scale_align(create_from_abi<param_span<std::uint8_t>>(bitmap), channels, height, width,
+				scale, order)); });
 		}
 
 		virtual std::int32_t G6_ABI_CALL version(abi_out_t<param_string> result) noexcept override
@@ -90,11 +93,11 @@ namespace glasssix::exposing::impl
 				return (check_abi_result(this->self_abi().single_trace(get_abi(face), get_abi(bitmap), get_abi(channels), get_abi(height), get_abi(width), get_abi(order), put_abi(result))), result);
 			}
 
-			double match_faces_in_last_two_frame(const longinus::face_info& prev_face, const longinus::face_info& current_face) const
+			param_vector< param_vector<std::uint8_t>> center_scale_align(param_span<std::uint8_t> bitmap, std::int32_t channels, std::int32_t height, std::int32_t width,
+				float scale, std::int32_t order) const
 			{
-				double result;
-
-				return (check_abi_result(this->self_abi().match_faces_in_last_two_frame(get_abi(prev_face), get_abi(current_face), put_abi(result))), result);
+				param_vector< param_vector<std::uint8_t>> result{ nullptr };
+				return (check_abi_result(this->self_abi().center_scale_align(get_abi(bitmap), channels, height, width, scale, order, put_abi(result))), result);
 			}
 
 			param_string version() const
