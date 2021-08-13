@@ -86,8 +86,7 @@ namespace glasssix::longinus
         exposing::param_vector<face_info> detect(exposing::param_span<std::uint8_t> bitmap, int channels, int height, int width, int min_size = 16, float threshold = 0.5, int order = 0, bool do_attributing = false);
 
         face_info single_trace(face_info face, exposing::param_span<std::uint8_t> bitmap, int channels, int height, int width, int order = 0);
-
-        double match_faces_in_last_two_frame(const face_info &prev_face, const face_info &current_face);
+        exposing::param_vector<exposing::param_vector<std::uint8_t>> center_scale_align(exposing::param_span<std::uint8_t> bitmap, std::int32_t channels, std::int32_t height, std::int32_t width, float scale, std::int32_t order = 1) const;
 
         static std::string version();
 
