@@ -202,16 +202,14 @@ namespace glasssix
 			compact_graph_type{}.swap(ngraph);
 		}
 
-		std::tuple<vector2d<uint32_t>, vector2d<float>> irisviel_search_internal::search_vector(const std::vector<const float*>& query_data, uint32_t top_k)
+		vector2d<std::tuple<std::uint32_t, float>> irisviel_search_internal::search_vector(const std::vector<const float*>& query_data, uint32_t top_k)
 		{
-			vector2d<uint32_t> ids;
-			vector2d<float> similarities;
+			vector2d<std::tuple<std::uint32_t, float>> result;
 
 			query_data_ = &query_data;
 			query_num_ = query_data.size();
 
-			ids.resize(query_num_);
-			similarities.resize(query_num_);
+			result.resize(query_num_);
 
 			if (base_num_ != 1)
 			{
@@ -220,37 +218,39 @@ namespace glasssix
 #endif
 				for (int i = 0; i < query_num_; ++i)
 				{
-					search_with_opt_graph((*query_data_)[i], top_k, ids[i], similarities[i]);
+					search_with_opt_graph((*query_data_)[i], top_k, result[i]);
 				}
 			}
 			else
 			{
 				for (int i = 0; i < query_num_; ++i)
 				{
-					ids[i].resize(1);
-					similarities[i].resize(1);
+					result.resize(1);
 
 					//return 0 when there is only one picture in database
-					ids[i][0] = 0;
+					auto&& [id, similarity] = result[i][0];
+
+					id = 0;
 
 #ifdef COSINE_DISTANCE
 					float norm_base = distance_cosine::norm((*base_data)[0], dimension_);
 					float norm_query = distance_cosine::norm((*query_data_)[i], dimension_);
 					float dist = distance_cosine::compare((*base_data)[0], norm_base, (*query_data_)[i], norm_query, dimension_);
 
-					similarities[i][0] = 1.0f - dist;
+					similarity = 1.0f - dist;
 #else
 					float norm_query = distance_fast_l2::norm((*query_data_)[i], dimension_);
 					float dist = distance_l2::compare((*base_data)[0], (*query_data_)[i], dimension_);
-					similarities[i][0] = 1.0f - 1.0f * dist / norm_query;
+					
+					similarity = 1.0f - 1.0f * dist / norm_query;
 #endif // COSINE_DISTANCE
 				}
 			}
 
-			return std::tuple<vector2d<uint32_t>, vector2d<float>>{ ids, similarities };
+			return result;
 		}
 
-		void irisviel_search_internal::search_with_opt_graph(const float* single_query_data, uint32_t top_k, std::vector<uint32_t>& return_ids, std::vector<float>& return_similarities)
+		void irisviel_search_internal::search_with_opt_graph(const float* single_query_data, uint32_t top_k, std::vector<std::tuple<std::uint32_t, float>>& result)
 		{
 			if (top_k > neighbors_max_length || top_k > base_num_)
 			{
@@ -260,8 +260,7 @@ namespace glasssix
 
 			std::vector <neighbor> return_neighbors;
 			return_neighbors.resize(neighbors_max_length + 1);
-			return_ids.resize(top_k);
-			return_similarities.resize(top_k);
+			result.resize(top_k);
 			std::vector<uint32_t> init_ids(neighbors_max_length);
 
 			boost::dynamic_bitset<> flags{ base_num_, 0 };
@@ -393,13 +392,15 @@ namespace glasssix
 
 			for (size_t i = 0; i < top_k; i++)
 			{
-				return_ids[i] = return_neighbors[i].id;
+				auto&& [id, similarity] = result[i];
+
+				id = return_neighbors[i].id;
 
 #ifdef COSINE_DISTANCE
-				return_similarities[i] = 1.0f - return_neighbors[i].distance;
+				similarity = 1.0f - return_neighbors[i].distance;
 
 #else
-				return_similarities[i] = 1.0f - 1.0f * distance_l2::compare(single_query_data, (*base_data).at(return_ids[i]),
+				similarity = 1.0f - 1.0f * distance_l2::compare(single_query_data, (*base_data).at(return_ids[i]),
 					(uint32_t)dimension_) / norm_query;
 #endif // COSINE_DISTANCE
 
