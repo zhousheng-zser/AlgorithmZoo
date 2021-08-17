@@ -47,11 +47,12 @@ namespace glasssix::longinus
 
 		return impl_->single_trace(face, bitmap, channels, height, width,  order);
 	}
-	double retina_net_impl::match_faces_in_last_two_frame(const face_info& prev_face, const face_info& current_face) const
+
+	exposing::param_vector<exposing::param_vector<std::uint8_t>> retina_net_impl::center_scale_align(exposing::param_span<std::uint8_t> bitmap, std::int32_t channels, std::int32_t height, std::int32_t width, float scale, std::int32_t order) const
 	{
 		if (!impl_)
-			throw exposing::abi_invalid_operation(u8"longinus internal object not initialized");
+			throw exposing::abi_invalid_operation(u8"romancia internal object not initialized");
 
-		return impl_->match_faces_in_last_two_frame(prev_face, current_face);
+		return impl_->center_scale_align(bitmap, channels, height, width, scale, order);
 	}
 }
