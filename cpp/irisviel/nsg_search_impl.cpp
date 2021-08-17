@@ -103,6 +103,6 @@ namespace glasssix::irisviel
 
 	namespace
 	{
-		int register_hint = ([] { register_feature_searcher(face_service_implemention::nsg_algorithm, [](int dimension) { return std::make_shared<nsg_search_impl>(dimension); }); }(), int{});
+		int register_hint = (register_feature_searcher(face_service_implemention::nsg_algorithm, [](int dimension) { return std::make_shared<nsg_search_impl>(dimension); }), int{});
 	}
 }

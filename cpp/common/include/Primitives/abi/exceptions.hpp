@@ -197,9 +197,7 @@ namespace glasssix::exposing
 	{
 		if constexpr (std::is_convertible_v<decltype(std::declval<Callable>()()), abi_result>)
 		{
-			auto result = std::forward<Callable>(handler)();
-
-			return (std::forward<Callable>(handler)(), result);
+			return std::forward<Callable>(handler)();
 		}
 		else
 		{

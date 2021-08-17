@@ -139,6 +139,6 @@ namespace glasssix::irisviel
 
 	namespace
 	{
-		int register_hint = ([] { register_feature_searcher(face_service_implemention::brute_force, [](int dimension) { return std::make_shared<brute_force_search_impl>(dimension); }); }(), int{});
+		int register_hint = (register_feature_searcher(face_service_implemention::brute_force, [](int dimension) { return std::make_shared<brute_force_search_impl>(dimension); }), int{});
 	}
 }
