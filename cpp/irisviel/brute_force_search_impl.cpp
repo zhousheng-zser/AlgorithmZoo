@@ -1,6 +1,8 @@
 #include "distance.hpp"
 #include "brute_force_search_impl.hpp"
 #include "memory_resource_adapter.hpp"
+#include "feature_searcher_factory.hpp"
+#include "face_service_implemention.hpp"
 
 #include <vector>
 #include <cstring>
@@ -133,5 +135,10 @@ namespace glasssix::irisviel
 	vector2d<std::tuple<std::uint32_t, float>> brute_force_search_impl::search_vector(const std::vector<const float*>& query_data, std::optional<float> min_similarity, std::optional<std::uint32_t> top_k) const
 	{
 		return impl_->search_vector(query_data, min_similarity, top_k);
+	}
+
+	namespace
+	{
+		int register_hint = (register_feature_searcher(face_service_implemention::brute_force, [](int dimension) { return std::make_shared<brute_force_search_impl>(dimension); }), int{});
 	}
 }
