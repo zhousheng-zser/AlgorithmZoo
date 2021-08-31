@@ -1,6 +1,6 @@
 #include "box_info_impl.hpp"
 
-namespace glasssix::mjollner
+namespace glasssix::heimdall
 {
     box_info_impl::box_info_impl()
     {
