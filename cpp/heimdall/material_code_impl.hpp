@@ -1,0 +1,29 @@
+#ifndef __MATERIAL_CODE_IMPL_HPP__
+#define __MATERIAL_CODE_IMPL_HPP__
+
+#include "material_code.hpp"
+
+#include <memory>
+#include <abi/consumer.hpp>
+
+namespace glasssix::heimdall
+{
+    inline constexpr exposing::utf8_string_view heimdall_material_code_qualified_name{u8"g6.heimdall.material_code"};
+
+    class material_code_internal;
+
+    class material_code_impl : public exposing::implements<material_code_impl, material_code>, public exposing::make_external_qualified_name<heimdall_material_code_qualified_name>
+    {
+    public:
+        material_code_impl();
+        ~material_code_impl();
+        void init(const exposing::param_string &model_directory, const std::int32_t factory_type, std::int32_t device);
+        exposing::param_string version() const;
+        exposing::param_vector<box_info> detect(exposing::param_span<std::uint8_t> bitmap, int channels, int height, int width, int order, int x, int y, int roi_width, int roi_height) const;
+
+    private:
+        std::unique_ptr<material_code_internal> impl_;
+    };
+}
+
+#endif

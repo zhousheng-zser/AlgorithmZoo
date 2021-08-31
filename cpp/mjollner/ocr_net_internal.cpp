@@ -40,7 +40,7 @@ namespace glasssix::mjollner
             }
             if (std::min(width, height) < 640)
             {
-                throw exposing::abi_invalid_argument("min(width, height) must be less than 640!");
+                throw exposing::abi_invalid_argument("min(width, height) must be greater than 640!");
             }
             CHECK_EQ(channels, 3);
             CHECK_EQ(bitmap.size(), channels * height * width);
@@ -88,7 +88,7 @@ namespace glasssix::mjollner
             }
             else
                 std::copy(bitmap.begin(), bitmap.end(), cache_->mutable_cpu_data());
-            
+
             if (order == memory::NHWC)
                 cache_->convert_order();
         }
@@ -322,6 +322,7 @@ namespace glasssix::mjollner
 
         void init_character(std::vector<std::string> &character)
         {
+            character.reserve(6625);
             std::ifstream in(alphabet_path_);
             std::string line;
             if (in)
@@ -446,6 +447,7 @@ namespace glasssix::mjollner
 
         void run_pipeline(std::vector<box_info_internal> &results, std::vector<int> &roi)
         {
+            std::cout << "ocr is beginning run..." << std::endl;
             excalibur::rectangle<int> rect((int)roi[0], (int)roi[1], (int)roi[3], (int)roi[2]);
             std::shared_ptr<memory::tensor<std::uint8_t>> tmp;
             std::shared_ptr<memory::tensor<uint8_t>> input;
@@ -467,8 +469,11 @@ namespace glasssix::mjollner
                     *(img.data + channels * i + c) = *(in_data + input->offset(0, c) + i);
                 }
             }
+
             // cv::imshow("img", img);
-            // cv::waitKey();
+            // cv::waitKey(0);
+
+            std::cout << "resnet18 is beginning run..." << std::endl;
             std::pair<std::vector<std::vector<cv::Point2f>>, std::vector<float>> result = detect_resnet18(input);
             std::vector<std::vector<cv::Point2f>> box_list = result.first;
             std::vector<float> score_list = result.second;
@@ -484,7 +489,10 @@ namespace glasssix::mjollner
                     cut_img = rotateAntiClockWise90(cut_img);
                 }
                 // run identify network
+                std::cout << "order: " << i + 1 << ", resnet34 is beginning run..." << std::endl;
                 std::pair<std::string, std::vector<float>> out = detect_resnet34(cut_img);
+                std::cout << "order: " << i + 1 << ", resnet34 is coming to an end..." << std::endl;
+                std::cout << std::endl;
                 box_info_internal box;
                 auto location = exposing::make_param_vector<float>();
                 for (int j = 0; j < box_list[i].size(); ++j)
@@ -494,8 +502,10 @@ namespace glasssix::mjollner
                 }
                 box.location = location;
                 box.strinfo = exposing::param_string(out.first);
+                box.angle = rect.angle;
                 results.push_back(box);
             }
+            std::cout << "the process is coming to an end!" << std::endl;
         }
 
     private:
