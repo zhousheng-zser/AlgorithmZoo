@@ -1381,13 +1381,13 @@ namespace glasssix::hardcode
                 "Convolution      Conv_550                 1 1 722 723 0=512 1=1 11=1 2=1 12=1 3=1 13=1 4=0 14=0 15=0 16=0 5=1 6=262144",
                 "HardSwish        Div_558                  1 1 723 731 0=1.666667e-01 1=5.000000e-01",
                 "Convolution      Conv_559                 1 1 629_splitncnn_0 732 0=24 1=1 11=1 2=1 12=1 3=1 13=1 4=0 14=0 15=0 16=0 5=1 6=3072",
-                "Reshape          Reshape_573              1 1 732 750 0=6400 1=8 2=3",
+                "Reshape          Reshape_573              1 1 732 750 0=-1 1=8 2=3",
                 "Transpose        Transpose_574            1 1 750 751 0=1,0,2",
                 "Convolution      Conv_856                 1 1 680_splitncnn_0 1041 0=24 1=1 11=1 2=1 12=1 3=1 13=1 4=0 14=0 15=0 16=0 5=1 6=6144",
-                "Reshape          Reshape_870              1 1 1041 1059 0=1600 1=8 2=3",
+                "Reshape          Reshape_870              1 1 1041 1059 0=-1 1=8 2=3",
                 "Transpose        Transpose_871            1 1 1059 1060 0=1,0,2",
                 "Convolution      Conv_1153                1 1 731 1350 0=24 1=1 11=1 2=1 12=1 3=1 13=1 4=0 14=0 15=0 16=0 5=1 6=12288",
-                "Reshape          Reshape_1167             1 1 1350 1368 0=400 1=8 2=3",
+                "Reshape          Reshape_1167             1 1 1350 1368 0=-1 1=8 2=3",
                 "Transpose        Transpose_1168           1 1 1368 1369 0=1,0,2"};
 
             inline static const std::vector<std::string> det_ocr{

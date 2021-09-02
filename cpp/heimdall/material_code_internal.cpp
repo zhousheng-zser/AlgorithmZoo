@@ -562,29 +562,26 @@ namespace glasssix::heimdall
             return angel_postprocess(result);
         }
 
-        cv::Mat crop_rect(cv::Mat &img, cv::RotatedRect &rect)
+        cv::Mat crop_rect(cv::Mat &img, cv::RotatedRect &rect, float alpha = 0.2)
         {
-            float alpha = 1.1;
             float degree = rect.angle;
             cv::Size size = rect.size;
             cv::Point2f center = rect.center;
             cv::Mat img_rot;
             cv::Mat img_crop;
-            float width = img.cols;
-            float height = img.rows;
-            if (degree <= 45)
+            float width = size.width;
+            float height = size.height;
+            if (width > height)
             {
-                cv::Mat M = cv::getRotationMatrix2D(center, degree, 1);
-                cv::warpAffine(img, img_rot, M, cv::Size(width * alpha, height));
-                cv::getRectSubPix(img_rot, size, center, img_crop);
+                width = width + height * alpha;
             }
             else
             {
-                degree = -(90 - degree);
-                cv::Mat M = cv::getRotationMatrix2D(center, degree, 1);
-                cv::warpAffine(img, img_rot, M, cv::Size(width * alpha, height));
-                cv::getRectSubPix(img_rot, cv::Size(size.height, size.width), center, img_crop);
+                height = height + width * alpha;
             }
+            cv::Mat M = cv::getRotationMatrix2D(center, degree, 1);
+            cv::warpAffine(img, img_rot, M, cv::Size(img.cols, img.rows));
+            cv::getRectSubPix(img_rot, cv::Size(width, height), center, img_crop);
             return img_crop;
         }
 
