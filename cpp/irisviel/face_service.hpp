@@ -2,6 +2,7 @@
 
 #include "record.hpp"
 #include "search_result.hpp"
+#include "face_service_implemention.hpp"
 
 #include <abi/consumer.hpp>
 
@@ -20,7 +21,7 @@ namespace glasssix::exposing::impl
 
 		struct type : abi_unknown_object
 		{
-			virtual std::int32_t G6_ABI_CALL init(std::int32_t single_database_capacity, std::int32_t dimension, abi_in_t<param_string> working_directory) noexcept = 0;
+			virtual std::int32_t G6_ABI_CALL init(abi_in_t<irisviel::face_service_implemention> implementation, std::int32_t single_database_capacity, std::int32_t dimension, abi_in_t<param_string> working_directory) noexcept = 0;
 			virtual std::int32_t G6_ABI_CALL clear() noexcept = 0;
 			virtual std::int32_t G6_ABI_CALL remove_all() noexcept = 0;
 			virtual std::int32_t G6_ABI_CALL dimension(abi_out_t<std::int32_t> result) noexcept = 0;
@@ -45,9 +46,9 @@ namespace glasssix::exposing::impl
 	template<typename Derived>
 	struct interface_vtable<Derived, irisviel::face_service> : interface_vtable_base<Derived, irisviel::face_service>
 	{
-		virtual std::int32_t G6_ABI_CALL init(std::int32_t single_database_capacity, std::int32_t dimension, abi_in_t<param_string> working_directory)  noexcept override
+		virtual std::int32_t G6_ABI_CALL init(abi_in_t<irisviel::face_service_implemention> implementation, std::int32_t single_database_capacity, std::int32_t dimension, abi_in_t<param_string> working_directory)  noexcept override
 		{
-			return abi_safe_call([&] { this->self().init(single_database_capacity, dimension, create_from_abi<param_string>(working_directory)); });
+			return abi_safe_call([&] { this->self().init(create_from_abi<irisviel::face_service_implemention>(implementation), single_database_capacity, dimension, create_from_abi<param_string>(working_directory)); });
 		}
 
 		virtual std::int32_t G6_ABI_CALL clear() noexcept override
@@ -146,9 +147,9 @@ namespace glasssix::exposing::impl
 		template<typename Derived>
 		struct type : enable_self_abi_awareness<Derived, irisviel::face_service>
 		{
-			void init(std::int32_t single_database_capacity, std::int32_t dimension, const param_string& working_directory) const
+			void init(irisviel::face_service_implemention implementation, std::int32_t single_database_capacity, std::int32_t dimension, const param_string& working_directory) const
 			{
-				check_abi_result(this->self_abi().init(get_abi(single_database_capacity), get_abi(dimension), get_abi(working_directory)));
+				check_abi_result(this->self_abi().init(get_abi(implementation), get_abi(single_database_capacity), get_abi(dimension), get_abi(working_directory)));
 			}
 
 			void clear() const

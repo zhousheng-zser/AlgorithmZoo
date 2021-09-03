@@ -360,8 +360,13 @@ namespace glasssix::longinus
 
             excalibur::safty_cut_cpu(img, ROI, &MarginRect);
 
-            excalibur::point<float> center_eye = excalibur::point<float>((ori_face.pts.x[0] + ori_face.pts.x[1]) / 2, (ori_face.pts.y[0] + ori_face.pts.y[1]) / 2);
-            excalibur::point<float> center_mouth = excalibur::point<float>((ori_face.pts.x[3] + ori_face.pts.x[4]) / 2, (ori_face.pts.y[3] + ori_face.pts.y[4]) / 2);
+            excalibur::point<float> ldmk5[5];
+            for (size_t j = 0; j < 5; j++)
+            {
+                ldmk5[j] = excalibur::point<float>(ori_face.pts.x[j] - MarginRect.x, ori_face.pts.y[j] - MarginRect.y);
+            }
+            excalibur::point<float> center_eye = excalibur::point<float>((ldmk5[0].x + ldmk5[1].x) / 2, (ldmk5[0].y + ldmk5[1].y) / 2);
+            excalibur::point<float> center_mouth = excalibur::point<float>((ldmk5[3].x + ldmk5[4].x) / 2, (ldmk5[3].y + ldmk5[4].y) / 2);
             excalibur::point<float> center = excalibur::point<float>((center_eye.x + center_mouth.x) / 2, (center_eye.y + center_mouth.y) / 2);
             double tan = (center_eye.x - center_mouth.x) / (center_eye.y - center_mouth.y);
             double arctan = atan(tan) * 180 / 3.1415926;

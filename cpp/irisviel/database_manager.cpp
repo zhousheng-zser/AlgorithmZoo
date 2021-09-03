@@ -142,9 +142,11 @@ namespace glasssix
 						auto entry = mapping_.locate_element_bytes(i, record_size_);
 						auto data_ref = database_record::create_ref(dimension_, entry);
 
-						if (data_ref && data_ref->active() && record_entries_.find(std::string(data_ref->key())) != record_entries_.end())
+						if (std::string key{ data_ref->key() }; data_ref && data_ref->active() && record_entries_.find(key) != record_entries_.end())
 						{
-							mapping_.write_element_bytes(new_index++, entry, record_size_);
+							record_entries_[key] = new_index;
+							mapping_.write_element_bytes(new_index, entry, record_size_);
+							new_index++;
 						}
 					}
 

@@ -2,6 +2,7 @@
 
 #include "database_record.hpp"
 #include "database_search_result.hpp"
+#include "face_service_implemention.hpp"
 
 #include <memory>
 #include <vector>
@@ -18,7 +19,7 @@ namespace glasssix
 		public:
 			class impl;
 
-			face_service_internal(int single_database_capacity, int dimension, std::string_view working_directory);
+			face_service_internal(face_service_implemention implementation, int single_database_capacity, int dimension, std::string_view working_directory);
 			virtual ~face_service_internal();
 			void clear() noexcept;
 			void remove_all() noexcept;
