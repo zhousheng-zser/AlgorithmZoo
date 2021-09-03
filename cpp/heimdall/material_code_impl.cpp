@@ -22,11 +22,11 @@ namespace glasssix::heimdall
 		return exposing::to_param_string(impl_->version());
 	}
 
-	exposing::param_vector<box_info> material_code_impl::detect(exposing::param_span<std::uint8_t> bitmap, int channels, int height, int width, int order, int x, int y, int roi_width, int roi_height) const
+	exposing::param_vector<box_info> material_code_impl::detect(exposing::param_span<std::uint8_t> bitmap, int channels, int height, int width, int top_five, int order, int x, int y, int roi_width, int roi_height) const
 	{
 		if (!impl_)
 			throw exposing::abi_invalid_operation(u8"heimdall internal object not initialized");
 
-		return impl_->detect(bitmap, channels, height, width, order, x, y, roi_width, roi_height);
+		return impl_->detect(bitmap, channels, height, width, top_five, order, x, y, roi_width, roi_height);
 	}
 }
