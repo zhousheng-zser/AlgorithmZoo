@@ -15,7 +15,7 @@ namespace glasssix::heimdall
     struct box_info_internal
     {
         exposing::param_vector<float> location;
-        exposing::param_string strinfo;
+        exposing::param_vector<exposing::param_string> strinfos;
         float angle;
     };
 
@@ -56,7 +56,7 @@ namespace glasssix::heimdall
         /// <param name="count">The count of bitmaps in the buffer</param>
         /// <param name="order">The order that the bitmaps are arranged in</param>
         /// <returns>The feature vectors</returns>
-        exposing::param_vector<box_info> detect(exposing::param_span<std::uint8_t> bitmap, int channels, int height, int width, int order, int x, int y, int roi_width, int roi_height) const;
+        exposing::param_vector<box_info> detect(exposing::param_span<std::uint8_t> bitmap, int channels, int height, int width, int top_five, int order, int x, int y, int roi_width, int roi_height) const;
 
         /// <summary>
         /// Gets the version of the component.

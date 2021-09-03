@@ -16,7 +16,7 @@ namespace glasssix::heimdall
         ~box_info_impl();
 
         exposing::param_vector<float> location() const;
-		exposing::param_string strinfo() const;
+		exposing::param_vector<exposing::param_string> strinfos() const;
         float angle() const;
 
     private:

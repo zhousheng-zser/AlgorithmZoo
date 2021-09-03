@@ -19,9 +19,9 @@ namespace glasssix::heimdall
 		return internal_.location;
 	}
 
-	exposing::param_string box_info_impl::strinfo() const
+	exposing::param_vector<exposing::param_string> box_info_impl::strinfos() const
 	{
-		return internal_.strinfo;
+		return internal_.strinfos;
 	}
 
 	float box_info_impl::angle() const

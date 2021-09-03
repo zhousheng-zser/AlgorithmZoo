@@ -22,7 +22,7 @@ namespace glasssix::exposing::impl
         struct type : abi_unknown_object
         {
             virtual std::int32_t G6_ABI_CALL init(abi_in_t<param_string> model_directory, abi_in_t<std::int32_t> factory_type, std::int32_t device) noexcept = 0;
-            virtual std::int32_t G6_ABI_CALL detect(abi_in_t<param_span<std::uint8_t>> bitmap, std::int32_t channels, std::int32_t height, std::int32_t width,
+            virtual std::int32_t G6_ABI_CALL detect(abi_in_t<param_span<std::uint8_t>> bitmap, std::int32_t channels, std::int32_t height, std::int32_t width, std::int32_t top_five,
                                                     std::int32_t order, std::int32_t x, std::int32_t y, std::int32_t roi_width, std::int32_t roi_height, abi_out_t<param_vector<heimdall::box_info>> result) noexcept = 0;
             virtual std::int32_t G6_ABI_CALL version(abi_out_t<param_string> result) noexcept = 0;
         };
@@ -37,11 +37,11 @@ namespace glasssix::exposing::impl
                                  { this->self().init(create_from_abi<param_string>(model_directory), create_from_abi<std::int32_t>(factory_type), device); });
         }
 
-        virtual std::int32_t G6_ABI_CALL detect(abi_in_t<param_span<std::uint8_t>> bitmap, std::int32_t channels, std::int32_t height, std::int32_t width,
+        virtual std::int32_t G6_ABI_CALL detect(abi_in_t<param_span<std::uint8_t>> bitmap, std::int32_t channels, std::int32_t height, std::int32_t width, std::int32_t top_five,
                                                 std::int32_t order, std::int32_t x, std::int32_t y, std::int32_t roi_width, std::int32_t roi_height, abi_out_t<param_vector<heimdall::box_info>> result) noexcept override
         {
             return abi_safe_call([&]
-                                 { *result = detach_abi(this->self().detect(create_from_abi<param_span<std::uint8_t>>(bitmap), channels, height, width, order, x, y, roi_width, roi_height)); });
+                                 { *result = detach_abi(this->self().detect(create_from_abi<param_span<std::uint8_t>>(bitmap), channels, height, width, top_five, order, x, y, roi_width, roi_height)); });
         }
 
         virtual std::int32_t G6_ABI_CALL version(abi_out_t<param_string> result) noexcept override
@@ -62,10 +62,10 @@ namespace glasssix::exposing::impl
                 check_abi_result(this->self_abi().init(get_abi(model_directory), get_abi(factory_type), get_abi(device)));
             }
 
-            param_vector<heimdall::box_info> detect(param_span<std::uint8_t> bitmap, std::int32_t channels, std::int32_t height, std::int32_t width, std::int32_t order, std::int32_t x, std::int32_t y, std::int32_t roi_width, std::int32_t roi_height) const
+            param_vector<heimdall::box_info> detect(param_span<std::uint8_t> bitmap, std::int32_t channels, std::int32_t height, std::int32_t width, std::int32_t top_five, std::int32_t order, std::int32_t x, std::int32_t y, std::int32_t roi_width, std::int32_t roi_height) const
             {
                 param_vector<heimdall::box_info> result{nullptr};
-                return (check_abi_result(this->self_abi().detect(get_abi(bitmap), channels, height, width, order, x, y, roi_width, roi_height, put_abi(result))), result);
+                return (check_abi_result(this->self_abi().detect(get_abi(bitmap), channels, height, width, top_five, order, x, y, roi_width, roi_height, put_abi(result))), result);
             }
 
             param_string version() const

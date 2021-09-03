@@ -55,7 +55,7 @@ namespace glasssix::heimdall
             // std::cout << "rec_racy_path: " << rec_racy_path << std::endl;
         }
 
-        exposing::param_vector<box_info> detect(exposing::param_span<std::uint8_t> bitmap, int channels, int height, int width, int order, int x, int y, int roi_width, int roi_height)
+        exposing::param_vector<box_info> detect(exposing::param_span<std::uint8_t> bitmap, int channels, int height, int width, int top_five, int order, int x, int y, int roi_width, int roi_height)
         {
             if (bitmap.empty())
             {
@@ -63,11 +63,12 @@ namespace glasssix::heimdall
             }
             CHECK_EQ(channels, 3);
             CHECK_EQ(bitmap.size(), channels * height * width);
+
             // roi params
             std::vector<int> roi{x, y, roi_width, roi_height};
             init_cache(bitmap, channels, height, width, order, roi);
             std::vector<box_info_internal> results;
-            run(results, roi);
+            run(results, roi, top_five);
             auto result = exposing::make_param_vector<box_info>();
             for (auto &i : results)
             {
@@ -448,61 +449,78 @@ namespace glasssix::heimdall
             LOG(ERROR) << "no such file";
         }
 
-        std::pair<std::string, std::vector<float>> decode(std::vector<int> &idxs, std::vector<float> &probs, std::vector<std::string> &character, bool remove_duplicate = true)
+        std::pair<std::vector<std::string>, std::vector<std::vector<float>>> decode(std::vector<std::vector<int>> &idxs, std::vector<std::vector<float>> &probs, std::vector<std::string> &character, int top_five, bool remove_duplicate = true)
         {
-            std::string strinfo;
-            std::vector<float> prob_list;
-            for (int i = 0; i < idxs.size(); ++i)
+            int K = 1;
+            if (top_five)
             {
-                if (idxs[i] == 0)
-                {
-                    continue;
-                }
-                // remove duplicate characters from the string
-                if (remove_duplicate && i > 0 && idxs[i - 1] == idxs[i])
-                {
-                    continue;
-                }
-                strinfo.append(character[idxs[i]]);
-                prob_list.push_back(probs[i]);
+                K = 5;
             }
-            return std::make_pair(strinfo, prob_list);
+            std::vector<std::string> strinfos(K);
+            std::vector<std::vector<float>> probs_list(K);
+            for (int i = 0; i < K; ++i)
+            {
+                for (int j = 0; j < idxs.size(); ++j)
+                {
+                    if (idxs[j][i] == 0)
+                    {
+                        continue;
+                    }
+                    // remove duplicate characters from the string
+                    if (remove_duplicate && j > 0 && idxs[j - 1][i] == idxs[j][i])
+                    {
+                        continue;
+                    }
+                    strinfos[i].append(character[idxs[j][i]]);
+                    probs_list[i].push_back(probs[j][i]);
+                }
+            }
+            return std::make_pair(strinfos, probs_list);
         }
 
-        std::pair<std::string, std::vector<float>> rec_combine_postprocess(std::shared_ptr<memory::tensor<float>> &result)
+        std::pair<std::vector<std::string>, std::vector<std::vector<float>>> rec_combine_postprocess(std::shared_ptr<memory::tensor<float>> &result, int top_five)
         {
+            int K = 1;
+            if (top_five)
+            {
+                K = 5;
+            }
             softmax_along_width(result);
             int height = result->height();
             int width = result->width();
-            const float *out_data = result->cpu_data();
-            std::vector<int> idxs;
-            std::vector<float> probs;
+            float *out_data = result->mutable_cpu_data();
+            std::vector<std::vector<int>> idxs(height);
+            std::vector<std::vector<float>> probs(height);
             int index = 0;
             float max_val = 0;
             for (int i = 0; i < height; ++i)
             {
-                for (int j = 0; j < width; ++j)
+                for (int n = 0; n < K; ++n)
                 {
-                    float value = out_data[i * width + j];
-                    if (max_val < value)
+                    for (int j = 0; j < width; ++j)
                     {
-                        max_val = value;
-                        index = j;
+                        float value = out_data[i * width + j];
+                        if (max_val < value)
+                        {
+                            max_val = value;
+                            index = j;
+                        }
                     }
+                    idxs[i].push_back(index);
+                    probs[i].push_back(max_val);
+                    out_data[i * width + index] = 0;
+                    index = 0;
+                    max_val = 0;
                 }
-                idxs.push_back(index);
-                probs.push_back(max_val);
-                index = 0;
-                max_val = 0;
             }
             // init alphabet
             std::vector<std::string> character{"blank", "1", "2", "3", "4", "5", "6", "7", "8", "9", "0", "A", "B", "C", "D", "E", "F", "G", "H", "I", "J", "K", "L", "M", "N", "O", "P", "Q", "R", "S", "T", "U", "V", "W", "X", "Y", "Z"};
             // init_character(character);
             // decode char
-            return decode(idxs, probs, character);
+            return decode(idxs, probs, character, top_five);
         }
 
-        std::pair<std::string, std::vector<float>> rec_combine_best(cv::Mat &cut_img)
+        std::pair<std::vector<std::string>, std::vector<std::vector<float>>> rec_combine_best(cv::Mat &cut_img, int top_five)
         {
             float ratio = 32.f / cut_img.rows;
             cv::resize(cut_img, cut_img, cv::Size(0, 0), ratio, ratio, cv::INTER_LINEAR);
@@ -521,7 +539,7 @@ namespace glasssix::heimdall
             std::unordered_map<std::string, std::shared_ptr<memory::tensor<float>>> out = rec_instance_.forward(input_tensor);
             std::shared_ptr<memory::tensor<float>> result = out["output"];
             // post process
-            return rec_combine_postprocess(result);
+            return rec_combine_postprocess(result, top_five);
         }
 
         std::vector<float> angel_postprocess(std::shared_ptr<memory::tensor<float>> &result)
@@ -585,7 +603,7 @@ namespace glasssix::heimdall
             return img_crop;
         }
 
-        void run(std::vector<box_info_internal> &results, std::vector<int> &roi)
+        void run(std::vector<box_info_internal> &results, std::vector<int> &roi, int top_five)
         {
             excalibur::rectangle<int> rect((int)roi[0], (int)roi[1], (int)roi[3], (int)roi[2]);
             std::shared_ptr<memory::tensor<uint8_t>> input;
@@ -646,7 +664,7 @@ namespace glasssix::heimdall
                     inverse = true;
                 }
                 // run identify network
-                std::pair<std::string, std::vector<float>> out = rec_combine_best(cut_img);
+                std::pair<std::vector<std::string>, std::vector<std::vector<float>>> out = rec_combine_best(cut_img, top_five);
                 box_info_internal box;
                 auto location = exposing::make_param_vector<float>();
                 for (int j = 0; j < box_list[i].size(); ++j)
@@ -655,7 +673,12 @@ namespace glasssix::heimdall
                     location.push_back(box_list[i][j].y);
                 }
                 box.location = location;
-                box.strinfo = exposing::param_string(out.first);
+                auto strinfos = exposing::make_param_vector<exposing::param_string>();
+                for (int j = 0; j < out.first.size(); ++j)
+                {
+                    strinfos.push_back(exposing::param_string(out.first[j]));
+                }
+                box.strinfos = strinfos;
                 // process angle -> [0, 360)
                 float angle;
                 if (!rotate && !inverse)
@@ -704,9 +727,9 @@ namespace glasssix::heimdall
     {
     }
 
-    exposing::param_vector<box_info> material_code_internal::detect(exposing::param_span<std::uint8_t> bitmap, int channels, int height, int width, int order, int x, int y, int roi_width, int roi_height) const
+    exposing::param_vector<box_info> material_code_internal::detect(exposing::param_span<std::uint8_t> bitmap, int channels, int height, int width, int top_five, int order, int x, int y, int roi_width, int roi_height) const
     {
-        return impl_->detect(bitmap, channels, height, width, order, x, y, roi_width, roi_height);
+        return impl_->detect(bitmap, channels, height, width, top_five, order, x, y, roi_width, roi_height);
     }
 
     std::string material_code_internal::version()
