@@ -2,6 +2,10 @@ if((NOT DEFINED Boost_INCLUDE_DIRS) OR (Boost_INCLUDE_DIRS STREQUAL ""))
 	find_package(Boost REQUIRED)
 endif()
 
+if (NOT DEFINED Boost_INCLUDE_DIRS)
+	set(Boost_INCLUDE_DIRS C:/Tools/vcpkg/installed/x64-windows/include)
+endif()
+
 if(USE_OPENMP)
 	find_package(OpenMP REQUIRED)
 	add_compile_options(${OpenMP_CXX_FLAGS})

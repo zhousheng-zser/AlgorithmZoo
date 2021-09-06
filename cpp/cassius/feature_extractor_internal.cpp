@@ -3,7 +3,11 @@
 
 #include <algorithm>
 
+#ifdef USE_RKNNAPI
+#include "RKNNWrapper/rknn_wrapper.hpp"
+#else
 #include <Excalibur/pipeline.hpp>
+#endif
 #include <Primitives/pool_allocator.hpp>
 #include <Primitives/tensor_conversions.hpp>
 
@@ -29,8 +33,12 @@ namespace glasssix::cassius
         {
         }
 
-        impl(const std::vector<std::string> &phai, std::string_view racy_path, int device) : device_{device}, unicorn_{phai, std::string{racy_path}, device}
+        impl(const std::vector<std::string> &phai, std::string_view racy_path, int device) try : device_{device}, unicorn_{phai, std::string{racy_path}, device}
         {
+        }
+        catch (...)
+        {
+
         }
 
         std::vector<std::vector<float>> get(exposing::param_span<std::uint8_t> bitmaps, std::size_t count, int order)
@@ -87,7 +95,11 @@ namespace glasssix::cassius
         }
 
         int device_;
+#ifdef USE_RKNNAPI
+        rknnwrapper::rknn_wrapper unicorn_;
+#else
         excalibur::pipeline<float> unicorn_;
+#endif
         std::shared_ptr<memory::tensor<std::uint8_t>> cache_;
     };
 

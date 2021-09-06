@@ -23,23 +23,26 @@ option(HAVE_SSE "Control CPU SSE options when using gcc or clang" OFF)
 option(HAVE_AVX "Control CPU AVX options when using gcc or clang" OFF)
 option(HAVE_AVX2 "Control CPU AVX2 options when using gcc or clang" OFF)
 option(USE_OPENCV "Use OpenCV library." ON)
+option(USE_RKNNAPI "Use RKNN instead of Excalibur" OFF)
 
 if(CMAKE_CXX_COMPILER_ID STREQUAL "MSVC")
 	set(CMAKE_FIND_LIBRARY_PREFIXES "lib")
 	set(CMAKE_PREFIX_PATH "C:/Tools/vcpkg/installed/x64-windows")
 endif()
 
-if (NOT DEFINED Boost_INCLUDE_DIRS)
-	set(Boost_INCLUDE_DIRS C:/Tools/vcpkg/installed/x64-windows/include)
-endif()
-
-set(COMMON_INCLUDE_DIRS ${CMAKE_CURRENT_SOURCE_DIR}/../cpp/common/include ${CMAKE_CURRENT_SOURCE_DIR}/../cpp/common/include/Primitives)
+list(APPEND COMMON_INCLUDE_DIRS ${CMAKE_CURRENT_SOURCE_DIR}/../cpp/common/include ${CMAKE_CURRENT_SOURCE_DIR}/../cpp/common/include/Primitives)
 
 if(NOT DEFINED COMMON_LIBRARY_DIRS)
 	message(FATAL_ERROR "COMMON_LIBRARY_DIRS NOT DEFINED: You must specify common library's directories.")
 endif()
 
-list(APPEND COMMON_LIBRARIES_NAMES primitives julius excalibur)
+list(APPEND COMMON_LIBRARIES_NAMES primitives julius)
+if(USE_RKNNAPI)
+	list(APPEND COMMON_LIBRARIES_NAMES rknn_api)
+	add_definitions(-DUSE_RKNNAPI)
+else()
+	list(APPEND COMMON_LIBRARIES_NAMES excalibur)
+endif()
 if(CMAKE_CXX_COMPILER_ID STREQUAL "MSVC")
 	foreach(library_name ${COMMON_LIBRARIES_NAMES})
 		find_library(library
