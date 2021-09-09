@@ -38,7 +38,7 @@ the use of this software, even if advised of the possibility of such damage.
 #ifndef _OPENCV_FFTTOOLS_HPP_
 #define _OPENCV_FFTTOOLS_HPP_
 
-#include <opencv2\core.hpp>
+#include <opencv2/core/core.hpp>
 
 //NOTE: FFTW support is still shaky, disabled for now.
 #ifdef USE_FFTW

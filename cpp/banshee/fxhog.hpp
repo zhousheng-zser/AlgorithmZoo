@@ -5,7 +5,7 @@
 * in C++ and OpenCV3.0+.
 * It's re-written accroding to a widely used fhog implementation(https://github.com/joaofaro/KCFcpp).
 */
-#include <opencv2\core.hpp>
+#include <opencv2/core/core.hpp>
 
 #define FXHOG_OK             0
 #define FXHOG_ERR_FEATUREMAP 1

@@ -32,7 +32,7 @@ namespace glasssix::heimdall
 
     std::array<std::tuple<int, std::string, std::string>, 2> types = {{{0, "hot_rolled_det", "hot_rolled_rec"},
                                                                        {1, "cool_rolled_det", "cool_rolled_rec"}}};
-
+    // factory_type 0:hot  1:cool
     std::string get_model_type_str(int factory_type, ModelType type)
     {
         auto factory = std::find_if(types.begin(), types.end(), [factory_type](const std::tuple<int, std::string, std::string> &t)
@@ -346,7 +346,7 @@ namespace glasssix::heimdall
         {
             size_t max_candidates = 1000;
             int min_size = 3;
-            float box_thresh = 0.6;
+            float box_thresh = 0.5;
             std::string score_mode = "fast";
             int width = mask.cols;
             int height = mask.rows;
