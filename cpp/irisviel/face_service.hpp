@@ -149,7 +149,7 @@ namespace glasssix::exposing::impl
 		{
 			void init(irisviel::face_service_implemention implementation, std::int32_t single_database_capacity, std::int32_t dimension, const param_string& working_directory) const
 			{
-				check_abi_result(this->self_abi().init(get_abi(implementation), get_abi(single_database_capacity), get_abi(dimension), get_abi(working_directory)));
+				check_abi_result(this->self_abi().init(get_abi(static_cast<std::int32_t>(implementation)), get_abi(single_database_capacity), get_abi(dimension), get_abi(working_directory)));
 			}
 
 			void clear() const
