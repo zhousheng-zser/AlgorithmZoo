@@ -79,11 +79,15 @@ and on any theory of liability, whether in contract, strict liability,
 or tort (including negligence or otherwise) arising in any way out of
 the use of this software, even if advised of the possibility of such damage.
  */
-#ifndef _OPENCV_KCFTRACKER_HPP_
-#define _OPENCV_KCFTRACKER_HPP_
+
+#pragma once
 
 #include "tracker.h"
 #include "fxhog.hpp"
+
+#ifndef _OPENCV_KCFTRACKER_HPP_
+#define _OPENCV_KCFTRACKER_HPP_
+#endif
 
 class KCFTracker : public Tracker
 {
@@ -91,22 +95,22 @@ public:
     // Constructor
     KCFTracker(bool hog = true, bool fixed_window = true, bool multiscale = true);
 
-    // Initialize tracker
+    // Initialize tracker 
     virtual void init(const cv::Rect &roi, cv::Mat image);
-
+    
     // Update position based on the new frame
     virtual struct trackerResult update(cv::Mat image);
 
-    float interp_factor;       // linear interpolation factor for adaptation
-    float sigma;               // gaussian kernel bandwidth
-    float lambda;              // regularization
-    int cell_size;             // HOG cell size
-    int cell_sizeQ;            // cell size^2, to avoid repeated operations
-    float padding;             // extra area surrounding the target
+    float interp_factor; // linear interpolation factor for adaptation
+    float sigma; // gaussian kernel bandwidth
+    float lambda; // regularization
+    int cell_size; // HOG cell size
+    int cell_sizeQ; // cell size^2, to avoid repeated operations
+    float padding; // extra area surrounding the target
     float output_sigma_factor; // bandwidth of gaussian target
-    int template_size;         // template size
-    float scale_step;          // scale step for multi-scale estimation
-    float scale_weight;        // to downweight detection scores of other scales for added stability
+    int template_size; // template size
+    float scale_step; // scale step for multi-scale estimation
+    float scale_weight;  // to downweight detection scores of other scales for added stability
 
 protected:
     // Detect object in the current frame.
@@ -122,7 +126,7 @@ protected:
     cv::Mat createGaussianPeak(int sizey, int sizex);
 
     // Obtain sub-window from image, with replication-padding and extract features
-    cv::Mat getFeatures(const cv::Mat &image, bool inithann, float scale_adjust = 1.0f);
+    cv::Mat getFeatures(const cv::Mat & image, bool inithann, float scale_adjust = 1.0f);
 
     // Initialize Hanning window. Function called only in the first frame.
     void createHanningMats();
@@ -147,4 +151,3 @@ private:
     bool _hogfeatures;
     bool _labfeatures;
 };
-#endif _OPENCV_KCFTRACKER_HPP_

@@ -6,15 +6,16 @@ namespace glasssix::banshee
 {
 	kcf_tracker_impl::kcf_tracker_impl()
 	{
+		impl_ = std::make_unique<kcf_tracker_internal>();
 	}
 
 	kcf_tracker_impl::~kcf_tracker_impl()
 	{
 	}
 
-	void kcf_tracker_impl::init(exposing::param_span<std::uint8_t> bitmap, std::int32_t width, std::int32_t height, std::int32_t x, std::int32_t y, std::int32_t roi_width, std::int32_t roi_height)
+	void kcf_tracker_impl::init_trace(exposing::param_span<std::uint8_t> bitmap, std::int32_t width, std::int32_t height, std::int32_t x, std::int32_t y, std::int32_t roi_width, std::int32_t roi_height)
 	{
-		impl_ = std::make_unique<kcf_tracker_internal>(bitmap, width, height, x, y, roi_width, roi_height);
+		impl_->init_trace(bitmap, width, height, x, y, roi_width, roi_height);
 	}
 
 	exposing::param_string kcf_tracker_impl::version() const

@@ -2,7 +2,7 @@
 #include <assert.h>
 #include <float.h>
 #include <string.h>
-#include <opencv2/imgproc/imgproc.hpp>
+#include <opencv2\imgproc.hpp>
 
 namespace glasssix
 {
@@ -17,7 +17,7 @@ namespace glasssix
         cellSize = _cellSize;
 
         sz = cv::Size(imageSize.width / _cellSize - 2,
-                      imageSize.height / _cellSize - 2);
+            imageSize.height / _cellSize - 2);
 
         numFeatures = NUM_SECTOR * 3 + 4;
 
@@ -63,7 +63,7 @@ namespace glasssix
         return FXHOG_OK;
     }
 
-    int fxhog::compute(const cv::Mat &src, cv::Mat &dst, int _cellSize, float thres)
+    int fxhog::compute(const cv::Mat& src, cv::Mat& dst, int _cellSize, float thres)
     {
         static_Init(src.size(), _cellSize);
 
@@ -83,7 +83,7 @@ namespace glasssix
         return FXHOG_OK;
     }
 
-    int fxhog::getFeatureMaps(const cv::Mat &src)
+    int fxhog::getFeatureMaps(const cv::Mat& src)
     {
         int height = src.rows;
         int width = src.cols;
@@ -91,7 +91,7 @@ namespace glasssix
         int sizeY = sz.height + 2;
         int stringSize = 3 * sizeX * NUM_SECTOR;
         int channels = src.channels();
-        float kernel[3] = {-1.f, 0.f, 1.f};
+        float kernel[3] = { -1.f, 0.f, 1.f };
         cv::Mat kernel_dx(1, 3, CV_32F, kernel);
         cv::Mat kernel_dy(3, 1, CV_32F, kernel);
 
@@ -103,10 +103,10 @@ namespace glasssix
 
         for (int i = 1; i < height - 1; ++i)
         {
-            float *pdx = dx.ptr<float>(i);
-            float *pdy = dy.ptr<float>(i);
-            float *pr = r.ptr<float>(i);
-            cv::Vec2i *palpha = alpha.ptr<cv::Vec2i>(i);
+            float* pdx = dx.ptr<float>(i);
+            float* pdy = dy.ptr<float>(i);
+            float* pr = r.ptr<float>(i);
+            cv::Vec2i* palpha = alpha.ptr<cv::Vec2i>(i);
             for (int j = 1; j < width - 1; ++j)
             {
                 float x = pdx[j * channels];
@@ -148,12 +148,12 @@ namespace glasssix
             }
         }
 
-        float *pw = w.ptr<float>();
-        int *pn = nearest.ptr<int>();
-        float *pm = originalFeature.ptr<float>();
+        float* pw = w.ptr<float>();
+        int* pn = nearest.ptr<int>();
+        float* pm = originalFeature.ptr<float>();
         originalFeature.setTo(0);
-        float *pr = r.ptr<float>();
-        int *palpha = alpha.ptr<int>();
+        float* pr = r.ptr<float>();
+        int* palpha = alpha.ptr<int>();
         for (int i = 0; i < sizeY; ++i)
         {
             for (int j = 0; j < sizeX; ++j)
@@ -219,12 +219,12 @@ namespace glasssix
 
     int fxhog::normalizeAndTruncate(float thres)
     {
-        float *pPartOfNorm = partOfNorm.ptr<float>();
+        float* pPartOfNorm = partOfNorm.ptr<float>();
 
         for (int i = 0; i < originalFeature.rows; ++i)
         {
             float valOfNorm = 0.0f;
-            float *pm = originalFeature.ptr<float>(i);
+            float* pm = originalFeature.ptr<float>(i);
             for (int j = 0; j < NUM_SECTOR; j++)
             {
                 float mm_p_j = pm[j];
@@ -236,9 +236,9 @@ namespace glasssix
         //normalization
         for (int i = 1; i <= sz.height; ++i)
         {
-            float *pPartOfNorm_curr = partOfNorm.ptr<float>(i);
-            float *pPartOfNorm_last = partOfNorm.ptr<float>(i - 1);
-            float *pPartOfNorm_next = partOfNorm.ptr<float>(i + 1);
+            float* pPartOfNorm_curr = partOfNorm.ptr<float>(i);
+            float* pPartOfNorm_last = partOfNorm.ptr<float>(i - 1);
+            float* pPartOfNorm_next = partOfNorm.ptr<float>(i + 1);
             for (int j = 1; j <= sz.width; ++j)
             {
                 float pN_0 = pPartOfNorm_curr[j];
@@ -255,8 +255,8 @@ namespace glasssix
                 float valOfNorm3 = 1.f / sqrt(pN_0 + pN_6 + pN_2 + pN_7 + FLT_EPSILON);
                 float valOfNorm4 = 1.f / sqrt(pN_0 + pN_6 + pN_4 + pN_8 + FLT_EPSILON);
 
-                float *pOriginalFeature = originalFeature.ptr<float>(i * (sz.width + 2) + j);
-                float *pNormalizedFeature = normalizedFeature.ptr<float>((i - 1) * sz.width + (j - 1));
+                float* pOriginalFeature = originalFeature.ptr<float>(i * (sz.width + 2) + j);
+                float* pNormalizedFeature = normalizedFeature.ptr<float>((i - 1) * sz.width + (j - 1));
                 for (int ii = 0; ii < NUM_SECTOR; ii++)
                 {
                     float mm_idx1 = pOriginalFeature[ii];
@@ -277,15 +277,15 @@ namespace glasssix
             }
         }
 
-        float *pNormalizedFeature = normalizedFeature.ptr<float>();
+        float* pNormalizedFeature = normalizedFeature.ptr<float>();
         for (int i = 0; i < normalizedFeature.rows * normalizedFeature.cols; ++i)
         {
-            if (pNormalizedFeature[i] > thres)
-                pNormalizedFeature[i] = thres;
+            if (pNormalizedFeature[i] > thres) pNormalizedFeature[i] = thres;
         }
 
         return FXHOG_OK;
     }
+
 
     int fxhog::PCAFeatureMaps()
     {
@@ -296,13 +296,13 @@ namespace glasssix
         {
             for (int j = 0; j < sz.width; j++)
             {
-                float *pNormalizeFeature = normalizedFeature.ptr<float>(i * sz.width + j);
-                float *pMap = map.ptr<float>(i * sz.width + j);
+                float* pNormalizeFeature = normalizedFeature.ptr<float>(i * sz.width + j);
+                float* pMap = map.ptr<float>(i * sz.width + j);
                 memset(pMap, 0, sizeof(float) * numFeatures);
 
                 for (int m = 0; m < NUM_SECTOR * 2; ++m)
                 {
-                    float *phead = pNormalizeFeature + 4 * NUM_SECTOR + m;
+                    float* phead = pNormalizeFeature + 4 * NUM_SECTOR + m;
                     for (int n = 0; n < 4; ++n)
                     {
                         pMap[m] += *phead;
@@ -314,7 +314,7 @@ namespace glasssix
                 pMap += 2 * NUM_SECTOR;
                 for (int m = 0; m < NUM_SECTOR; ++m)
                 {
-                    float *phead = pNormalizeFeature + m;
+                    float* phead = pNormalizeFeature + m;
                     for (int n = 0; n < 4; ++n)
                     {
                         pMap[m] += *phead;
@@ -326,7 +326,7 @@ namespace glasssix
                 pMap += NUM_SECTOR;
                 for (int m = 0; m < 4; ++m)
                 {
-                    float *phead = pNormalizeFeature + (2 * m + 4) * NUM_SECTOR;
+                    float* phead = pNormalizeFeature + (2 * m + 4) * NUM_SECTOR;
                     for (int n = 0; n < 2 * NUM_SECTOR; ++n)
                     {
                         pMap[m] += *(phead++);
