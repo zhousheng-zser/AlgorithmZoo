@@ -34,8 +34,8 @@ namespace glasssix::banshee
         /// </summary>
         /// <param name="racy_path">The model path</param>
         /// <param name="device">The device ID; -1 for CPU or a non-negative number for a GPU core</param>
-        kcf_tracker_internal(exposing::param_span<std::uint8_t> bitmap, std::int32_t width, std::int32_t height, std::int32_t x, std::int32_t y, std::int32_t roi_width, std::int32_t roi_height);
-
+        kcf_tracker_internal();
+        
         /// <summary>
         /// The copy constructor must be disabled in PImpl pattern.
         /// </summary>
@@ -50,6 +50,11 @@ namespace glasssix::banshee
         /// The copy assignment operator must be disabled in PImpl pattern.
         /// </summary>
         kcf_tracker_internal &operator=(const kcf_tracker_internal &) = delete;
+
+        /// <summary>
+        /// The copy assignment operator must be disabled in PImpl pattern.
+        /// </summary>
+        void init_trace(exposing::param_span<std::uint8_t> bitmap, std::int32_t width, std::int32_t height, std::int32_t x, std::int32_t y, std::int32_t roi_width, std::int32_t roi_height);
 
         /// <summary>
         /// Extracts the feature data.

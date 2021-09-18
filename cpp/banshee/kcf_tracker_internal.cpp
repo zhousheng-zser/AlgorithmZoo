@@ -20,14 +20,14 @@ namespace glasssix::banshee
     class kcf_tracker_internal::impl
     {
     public:
-        impl(exposing::param_span<std::uint8_t> bitmap, std::int32_t width, std::int32_t height, std::int32_t x, std::int32_t y, std::int32_t roi_width, std::int32_t roi_height)
+        void init_trace(exposing::param_span<std::uint8_t> bitmap, std::int32_t width, std::int32_t height, std::int32_t x, std::int32_t y, std::int32_t roi_width, std::int32_t roi_height)
         {
             // KCF tracker config parameters
             bool HOG = true;
             bool FIXEDWINDOW = false;
             bool MULTISCALE = true;
             tracker = new KCFTracker(HOG, FIXEDWINDOW, MULTISCALE);
-            cv::Rect roi_bbox(x, y, width, height);
+            cv::Rect roi_bbox(x, y, roi_width, roi_height);
             cv::Mat frame(height, width, CV_8UC3);
             std::copy(bitmap.begin(), bitmap.end(), frame.data);
             tracker->init(roi_bbox, frame);
@@ -62,12 +62,18 @@ namespace glasssix::banshee
         KCFTracker *tracker;
     };
 
-    kcf_tracker_internal::kcf_tracker_internal(exposing::param_span<std::uint8_t> bitmap, std::int32_t width, std::int32_t height, std::int32_t x, std::int32_t y, std::int32_t roi_width, std::int32_t roi_height) : impl_{std::make_unique<impl>(bitmap, width, height, x, y, roi_width, roi_height)}
+    kcf_tracker_internal::kcf_tracker_internal()
     {
+        impl_ = std::make_unique<impl>();
     }
 
     kcf_tracker_internal::~kcf_tracker_internal()
     {
+    }
+
+    void kcf_tracker_internal::init_trace(exposing::param_span<std::uint8_t> bitmap, std::int32_t width, std::int32_t height, std::int32_t x, std::int32_t y, std::int32_t roi_width, std::int32_t roi_height)
+    {
+        impl_->init_trace(bitmap, width, height, x, y, roi_width, roi_height);
     }
 
     track_info kcf_tracker_internal::update(exposing::param_span<std::uint8_t> bitmap, std::int32_t width, std::int32_t height) const

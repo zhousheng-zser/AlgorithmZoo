@@ -13,8 +13,8 @@
  * By using the sourcecode you agree to possible restrictions and requirements of these three license models so that the license can be changed
  * anytime without you knowledge. 
  */
-#ifndef TRACKER_H
-#define TRACKER_H
+
+#pragma once
 
 #include <opencv2/opencv.hpp>
 #include <string>
@@ -37,4 +37,3 @@ public:
 protected:
     cv::Rect_<float> _roi;
 };
-#endif

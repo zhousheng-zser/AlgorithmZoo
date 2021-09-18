@@ -33,12 +33,13 @@ or tort (including negligence or otherwise) arising in any way out of
 the use of this software, even if advised of the possibility of such damage.
 */
 
+#pragma once
+
 //#include <cv.h>
 
 #ifndef _OPENCV_FFTTOOLS_HPP_
 #define _OPENCV_FFTTOOLS_HPP_
-
-#include <opencv2\core.hpp>
+#endif
 
 //NOTE: FFTW support is still shaky, disabled for now.
 #ifdef USE_FFTW
@@ -234,4 +235,3 @@ cv::Mat fouriertransFull(const cv::Mat & in)
     }
 
 }
-#endif _OPENCV_FFTTOOLS_HPP_
