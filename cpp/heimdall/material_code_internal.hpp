@@ -1,5 +1,5 @@
-#ifndef __OCR_NET_INTERNAL_HPP__
-#define __OCR_NET_INTERNAL_HPP__
+#ifndef __MATERIAL_CODE_INTERNAL_HPP__
+#define __MATERIAL_CODE_INTERNAL_HPP__
 
 #include <memory>
 #include <string>
@@ -7,23 +7,22 @@
 #include <cstddef>
 #include <cstdint>
 #include <abi/param_span.hpp>
-// #include <abi/consumer.hpp>
 
 #include "box_info.hpp"
 
-namespace glasssix::mjollner
+namespace glasssix::heimdall
 {
     struct box_info_internal
     {
         exposing::param_vector<float> location;
-        exposing::param_string strinfo;
+        exposing::param_vector<exposing::param_string> strinfos;
         float angle;
     };
 
     /// <summary>
     /// A common component supporting anti-spoofing.
     /// </summary>
-    class ocr_net_internal
+    class material_code_internal
     {
     public:
         class impl;
@@ -33,30 +32,22 @@ namespace glasssix::mjollner
         /// </summary>
         /// <param name="racy_path">The model path</param>
         /// <param name="device">The device ID; -1 for CPU or a non-negative number for a GPU core</param>
-        ocr_net_internal(std::string_view det_racy_path, std::string_view rec_racy_path, std::string_view alphabet_path, int device);
-
-        /// <summary>
-        /// Creates an instance with a specified GPU core or the default CPU.
-        /// </summary>
-        /// <param name="phai_path">The phai</param>
-        /// <param name="racy_path">The model path</param>
-        /// <param name="device">The device ID; -1 for CPU or a non-negative number for a GPU core</param>
-        ocr_net_internal(const std::vector<std::string> &det_phai, std::string_view det_racy_path, const std::vector<std::string> &rec_phai, std::string_view rec_racy_path, std::string_view alphabet_path, int device);
+        material_code_internal(std::string_view model_directory, int factory_type, int device);
 
         /// <summary>
         /// The copy constructor must be disabled in PImpl pattern.
         /// </summary>
-        ocr_net_internal(const ocr_net_internal &) = delete;
+        material_code_internal(const material_code_internal &) = delete;
 
         /// <summary>
         /// Destroys the instance.
         /// </summary>
-        virtual ~ocr_net_internal();
+        virtual ~material_code_internal();
 
         /// <summary>
         /// The copy assignment operator must be disabled in PImpl pattern.
         /// </summary>
-        ocr_net_internal &operator=(const ocr_net_internal &) = delete;
+        material_code_internal &operator=(const material_code_internal &) = delete;
 
         /// <summary>
         /// Extracts the feature data.
@@ -65,7 +56,7 @@ namespace glasssix::mjollner
         /// <param name="count">The count of bitmaps in the buffer</param>
         /// <param name="order">The order that the bitmaps are arranged in</param>
         /// <returns>The feature vectors</returns>
-        exposing::param_vector<box_info> detect(exposing::param_span<std::uint8_t> bitmap, int channels, int height, int width, int order, int x, int y, int roi_width, int roi_height) const;
+        exposing::param_vector<box_info> detect(exposing::param_span<std::uint8_t> bitmap, int channels, int height, int width, int top_five, int order, int x, int y, int roi_width, int roi_height) const;
 
         /// <summary>
         /// Gets the version of the component.
