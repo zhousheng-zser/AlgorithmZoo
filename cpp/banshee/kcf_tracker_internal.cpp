@@ -11,7 +11,6 @@
 #include <fstream>
 #include <algorithm>
 #include <sstream>
-#include "dirent.h"
 #include <time.h>
 #include <cfloat>
 
