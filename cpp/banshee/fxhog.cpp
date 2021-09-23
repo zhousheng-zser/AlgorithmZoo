@@ -2,7 +2,7 @@
 #include <assert.h>
 #include <float.h>
 #include <string.h>
-#include <opencv2\imgproc.hpp>
+#include <opencv2/imgproc/imgproc.hpp>
 
 namespace glasssix
 {
