@@ -74,6 +74,8 @@ namespace glasssix
 				unsigned char* model_data = load_model((split_string(racy, ".")[0] + ".rknn").c_str(), &model_data_size);
 				
 				int ret = rknn_init(&ctx_, reinterpret_cast<void*>(model_data), model_data_size, flag_);
+				free(model_data);
+				model_data = nullptr;
 				if(ret != 0)
 					throw rknn_exception(ret, "rknn_init fail!");
 				
