@@ -185,6 +185,7 @@ LOG(FATAL) << "CHECK" << #name << " FAILED(" << #a << " " << #op << " " << #b <<
 #define DCHECK_GE(x, y)  while (false) CHECK((x) >= (y))
 #define DCHECK_EQ(x, y)  while (false) CHECK((x) == (y))
 #define DCHECK_NE(x, y)  while (false) CHECK((x) != (y))
+#define DLOG(level) while (false) LOG(level) 
 #else
 #define DCHECK(x) CHECK(x)
 #define DCHECK_LT(x, y) CHECK_LT(x, y)
@@ -193,6 +194,7 @@ LOG(FATAL) << "CHECK" << #name << " FAILED(" << #a << " " << #op << " " << #b <<
 #define DCHECK_GE(x, y) CHECK_GE(x, y)
 #define DCHECK_EQ(x, y) CHECK_EQ(x, y)
 #define DCHECK_NE(x, y) CHECK_NE(x, y)
+#define DLOG(level) LOG(level) 
 #endif  // NDEBUG
 
 	// A simple macro to mark codes that are not implemented, so that when the code
