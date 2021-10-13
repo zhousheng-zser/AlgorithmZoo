@@ -1,9 +1,9 @@
-#ifndef _BOX_INFO_HPP_
-#define _BOX_INFO_HPP_
+#ifndef _MATERIAL_CODE_BOX_INFO_HPP_
+#define _MATERIAL_CODE_BOX_INFO_HPP_
 
 #include <abi/consumer.hpp>
 
-namespace glasssix::mjollner
+namespace glasssix::heimdall
 {
     struct box_info;
 }
@@ -11,22 +11,22 @@ namespace glasssix::mjollner
 namespace glasssix::exposing::impl
 {
     template <>
-    struct abi<mjollner::box_info>
+    struct abi<heimdall::box_info>
     {
         using identity_type = type_identity_interface;
 
-        static constexpr guid id{"{B0BA2347-DCA1-42C2-85FF-0B410525CCB0}"};
+        static constexpr guid id{"{B379E158-C696-45BE-9D6F-797361FD1EC0}"};
 
         struct type : abi_unknown_object
         {
             virtual std::int32_t G6_ABI_CALL location(abi_out_t<param_vector<float>> result) noexcept = 0;
-            virtual std::int32_t G6_ABI_CALL strinfo(abi_out_t<param_string> result) noexcept = 0;
+            virtual std::int32_t G6_ABI_CALL strinfos(abi_out_t<param_vector<param_string>> result) noexcept = 0;
             virtual std::int32_t G6_ABI_CALL angle(abi_out_t<float> result) noexcept = 0;
         };
     };
 
     template <typename Derived>
-    struct interface_vtable<Derived, mjollner::box_info> : interface_vtable_base<Derived, mjollner::box_info>
+    struct interface_vtable<Derived, heimdall::box_info> : interface_vtable_base<Derived, heimdall::box_info>
     {
         virtual std::int32_t G6_ABI_CALL location(abi_out_t<param_vector<float>> result) noexcept override
         {
@@ -34,10 +34,10 @@ namespace glasssix::exposing::impl
                                  { *result = detach_abi(this->self().location()); });
         }
 
-        virtual std::int32_t G6_ABI_CALL strinfo(abi_out_t<param_string> result) noexcept override
+        virtual std::int32_t G6_ABI_CALL strinfos(abi_out_t<param_vector<param_string>> result) noexcept override
         {
             return abi_safe_call([&]
-                                 { *result = detach_abi(this->self().strinfo()); });
+                                 { *result = detach_abi(this->self().strinfos()); });
         }
 
         virtual std::int32_t G6_ABI_CALL angle(abi_out_t<float> result) noexcept override
@@ -48,10 +48,10 @@ namespace glasssix::exposing::impl
     };
 
     template <>
-    struct abi_adapter<mjollner::box_info>
+    struct abi_adapter<heimdall::box_info>
     {
         template <typename Derived>
-        struct type : enable_self_abi_awareness<Derived, mjollner::box_info>
+        struct type : enable_self_abi_awareness<Derived, heimdall::box_info>
         {
             param_vector<float> location() const
             {
@@ -60,11 +60,11 @@ namespace glasssix::exposing::impl
                 return (check_abi_result(this->self_abi().location(put_abi(result))), result);
             }
 
-            param_string strinfo() const
+            param_vector<param_string> strinfos() const
             {
-                param_string result;
+                param_vector<param_string> result;
 
-                return (check_abi_result(this->self_abi().strinfo(put_abi(result))), result);
+                return (check_abi_result(this->self_abi().strinfos(put_abi(result))), result);
             }
 
             float angle() const
@@ -77,7 +77,7 @@ namespace glasssix::exposing::impl
     };
 }
 
-namespace glasssix::mjollner
+namespace glasssix::heimdall
 {
     struct box_info : exposing::inherits<box_info>
     {

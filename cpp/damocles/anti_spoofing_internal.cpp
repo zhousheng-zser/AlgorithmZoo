@@ -9,6 +9,10 @@
 #include <Excalibur/operation_safty_cut.hpp>
 #include <Excalibur/operation_resize.hpp>
 
+#ifdef USE_RKNNAPI
+#include "RKNNWrapper/rknn_wrapper.hpp"
+#endif
+
 #ifdef USE_CUDA
 #include <cuda_runtime_api.h>
 #endif
@@ -60,9 +64,13 @@ namespace glasssix::damocles
 			}
 
 			std::vector<std::vector<float>> result;
-			auto network_result = fasmv2_.forward(crop_faces | memory::tensor_convert_to<float>);
-
+#ifdef USE_RKNNAPI
+			auto network_result = fasmv2_.forward(crop_faces);
 			if (auto iter = network_result.find("softmax"); iter != network_result.end())
+#else
+			auto network_result = fasmv2_.forward(crop_faces | memory::tensor_convert_to<float>);
+			if (auto iter = network_result.find("softmax"); iter != network_result.end())
+#endif
 			{
 				auto iter_softmax = iter->second->cpu_data();
 
@@ -172,7 +180,11 @@ namespace glasssix::damocles
 		}
 
 		int device_;
+#ifdef USE_RKNNAPI
+		rknnwrapper::rknn_wrapper fasmv2_;
+#else
 		excalibur::pipeline<float> fasmv2_;
+#endif
 		std::shared_ptr<memory::tensor<std::uint8_t>> cache_;
 	};
 

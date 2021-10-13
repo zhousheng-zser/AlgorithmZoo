@@ -14,6 +14,10 @@
 #include "Primitives/tensor_conversions.hpp"
 #include "hardcode.hpp"
 
+#ifdef USE_RKNNAPI
+#include "RKNNWrapper/rknn_wrapper.hpp"
+#endif
+
 namespace
 {
     static float estimate_head_pose_weights[] =
@@ -110,7 +114,11 @@ namespace glasssix::longinus
             excalibur::resize_cpu(cache_temp, cache_forward, int(height / scale), int(width / scale));
             excalibur::make_border(cache_forward, cache_forward, 0, hs - int(height / scale), 0, ws - int(width / scale));
 
+#ifdef USE_RKNNAPI
+            auto blob_data = retina_.forward(cache_forward);
+#else
             auto blob_data = retina_.forward(cache_forward | memory::tensor_convert_to<float>);
+#endif
 
             std::string name_bbox = "face_rpn_bbox_pred_";
             std::string name_score = "face_rpn_cls_prob_reshape_";
@@ -123,21 +131,21 @@ namespace glasssix::longinus
                 int stride = feat_stride_fpn_[i];
 
                 std::string str = name_score + key;
-                auto score_blob = retina_.get_featmap(str);
+                auto score_blob = blob_data[str];
                 auto score_blob_count = score_blob->count();
                 const float *scoreB = score_blob->cpu_data() + score_blob_count / 2;
                 const float *scoreE = scoreB + score_blob_count / 2;
                 std::vector<float> score = std::vector<float>(scoreB, scoreE);
 
                 str = name_bbox + key;
-                auto bbox_blob = retina_.get_featmap(str);
+                auto bbox_blob = blob_data[str];
                 auto bbox_blob_count = bbox_blob->count();
                 const float *bboxB = bbox_blob->cpu_data();
                 const float *bboxE = bboxB + bbox_blob_count;
                 std::vector<float> bbox_delta = std::vector<float>(bboxB, bboxE);
 
                 str = name_landmark + key;
-                auto landmark_blob = retina_.get_featmap(str);
+                auto landmark_blob = blob_data[str];
                 auto landmark_blob_count = landmark_blob->count();
                 const float *landmarkB = landmark_blob->cpu_data();
                 const float *landmarkE = landmarkB + landmark_blob_count;
@@ -1063,7 +1071,11 @@ namespace glasssix::longinus
         }
 
     private:
+#ifdef USE_RKNNAPI
+        rknnwrapper::rknn_wrapper retina_;
+#else
         glasssix::excalibur::pipeline<float> retina_;
+#endif
         glasssix::excalibur::pipeline<float> tracker_;
 
         int device_;

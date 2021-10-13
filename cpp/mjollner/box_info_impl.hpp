@@ -17,6 +17,7 @@ namespace glasssix::mjollner
 
         exposing::param_vector<float> location() const;
 		exposing::param_string strinfo() const;
+        float angle() const;
 
     private:
         box_info_internal internal_;

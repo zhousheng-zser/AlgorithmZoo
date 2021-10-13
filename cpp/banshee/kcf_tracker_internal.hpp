@@ -1,5 +1,5 @@
-#ifndef __OCR_NET_INTERNAL_HPP__
-#define __OCR_NET_INTERNAL_HPP__
+#ifndef KCF_TRACKER_INTERNAL_H
+#define KCF_TRACKER_INTERNAL_H
 
 #include <memory>
 #include <string>
@@ -7,23 +7,24 @@
 #include <cstddef>
 #include <cstdint>
 #include <abi/param_span.hpp>
-// #include <abi/consumer.hpp>
 
-#include "box_info.hpp"
+#include "track_info.hpp"
 
-namespace glasssix::mjollner
+namespace glasssix::banshee
 {
-    struct box_info_internal
+    struct track_info_internal
     {
-        exposing::param_vector<float> location;
-        exposing::param_string strinfo;
-        float angle;
+        int x;
+        int y;
+        int width;
+        int height;
+        float prob;
     };
 
     /// <summary>
     /// A common component supporting anti-spoofing.
     /// </summary>
-    class ocr_net_internal
+    class kcf_tracker_internal
     {
     public:
         class impl;
@@ -33,30 +34,27 @@ namespace glasssix::mjollner
         /// </summary>
         /// <param name="racy_path">The model path</param>
         /// <param name="device">The device ID; -1 for CPU or a non-negative number for a GPU core</param>
-        ocr_net_internal(std::string_view det_racy_path, std::string_view rec_racy_path, std::string_view alphabet_path, int device);
-
-        /// <summary>
-        /// Creates an instance with a specified GPU core or the default CPU.
-        /// </summary>
-        /// <param name="phai_path">The phai</param>
-        /// <param name="racy_path">The model path</param>
-        /// <param name="device">The device ID; -1 for CPU or a non-negative number for a GPU core</param>
-        ocr_net_internal(const std::vector<std::string> &det_phai, std::string_view det_racy_path, const std::vector<std::string> &rec_phai, std::string_view rec_racy_path, std::string_view alphabet_path, int device);
-
+        kcf_tracker_internal();
+        
         /// <summary>
         /// The copy constructor must be disabled in PImpl pattern.
         /// </summary>
-        ocr_net_internal(const ocr_net_internal &) = delete;
+        kcf_tracker_internal(const kcf_tracker_internal &) = delete;
 
         /// <summary>
         /// Destroys the instance.
         /// </summary>
-        virtual ~ocr_net_internal();
+        virtual ~kcf_tracker_internal();
 
         /// <summary>
         /// The copy assignment operator must be disabled in PImpl pattern.
         /// </summary>
-        ocr_net_internal &operator=(const ocr_net_internal &) = delete;
+        kcf_tracker_internal &operator=(const kcf_tracker_internal &) = delete;
+
+        /// <summary>
+        /// The copy assignment operator must be disabled in PImpl pattern.
+        /// </summary>
+        void init_trace(exposing::param_span<std::uint8_t> bitmap, std::int32_t width, std::int32_t height, std::int32_t x, std::int32_t y, std::int32_t roi_width, std::int32_t roi_height);
 
         /// <summary>
         /// Extracts the feature data.
@@ -65,7 +63,7 @@ namespace glasssix::mjollner
         /// <param name="count">The count of bitmaps in the buffer</param>
         /// <param name="order">The order that the bitmaps are arranged in</param>
         /// <returns>The feature vectors</returns>
-        exposing::param_vector<box_info> detect(exposing::param_span<std::uint8_t> bitmap, int channels, int height, int width, int order, int x, int y, int roi_width, int roi_height) const;
+        track_info update(exposing::param_span<std::uint8_t> bitmap, std::int32_t width, std::int32_t height) const;
 
         /// <summary>
         /// Gets the version of the component.
