@@ -493,7 +493,7 @@ namespace glasssix
 			{
 				throw nsg_calculate_error{ "infinite number" };
 			}
-			else if (abs(result) < 1e-5)
+			else if (fabsf(result) < 1e-5)
 			{
 				throw nsg_calculate_error{ "zero vector" };
 			}
