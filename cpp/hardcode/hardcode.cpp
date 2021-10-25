@@ -2331,7 +2331,7 @@ namespace glasssix::hardcode
             inline static const std::vector<std::string> rolled_rec{
                 "glsv1",
                 "126 133",
-                "Input            input                    0 1 input 0=320 1=32 2=3 3=0.5,0.5,0.5 4=2",
+                "Input            input                    0 1 input 0=320 1=32 2=3 3=0 4=1",
                 "MemoryData       head.fc.bias             0 1 head.fc.bias 0=37",
                 "Convolution      Conv_0                   1 1 input 97 0=32 1=3 11=3 2=1 12=1 3=1 13=1 4=1 14=1 15=1 16=1 5=1 6=864",
                 "ReLU             Relu_1                   1 1 97 98",
@@ -2449,7 +2449,8 @@ namespace glasssix::hardcode
                 "LSTM             LSTM_126                 1 1 224 276 0=256 1=1048576 2=2",
                 "LSTM             LSTM_132                 1 1 276 328 0=256 1=1048576 2=2",
                 "InnerProduct     MatMul_137               1 1 328 330 0=37 1=0 2=18944",
-                "BinaryOp         Add_138                  2 1 330 head.fc.bias output 0=0"};
+                "BinaryOp         Add_138                  2 1 330 head.fc.bias output 0=0"
+            };
         };
 
         const std::unordered_map<std::string, std::vector<std::string>> hardcode_map{
@@ -2471,9 +2472,12 @@ namespace glasssix::hardcode
             {"yolov5s", hardcode_model_params::yolov5s},
             {"vehicle_attri", hardcode_model_params::vehicle_attri},
             {"person_attri", hardcode_model_params::person_attri},
-            {"rolled_det", hardcode_model_params::rolled_det},
-            {"rolled_rec", hardcode_model_params::rolled_rec},
-            {"material_angle", hardcode_model_params::material_angle}};
+            {"hot_rolled_det", hardcode_model_params::rolled_det},
+            {"hot_rolled_rec", hardcode_model_params::rolled_rec},
+            {"hot_material_angle", hardcode_model_params::material_angle},
+            {"cool_material_angle", hardcode_model_params::material_angle},
+            {"cool_rolled_det", hardcode_model_params::rolled_det},
+            {"cool_rolled_rec", hardcode_model_params::rolled_rec}};
     }
 
     std::vector<std::string> get_model_params(std::string_view name, bool use_int8)

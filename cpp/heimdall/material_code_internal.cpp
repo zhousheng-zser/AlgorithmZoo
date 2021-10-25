@@ -542,7 +542,7 @@ namespace glasssix::heimdall
             float *input_data = input_tensor->mutable_cpu_data();
             for (int i = 0; i < count; ++i)
             {
-                input_data[i] = (input_data[i] / 255.f - 0.5) / 0.5;
+                input_data[i] = (input_data[i] / 255.f - 0.5f) * 2.0f;
             }
             std::unordered_map<std::string, std::shared_ptr<memory::tensor<float>>> out = rec_instance_.forward(input_tensor);
             std::shared_ptr<memory::tensor<float>> result = out["output"];
@@ -900,7 +900,7 @@ namespace glasssix::heimdall
                     results.push_back(box);
                 }
             }
-            else
+            else if(box_list.size() == 1)
             {
                 bool rotate = false;
                 bool inverse = false;
@@ -993,11 +993,11 @@ namespace glasssix::heimdall
 
     material_code_internal::material_code_internal(std::string_view model_directory, int factory_type, int device)
         : impl_{ std::make_unique<impl>(factory_type, 
-            hardcode::get_model_params("rolled_det"), 
+            hardcode::get_model_params(get_model_type_str(factory_type, ModelType::DETECT)),
             get_racy_path(model_directory, factory_type, ModelType::DETECT), 
-            hardcode::get_model_params("material_angle"), 
+            hardcode::get_model_params(get_model_type_str(factory_type, ModelType::ANGLE)),
             get_racy_path(model_directory, factory_type, ModelType::ANGLE),
-            hardcode::get_model_params("rolled_rec"),
+            hardcode::get_model_params(get_model_type_str(factory_type, ModelType::RECOGNITION)),
             get_racy_path(model_directory, factory_type, ModelType::RECOGNITION), 
             std::string{model_directory} + "/digit_eng_captial_dict.txt", device)}
     {
