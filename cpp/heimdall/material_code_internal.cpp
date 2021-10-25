@@ -27,17 +27,19 @@ namespace glasssix::heimdall
     enum class ModelType : int8_t
     {
         DETECT,
-        RECOGNITION
+        RECOGNITION,
+        ANGLE
     };
 
-    std::array<std::tuple<int, std::string, std::string>, 2> types = {{{0, "hot_rolled_det", "hot_rolled_rec"},
-                                                                       {1, "cool_rolled_det", "cool_rolled_rec"}}};
+    std::array<std::tuple<int, std::string, std::string, std::string>, 2> types = {
+        {{0, "hot_rolled_det", "hot_rolled_rec", "hot_material_angle"},
+        {1, "cool_rolled_det", "cool_rolled_rec", "cool_material_angle"}}};
     // factory_type 0:hot  1:cool
     std::string get_model_type_str(int factory_type, ModelType type)
     {
-        auto factory = std::find_if(types.begin(), types.end(), [factory_type](const std::tuple<int, std::string, std::string> &t)
+        auto factory = std::find_if(types.begin(), types.end(), [factory_type](const std::tuple<int, std::string, std::string, std::string> &t)
                                     { return std::get<0>(t) == factory_type; });
-        return type == ModelType::DETECT ? std::get<1>(*factory) : std::get<2>(*factory);
+        return type == ModelType::DETECT ? std::get<1>(*factory) : type == ModelType::RECOGNITION ? std::get<2>(*factory) : std::get<3>(*factory);
     }
 
     std::string get_racy_path(std::string_view model_directory, int factory_type, ModelType type)
@@ -48,7 +50,7 @@ namespace glasssix::heimdall
     class material_code_internal::impl
     {
     public:
-        impl(const std::vector<std::string> &det_phai, std::string_view det_racy_path, const std::vector<std::string> &angle_phai, std::string_view angle_racy_path, const std::vector<std::string> &rec_phai, std::string_view rec_racy_path, std::string_view alphabet_path, int device) : device_{device}, det_instance_{det_phai, std::string{det_racy_path}, device}, angle_instance_{angle_phai, std::string{angle_racy_path}, device}, rec_instance_{rec_phai, std::string{rec_racy_path}, device}, alphabet_path_{std::string{alphabet_path}}
+        impl(int factory_type, const std::vector<std::string> &det_phai, std::string_view det_racy_path, const std::vector<std::string> &angle_phai, std::string_view angle_racy_path, const std::vector<std::string> &rec_phai, std::string_view rec_racy_path, std::string_view alphabet_path, int device) : factory_type_(factory_type), device_{device}, det_instance_{det_phai, std::string{det_racy_path}, device}, angle_instance_{angle_phai, std::string{angle_racy_path}, device}, rec_instance_{rec_phai, std::string{rec_racy_path}, device}, alphabet_path_{std::string{alphabet_path}}
         {
             // std::cout << "det_racy_path: " << det_racy_path << std::endl;
             // std::cout << "angle_racy_path: " << angle_racy_path << std::endl;
@@ -68,8 +70,14 @@ namespace glasssix::heimdall
             std::vector<int> roi{x, y, roi_width, roi_height};
             init_cache(bitmap, channels, height, width, order, roi);
             std::vector<box_info_internal> results;
-            run(results, roi, top_five);
             auto result = exposing::make_param_vector<box_info>();
+            if (factory_type_ == 0)
+                run_hot_roll(results, roi, top_five);
+            else if (factory_type_ == 1)
+                run_cool_roll(results, roi, top_five);
+            else
+                return result;
+
             for (auto &i : results)
             {
                 result.push_back(exposing::make_as_first<box_info_impl>(i));
@@ -534,7 +542,7 @@ namespace glasssix::heimdall
             float *input_data = input_tensor->mutable_cpu_data();
             for (int i = 0; i < count; ++i)
             {
-                input_data[i] = (input_data[i] / 255.f - 0.5) / 0.5;
+                input_data[i] = (input_data[i] / 255.f - 0.5f) * 2.0f;
             }
             std::unordered_map<std::string, std::shared_ptr<memory::tensor<float>>> out = rec_instance_.forward(input_tensor);
             std::shared_ptr<memory::tensor<float>> result = out["output"];
@@ -603,7 +611,7 @@ namespace glasssix::heimdall
             return img_crop;
         }
 
-        void run(std::vector<box_info_internal> &results, std::vector<int> &roi, int top_five)
+        void run_hot_roll(std::vector<box_info_internal> &results, std::vector<int> &roi, int top_five)
         {
             excalibur::rectangle<int> rect((int)roi[0], (int)roi[1], (int)roi[3], (int)roi[2]);
             std::shared_ptr<memory::tensor<uint8_t>> input;
@@ -710,7 +718,271 @@ namespace glasssix::heimdall
             }
         }
 
+        void calc_abc_from_line_2d(float x0, float y0, float x1, float y1, float x[])
+        {
+            x[0] = y0 - y1;
+            x[1] = x1 - x0;
+            x[2] = x0 * y1 - x1 * y0;
+        }
+
+        cv::Point2f get_line_cross_point(float line1[], float line2[])
+        {
+            float x1[3] = { 0.0f }, x2[3] = { 0.0f };
+            calc_abc_from_line_2d(line1[0], line1[1], line1[2], line1[3], x1);
+            calc_abc_from_line_2d(line2[0], line2[1], line2[2], line2[3], x2);
+            float a0 = x1[0];
+            float b0 = x1[1];
+            float c0 = x1[2];
+            float a1 = x2[0];
+            float b1 = x2[1];
+            float c1 = x2[2];
+            float D = a0 * b1 - a1 * b0;
+            cv::Point2f point;
+            if(D == 0)
+            {
+                point.x = 0.0f;
+                point.y = 0.0f;
+            }
+            else
+            {
+                float x = (b0 * c1 - b1 * c0) / D;
+                float y = (a1 * c0 - a0 * c1) / D;
+                point.x = x;
+                point.y = y;
+            }
+            return point;
+        }
+
+        cv::Mat crop_cool_rect(cv::Mat& img, cv::RotatedRect& rect, cv::Point2f& point, float &angle)
+        {
+
+            //img:图像
+            //center:文本框中点
+            //size:(h,w)
+            //angle:旋转角
+            //point:圆心
+            //alph:增加的宽度
+
+
+            float center_x = rect.center.x;
+            float center_y = rect.center.y;
+            float point_x = point.x;
+            float poiny_y = point.y;
+            float h = rect.size.height;
+            float w = rect.size.width;
+            if (rect.angle == -90 && h > w)//框是水平的
+            {
+                if (center_y < poiny_y)//框在圆心上面
+                {
+                    angle = 0;
+                }
+                else
+                {
+                    angle = 180;
+                }
+            }
+            else
+            {
+                if (center_x < point_x)//圆的左边, 顺时针旋转
+                {
+                    if (h < w)
+                    {
+                        angle = rect.angle - 90;
+                    }
+                    else
+                    {
+                        angle = rect.angle;
+                    }
+
+                }
+                else if (center_x > point_x)//圆的右边，逆时针选择
+                {
+                    if (h > w)
+                    {
+                        angle = 180 + angle;
+                    }
+                    else
+                    {
+                        angle = angle + 90;
+                    }
+                }
+            }
+
+            cv::Size new_size;
+            //int alph = 0.2
+            new_size.height = (int)(std::max(h, w) + std::max(h, w)); //长边放前边
+            new_size.height = (int)(std::max(h, w));
+            new_size.width = (int)(std::min(h, w));
+            int width = img.rows;
+            int height = img.cols;
+            cv::Mat rot_mat(2, 3, CV_32FC1);
+            rot_mat = cv::getRotationMatrix2D(rect.center, angle, 1.0); // 根据旋转矩阵，对整幅图像以center作为中心点进行旋转
+            cv::Mat warp_mat(2, 3, CV_32FC1);
+            cv::warpAffine(img, rot_mat, warp_mat, cv::Size(width, height));
+            cv::Mat img_crop;
+            cv::getRectSubPix(warp_mat, new_size, rect.center, img_crop);
+            return img_crop;
+        }
+
+        void run_cool_roll(std::vector<box_info_internal>& results, std::vector<int>& roi, int top_five)
+        {
+            excalibur::rectangle<int> rect((int)roi[0], (int)roi[1], (int)roi[3], (int)roi[2]);
+            std::shared_ptr<memory::tensor<uint8_t>> input;
+            // image preprocessing
+            excalibur::safty_cut_cpu(cache_, input, &rect);
+            std::shared_ptr<memory::tensor<uint8_t>> resized_img = resize_fixed_size(640, input);
+            cv::Mat resized_mat_img(resized_img->height(), resized_img->width(), CV_8UC3);
+            // convert NCHW TO NHWC
+            const uint8_t* in_data = resized_img->cpu_data();
+            int step = resized_img->width() * resized_img->height();
+            int channels = resized_img->channels();
+            for (int i = 0; i < step; ++i)
+            {
+                for (int c = 0; c < channels; ++c)
+                {
+                    *(resized_mat_img.data + channels * i + c) = *(in_data + resized_img->offset(0, c) + i);
+                }
+            }
+            /////////////////////////////////
+            // cv::imshow("img", resized_mat_img);
+            // cv::waitKey(0);
+            /////////////////////////////////
+            // ocr detect
+            std::pair<std::vector<std::vector<cv::Point2f>>, std::vector<float>> result = det_combine_best(resized_img);
+            std::vector<std::vector<cv::Point2f>> box_list = result.first;
+
+            if (box_list.size() > 1)
+            {
+                std::vector<cv::RotatedRect> rect(box_list.size());
+                std::vector<float> edge_center_x(box_list.size(), 0.0f), edge_center_y(box_list.size(), 0.0f);
+                for (size_t i = 0; i < box_list.size(); i++)
+                {
+                    rect[i] = cv::minAreaRect(box_list[i]);
+                    cv::Point2f box_origin[4];
+                    rect[i].points(box_origin);
+                    if (rect[i].size.height > rect[i].size.width)
+                    {
+                        edge_center_x[i] = (box_origin[0].x + box_origin[1].x) / 2;
+                        edge_center_y[i] = (box_origin[0].y + box_origin[1].y) / 2;
+                    }
+                    else
+                    {
+                        edge_center_x[i] = (box_origin[1].x + box_origin[2].x) / 2;
+                        edge_center_y[i] = (box_origin[1].y + box_origin[2].y) / 2;
+                    }
+                }
+                float line1[4] = {rect[0].center.x, rect[0].center.y, edge_center_x[0], edge_center_y[0]};
+                float line2[4] = {rect[1].center.x, rect[1].center.y, edge_center_x[1], edge_center_y[1]};
+
+                cv::Point2f cross_pt = get_line_cross_point(line1, line2);
+
+                for (size_t i = 0; i < box_list.size(); i++)
+                {
+                    float angle = 0.0f;
+                    cv::Mat cut_img = crop_cool_rect(resized_mat_img, rect[i], cross_pt, angle);
+                    // run identify network
+                    std::pair<std::vector<std::string>, std::vector<std::vector<float>>> out = rec_combine_best(cut_img, top_five);
+                    box_info_internal box;
+                    auto location = exposing::make_param_vector<float>();
+                    for (int j = 0; j < box_list[0].size(); ++j)
+                    {
+                        location.push_back(box_list[0][j].x);
+                        location.push_back(box_list[0][j].y);
+                    }
+                    box.location = location;
+                    auto strinfos = exposing::make_param_vector<exposing::param_string>();
+                    for (int j = 0; j < out.first.size(); ++j)
+                    {
+                        strinfos.push_back(exposing::param_string(out.first[j]));
+                    }
+                    box.strinfos = strinfos;
+                    box.angle = angle;
+                    results.push_back(box);
+                }
+            }
+            else if(box_list.size() == 1)
+            {
+                bool rotate = false;
+                bool inverse = false;
+                cv::RotatedRect rect = cv::minAreaRect(box_list[0]);
+                // crop img
+                cv::Mat cut_img = crop_rect(resized_mat_img, rect);
+                int newH = cut_img.rows;
+                int newW = cut_img.cols;
+                // ignore
+                if (std::max(newH, newW) / (std::min(newH, newW) * 1.0) <= 1.5)
+                {
+                    return;
+                }
+                /////////////////////////////////
+                // cv::imshow("img", cut_img);
+                // cv::waitKey(0);
+                /////////////////////////////////
+                if (newH > newW)
+                {
+                    cut_img = rotateAntiClockWise90(cut_img);
+                    rotate = true;
+                }
+                /////////////////////////////////
+                // cv::imshow("img", cut_img);
+                // cv::waitKey(0);
+                /////////////////////////////////
+                std::vector<float> res_vec = angel_infer(cut_img);
+                // 0: The character direction is inverse  1: The character direction is positive
+                if (res_vec[0] == 0)
+                {
+                    cv::flip(cut_img, cut_img, -1);
+                    inverse = true;
+                }
+                // run identify network
+                std::pair<std::vector<std::string>, std::vector<std::vector<float>>> out = rec_combine_best(cut_img, top_five);
+                box_info_internal box;
+                auto location = exposing::make_param_vector<float>();
+                for (int j = 0; j < box_list[0].size(); ++j)
+                {
+                    location.push_back(box_list[0][j].x);
+                    location.push_back(box_list[0][j].y);
+                }
+                box.location = location;
+                auto strinfos = exposing::make_param_vector<exposing::param_string>();
+                for (int j = 0; j < out.first.size(); ++j)
+                {
+                    strinfos.push_back(exposing::param_string(out.first[j]));
+                }
+                box.strinfos = strinfos;
+                // process angle -> [0, 360)
+                float angle;
+                if (!rotate && !inverse)
+                {
+                    angle = std::abs(rect.angle);
+                }
+                else if (rotate && inverse)
+                {
+                    angle = std::abs(rect.angle) + 90;
+                }
+                else if (!rotate && inverse)
+                {
+                    angle = std::abs(rect.angle) + 180;
+                }
+                else if (rotate && !inverse)
+                {
+                    angle = std::abs(rect.angle) + 270;
+                    angle = angle == 360 ? 0 : angle;
+                }
+                box.angle = angle;
+                results.push_back(box);
+
+                // print info
+                // for (int j = 0; j < result.first[i].size(); ++j)
+                // {
+                //     std::cout << "x: " << result.first[i][j].x << "  y: " << result.first[i][j].y << "    ";
+                // }
+                // std::cout << "strinfo: " << out.first << std::endl;
+            }
+        }
+
     private:
+        int factory_type_;
         int device_;
         excalibur::pipeline<float> det_instance_;
         excalibur::pipeline<float> angle_instance_;
@@ -719,7 +991,15 @@ namespace glasssix::heimdall
         std::shared_ptr<memory::tensor<std::uint8_t>> cache_;
     };
 
-    material_code_internal::material_code_internal(std::string_view model_directory, int factory_type, int device) : impl_{std::make_unique<impl>(hardcode::get_model_params(get_model_type_str(factory_type, ModelType::DETECT)), get_racy_path(model_directory, factory_type, ModelType::DETECT), hardcode::get_model_params("material_angle"), std::string{model_directory} + "/material_angle.racy", hardcode::get_model_params(get_model_type_str(factory_type, ModelType::RECOGNITION)), get_racy_path(model_directory, factory_type, ModelType::RECOGNITION), std::string{model_directory} + "/digit_eng_captial_dict.txt", device)}
+    material_code_internal::material_code_internal(std::string_view model_directory, int factory_type, int device)
+        : impl_{ std::make_unique<impl>(factory_type, 
+            hardcode::get_model_params(get_model_type_str(factory_type, ModelType::DETECT)),
+            get_racy_path(model_directory, factory_type, ModelType::DETECT), 
+            hardcode::get_model_params(get_model_type_str(factory_type, ModelType::ANGLE)),
+            get_racy_path(model_directory, factory_type, ModelType::ANGLE),
+            hardcode::get_model_params(get_model_type_str(factory_type, ModelType::RECOGNITION)),
+            get_racy_path(model_directory, factory_type, ModelType::RECOGNITION), 
+            std::string{model_directory} + "/digit_eng_captial_dict.txt", device)}
     {
     }
 

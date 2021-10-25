@@ -15,6 +15,7 @@
 #include "hardcode.hpp"
 
 #ifdef USE_RKNNAPI
+//#if 0
 #include "RKNNWrapper/rknn_wrapper.hpp"
 #endif
 
@@ -103,6 +104,19 @@ namespace glasssix::longinus
             std::shared_ptr<memory::tensor<std::uint8_t>> cache_temp;
             init_cache(bitmap, channels, height, width, order, cache_temp);
 
+#ifdef USE_RKNNAPI
+//#if 0
+            int max_edge = std::max(width, height);
+            float scale = max_edge / 640.0f;
+            std::shared_ptr<memory::tensor<std::uint8_t>> cache_forward;
+            excalibur::resize_cpu(cache_temp, cache_forward, std::round(height / scale), std::round(width / scale));
+            excalibur::make_border(cache_forward, cache_forward, 0, 640 - std::round(height / scale), 0, 640 - std::round(height / scale));
+
+            const char* score_suffix[3]={"_74_125","_98_128","_122_131"};
+            const char* bbox_suffix[3]={"_75_126","_99_129","_123_132"};
+            const char* landmark_suffix[3]={"_76_127","_100_130","_124_133"};
+            auto blob_data = retina_.forward(cache_forward);
+#else
             if (min_size < 16)
                 min_size = 16;
 
@@ -114,9 +128,9 @@ namespace glasssix::longinus
             excalibur::resize_cpu(cache_temp, cache_forward, int(height / scale), int(width / scale));
             excalibur::make_border(cache_forward, cache_forward, 0, hs - int(height / scale), 0, ws - int(width / scale));
 
-#ifdef USE_RKNNAPI
-            auto blob_data = retina_.forward(cache_forward);
-#else
+            const char* score_suffix[3]={"","",""};
+            const char* bbox_suffix[3]={"","",""};
+            const char* landmark_suffix[3]={"","",""};
             auto blob_data = retina_.forward(cache_forward | memory::tensor_convert_to<float>);
 #endif
 
@@ -130,21 +144,21 @@ namespace glasssix::longinus
                 std::string key = "stride" + std::to_string(feat_stride_fpn_[i]);
                 int stride = feat_stride_fpn_[i];
 
-                std::string str = name_score + key;
+                std::string str = name_score + key + score_suffix[i];
                 auto score_blob = blob_data[str];
                 auto score_blob_count = score_blob->count();
                 const float *scoreB = score_blob->cpu_data() + score_blob_count / 2;
                 const float *scoreE = scoreB + score_blob_count / 2;
                 std::vector<float> score = std::vector<float>(scoreB, scoreE);
 
-                str = name_bbox + key;
+                str = name_bbox + key + bbox_suffix[i];
                 auto bbox_blob = blob_data[str];
                 auto bbox_blob_count = bbox_blob->count();
                 const float *bboxB = bbox_blob->cpu_data();
                 const float *bboxE = bboxB + bbox_blob_count;
                 std::vector<float> bbox_delta = std::vector<float>(bboxB, bboxE);
 
-                str = name_landmark + key;
+                str = name_landmark + key + landmark_suffix[i];
                 auto landmark_blob = blob_data[str];
                 auto landmark_blob_count = landmark_blob->count();
                 const float *landmarkB = landmark_blob->cpu_data();
@@ -1072,6 +1086,7 @@ namespace glasssix::longinus
 
     private:
 #ifdef USE_RKNNAPI
+//#if 0
         rknnwrapper::rknn_wrapper retina_;
 #else
         glasssix::excalibur::pipeline<float> retina_;
