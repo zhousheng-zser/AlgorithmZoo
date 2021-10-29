@@ -284,18 +284,18 @@ namespace glasssix::mjollner
             int channels = input->channels();
             int width = input->width();
             int height = input->height();
-            float mean[] = {0.485, 0.456, 0.406};
-            float std[] = {0.229, 0.224, 0.225};
+            //float mean[] = {0.485, 0.456, 0.406};
+            //float std[] = {0.229, 0.224, 0.225};
             auto input_tensor = input | memory::tensor_convert_to<float>;
-            float *input_tensor_data = input_tensor->mutable_cpu_data();
-            // div std
-            for (int c = 0; c < channels; ++c)
-            {
-                for (int i = 0; i < width * height; ++i)
-                {
-                    input_tensor_data[c * width * height + i] = (input_tensor_data[c * width * height + i] / 255.f - mean[c]) / std[c];
-                }
-            }
+            //float *input_tensor_data = input_tensor->mutable_cpu_data();
+            //// div std
+            //for (int c = 0; c < channels; ++c)
+            //{
+            //    for (int i = 0; i < width * height; ++i)
+            //    {
+            //        input_tensor_data[c * width * height + i] = (input_tensor_data[c * width * height + i] / 255.f - mean[c]) / std[c];
+            //    }
+            //}
             std::unordered_map<std::string, std::shared_ptr<memory::tensor<float>>> out = det_instance_.forward(input_tensor);
             // output
             std::shared_ptr<memory::tensor<float>> output = out["output"];
@@ -395,11 +395,11 @@ namespace glasssix::mjollner
             std::copy(img.data, img.data + img.step[0] * img.rows, input->mutable_cpu_data());
             input->convert_order();
             auto input_tensor = input | memory::tensor_convert_to<float>;
-            float *input_tensor_data = input_tensor->mutable_cpu_data();
-            for (int i = 0; i < input_tensor->count(); ++i)
-            {
-                input_tensor_data[i] /= 255.f;
-            }
+            //float *input_tensor_data = input_tensor->mutable_cpu_data();
+            //for (int i = 0; i < input_tensor->count(); ++i)
+            //{
+            //    input_tensor_data[i] /= 255.f;
+            //}
             std::unordered_map<std::string, std::shared_ptr<memory::tensor<float>>> out = rec_instance_.forward(input_tensor);
             // output
             std::shared_ptr<memory::tensor<float>> output = out["output"];
@@ -447,7 +447,6 @@ namespace glasssix::mjollner
 
         void run_pipeline(std::vector<box_info_internal> &results, std::vector<int> &roi)
         {
-            std::cout << "ocr is beginning run..." << std::endl;
             excalibur::rectangle<int> rect((int)roi[0], (int)roi[1], (int)roi[3], (int)roi[2]);
             std::shared_ptr<memory::tensor<std::uint8_t>> tmp;
             std::shared_ptr<memory::tensor<uint8_t>> input;
@@ -470,10 +469,6 @@ namespace glasssix::mjollner
                 }
             }
 
-            // cv::imshow("img", img);
-            // cv::waitKey(0);
-
-            std::cout << "resnet18 is beginning run..." << std::endl;
             std::pair<std::vector<std::vector<cv::Point2f>>, std::vector<float>> result = detect_resnet18(input);
             std::vector<std::vector<cv::Point2f>> box_list = result.first;
             std::vector<float> score_list = result.second;
@@ -489,10 +484,7 @@ namespace glasssix::mjollner
                     cut_img = rotateAntiClockWise90(cut_img);
                 }
                 // run identify network
-                std::cout << "order: " << i + 1 << ", resnet34 is beginning run..." << std::endl;
                 std::pair<std::string, std::vector<float>> out = detect_resnet34(cut_img);
-                std::cout << "order: " << i + 1 << ", resnet34 is coming to an end..." << std::endl;
-                std::cout << std::endl;
                 box_info_internal box;
                 auto location = exposing::make_param_vector<float>();
                 for (int j = 0; j < box_list[i].size(); ++j)
@@ -505,7 +497,6 @@ namespace glasssix::mjollner
                 box.angle = rect.angle;
                 results.push_back(box);
             }
-            std::cout << "the process is coming to an end!" << std::endl;
         }
 
     private:

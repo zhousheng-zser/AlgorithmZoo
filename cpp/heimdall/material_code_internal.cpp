@@ -177,20 +177,20 @@ namespace glasssix::heimdall
             return dst;
         }
 
-        void det_preprocess(std::shared_ptr<memory::tensor<float>> &input)
-        {
-            float mean[] = {0.485, 0.456, 0.406};
-            float std[] = {0.229, 0.224, 0.225};
-            int cstep = input->width() * input->height();
-            float *input_tensor_data = input->mutable_cpu_data();
-            for (int c = 0; c < input->channels(); ++c)
-            {
-                for (int i = 0; i < cstep; ++i)
-                {
-                    input_tensor_data[c * cstep + i] = (input_tensor_data[c * cstep + i] / 255.f - mean[c]) / std[c];
-                }
-            }
-        }
+        //void det_preprocess(std::shared_ptr<memory::tensor<float>> &input)
+        //{
+        //    float mean[] = {0.485, 0.456, 0.406};
+        //    float std[] = {0.229, 0.224, 0.225};
+        //    int cstep = input->width() * input->height();
+        //    float *input_tensor_data = input->mutable_cpu_data();
+        //    for (int c = 0; c < input->channels(); ++c)
+        //    {
+        //        for (int i = 0; i < cstep; ++i)
+        //        {
+        //            input_tensor_data[c * cstep + i] = (input_tensor_data[c * cstep + i] / 255.f - mean[c]) / std[c];
+        //        }
+        //    }
+        //}
 
         /**
  * @brief polygon retraction
@@ -427,7 +427,7 @@ namespace glasssix::heimdall
         {
             auto input_tensor = input | memory::tensor_convert_to<float>;
             // pre process
-            det_preprocess(input_tensor);
+            //det_preprocess(input_tensor);
             std::unordered_map<std::string, std::shared_ptr<memory::tensor<float>>> out = det_instance_.forward(input_tensor);
             std::shared_ptr<memory::tensor<float>> output = out["output"];
             std::vector<std::vector<cv::Point2f>> boxes;
@@ -537,13 +537,13 @@ namespace glasssix::heimdall
             std::copy(cut_img.data, cut_img.data + cut_img.step[0] * cut_img.rows, input->mutable_cpu_data());
             input->convert_order();
             auto input_tensor = input | memory::tensor_convert_to<float>;
-            // pre process
-            int count = input_tensor->count();
-            float *input_data = input_tensor->mutable_cpu_data();
-            for (int i = 0; i < count; ++i)
-            {
-                input_data[i] = (input_data[i] / 255.f - 0.5f) * 2.0f;
-            }
+            //// pre process
+            //int count = input_tensor->count();
+            //float *input_data = input_tensor->mutable_cpu_data();
+            //for (int i = 0; i < count; ++i)
+            //{
+            //    input_data[i] = (input_data[i] / 255.f - 0.5f) * 2.0f;
+            //}
             std::unordered_map<std::string, std::shared_ptr<memory::tensor<float>>> out = rec_instance_.forward(input_tensor);
             std::shared_ptr<memory::tensor<float>> result = out["output"];
             // post process
@@ -576,13 +576,13 @@ namespace glasssix::heimdall
             std::copy(cut_img.data, cut_img.data + cut_img.step[0] * cut_img.rows, input->mutable_cpu_data());
             input->convert_order();
             auto input_tensor = input | memory::tensor_convert_to<float>;
-            // pre process
-            int count = input_tensor->count();
-            float *input_data = input_tensor->mutable_cpu_data();
-            for (int i = 0; i < count; ++i)
-            {
-                input_data[i] = (input_data[i] / 255.f - 0.5) / 0.5;
-            }
+            //// pre process
+            //int count = input_tensor->count();
+            //float *input_data = input_tensor->mutable_cpu_data();
+            //for (int i = 0; i < count; ++i)
+            //{
+            //    input_data[i] = (input_data[i] / 255.f - 0.5) / 0.5;
+            //}
             std::unordered_map<std::string, std::shared_ptr<memory::tensor<float>>> out = angle_instance_.forward(input_tensor);
             std::shared_ptr<memory::tensor<float>> result = out["output"];
             return angel_postprocess(result);
@@ -755,70 +755,29 @@ namespace glasssix::heimdall
 
         cv::Mat crop_cool_rect(cv::Mat& img, cv::RotatedRect& rect, cv::Point2f& point, float &angle)
         {
-
-            //img:图像
-            //center:文本框中点
-            //size:(h,w)
-            //angle:旋转角
-            //point:圆心
-            //alph:增加的宽度
-
-
             float center_x = rect.center.x;
             float center_y = rect.center.y;
             float point_x = point.x;
-            float poiny_y = point.y;
+            float point_y = point.y;
             float h = rect.size.height;
             float w = rect.size.width;
-            if (rect.angle == -90 && h > w)//框是水平的
-            {
-                if (center_y < poiny_y)//框在圆心上面
-                {
-                    angle = 0;
-                }
-                else
-                {
-                    angle = 180;
-                }
-            }
+            
+            float theta = std::acos((center_x - point_x) / std::sqrt(std::pow(center_x - point_x, 2) + std::pow(point_y - center_y, 2))) * 180 / 3.1415926f;
+            if (center_y <= point_y)
+                angle = 90 - theta;
             else
-            {
-                if (center_x < point_x)//圆的左边, 顺时针旋转
-                {
-                    if (h < w)
-                    {
-                        angle = rect.angle - 90;
-                    }
-                    else
-                    {
-                        angle = rect.angle;
-                    }
-
-                }
-                else if (center_x > point_x)//圆的右边，逆时针选择
-                {
-                    if (h > w)
-                    {
-                        angle = 180 + angle;
-                    }
-                    else
-                    {
-                        angle = angle + 90;
-                    }
-                }
-            }
+                angle = -90 - theta;
 
             cv::Size new_size;
             //int alph = 0.2
-            new_size.height = (int)(std::max(h, w) + std::max(h, w)); //长边放前边
-            new_size.height = (int)(std::max(h, w));
-            new_size.width = (int)(std::min(h, w));
+            new_size.width = (int)(std::max(h, w));
+            new_size.height = (int)(std::min(h, w));
             int width = img.rows;
             int height = img.cols;
-            cv::Mat rot_mat(2, 3, CV_32FC1);
-            rot_mat = cv::getRotationMatrix2D(rect.center, angle, 1.0); // 根据旋转矩阵，对整幅图像以center作为中心点进行旋转
-            cv::Mat warp_mat(2, 3, CV_32FC1);
-            cv::warpAffine(img, rot_mat, warp_mat, cv::Size(width, height));
+
+            cv::Mat rot_mat = cv::getRotationMatrix2D(rect.center, angle, 1.0);
+            cv::Mat warp_mat;
+            cv::warpAffine(img, warp_mat, rot_mat, cv::Size(width, height));
             cv::Mat img_crop;
             cv::getRectSubPix(warp_mat, new_size, rect.center, img_crop);
             return img_crop;
@@ -826,13 +785,13 @@ namespace glasssix::heimdall
 
         void run_cool_roll(std::vector<box_info_internal>& results, std::vector<int>& roi, int top_five)
         {
-            excalibur::rectangle<int> rect((int)roi[0], (int)roi[1], (int)roi[3], (int)roi[2]);
+            excalibur::rectangle<int> rect(roi[0], roi[1], roi[3], roi[2]);
             std::shared_ptr<memory::tensor<uint8_t>> input;
             // image preprocessing
             excalibur::safty_cut_cpu(cache_, input, &rect);
             std::shared_ptr<memory::tensor<uint8_t>> resized_img = resize_fixed_size(640, input);
             cv::Mat resized_mat_img(resized_img->height(), resized_img->width(), CV_8UC3);
-            // convert NCHW TO NHWC
+            // Mat convert NCHW TO NHWC
             const uint8_t* in_data = resized_img->cpu_data();
             int step = resized_img->width() * resized_img->height();
             int channels = resized_img->channels();
@@ -843,21 +802,22 @@ namespace glasssix::heimdall
                     *(resized_mat_img.data + channels * i + c) = *(in_data + resized_img->offset(0, c) + i);
                 }
             }
-            /////////////////////////////////
-            // cv::imshow("img", resized_mat_img);
-            // cv::waitKey(0);
-            /////////////////////////////////
+
             // ocr detect
             std::pair<std::vector<std::vector<cv::Point2f>>, std::vector<float>> result = det_combine_best(resized_img);
             std::vector<std::vector<cv::Point2f>> box_list = result.first;
 
+            float ratio = roi[3] * 1.0f / resized_img->width();
             if (box_list.size() > 1)
             {
                 std::vector<cv::RotatedRect> rect(box_list.size());
+                std::vector<std::pair<int, float>> area(rect.size());
                 std::vector<float> edge_center_x(box_list.size(), 0.0f), edge_center_y(box_list.size(), 0.0f);
                 for (size_t i = 0; i < box_list.size(); i++)
                 {
                     rect[i] = cv::minAreaRect(box_list[i]);
+                    area[i].first = i;
+                    area[i].second = rect[i].size.height * rect[i].size.width;
                     cv::Point2f box_origin[4];
                     rect[i].points(box_origin);
                     if (rect[i].size.height > rect[i].size.width)
@@ -871,23 +831,26 @@ namespace glasssix::heimdall
                         edge_center_y[i] = (box_origin[1].y + box_origin[2].y) / 2;
                     }
                 }
-                float line1[4] = {rect[0].center.x, rect[0].center.y, edge_center_x[0], edge_center_y[0]};
-                float line2[4] = {rect[1].center.x, rect[1].center.y, edge_center_x[1], edge_center_y[1]};
+
+                std::sort(area.begin(), area.end(), [](auto& a, auto& b) { return a.second > b.second; });
+
+                float line1[4] = {rect[area[0].first].center.x, rect[area[0].first].center.y, edge_center_x[area[0].first], edge_center_y[area[0].first]};
+                float line2[4] = {rect[area[1].first].center.x, rect[area[1].first].center.y, edge_center_x[area[1].first], edge_center_y[area[1].first]};
 
                 cv::Point2f cross_pt = get_line_cross_point(line1, line2);
 
                 for (size_t i = 0; i < box_list.size(); i++)
                 {
-                    float angle = 0.0f;
+                    float angle = 0.f;
                     cv::Mat cut_img = crop_cool_rect(resized_mat_img, rect[i], cross_pt, angle);
                     // run identify network
                     std::pair<std::vector<std::string>, std::vector<std::vector<float>>> out = rec_combine_best(cut_img, top_five);
                     box_info_internal box;
                     auto location = exposing::make_param_vector<float>();
-                    for (int j = 0; j < box_list[0].size(); ++j)
+                    for (int j = 0; j < box_list[i].size(); ++j)
                     {
-                        location.push_back(box_list[0][j].x);
-                        location.push_back(box_list[0][j].y);
+                        location.push_back(box_list[i][j].x * ratio);
+                        location.push_back(box_list[i][j].y * ratio);
                     }
                     box.location = location;
                     auto strinfos = exposing::make_param_vector<exposing::param_string>();
@@ -940,8 +903,8 @@ namespace glasssix::heimdall
                 auto location = exposing::make_param_vector<float>();
                 for (int j = 0; j < box_list[0].size(); ++j)
                 {
-                    location.push_back(box_list[0][j].x);
-                    location.push_back(box_list[0][j].y);
+                    location.push_back(box_list[0][j].x * ratio);
+                    location.push_back(box_list[0][j].y * ratio);
                 }
                 box.location = location;
                 auto strinfos = exposing::make_param_vector<exposing::param_string>();

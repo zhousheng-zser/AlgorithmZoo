@@ -31,11 +31,14 @@ namespace glasssix::damocles
 	class anti_spoofing_internal::impl
 	{
 	public:
-		impl(std::string_view racy_path, int device, bool use_int8) : impl{ hardcode::get_model_params("FASMV2", use_int8), racy_path, device }
+		impl(std::string_view FASMV2_racy_path, std::string_view land65_racy_path, int device, bool use_int8) : impl{ hardcode::get_model_params("FASMV2", use_int8), FASMV2_racy_path, hardcode::get_model_params("pfld11_landmark65_simp", use_int8), land65_racy_path, device }
 		{
 		}
 
-		impl(const std::vector<std::string>& phai, std::string_view racy_path, int device) : device_{ device }, fasmv2_{ phai, std::string{ racy_path }, device }
+		impl(const std::vector<std::string>& FASMV2_phai, std::string_view FASMV2_racy_path,
+			const std::vector<std::string>& land65_phai, std::string_view land65_racy_path, int device)
+			: device_{ device }, fasmv2_{ FASMV2_phai, std::string{ FASMV2_racy_path }, device },
+			landmark65_{ land65_phai, std::string{ land65_racy_path }, device }
 		{
 		}
 
@@ -85,6 +88,89 @@ namespace glasssix::damocles
 			}
 
 			return result;
+		}
+
+		bool presentation_attack_detect(int action_cmd, const longinus::face_info& face, exposing::param_span<std::uint8_t> bitmap, int channels, int height, int width, int order)
+		{
+			if (bitmap.empty())
+			{
+				throw exposing::abi_invalid_argument("current frame is empty");
+			}
+
+			init_cache(bitmap, channels, height, width, order);
+
+			std::shared_ptr<memory::tensor<uint8_t>> crop_face;
+			excalibur::rectangle<float> rect(face.x(), face.y(), face.height(), face.width());
+			excalibur::safty_cut_cpu(cache_, crop_face, &rect);
+			excalibur::resize_cpu(crop_face, crop_face, 112, 112);
+
+			auto network_result = landmark65_.forward(crop_face | memory::tensor_convert_to<float>);
+			auto ptr = network_result["218"]->cpu_data();
+			int count = network_result["218"]->count();
+			std::vector<float> ldmk_info(count, 0.0f);
+			std::copy(ptr, ptr + count, ldmk_info.begin());
+			for (size_t i = 0; i < 130; i++)
+				ldmk_info[i] = (ldmk_info[i] + 11.2) * 5;
+
+			auto distance = [](float x1, float y1, float x2, float y2) {
+				return std::sqrt(std::pow(x2 - x1, 2) + std::pow(y2 - y1, 2)); };
+
+			bool finish_flag = false;
+			switch (action_cmd)
+			{
+			case 0: // 眨眼
+			{
+				float left_eye_horizontal = distance(ldmk_info[39 * 2], ldmk_info[39 * 2 + 1], ldmk_info[43 * 2], ldmk_info[43 * 2 + 1]);
+				float left_eye_vertical = distance(ldmk_info[41 * 2], ldmk_info[41 * 2 + 1], ldmk_info[45 * 2], ldmk_info[45 * 2 + 1]);
+				float left_eye_rate = left_eye_vertical / left_eye_horizontal;
+				float right_eye_horizontal = distance(ldmk_info[47 * 2], ldmk_info[47 * 2 + 1], ldmk_info[51 * 2], ldmk_info[51 * 2 + 1]);
+				float right_eye_vertical = distance(ldmk_info[49 * 2], ldmk_info[49 * 2 + 1], ldmk_info[53 * 2], ldmk_info[53 * 2 + 1]);
+				float right_eye_rate = right_eye_vertical / right_eye_horizontal;
+				if (left_eye_rate < 0.2 && right_eye_rate < 0.2)
+					finish_flag = true;
+			}
+				break;
+			case 1:// 张嘴
+			{
+				float mouth_horizontal = distance(ldmk_info[15 * 2], ldmk_info[15 * 2 + 1], ldmk_info[21 * 2], ldmk_info[21 * 2 + 1]);
+				float mouth_vertical = distance(ldmk_info[18 * 2], ldmk_info[18 * 2 + 1], ldmk_info[24 * 2], ldmk_info[24 * 2 + 1]);
+				float mouth_rate = mouth_vertical / mouth_horizontal;
+				if (mouth_rate > 0.5)
+					finish_flag = true;
+			}
+				break;
+			case 2:// 点头
+			{
+				float total_horizontal = distance(ldmk_info[0], ldmk_info[1], ldmk_info[14 * 2], ldmk_info[14 * 2 + 1]);
+				float nose_jaw_vertical = distance(ldmk_info[7 * 2], ldmk_info[7 * 2 + 1], ldmk_info[38 * 2], ldmk_info[38 * 2 + 1]);
+				float nod_head_rate = nose_jaw_vertical / total_horizontal;
+				if (nod_head_rate < 0.45)
+					finish_flag = true;
+			}
+				break;
+			case 3:// 左摇头
+			{
+				float total_horizontal = distance(ldmk_info[0], ldmk_info[1], ldmk_info[14 * 2], ldmk_info[14 * 2 + 1]);
+				float nose_left_horizontal = distance(ldmk_info[0], ldmk_info[1], ldmk_info[38 * 2], ldmk_info[38 * 2 + 1]);
+				float left_head_rate = nose_left_horizontal / total_horizontal;
+				if (left_head_rate < 0.3)
+					finish_flag = true;
+			}
+				break;
+			case 4:// 右摇头
+			{
+				float total_horizontal = distance(ldmk_info[0], ldmk_info[1], ldmk_info[14 * 2], ldmk_info[14 * 2 + 1]);
+				float nose_right_horizontal = distance(ldmk_info[14 * 2], ldmk_info[14 * 2 + 1], ldmk_info[38 * 2], ldmk_info[38 * 2 + 1]);
+				float right_head_rate = nose_right_horizontal / total_horizontal;
+				if (right_head_rate < 0.3)
+					finish_flag = true;
+				break;
+			}
+			default:
+				break;
+			}
+
+			return finish_flag;
 		}
 
 		static std::string version()
@@ -185,14 +271,19 @@ namespace glasssix::damocles
 #else
 		excalibur::pipeline<float> fasmv2_;
 #endif
+
+		excalibur::pipeline<float> landmark65_;
+
 		std::shared_ptr<memory::tensor<std::uint8_t>> cache_;
 	};
 
-	anti_spoofing_internal::anti_spoofing_internal(std::string_view racy_path, int device, bool use_int8) : impl_{ std::make_unique<impl>(racy_path, device, use_int8) }
+	anti_spoofing_internal::anti_spoofing_internal(std::string_view FASMV2_racy_path, std::string_view land65_racy_path, int device, bool use_int8) : impl_{ std::make_unique<impl>(FASMV2_racy_path, land65_racy_path, device, use_int8) }
 	{
 	}
 
-	anti_spoofing_internal::anti_spoofing_internal(const std::vector<std::string>& phai, std::string_view racy_path, int device) : impl_{ std::make_unique<impl>(phai, racy_path, device) }
+	anti_spoofing_internal::anti_spoofing_internal(const std::vector<std::string>& FASMV2_phai, std::string_view FASMV2_racy_path, 
+		const std::vector<std::string>& land65_phai, std::string_view land65_racy_path, int device) 
+		: impl_{ std::make_unique<impl>(FASMV2_phai, FASMV2_racy_path, land65_phai, land65_racy_path, device) }
 	{
 	}
 
@@ -203,6 +294,11 @@ namespace glasssix::damocles
 	std::vector<std::vector<float>> anti_spoofing_internal::spoofing_detect(const exposing::param_vector<longinus::face_info>& faces, exposing::param_span<std::uint8_t> bitmap, int channels, int height, int width, int order) const
 	{
 		return impl_->spoofing_detect(faces, bitmap, channels, height, width, order);
+	}
+
+	bool anti_spoofing_internal::presentation_attack_detect(int action_cmd, const longinus::face_info& face, exposing::param_span<std::uint8_t> bitmap, int channels, int height, int width, int order) const
+	{
+		return impl_->presentation_attack_detect(action_cmd, face, bitmap, channels, height, width, order);
 	}
 
 	std::string anti_spoofing_internal::version()
