@@ -210,7 +210,7 @@ namespace glasssix::valklyrs
             return static_cast<float>(1.f / (1.f + exp(-x)));
         }
 
-        void generate_proposals(const memory::tensor<float> &anchors, int stride, const std::shared_ptr<memory::tensor<std::uint8_t>> &in_pad, const std::shared_ptr<memory::tensor<float>> &feat_blob, float prob_threshold, std::vector<obj_info_internal> &objects)
+        void generate_proposals(const std::vector<float> &anchors, int stride, const std::shared_ptr<memory::tensor<std::uint8_t>> &in_pad, const std::shared_ptr<memory::tensor<float>> &feat_blob, float prob_threshold, std::vector<obj_info_internal> &objects)
         {
             const int num_grid = feat_blob->height();
 
@@ -229,7 +229,7 @@ namespace glasssix::valklyrs
 
             const int num_class = feat_blob->width() - 5;
 
-            const int num_anchors = anchors.width() / 2;
+            const int num_anchors = anchors.size() / 2;
 
             for (int q = 0; q < num_anchors; q++)
             {
@@ -345,7 +345,7 @@ namespace glasssix::valklyrs
             std::vector<obj_info_internal> proposals;
             // stride 8
             {
-                memory::tensor<float> anchors(6);
+                std::vector<float> anchors(6);
                 anchors[0] = 10.f;
                 anchors[1] = 13.f;
                 anchors[2] = 16.f;
@@ -361,7 +361,7 @@ namespace glasssix::valklyrs
 
             // stride 16
             {
-                memory::tensor<float> anchors(6);
+                std::vector<float> anchors(6);
                 anchors[0] = 30.f;
                 anchors[1] = 61.f;
                 anchors[2] = 62.f;
@@ -377,7 +377,7 @@ namespace glasssix::valklyrs
 
             // stride 32
             {
-                memory::tensor<float> anchors(6);
+                std::vector<float> anchors(6);
                 anchors[0] = 116.f;
                 anchors[1] = 90.f;
                 anchors[2] = 156.f;
