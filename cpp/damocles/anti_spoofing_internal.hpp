@@ -24,7 +24,7 @@ namespace glasssix::damocles
 		/// </summary>
 		/// <param name="racy_path">The model path</param>
 		/// <param name="device">The device ID; -1 for CPU or a non-negative number for a GPU core</param>
-		anti_spoofing_internal(std::string_view racy_path, int device, bool use_int8);
+		anti_spoofing_internal(std::string_view FASMV2_racy_path, std::string_view land65_racy_path, int device, bool use_int8);
 
 		/// <summary>
 		/// Creates an instance with a specified GPU core or the default CPU.
@@ -32,7 +32,8 @@ namespace glasssix::damocles
 		/// <param name="phai_path">The phai</param>
 		/// <param name="racy_path">The model path</param>
 		/// <param name="device">The device ID; -1 for CPU or a non-negative number for a GPU core</param>
-		anti_spoofing_internal(const std::vector<std::string>& phai, std::string_view racy_path, int device);
+		anti_spoofing_internal(const std::vector<std::string>& FASMV2_phai, std::string_view FASMV2_racy_path, 
+			const std::vector<std::string>& land65_phai, std::string_view land65_racy_path, int device);
 
 		/// <summary>
 		/// The copy constructor must be disabled in PImpl pattern.
@@ -57,6 +58,16 @@ namespace glasssix::damocles
 		/// <param name="order">The order that the bitmaps are arranged in</param>
 		/// <returns>The feature vectors</returns>
 		std::vector<std::vector<float>> spoofing_detect(const exposing::param_vector<longinus::face_info>& faces, exposing::param_span<std::uint8_t> bitmap, int channels, int height, int width, int order) const;
+
+		/// <summary>
+		/// Extracts the feature data.
+		/// </summary>
+		/// <param name="action_cmd">action command type</param>
+		/// <param name="bitmaps">Some bitmaps (128x128x3) arranged in specified order</param>
+		/// <param name="count">The count of bitmaps in the buffer</param>
+		/// <param name="order">The order that the bitmaps are arranged in</param>
+		/// <returns>The feature vectors</returns>
+		bool presentation_attack_detect(int action_cmd, const longinus::face_info& face, exposing::param_span<std::uint8_t> bitmap, int channels, int height, int width, int order) const;
 
 		/// <summary>
 		/// Gets the version of the component.

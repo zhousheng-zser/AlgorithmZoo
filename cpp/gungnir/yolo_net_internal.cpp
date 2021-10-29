@@ -317,11 +317,11 @@ namespace glasssix::gungnir
             excalibur::make_border(cache_forward, cache_forward, hpad / 2, hpad - hpad / 2, wpad / 2, wpad - wpad / 2, excalibur::border_constant, static_cast<std::uint8_t>(114));
 
             auto input_tensor = cache_forward | memory::tensor_convert_to<float>;
-            float *input_tensor_data = input_tensor->mutable_cpu_data();
-            for (int i = 0; i < input_tensor->count(); ++i)
-            {
-                input_tensor_data[i] /= 255.f;
-            }
+            //float *input_tensor_data = input_tensor->mutable_cpu_data();
+            //for (int i = 0; i < input_tensor->count(); ++i)
+            //{
+            //    input_tensor_data[i] /= 255.f;
+            //}
 
             std::unordered_map<std::string, std::shared_ptr<memory::tensor<float>>> out = hat_simp_.forward(input_tensor);
 
