@@ -105,6 +105,11 @@ namespace glasssix::damocles
 			excalibur::resize_cpu(crop_face, crop_face, 112, 112);
 
 			auto network_result = landmark65_.forward(crop_face | memory::tensor_convert_to<float>);
+			auto prob = network_result["prob"]->cpu_data();
+			if (prob[1] < 0.5)
+				return false;
+
+			std::cout << prob[0] << " " << prob[1] << std::endl;
 			auto ptr = network_result["218"]->cpu_data();
 			int count = network_result["218"]->count();
 			std::vector<float> ldmk_info(count, 0.0f);

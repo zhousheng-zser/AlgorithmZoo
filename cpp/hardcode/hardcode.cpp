@@ -660,7 +660,7 @@ namespace glasssix::hardcode
                 "ConvolutionDepthWise conv5_dw         1 1 conv5_relu5 conv5_dw 0=512 1=4 2=1 3=1 4=0 5=1 6=8192 7=512 8=1"};
 
             inline static const std::vector<std::string> longinus{
-                "glsv1 Rrtina_Face_Net",
+                "glsv1 Retina_Face_Net",
                 "129 148",
                 "Input            data             0 1 data 0=320 1=240 2=3 3=0,0,0 4=1",
                 "Convolution      mobilenet0_conv0_fwd 1 1 data mobilenet0_conv0_fwd 0=8 1=3 2=1 3=2 4=1 5=1 6=216",
@@ -1005,6 +1005,7 @@ namespace glasssix::hardcode
                 "Reshape          Reshape_93               1 1 183 191 0=-1",
                 "Split            splitexcalibur_11        1 2 191 191_splitexcalibur_0 191_splitexcalibur_1",
                 "InnerProduct     MatMul_94                1 1 191_splitexcalibur_1 193 0=2 1=0 2=64",
+                "Softmax          softmax                  1 1 193 prob 0=0 1=1",
                 "Convolution      Conv_95                  1 1 182_splitexcalibur_0 194 0=32 1=3 11=3 2=1 12=1 3=2 13=2 4=1 14=1 15=1 16=1 5=1 6=9216",
                 "ReLU             Relu_96                  1 1 194 195",
                 "Split            splitexcalibur_12        1 2 195 195_splitexcalibur_0 195_splitexcalibur_1",
