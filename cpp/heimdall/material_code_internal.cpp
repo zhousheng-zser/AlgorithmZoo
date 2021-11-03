@@ -67,7 +67,7 @@ namespace glasssix::heimdall
             CHECK_EQ(bitmap.size(), channels * height * width);
 
             // roi params
-            std::vector<int> roi{x, y, roi_width, roi_height};
+            std::vector<int> roi{x, y, roi_height, roi_width};
             init_cache(bitmap, channels, height, width, order, roi);
             std::vector<box_info_internal> results;
             auto result = exposing::make_param_vector<box_info>();
@@ -613,7 +613,7 @@ namespace glasssix::heimdall
 
         void run_hot_roll(std::vector<box_info_internal> &results, std::vector<int> &roi, int top_five)
         {
-            excalibur::rectangle<int> rect((int)roi[0], (int)roi[1], (int)roi[3], (int)roi[2]);
+            excalibur::rectangle<int> rect((int)roi[0], (int)roi[1], (int)roi[2], (int)roi[3]);
             std::shared_ptr<memory::tensor<uint8_t>> input;
             // image preprocessing
             excalibur::safty_cut_cpu(cache_, input, &rect);
@@ -637,6 +637,8 @@ namespace glasssix::heimdall
             // ocr detect
             std::pair<std::vector<std::vector<cv::Point2f>>, std::vector<float>> result = det_combine_best(resized_img);
             std::vector<std::vector<cv::Point2f>> box_list = result.first;
+
+            float ratio = roi[3] * 1.0f / resized_img->width();
             for (int i = 0; i < box_list.size(); ++i)
             {
                 bool rotate = false;
@@ -677,8 +679,8 @@ namespace glasssix::heimdall
                 auto location = exposing::make_param_vector<float>();
                 for (int j = 0; j < box_list[i].size(); ++j)
                 {
-                    location.push_back(box_list[i][j].x);
-                    location.push_back(box_list[i][j].y);
+                    location.push_back(box_list[i][j].x * ratio);
+                    location.push_back(box_list[i][j].y * ratio);
                 }
                 box.location = location;
                 auto strinfos = exposing::make_param_vector<exposing::param_string>();
@@ -785,7 +787,7 @@ namespace glasssix::heimdall
 
         void run_cool_roll(std::vector<box_info_internal>& results, std::vector<int>& roi, int top_five)
         {
-            excalibur::rectangle<int> rect(roi[0], roi[1], roi[3], roi[2]);
+            excalibur::rectangle<int> rect(roi[0], roi[1], roi[2], roi[3]);
             std::shared_ptr<memory::tensor<uint8_t>> input;
             // image preprocessing
             excalibur::safty_cut_cpu(cache_, input, &rect);
