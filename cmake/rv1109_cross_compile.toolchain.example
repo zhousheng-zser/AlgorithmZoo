@@ -1,6 +1,6 @@
 set(CMAKE_SYSTEM_NAME Linux)
 set(CMAKE_SYSTEM_PROCESSOR arm)
-set(CROSS_COMPILE_TOOLCHAIN_DIR /home/build_slave/ZYF/rv1126_rv1109_linux/prebuilts/gcc/linux-x86/arm/gcc-arm-8.3-2019.03-x86_64-arm-linux-gnueabihf)
+set(CROSS_COMPILE_TOOLCHAIN_DIR /home/build_slave/ZYF/rv1126_rv1109/prebuilts/gcc/linux-x86/arm/gcc-arm-8.3-2019.03-x86_64-arm-linux-gnueabihf)
 set(CMAKE_C_COMPILER ${CROSS_COMPILE_TOOLCHAIN_DIR}/bin/arm-linux-gnueabihf-gcc)
 set(CMAKE_CXX_COMPILER ${CROSS_COMPILE_TOOLCHAIN_DIR}/bin/arm-linux-gnueabihf-g++)
 
