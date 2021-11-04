@@ -108,9 +108,12 @@ namespace glasssix::longinus
 //#if 0
             int max_edge = std::max(width, height);
             float scale = max_edge / 640.0f;
+
+            int ws = 640;
+            int hs = 640;
             std::shared_ptr<memory::tensor<std::uint8_t>> cache_forward;
             excalibur::resize_cpu(cache_temp, cache_forward, std::round(height / scale), std::round(width / scale));
-            excalibur::make_border(cache_forward, cache_forward, 0, 640 - std::round(height / scale), 0, 640 - std::round(height / scale));
+            excalibur::make_border(cache_forward, cache_forward, 0, hs - std::round(height / scale), 0, ws - std::round(height / scale));
 
             const char* score_suffix[3]={"_74_125","_98_128","_122_131"};
             const char* bbox_suffix[3]={"_75_126","_99_129","_123_132"};
