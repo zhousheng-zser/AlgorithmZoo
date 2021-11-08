@@ -253,8 +253,8 @@ namespace glasssix::mjollner
                 }
                 for (int i = 0; i < points.size(); ++i)
                 {
-                    points[i].x = std::min(std::max(std::round(points[i].x / width * src_w), 0.f), (const float)src_w);
-                    points[i].y = std::min(std::max(std::round(points[i].y / height * src_h), 0.f), (const float)src_h);
+                    points[i].x = std::min(std::max(points[i].x / width * src_w, 0.f), (const float)src_w);
+                    points[i].y = std::min(std::max(points[i].y / height * src_h, 0.f), (const float)src_h);
                 }
                 boxes.push_back(points);
                 scores.push_back(score);
