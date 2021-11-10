@@ -13,6 +13,7 @@
 #include "Excalibur/operation_resize.hpp"
 #include <opencv2/core/core.hpp>
 #include <opencv2/imgproc/imgproc.hpp>
+#include <opencv2/highgui/highgui.hpp>
 
 // #include <opencv2/opencv.hpp>
 
@@ -764,22 +765,24 @@ namespace glasssix::heimdall
             float h = rect.size.height;
             float w = rect.size.width;
             
-            float theta = std::acos((center_x - point_x) / std::sqrt(std::pow(center_x - point_x, 2) + std::pow(point_y - center_y, 2))) * 180 / 3.1415926f;
+            float theta = std::acos((center_x - point_x) / std::sqrt(std::pow(center_x - point_x, 2) + std::pow(center_y - point_y, 2))) * 180 / 3.1415926f;
             if (center_y <= point_y)
                 angle = 90 - theta;
             else
-                angle = -90 - theta;
+                angle = 90 + theta;
 
             cv::Size new_size;
             //int alph = 0.2
             new_size.width = (int)(std::max(h, w));
             new_size.height = (int)(std::min(h, w));
-            int width = img.rows;
-            int height = img.cols;
+
+            int max_edge = std::max(img.rows, img.cols);
 
             cv::Mat rot_mat = cv::getRotationMatrix2D(rect.center, angle, 1.0);
             cv::Mat warp_mat;
-            cv::warpAffine(img, warp_mat, rot_mat, cv::Size(width, height));
+            cv::warpAffine(img, warp_mat, rot_mat, cv::Size(max_edge, max_edge));
+            //cv::imshow("wrap_mat", warp_mat);
+            //cv::waitKey();
             cv::Mat img_crop;
             cv::getRectSubPix(warp_mat, new_size, rect.center, img_crop);
             return img_crop;
@@ -809,6 +812,8 @@ namespace glasssix::heimdall
             std::pair<std::vector<std::vector<cv::Point2f>>, std::vector<float>> result = det_combine_best(resized_img);
             std::vector<std::vector<cv::Point2f>> box_list = result.first;
 
+            //cv::Mat temp = resized_mat_img.clone();
+
             float ratio = roi[3] * 1.0f / resized_img->width();
             if (box_list.size() > 1)
             {
@@ -817,6 +822,11 @@ namespace glasssix::heimdall
                 std::vector<float> edge_center_x(box_list.size(), 0.0f), edge_center_y(box_list.size(), 0.0f);
                 for (size_t i = 0; i < box_list.size(); i++)
                 {
+                    //cv::line(temp, cv::Point2f(box_list[i][0].x, box_list[i][0].y), cv::Point2f(box_list[i][1].x, box_list[i][1].y), cv::Scalar(0, 255, 0));
+                    //cv::line(temp, cv::Point2f(box_list[i][1].x, box_list[i][1].y), cv::Point2f(box_list[i][2].x, box_list[i][2].y), cv::Scalar(0, 255, 0));
+                    //cv::line(temp, cv::Point2f(box_list[i][2].x, box_list[i][2].y), cv::Point2f(box_list[i][3].x, box_list[i][3].y), cv::Scalar(0, 255, 0));
+                    //cv::line(temp, cv::Point2f(box_list[i][3].x, box_list[i][3].y), cv::Point2f(box_list[i][0].x, box_list[i][0].y), cv::Scalar(0, 255, 0));
+
                     rect[i] = cv::minAreaRect(box_list[i]);
                     area[i].first = i;
                     area[i].second = rect[i].size.height * rect[i].size.width;
@@ -834,6 +844,9 @@ namespace glasssix::heimdall
                     }
                 }
 
+                //cv::imshow("temp", temp);
+                //cv::waitKey();
+
                 std::sort(area.begin(), area.end(), [](auto& a, auto& b) { return a.second > b.second; });
 
                 float line1[4] = {rect[area[0].first].center.x, rect[area[0].first].center.y, edge_center_x[area[0].first], edge_center_y[area[0].first]};
@@ -845,6 +858,8 @@ namespace glasssix::heimdall
                 {
                     float angle = 0.f;
                     cv::Mat cut_img = crop_cool_rect(resized_mat_img, rect[i], cross_pt, angle);
+                    //cv::imshow("cut_img", cut_img);
+                    //cv::waitKey();
                     // run identify network
                     std::pair<std::vector<std::string>, std::vector<std::vector<float>>> out = rec_combine_best(cut_img, top_five);
                     box_info_internal box;
