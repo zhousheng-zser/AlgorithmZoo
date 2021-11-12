@@ -13,7 +13,7 @@
 #include "Excalibur/operation_resize.hpp"
 #include <opencv2/core/core.hpp>
 #include <opencv2/imgproc/imgproc.hpp>
-#include <opencv2/highgui/highgui.hpp>
+//#include <opencv2/highgui/highgui.hpp>
 
 // #include <opencv2/opencv.hpp>
 
@@ -594,8 +594,7 @@ namespace glasssix::heimdall
             float degree = rect.angle;
             cv::Size size = rect.size;
             cv::Point2f center = rect.center;
-            cv::Mat img_rot;
-            cv::Mat img_crop;
+
             float width = size.width;
             float height = size.height;
             if (width > height)
@@ -606,10 +605,20 @@ namespace glasssix::heimdall
             {
                 height = height + width * alpha;
             }
+
+            int diag_edge = std::sqrt(std::pow(img.rows, 2)+ std::pow(img.cols, 2));
+            int rows_extend = (diag_edge - img.rows) >> 1;
+            int cols_extend = (diag_edge - img.cols) >> 1;
+            cv::Mat extend_img;
+            cv::copyMakeBorder(img, extend_img, rows_extend, rows_extend, cols_extend, cols_extend, cv::BORDER_CONSTANT, cv::Scalar(0));
+            center.x += cols_extend;
+            center.y += rows_extend;
+            cv::Mat extend_rotated;
+            cv::Mat cropped;
             cv::Mat M = cv::getRotationMatrix2D(center, degree, 1);
-            cv::warpAffine(img, img_rot, M, cv::Size(img.cols, img.rows));
-            cv::getRectSubPix(img_rot, cv::Size(width, height), center, img_crop);
-            return img_crop;
+            cv::warpAffine(extend_img, extend_rotated, M, cv::Size(extend_img.cols, extend_img.rows));
+            cv::getRectSubPix(extend_rotated, cv::Size(width, height), center, cropped);
+            return cropped;
         }
 
         void run_hot_roll(std::vector<box_info_internal> &results, std::vector<int> &roi, int top_five)
@@ -655,8 +664,8 @@ namespace glasssix::heimdall
                     continue;
                 }
                 /////////////////////////////////
-                // cv::imshow("img", cut_img);
-                // cv::waitKey(0);
+                //cv::imshow("img", cut_img);
+                //cv::waitKey(0);
                 /////////////////////////////////
                 if (newH > newW)
                 {
@@ -664,8 +673,8 @@ namespace glasssix::heimdall
                     rotate = true;
                 }
                 /////////////////////////////////
-                // cv::imshow("img", cut_img);
-                // cv::waitKey(0);
+                //cv::imshow("img", cut_img);
+                //cv::waitKey(0);
                 /////////////////////////////////
                 std::vector<float> res_vec = angel_infer(cut_img);
                 // 0: The character direction is inverse  1: The character direction is positive
@@ -674,6 +683,11 @@ namespace glasssix::heimdall
                     cv::flip(cut_img, cut_img, -1);
                     inverse = true;
                 }
+                /////////////////////////////////
+                //cv::imshow("img", cut_img);
+                //cv::waitKey(0);
+                /////////////////////////////////
+                
                 // run identify network
                 std::pair<std::vector<std::string>, std::vector<std::vector<float>>> out = rec_combine_best(cut_img, top_five);
                 box_info_internal box;
@@ -756,7 +770,7 @@ namespace glasssix::heimdall
             return point;
         }
 
-        cv::Mat crop_cool_rect(cv::Mat& img, cv::RotatedRect& rect, cv::Point2f& point, float &angle)
+        cv::Mat crop_cool_rect(cv::Mat& img, cv::RotatedRect& rect, cv::Point2f& point, float &angle, float alpha = 0.2)
         {
             float center_x = rect.center.x;
             float center_y = rect.center.y;
@@ -772,9 +786,9 @@ namespace glasssix::heimdall
                 angle = 90 + theta;
 
             cv::Size new_size;
-            //int alph = 0.2
             new_size.width = (int)(std::max(h, w));
             new_size.height = (int)(std::min(h, w));
+            new_size.width = new_size.width + new_size.height * alpha;
 
             int max_edge = std::max(img.rows, img.cols);
 
@@ -812,7 +826,7 @@ namespace glasssix::heimdall
             std::pair<std::vector<std::vector<cv::Point2f>>, std::vector<float>> result = det_combine_best(resized_img);
             std::vector<std::vector<cv::Point2f>> box_list = result.first;
 
-            //cv::Mat temp = resized_mat_img.clone();
+            cv::Mat temp = resized_mat_img.clone();
 
             float ratio = roi[3] * 1.0f / resized_img->width();
             if (box_list.size() > 1)
