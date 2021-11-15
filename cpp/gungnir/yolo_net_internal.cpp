@@ -194,7 +194,7 @@ namespace glasssix::gungnir
             return static_cast<float>(1.f / (1.f + exp(-x)));
         }
 
-        void generate_proposals(const memory::tensor<float> &anchors, int stride, const std::shared_ptr<memory::tensor<std::uint8_t>> &in_pad, const std::shared_ptr<memory::tensor<float>> &feat_blob, float prob_threshold, std::vector<hat_info_internal> &objects)
+        void generate_proposals(const std::vector<float> &anchors, int stride, const std::shared_ptr<memory::tensor<std::uint8_t>> &in_pad, const std::shared_ptr<memory::tensor<float>> &feat_blob, float prob_threshold, std::vector<hat_info_internal> &objects)
         {
             const int num_grid = feat_blob->height();
 
@@ -213,9 +213,9 @@ namespace glasssix::gungnir
 
             const int num_class = feat_blob->width() - 5;
 
-            const int num_anchors = anchors.width() / 2;
+            const int num_anchors = anchors.size() / 2;
 
-            for (int q = 0; q < num_anchors; q++)
+            for (size_t q = 0; q < num_anchors; q++)
             {
                 const float anchor_w = anchors[q * 2];
                 const float anchor_h = anchors[q * 2 + 1];
@@ -317,18 +317,18 @@ namespace glasssix::gungnir
             excalibur::make_border(cache_forward, cache_forward, hpad / 2, hpad - hpad / 2, wpad / 2, wpad - wpad / 2, excalibur::border_constant, static_cast<std::uint8_t>(114));
 
             auto input_tensor = cache_forward | memory::tensor_convert_to<float>;
-            float *input_tensor_data = input_tensor->mutable_cpu_data();
-            for (int i = 0; i < input_tensor->count(); ++i)
-            {
-                input_tensor_data[i] /= 255.f;
-            }
+            //float *input_tensor_data = input_tensor->mutable_cpu_data();
+            //for (int i = 0; i < input_tensor->count(); ++i)
+            //{
+            //    input_tensor_data[i] /= 255.f;
+            //}
 
             std::unordered_map<std::string, std::shared_ptr<memory::tensor<float>>> out = hat_simp_.forward(input_tensor);
 
             std::vector<hat_info_internal> proposals;
             // stride 8
             {
-                memory::tensor<float> anchors(6);
+               std::vector<float> anchors(6);
                 anchors[0] = 10.f;
                 anchors[1] = 13.f;
                 anchors[2] = 16.f;
@@ -344,7 +344,7 @@ namespace glasssix::gungnir
 
             // stride 16
             {
-                memory::tensor<float> anchors(6);
+                std::vector<float> anchors(6);
                 anchors[0] = 30.f;
                 anchors[1] = 61.f;
                 anchors[2] = 62.f;
@@ -360,7 +360,7 @@ namespace glasssix::gungnir
 
             // stride 32
             {
-                memory::tensor<float> anchors(6);
+                std::vector<float> anchors(6);
                 anchors[0] = 116.f;
                 anchors[1] = 90.f;
                 anchors[2] = 156.f;

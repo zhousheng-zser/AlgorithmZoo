@@ -210,7 +210,7 @@ namespace glasssix::valklyrs
             return static_cast<float>(1.f / (1.f + exp(-x)));
         }
 
-        void generate_proposals(const memory::tensor<float> &anchors, int stride, const std::shared_ptr<memory::tensor<std::uint8_t>> &in_pad, const std::shared_ptr<memory::tensor<float>> &feat_blob, float prob_threshold, std::vector<obj_info_internal> &objects)
+        void generate_proposals(const std::vector<float> &anchors, int stride, const std::shared_ptr<memory::tensor<std::uint8_t>> &in_pad, const std::shared_ptr<memory::tensor<float>> &feat_blob, float prob_threshold, std::vector<obj_info_internal> &objects)
         {
             const int num_grid = feat_blob->height();
 
@@ -229,7 +229,7 @@ namespace glasssix::valklyrs
 
             const int num_class = feat_blob->width() - 5;
 
-            const int num_anchors = anchors.width() / 2;
+            const int num_anchors = anchors.size() / 2;
 
             for (int q = 0; q < num_anchors; q++)
             {
@@ -334,18 +334,18 @@ namespace glasssix::valklyrs
             int right = (target_size - w + 1) / 2;
             excalibur::make_border(cache_forward, cache_forward, top, down, left, right, excalibur::border_constant, static_cast<std::uint8_t>(114));
             auto input_tensor = cache_forward | memory::tensor_convert_to<float>;
-            float *input_tensor_data = input_tensor->mutable_cpu_data();
-            for (int i = 0; i < input_tensor->count(); ++i)
-            {
-                input_tensor_data[i] /= 255.f;
-            }
+            //float *input_tensor_data = input_tensor->mutable_cpu_data();
+            //for (int i = 0; i < input_tensor->count(); ++i)
+            //{
+            //    input_tensor_data[i] /= 255.f;
+            //}
 
             std::unordered_map<std::string, std::shared_ptr<memory::tensor<float>>> out = yolov5s_instance_.forward(input_tensor);
 
             std::vector<obj_info_internal> proposals;
             // stride 8
             {
-                memory::tensor<float> anchors(6);
+                std::vector<float> anchors(6);
                 anchors[0] = 10.f;
                 anchors[1] = 13.f;
                 anchors[2] = 16.f;
@@ -361,7 +361,7 @@ namespace glasssix::valklyrs
 
             // stride 16
             {
-                memory::tensor<float> anchors(6);
+                std::vector<float> anchors(6);
                 anchors[0] = 30.f;
                 anchors[1] = 61.f;
                 anchors[2] = 62.f;
@@ -377,7 +377,7 @@ namespace glasssix::valklyrs
 
             // stride 32
             {
-                memory::tensor<float> anchors(6);
+                std::vector<float> anchors(6);
                 anchors[0] = 116.f;
                 anchors[1] = 90.f;
                 anchors[2] = 156.f;
@@ -503,7 +503,7 @@ namespace glasssix::valklyrs
             person_list.push_back(vi);
         }
 
-        void detect(std::vector<float> &box, std::shared_ptr<memory::tensor<float>> &output, std::vector<float> mean_ = {}, std::vector<float> std_ = {})
+        void detect(std::vector<float> &box, std::shared_ptr<memory::tensor<float>> &output, int detect_type)
         {
             // cut img
             std::shared_ptr<memory::tensor<std::uint8_t>> input;
@@ -512,31 +512,34 @@ namespace glasssix::valklyrs
             // pre process
             int channels = input->channels();
             // resize img to 3 * 224 * 224
-            int w = 224;
-            int h = 224;
+            const int w = 224;
+            const int h = 224;
             excalibur::resize_cpu(input, input, h, w);
             std::shared_ptr<memory::tensor<float>> input_tensor = input | memory::tensor_convert_to<float>;
-            float *input_data = input_tensor->mutable_cpu_data();
             std::unordered_map<std::string, std::shared_ptr<memory::tensor<float>>> out;
-            if (mean_.size() && std_.size())
+            if (detect_type == 0)
             {
-                for (int c = 0; c < channels; ++c)
-                {
-                    float *input_data_ = input_data + c * w * h;
-                    for (int i = 0, size = w * h; i < size; ++i)
-                    {
-                        input_data_[i] = (input_data_[i] / 255.f - mean_[c]) / std_[c];
-                    }
-                }
+                //float* input_data = input_tensor->mutable_cpu_data();
+                //std::vector<float> mean_{0.485, 0.456, 0.406};
+                //std::vector<float> std_{0.229, 0.224, 0.225};
+                //for (int c = 0; c < channels; ++c)
+                //{
+                //    float *input_data_ = input_data + c * w * h;
+                //    for (int i = 0, size = w * h; i < size; ++i)
+                //    {
+                //        input_data_[i] = (input_data_[i] / 255.f - mean_[c]) / std_[c];
+                //    }
+                //}
                 // detect
                 out = vehicle_instance_.forward(input_tensor);
             }
             else
             {
-                for (int i = 0; i < input->count(); ++i)
-                {
-                    input_data[i] /= 255.f;
-                }
+                //float* input_data = input_tensor->mutable_cpu_data();
+                //for (int i = 0; i < input->count(); ++i)
+                //{
+                //    input_data[i] /= 255.f;
+                //}
                 // detect
                 out = person_instance_.forward(input_tensor);
             }
@@ -546,10 +549,8 @@ namespace glasssix::valklyrs
         void vehicle_detect(anchor_box &rect, std::vector<vp_info_internal> &vehicle_list)
         {
             std::vector<float> box{rect.x, rect.y, rect.width, rect.height};
-            std::vector<float> mean_{0.485, 0.456, 0.406};
-            std::vector<float> std_{0.229, 0.224, 0.225};
             std::shared_ptr<memory::tensor<float>> output;
-            detect(box, output, mean_, std_);
+            detect(box, output, 0);
             vehicle_post_process(output, rect, vehicle_list);
         }
 
@@ -557,7 +558,7 @@ namespace glasssix::valklyrs
         {
             std::vector<float> box{rect.x, rect.y, rect.width, rect.height};
             std::shared_ptr<memory::tensor<float>> output;
-            detect(box, output);
+            detect(box, output, 1);
             person_post_process(output, rect, person_list);
         }
 

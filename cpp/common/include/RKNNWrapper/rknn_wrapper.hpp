@@ -180,7 +180,7 @@ namespace glasssix
 				std::unordered_map<std::string, std::shared_ptr<memory::tensor<float>>> result;
 				for(size_t index = 0; index < io_num_.n_output; index++)
 				{
-					auto output_tensor = std::make_shared<memory::tensor<float>>(std::vector<int>{num, output_tensor_shape_index_[index][1], output_tensor_shape_index_[index][2], output_tensor_shape_index_[index][3]});
+					auto output_tensor = std::make_shared<memory::tensor<float>>(std::vector<int>{num, output_tensor_shape_index_[index][2], output_tensor_shape_index_[index][1], output_tensor_shape_index_[index][0]});
 					std::copy(temp[index].begin(), temp[index].end(), output_tensor->mutable_cpu_data());
 					result[output_name_index_[index]] = output_tensor;
 				}
