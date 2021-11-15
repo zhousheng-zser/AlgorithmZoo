@@ -8,6 +8,7 @@
 #include <limits>
 #include <fstream>
 #include <cstddef>
+#include <numeric>
 #include <utility>
 #include <algorithm>
 #include <unordered_set>
@@ -49,6 +50,20 @@ namespace glasssix
 			std::string cache_directory() const
 			{
 				return cache_directory_.string();
+			}
+
+			std::uint64_t record_count() const
+			{
+				return std::accumulate(
+					cache_.begin(),
+					cache_.end(),
+					0ULL,
+					[&](std::uint64_t init, const std::shared_ptr<database_cache>& item) { return item->manager->count(); });
+			}
+
+			bool contains_key(std::string_view key) const
+			{
+				return std::any_of(cache_.begin(), cache_.end(), [&](const std::shared_ptr<database_cache>& inner) { return inner->manager->contains(key); });
 			}
 
 			void clear() noexcept
@@ -292,6 +307,16 @@ namespace glasssix
 		std::string face_service_internal::cache_directory() const
 		{
 			return impl_->cache_directory();
+		}
+
+		std::uint64_t face_service_internal::record_count() const
+		{
+			return impl_->record_count();
+		}
+
+		bool face_service_internal::contains_key(std::string_view key) const
+		{
+			return impl_->contains_key(key);
 		}
 
 		void face_service_internal::load_databases()

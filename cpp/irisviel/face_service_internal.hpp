@@ -26,6 +26,8 @@ namespace glasssix
 			int dimension() const noexcept;
 			std::string database_directory() const;
 			std::string cache_directory() const;
+			std::uint64_t record_count() const;
+			bool contains_key(std::string_view key) const;
 			void load_databases();
 			std::vector<database_search_result> search(const float* feature, std::uint32_t top) const;
 			std::vector<database_search_result> search(const float* feature, float min_similarity, std::optional<std::uint32_t> top) const;

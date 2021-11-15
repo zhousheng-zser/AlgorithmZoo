@@ -48,6 +48,11 @@ namespace glasssix
 				save_changes();
 			}
 
+			std::uint64_t count() const noexcept
+			{
+				return record_entries_.size();
+			}
+
 			bool add(database_record& data)
 			{
 				if (full() || contains(data.key()))
@@ -204,6 +209,11 @@ namespace glasssix
 				delete impl_;
 				impl_ = nullptr;
 			}
+		}
+
+		std::uint64_t database_manager::count() const noexcept
+		{
+			return impl_->count();
 		}
 
 		bool database_manager::contains(std::string_view key)

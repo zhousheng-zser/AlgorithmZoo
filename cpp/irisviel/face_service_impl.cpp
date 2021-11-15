@@ -81,6 +81,16 @@ namespace glasssix::irisviel
 		return exposing::to_param_string(impl_->cache_directory());
 	}
 
+	std::uint64_t face_service_impl::record_count() const
+	{
+		return impl_->record_count();
+	}
+
+	bool face_service_impl::contains_key(const exposing::param_string& key) const
+	{
+		return impl_->contains_key(key);
+	}
+
 	void face_service_impl::load_databases() const
 	{
 		impl_->load_databases();
