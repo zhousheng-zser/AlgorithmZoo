@@ -26,10 +26,11 @@ namespace glasssix::exposing::impl
 			virtual std::int32_t G6_ABI_CALL remove_all() noexcept = 0;
 			virtual std::int32_t G6_ABI_CALL dimension(abi_out_t<std::int32_t> result) noexcept = 0;
 			virtual std::int32_t G6_ABI_CALL database_directory(abi_out_t<param_string> result) noexcept = 0;
+			virtual std::int32_t G6_ABI_CALL load_databases() noexcept = 0;
 			virtual std::int32_t G6_ABI_CALL cache_directory(abi_out_t<param_string> result) noexcept = 0;
 			virtual std::int32_t G6_ABI_CALL record_count(abi_out_t<std::uint64_t> result) noexcept = 0;
 			virtual std::int32_t G6_ABI_CALL contains_key(abi_in_t<param_string> key, abi_out_t<bool> result) noexcept = 0;
-			virtual std::int32_t G6_ABI_CALL load_databases() noexcept = 0;
+			virtual std::int32_t G6_ABI_CALL try_get_record(abi_in_t<param_string> key, abi_out_t<irisviel::record> result) noexcept = 0;
 			virtual std::int32_t G6_ABI_CALL add_record(abi_in_t<irisviel::record> record) noexcept = 0;
 			virtual std::int32_t G6_ABI_CALL add_records(abi_in_t<param_vector<irisviel::record>> records) noexcept = 0;
 			virtual std::int32_t G6_ABI_CALL remove_record(abi_in_t<param_string> key) noexcept = 0;
@@ -91,6 +92,11 @@ namespace glasssix::exposing::impl
 		virtual std::int32_t G6_ABI_CALL contains_key(abi_in_t<param_string> key, abi_out_t<bool> result) noexcept override
 		{
 			return abi_safe_call([&] { *result = detach_abi(this->self().contains_key(create_from_abi<param_string>(key))); });
+		}
+
+		virtual std::int32_t G6_ABI_CALL try_get_record(abi_in_t<param_string> key, abi_out_t<irisviel::record> result) noexcept override
+		{
+			return abi_safe_call([&] { *result = detach_abi(this->self().try_get_record(create_from_abi<param_string>(key))); });
 		}
 
 		virtual std::int32_t G6_ABI_CALL add_record(abi_in_t<irisviel::record> record) noexcept override
@@ -195,6 +201,11 @@ namespace glasssix::exposing::impl
 				return (check_abi_result(this->self_abi().cache_directory(put_abi(result))), result);
 			}
 
+			void load_databases() const
+			{
+				check_abi_result(this->self_abi().load_databases());
+			}
+
 			std::uint64_t record_count() const
 			{
 				std::uint64_t result{};
@@ -209,9 +220,11 @@ namespace glasssix::exposing::impl
 				return (check_abi_result(this->self_abi().contains_key(get_abi(key), put_abi(result))), result);
 			}
 
-			void load_databases() const
+			irisviel::record try_get_record(const param_string& key) const
 			{
-				check_abi_result(this->self_abi().load_databases());
+				irisviel::record result{ nullptr };
+
+				return (check_abi_result(this->self_abi().try_get_record(get_abi(key), put_abi(result))), result);
 			}
 
 			void add_record(const irisviel::record& record) const

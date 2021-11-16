@@ -52,6 +52,23 @@ namespace glasssix
 				return cache_directory_.string();
 			}
 
+			void load_databases()
+			{
+				std::error_code code;
+				std::scoped_lock guard{ lock_ };
+
+				for (auto& item : fs::directory_iterator{ database_directory_, fs::directory_options::skip_permission_denied, code })
+				{
+					if (item.path().filename().extension() == database_extension)
+					{
+						auto cache = create_new_database_core(item.path().string());
+
+						// Builds the existing database.
+						cache->wrapper->build(false);
+					}
+				}
+			}
+
 			std::uint64_t record_count() const
 			{
 				return std::accumulate(
@@ -64,6 +81,19 @@ namespace glasssix
 			bool contains_key(std::string_view key) const
 			{
 				return std::any_of(cache_.begin(), cache_.end(), [&](const std::shared_ptr<database_cache>& inner) { return inner->manager->contains(key); });
+			}
+
+			std::shared_ptr<database_record> try_get_record(std::string_view key) const
+			{
+				for (auto&& item : cache_)
+				{
+					if (auto record = item->manager->try_get_record(key))
+					{
+						return record;
+					}
+				}
+
+				return nullptr;
 			}
 
 			void clear() noexcept
@@ -83,23 +113,6 @@ namespace glasssix
 				// Removes all remaining contents.
 				utils::safe_remove_directories(cache_directory_);
 				utils::safe_remove_directories(database_directory_);
-			}
-
-			void load_databases()
-			{
-				std::error_code code;
-				std::scoped_lock guard{ lock_ };
-
-				for (auto& item : fs::directory_iterator{ database_directory_, fs::directory_options::skip_permission_denied, code })
-				{
-					if (item.path().filename().extension() == database_extension)
-					{
-						auto cache = create_new_database_core(item.path().string());
-
-						// Builds the existing database.
-						cache->wrapper->build(false);
-					}
-				}
 			}
 
 			std::vector<database_search_result> search(const float* feature, std::uint32_t top)
@@ -309,6 +322,11 @@ namespace glasssix
 			return impl_->cache_directory();
 		}
 
+		void face_service_internal::load_databases()
+		{
+			impl_->load_databases();
+		}
+
 		std::uint64_t face_service_internal::record_count() const
 		{
 			return impl_->record_count();
@@ -319,9 +337,9 @@ namespace glasssix
 			return impl_->contains_key(key);
 		}
 
-		void face_service_internal::load_databases()
+		std::shared_ptr<database_record> face_service_internal::try_get_record(std::string_view key) const
 		{
-			impl_->load_databases();
+			return impl_->try_get_record(key);
 		}
 
 		std::vector<database_search_result> face_service_internal::search(const float* feature, std::uint32_t top) const

@@ -23,9 +23,10 @@ namespace glasssix::irisviel
 		std::int32_t dimension() const;
 		exposing::param_string database_directory() const;
 		exposing::param_string cache_directory() const;
+		void load_databases() const;
 		std::uint64_t record_count() const;
 		bool contains_key(const exposing::param_string& key) const;
-		void load_databases() const;
+		record try_get_record(const exposing::param_string& key) const;
 		void add_record(const record& record) const;
 		void add_records(const exposing::param_vector<record>& records) const;
 		void remove_record(const exposing::param_string& key) const;
