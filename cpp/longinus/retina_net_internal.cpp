@@ -106,11 +106,12 @@ namespace glasssix::longinus
 
 #ifdef USE_RKNNAPI
 //#if 0
+            const int fix_size = 320;
             int max_edge = std::max(width, height);
-            float scale = max_edge / 640.0f;
+            float scale = max_edge * 1.0f / fix_size;
 
-            int ws = 640;
-            int hs = 640;
+            int ws = fix_size;
+            int hs = fix_size;
             std::shared_ptr<memory::tensor<std::uint8_t>> cache_forward;
             excalibur::resize_cpu(cache_temp, cache_forward, std::round(height / scale), std::round(width / scale));
             excalibur::make_border(cache_forward, cache_forward, 0, hs - std::round(height / scale), 0, ws - std::round(width / scale));
@@ -995,22 +996,24 @@ namespace glasssix::longinus
             int width = face->width();
             int height = face->height();
 
-            //onet
-            //excalibur::resize_cpu(face, face, 48, 48);
-            //pfld-sim
             excalibur::resize_cpu(face, face, 80, 80);
 
+#ifdef USE_RKNNAPI
+//#if 0
+            auto res = tracker_.forward(face);
+            trackfaceinfo.score = res["Softmax_Softmax_103/out0_2"]->cpu_data()[1];
+            const float* glass_data = res["Softmax_Softmax_76/out0_3"]->cpu_data();
+            const float* mask_data = res["Softmax_Softmax_79/out0_4"]->cpu_data();
+            const float* landmark_data = res["MatMul_MatMul_124/out0_1"]->cpu_data();
+            const float* bbox_data = res["MatMul_MatMul_113/out0_0"]->cpu_data();
+#else
             auto res = tracker_.forward(face | memory::tensor_convert_to<float>);
-
-            // Original ONet order. Change if Switch model.
-            //const float *bbox_data = res["conv6-2"]->cpu_data();
-            //int x1 = bbox_data[0] * width + offset_x;
-            //int y1 = bbox_data[1] * height + offset_y;
-            //int x2 = bbox_data[2] * width + width + offset_x;
-            //int y2 = bbox_data[3] * height + height + offset_y;
-
-            //pfld-sim
+            trackfaceinfo.score = res["188"]->cpu_data()[1];
+            const float* glass_data = res["157"]->cpu_data();
+            const float* mask_data = res["161"]->cpu_data();
+            const float* landmark_data = res["215"]->cpu_data();
             const float *bbox_data = res["output"]->cpu_data();
+#endif
             int x1 = bbox_data[0] * width / 10 + offset_x;
             int y1 = bbox_data[1] * height / 10 + offset_y;
             int x2 = bbox_data[2] * width / 10 + width + offset_x;
@@ -1019,25 +1022,8 @@ namespace glasssix::longinus
             trackfaceinfo.rect.w = x2 - x1 + 1;
             trackfaceinfo.rect.y = y1;
             trackfaceinfo.rect.h = y2 - y1 + 1;
-            trackfaceinfo.score = res["prob1"]->cpu_data()[1];
-
-            //pfld_small_gen_age_sim
-            const float *glass_data = res["prob2"]->cpu_data();
             trackfaceinfo.glass_index = std::max_element(glass_data, glass_data + 3) - glass_data;
-
-            const float *mask_data = res["prob3"]->cpu_data();
             trackfaceinfo.mask_index = std::max_element(mask_data, mask_data + 2) - mask_data;
-
-            //onet
-            //const float* landmark_data = res["conv6-3"]->cpu_data();
-            //for (size_t i = 0; i < 5; i++)
-            //{
-            //	trackfaceinfo.pts.x[i] = landmark_data[2 * i] * width + offset_x;
-            //	trackfaceinfo.pts.y[i] = landmark_data[2 * i + 1] * height + offset_y;
-            //}
-
-            //pfld-sim
-            const float *landmark_data = res["212"]->cpu_data();
             for (size_t i = 0; i < 2; i++)
             {
                 trackfaceinfo.pts.x[i] = (landmark_data[4 * i] + landmark_data[4 * i + 2]) * width / 80 + offset_x;
@@ -1069,10 +1055,9 @@ namespace glasssix::longinus
                 ldmk_mat[i * 2 + 1] = (ldmk7_data[i * 2 + 1] - bbox_data[1]) / 40 / ratio;
             }
 
-            //���һ����ֹ����ռλ��
             ldmk_mat[2 * 7] = 1.0f;
 
-            //��С���˷���ϵõ���� ldmk_mat * weights_mat
+            //ldmk_mat * weights_mat
             float predict[2] = {0.0f};
 
             for (size_t i = 0; i < 2; i++)
@@ -1091,10 +1076,11 @@ namespace glasssix::longinus
 #ifdef USE_RKNNAPI
 //#if 0
         rknnwrapper::rknn_wrapper retina_;
+        rknnwrapper::rknn_wrapper tracker_;
 #else
         glasssix::excalibur::pipeline<float> retina_;
-#endif
         glasssix::excalibur::pipeline<float> tracker_;
+#endif
 
         int device_;
         float nms_threshold_;
