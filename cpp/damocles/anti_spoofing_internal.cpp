@@ -69,7 +69,7 @@ namespace glasssix::damocles
 			std::vector<std::vector<float>> result;
 #ifdef USE_RKNNAPI
 			auto network_result = fasmv2_.forward(crop_faces);
-			if (auto iter = network_result.find("softmax"); iter != network_result.end())
+			if (auto iter = network_result.find("softmax_98_99"); iter != network_result.end())
 #else
 			auto network_result = fasmv2_.forward(crop_faces | memory::tensor_convert_to<float>);
 			if (auto iter = network_result.find("softmax"); iter != network_result.end())

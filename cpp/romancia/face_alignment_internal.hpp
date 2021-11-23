@@ -58,8 +58,9 @@ namespace glasssix::romancia
 
 		exposing::param_vector<bool> antispoofing(const exposing::param_vector<longinus::face_info>& faces, exposing::param_span<std::uint8_t> bitmap, int channels, int height, int width, int order = 1) const;
 
-		//exposing::param_vector<bool> mask_detect(const exposing::param_vector<longinus::face_info>& faces, exposing::param_span<std::uint8_t> bitmap, int channels, int height, int width, int order = 1) const;
 		exposing::param_vector<double> mask_detect(const exposing::param_vector<longinus::face_info>& faces, exposing::param_span<std::uint8_t> bitmap, int channels, int height, int width, int order = 1) const;
+		
+		exposing::param_vector<std::uint8_t> rotate(float angle, exposing::param_span<std::uint8_t> bitmap, int channels, int height, int width, int order = 1) const;
 
 		/// <summary>
 		/// Gets the version of the component.
