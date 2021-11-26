@@ -201,7 +201,7 @@ namespace glasssix::exposing
 		}
 		else
 		{
-			return (std::forward<Callable>(handler)(), allocations::clear_abi_exception_what(), error_success);
+			return (std::forward<Callable>(handler)(), error_success);
 		}
 	}
 	catch (...)
