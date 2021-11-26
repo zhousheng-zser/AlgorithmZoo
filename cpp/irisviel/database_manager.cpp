@@ -48,6 +48,11 @@ namespace glasssix
 				save_changes();
 			}
 
+			std::uint64_t count() const noexcept
+			{
+				return record_entries_.size();
+			}
+
 			bool add(database_record& data)
 			{
 				if (full() || contains(data.key()))
@@ -66,9 +71,21 @@ namespace glasssix
 				return true;
 			}
 
-			bool contains(std::string_view key)
+			bool contains(std::string_view key) const
 			{
 				return record_entries_.find(std::string{ key }) != record_entries_.end();
+			}
+
+			std::shared_ptr<database_record> try_get_record(std::string_view key) const
+			{
+				if (auto iter = record_entries_.find(std::string{ key }); iter != record_entries_.end())
+				{
+					auto entry = mapping_.locate_element_bytes(iter->second, record_size_);
+					
+					return database_record::create(dimension_, entry);
+				}
+
+				return nullptr;
 			}
 
 			bool update(database_record& data)
@@ -206,9 +223,19 @@ namespace glasssix
 			}
 		}
 
-		bool database_manager::contains(std::string_view key)
+		std::uint64_t database_manager::count() const noexcept
+		{
+			return impl_->count();
+		}
+
+		bool database_manager::contains(std::string_view key) const
 		{
 			return impl_->contains(key);
+		}
+
+		std::shared_ptr<database_record> database_manager::try_get_record(std::string_view key) const
+		{
+			return impl_->try_get_record(key);
 		}
 
 		bool database_manager::update(database_record& record)

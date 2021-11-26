@@ -1,5 +1,7 @@
 #include "face_service_impl.hpp"
 #include "face_service_internal.hpp"
+
+#include "record_impl.hpp"
 #include "search_result_impl.hpp"
 
 #include <vector>
@@ -9,13 +11,24 @@ namespace glasssix::irisviel
 {
 	namespace
 	{
+		record create_record(const database_record& internal_record)
+		{
+			auto record = exposing::make_as_first<record_impl>();
+			
+			record.init(internal_record.dimension());
+			record.key(exposing::to_param_string(internal_record.key()));
+			record.feature(internal_record.feature());
+
+			return record;
+		}
+
 		std::shared_ptr<database_record> create_internal_record(const record& record)
 		{
 			auto feature = record.feature();
 			auto internal_record = database_record::create(record.dimension());
 			std::vector<float> internal_feature(exposing::begin(feature), exposing::end(feature));
 
-			internal_record->key(exposing::to_narrow_string(record.key()).c_str());
+			internal_record->key(exposing::to_narrow_string(record.key()));
 			internal_record->feature(internal_feature);
 
 			return internal_record;
@@ -84,6 +97,26 @@ namespace glasssix::irisviel
 	void face_service_impl::load_databases() const
 	{
 		impl_->load_databases();
+	}
+
+	std::uint64_t face_service_impl::record_count() const
+	{
+		return impl_->record_count();
+	}
+
+	bool face_service_impl::contains_key(const exposing::param_string& key) const
+	{
+		return impl_->contains_key(key);
+	}
+
+	record face_service_impl::try_get_record(const exposing::param_string& key) const
+	{
+		if (auto inner_record = impl_->try_get_record(exposing::to_narrow_string(key)))
+		{
+			return create_record(*inner_record);
+		}
+
+		return nullptr;
 	}
 
 	void face_service_impl::add_record(const record& record) const

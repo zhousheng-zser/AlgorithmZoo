@@ -20,7 +20,9 @@ namespace glasssix
 
 			database_manager(std::string_view file_path, std::size_t capacity, int dimension);
 			virtual ~database_manager();
-			bool contains(std::string_view key);
+			std::uint64_t count() const noexcept;
+			bool contains(std::string_view key) const;
+			std::shared_ptr<database_record> try_get_record(std::string_view key) const;
 			bool update(database_record& record);
 			bool remove(std::string_view key);
 			bool empty() const noexcept;
