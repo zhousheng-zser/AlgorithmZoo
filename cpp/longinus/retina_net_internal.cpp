@@ -418,12 +418,8 @@ namespace glasssix::longinus
             excalibur::resize_cpu(final_mat, resized_color_img, 128, 128);
 
             auto temp_vec = exposing::make_param_vector<std::uint8_t>();
-
-            auto* ptr = resized_color_img->cpu_data();
-            for (size_t k = 0; k < resized_color_img->count(); k++)
-            {
-                temp_vec.push_back(ptr[k]);
-            }
+            temp_vec.resize(static_cast<size_t>(resized_color_img->count()));
+            temp_vec.copy_from({ resized_color_img->cpu_data(), static_cast<size_t>(resized_color_img->count()) }, 0);
 
             res.push_back(temp_vec);
 

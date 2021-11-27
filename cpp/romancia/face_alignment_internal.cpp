@@ -13,7 +13,6 @@
 #include <Excalibur/operation_resize.hpp>
 #include <Excalibur/operation_rgb2gray.hpp>
 #include <opencv2/opencv.hpp>
-#include <opencv2/imgproc/types_c.h>
 
 using glasssix::excalibur::rectangle;
 using glasssix::excalibur::point;
@@ -26,31 +25,22 @@ namespace glasssix::romancia
 	public:
 		impl() = delete;
 
-		impl(/*const exposing::param_string& mask_detector_model_path, */const exposing::param_string& antispoofing_model_path, std::int32_t device) : device_{ device }
+		impl(const exposing::param_string& antispoofing_model_path, std::int32_t device) : device_{ device }
 		{
 
 			{
 				std::scoped_lock<std::mutex> lck(svm_mut);
 				antispoofer_ = svm_load_model(antispoofing_model_path.data());
 			}
-			
-			if(antispoofer_ == nullptr)
+
+			if (antispoofer_ == nullptr)
 				LOG(FATAL) << "Incorrect param file.";
-
-			/*{
-				std::scoped_lock<std::mutex> lck(svm_mut);
-				mask_detector_ = svm_load_model(mask_detector_model_path.data());
-			}
-
-			if(mask_detector_ == nullptr)
-				LOG(FATAL) << "Incorrect param file.";*/
 
 		}
 
-		~impl() 
+		~impl()
 		{
 			svm_free_and_destroy_model(&antispoofer_);
-			//svm_free_and_destroy_model(&mask_detector_);
 		}
 
 		exposing::param_vector<exposing::param_vector<std::uint8_t>> align128(exposing::param_span<std::uint8_t> bitmap, std::int32_t channels, std::int32_t height, std::int32_t width,
@@ -118,12 +108,8 @@ namespace glasssix::romancia
 				excalibur::resize_cpu(color_img, resized_color_img, 128, 128);
 
 				auto temp_vec = exposing::make_param_vector<std::uint8_t>();
-
-				auto* ptr = resized_color_img->cpu_data();
-				for (size_t k = 0; k < resized_color_img->count(); k++)
-				{
-					temp_vec.push_back(ptr[k]);
-				}
+				temp_vec.resize(static_cast<size_t>(resized_color_img->count()));
+				temp_vec.copy_from({ resized_color_img->cpu_data() , static_cast<size_t>(resized_color_img->count()) }, 0);
 
 				res.push_back(temp_vec);
 			}
@@ -141,12 +127,10 @@ namespace glasssix::romancia
 			init_cache(bitmap, channels, height, width, order);
 
 			std::shared_ptr<memory::tensor<uint8_t>> ROI, rotated_ROI, final_mat, final_mat_gray, resized_color_img;
-			std::vector<std::shared_ptr<memory::tensor<uint8_t>>> src_vector;
 			auto res = exposing::make_param_vector<std::uint8_t, 2>();
 
 			for (size_t i = 0; i < faces.size(); i++)
 			{
-				src_vector.clear();
 				rectangle<int> MarginRect = rectangle<int>(faces[i].x() - faces[i].width() * 0.0f,
 					faces[i].y() - faces[i].height() * 0.0f,
 					faces[i].height() * 1.0f,
@@ -187,12 +171,8 @@ namespace glasssix::romancia
 				excalibur::resize_cpu(final_mat, resized_color_img, 128, 128);
 
 				auto temp_vec = exposing::make_param_vector<std::uint8_t>();
-
-				auto* ptr = resized_color_img->cpu_data();
-				for (size_t k = 0; k < resized_color_img->count(); k++)
-				{
-					temp_vec.push_back(ptr[k]);
-				}
+				temp_vec.resize(static_cast<size_t>(resized_color_img->count()));
+				temp_vec.copy_from({ resized_color_img->cpu_data(), static_cast<size_t>(resized_color_img->count()) }, 0);
 
 				res.push_back(temp_vec);
 			}
@@ -222,7 +202,7 @@ namespace glasssix::romancia
 			cv::Mat src, srcBlur, gray1, gray2;
 
 			auto result = exposing::make_param_vector<double>();
-			for (const auto &i : faces)
+			for (const auto& i : faces)
 			{
 				safty_cut(img, src, cv::Rect(i.x(), i.y(), i.width(), i.height()));
 				cv::resize(src, src, cv::Size(64, 64));
@@ -236,9 +216,9 @@ namespace glasssix::romancia
 				}
 				cv::medianBlur(gray1, srcBlur, 3);
 
-				cv::Mat tmp_m1, tmp_sd1; 
+				cv::Mat tmp_m1, tmp_sd1;
 				double m1 = 0, sd1 = 0;
-				
+
 				cv::Laplacian(srcBlur, gray2, CV_16S, 3, 1, 0, cv::BORDER_DEFAULT);
 
 				cv::meanStdDev(gray2, tmp_m1, tmp_sd1);
@@ -247,7 +227,7 @@ namespace glasssix::romancia
 
 				result.push_back(sd1 * sd1);
 			}
-			
+
 			return result;
 		}
 
@@ -260,7 +240,7 @@ namespace glasssix::romancia
 			}
 			else
 				throw exposing::abi_invalid_argument("Not supported channels or order");
-			
+
 			cv::Mat src;
 			auto result = exposing::make_param_vector<bool>();
 			for (const auto& i : faces)
@@ -356,7 +336,7 @@ namespace glasssix::romancia
 
 				result.push_back(m1);
 			}
-			
+
 			return result;
 		}
 
@@ -371,7 +351,6 @@ namespace glasssix::romancia
 				throw exposing::abi_invalid_argument("Not supported channels or order");
 
 			cv::Mat img;
-			auto result = exposing::make_param_vector<std::uint8_t>();
 
 			if (angle == 0.0f)
 			{
@@ -394,8 +373,10 @@ namespace glasssix::romancia
 			else
 				throw exposing::abi_invalid_argument("Not supported angle");
 
-			for (size_t i = 0; i < src.channels() * src.cols * src.rows; i++)
-				result.push_back(img.data[i]);
+
+			auto result = exposing::make_param_vector<std::uint8_t>();
+			result.resize(static_cast<size_t>(src.channels() * src.cols * src.rows));
+			result.copy_from({ img.data , static_cast<size_t>(src.channels() * src.cols * src.rows) }, 0);
 
 			return result;
 		}
@@ -668,11 +649,6 @@ namespace glasssix::romancia
 	{
 		return impl_->antispoofing(faces, bitmap, channels, height, width, order);
 	}
-
-	//exposing::param_vector<bool> face_alignment_internal::mask_detect(const exposing::param_vector<longinus::face_info>& faces, exposing::param_span<std::uint8_t> bitmap, int channels, int height, int width, int order) const
-	//{
-	//	return impl_->mask_detect(faces, bitmap, channels, height, width, order);
-	//}
 
 	exposing::param_vector<double> face_alignment_internal::mask_detect(const exposing::param_vector<longinus::face_info>& faces, exposing::param_span<std::uint8_t> bitmap, int channels, int height, int width, int order) const
 	{
