@@ -13,6 +13,7 @@
 #include <Excalibur/operation_resize.hpp>
 #include <Excalibur/operation_rgb2gray.hpp>
 #include <opencv2/opencv.hpp>
+#include <opencv2/imgproc/types_c.h>
 
 using glasssix::excalibur::rectangle;
 using glasssix::excalibur::point;
