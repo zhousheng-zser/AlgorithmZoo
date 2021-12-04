@@ -71,7 +71,7 @@ namespace glasssix::damocles
 				ptr += forward_input_bytes;
 			}
 
-			auto network_result = fasmv2_.forward(ptr, {boxes.size(), forward_input_height, forward_input_width, forward_input_channels }, RKNN_TENSOR_NHWC);
+			auto network_result = fasmv2_.forward(temp, {boxes.size(), forward_input_height, forward_input_width, forward_input_channels }, RKNN_TENSOR_NHWC);
 			if (auto iter = network_result.find("softmax_98_99"); iter != network_result.end())
 #else
 			init_cache(bitmap, channels, height, width, order);
