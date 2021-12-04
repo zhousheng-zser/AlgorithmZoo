@@ -112,9 +112,9 @@ namespace glasssix
 						throw rknn_exception(ret, "rknn_query output_attrs fail!");
 					}
 					output_name_index_[output_attrs[i].index] = std::string(output_attrs[i].name);
-					std::vector<uint32_t> shape;
+					std::vector<uint32_t> shape(4, 1);
 					for(uint32_t j = 0; j < output_attrs[i].n_dims; j++)
-						shape.push_back(output_attrs[i].dims[j]);
+						shape[j] = output_attrs[i].dims[j];
 					output_tensor_shape_index_[output_attrs[i].index] = shape;
 					printRKNNTensor(&(output_attrs[i]));
 				}
@@ -187,6 +187,64 @@ namespace glasssix
 				return result;
 			}
 			
+			std::unordered_map<std::string, std::shared_ptr<memory::tensor<float>>> forward(const std::uint8_t* input_data, std::vector<int> data_shape, rknn_tensor_format fmt)
+			{
+				CHECK_EQ(1, io_num_.n_input);
+
+				int size = data_shape[1] * data_shape[2] * data_shape[3];
+
+				std::vector<std::vector<float>> temp(io_num_.n_output);
+				for (int num_i = 0; num_i < data_shape[0]; num_i++)
+				{
+
+					rknn_input inputs[1];
+					std::memset(inputs, 0, sizeof(inputs));
+					inputs[0].index = 0;
+					inputs[0].type = RKNN_TENSOR_UINT8;
+					inputs[0].size = size;
+					inputs[0].fmt = fmt;
+					inputs[0].buf = const_cast<std::uint8_t*>(input_data + num_i * size);
+
+					int ret = rknn_inputs_set(ctx_, io_num_.n_input, inputs);
+					if (ret < 0)
+					{
+						throw rknn_exception(ret, "rknn_input_set fail!");
+					}
+
+					ret = rknn_run(ctx_, nullptr);
+					if (ret < 0)
+					{
+						throw rknn_exception(ret, "rknn_run fail!");
+					}
+
+					rknn_output outputs[io_num_.n_output];
+					std::memset(outputs, 0, sizeof(outputs));
+					for (size_t i = 0; i < io_num_.n_output; i++)
+						outputs[i].want_float = 1;
+
+					ret = rknn_outputs_get(ctx_, io_num_.n_output, outputs, NULL);
+					if (ret < 0)
+					{
+						throw rknn_exception(ret, "rknn_outputs_get fail!");
+					}
+
+					for (size_t i = 0; i < io_num_.n_output; i++)
+					{
+						temp[outputs[i].index].insert(temp[outputs[i].index].end(), reinterpret_cast<float*>(outputs[i].buf), reinterpret_cast<float*>(outputs[i].buf) + outputs[i].size / sizeof(float));
+					}
+
+					rknn_outputs_release(ctx_, io_num_.n_output, outputs);
+				}
+
+				std::unordered_map<std::string, std::shared_ptr<memory::tensor<float>>> result;
+				for (size_t index = 0; index < io_num_.n_output; index++)
+				{
+					auto output_tensor = std::make_shared<memory::tensor<float>>(std::vector<int>{data_shape[0], output_tensor_shape_index_[index][2], output_tensor_shape_index_[index][1], output_tensor_shape_index_[index][0]});
+					std::copy(temp[index].begin(), temp[index].end(), output_tensor->mutable_cpu_data());
+					result[output_name_index_[index]] = output_tensor;
+				}
+				return result;
+			}
 			
 		private:
 			rknn_context ctx_;

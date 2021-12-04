@@ -1,1 +1,1 @@
-cmake .. -DCMAKE_TOOLCHAIN_FILE=../rv1109_cross_compile.toolchain -DUSE_RKNNAPI=ON -DCOMMON_LIBRARY_DIRS="/home/build_slave/ZYF/Excalibur/cmake/build/lib;/home/build_slave/ZYF/rv1126_rv1109/external/rknpu/rknn/rknn_api/librknn_api/lib" -DOpenCV_LIBRARY_DIRS=/home/build_slave/ZYF/package/arm-linux-gnueabihf/lib
+cmake .. -DCMAKE_TOOLCHAIN_FILE=../rv1109_cross_compile.toolchain -DUSE_RKNNAPI=ON -DCOMMON_LIBRARY_DIRS="/home/build_slave/ZYF/Excalibur/cmake/build/lib;/home/build_slave/ZYF/rv1126_rv1109/external/rknpu/rknn/rknn_api/librknn_api/lib"

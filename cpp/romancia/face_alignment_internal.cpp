@@ -47,6 +47,76 @@ namespace glasssix::romancia
 		exposing::param_vector<exposing::param_vector<std::uint8_t>> align128(exposing::param_span<std::uint8_t> bitmap, std::int32_t channels, std::int32_t height, std::int32_t width,
 			const exposing::param_vector<longinus::face_info>& faces, std::int32_t order)
 		{
+#ifdef __arm__
+			if (bitmap.empty())
+			{
+				throw exposing::abi_invalid_argument("current frame is empty");
+			}
+			if (order != 1)
+				throw exposing::abi_invalid_argument("Not supported order");
+
+			cv::Mat img(height, width, CV_8UC3, bitmap.data());
+
+			cv::Mat ROI, rotated_ROI, final_mat, final_mat_gray;
+			auto res = exposing::make_param_vector<std::uint8_t, 2>();
+
+			cv::Mat gray;
+			cv::cvtColor(img, gray, CV_BGR2GRAY);
+			for (size_t i = 0; i < faces.size(); i++)
+			{
+				cv::Rect MarginRect(faces[i].x() - faces[i].width() * 0.2f,
+					faces[i].y() - faces[i].height() * 0.2f,
+					faces[i].width() * 1.4f,
+					faces[i].height() * 1.4f);
+
+				safty_cut(gray, ROI, MarginRect);
+
+				cv::Point2f ldmk5[5];
+				auto pts = faces[i].pts();
+				for (size_t j = 0; j < pts.size(); j++)
+				{
+					ldmk5[j] = cv::Point2f(pts[j].key() - MarginRect.x, pts[j].value() - MarginRect.y);
+				}
+				cv::Point2f center_eye((ldmk5[0].x + ldmk5[1].x) / 2, (ldmk5[0].y + ldmk5[1].y) / 2);
+				cv::Point2f center_mouth((ldmk5[3].x + ldmk5[4].x) / 2, (ldmk5[3].y + ldmk5[4].y) / 2);
+				cv::Point2f center((center_eye.x + center_mouth.x) / 2, (center_eye.y + center_mouth.y) / 2);
+				double tan = (center_eye.x - center_mouth.x) / (center_eye.y - center_mouth.y);
+				double arctan = atan(tan) * 180 / 3.1415926;
+
+				cv::Mat rot_mat = cv::getRotationMatrix2D(center, -1 * arctan, 1.0);
+				cv::warpAffine(ROI, rotated_ROI, rot_mat, ROI.size(), cv::INTER_CUBIC, cv::BORDER_CONSTANT, cv::Scalar::all(0));
+
+				double distance = std::sqrt((center_eye.x - center_mouth.x) * (center_eye.x - center_mouth.x) + (center_eye.y - center_mouth.y) * (center_eye.y - center_mouth.y));
+
+				if (distance < std::numeric_limits<double>::epsilon())
+				{
+					throw exposing::abi_invalid_argument("Illegal distance. Error landmarks.");
+				}
+
+				double cos = (center_mouth.y - center_eye.y) / distance;
+				double sin = (center_mouth.x - center_eye.x) / distance;
+				cv::Point2f new_center_eye(center_eye.x + (float)(sin * distance / 2), (float)(center_eye.y - (1 - cos) * distance / 2));
+				cv::Point2f new_center_mouth(center_mouth.x - (float)(sin * distance / 2), (float)(center_mouth.y + (1 - cos) * distance / 2));
+				cv::Rect2f final_rect(new_center_eye.x - distance,
+					new_center_eye.y - distance / 2,
+					distance * 2, distance * 2);
+				safty_cut(rotated_ROI, final_mat, final_rect);
+				cv::equalizeHist(final_mat, final_mat);
+
+				cv::resize(final_mat, final_mat, cv::Size(128, 128));
+
+				auto temp_vec = exposing::make_param_vector<std::uint8_t>();
+				temp_vec.resize(128 * 128 * 3);
+				for (size_t j = 0; j < 3; j++)
+				{
+					temp_vec.copy_from({ final_mat.data , 128 * 128 }, 3 * 128 * 128);
+				}
+
+				res.push_back(temp_vec);
+			}
+
+			return res;
+#else
 			if (bitmap.empty())
 			{
 				throw exposing::abi_invalid_argument("current frame is empty");
@@ -116,11 +186,86 @@ namespace glasssix::romancia
 			}
 
 			return res;
+#endif
 		}
 
 		exposing::param_vector<exposing::param_vector<std::uint8_t>> align(exposing::param_span<std::uint8_t> bitmap, std::int32_t channels, std::int32_t height, std::int32_t width,
 			const exposing::param_vector<longinus::face_info>& faces, std::int32_t order)
 		{
+#ifdef __arm__
+			if (bitmap.empty())
+			{
+				throw exposing::abi_invalid_argument("current frame is empty");
+			}
+			if (order != 1)
+				throw exposing::abi_invalid_argument("Not supported order");
+
+			cv::Mat img(height, width, CV_8UC3, bitmap.data());
+
+			cv::Mat ROI, rotated_ROI, final_mat, final_mat_gray, resized_color_img;
+			auto res = exposing::make_param_vector<std::uint8_t, 2>();
+
+			for (size_t i = 0; i < faces.size(); i++)
+			{
+				cv::Rect MarginRect(faces[i].x() - faces[i].width() * 0.0f,
+					faces[i].y() - faces[i].height() * 0.0f,
+					faces[i].width() * 1.0f,
+					faces[i].height() * 1.0f);
+
+				safty_cut(img, ROI, MarginRect);
+				float min_edge = std::min(MarginRect.width, MarginRect.height);
+				float scale = 160.f / min_edge;
+				if (scale < 1.0f)
+					cv::resize(ROI, ROI, cv::Size(ROI.cols * scale, ROI.rows * scale));
+				else
+					scale = 1.0f;
+
+				cv::Point2f ldmk5[5];
+				auto pts = faces[i].pts();
+				for (size_t j = 0; j < pts.size(); j++)
+				{
+					ldmk5[j] = cv::Point2f(pts[j].key() - MarginRect.x, pts[j].value() - MarginRect.y);
+				}
+				cv::Point2f center_eye((ldmk5[0].x + ldmk5[1].x) / 2, (ldmk5[0].y + ldmk5[1].y) / 2);
+				cv::Point2f center_mouth((ldmk5[3].x + ldmk5[4].x) / 2, (ldmk5[3].y + ldmk5[4].y) / 2);
+				double tan = (center_eye.x - center_mouth.x) / (center_eye.y - center_mouth.y);
+				double arctan = atan(tan) * 180 / 3.1415926;
+
+				cv::Point2f center((center_eye.x + center_mouth.x) * scale / 2, (center_eye.y + center_mouth.y) * scale / 2);
+				cv::Mat rot_mat = cv::getRotationMatrix2D(center, -1 * arctan, 1.0);
+				cv::warpAffine(ROI, rotated_ROI, rot_mat, ROI.size(), cv::INTER_CUBIC, cv::BORDER_CONSTANT, cv::Scalar::all(0));
+
+				double distance = std::sqrt((center_eye.x - center_mouth.x) * (center_eye.x - center_mouth.x) + (center_eye.y - center_mouth.y) * (center_eye.y - center_mouth.y));
+
+				if (distance < std::numeric_limits<double>::epsilon())
+				{
+					throw exposing::abi_invalid_argument("Illegal distance. Error landmarks.");
+				}
+
+				double cos = (center_mouth.y - center_eye.y) / distance;
+				double sin = (center_mouth.x - center_eye.x) / distance;
+				cv::Point2f new_center_eye(center_eye.x + (float)(sin * distance / 2), (float)(center_eye.y - (1 - cos) * distance / 2));
+				cv::Point2f new_center_mouth(center_mouth.x - (float)(sin * distance / 2), (float)(center_mouth.y + (1 - cos) * distance / 2));
+				cv::Rect2f final_rect((new_center_eye.x - distance * 1.25f) * scale,
+					(new_center_eye.y - distance * 0.75f) * scale,
+					distance * 2.5f * scale, distance * 2.5f * scale);
+				safty_cut(rotated_ROI, final_mat, final_rect);
+
+				cv::resize(final_mat, resized_color_img, cv::Size(128, 128));
+
+				std::vector<cv::Mat> img_channel_vec;
+				cv::split(resized_color_img, img_channel_vec);
+
+				auto temp_vec = exposing::make_param_vector<std::uint8_t>();
+				temp_vec.resize(static_cast<size_t>(3 * 128 * 128));
+				for (size_t j = 0; j < 3; j++)
+					temp_vec.copy_from({ img_channel_vec[j].data, 128 * 128 }, j * 128 * 128);
+
+				res.push_back(temp_vec);
+			}
+
+			return res;
+#else
 			if (bitmap.empty())
 			{
 				throw exposing::abi_invalid_argument("current frame is empty");
@@ -179,6 +324,7 @@ namespace glasssix::romancia
 			}
 
 			return res;
+#endif
 		}
 
 		exposing::param_vector<double> blur_detect(const exposing::param_vector<longinus::face_info>& faces, exposing::param_span<std::uint8_t> bitmap, std::int32_t channels, std::int32_t height, std::int32_t width, std::int32_t order)

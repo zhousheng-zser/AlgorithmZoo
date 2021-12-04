@@ -15,8 +15,8 @@
 #include "hardcode.hpp"
 
 #ifdef USE_RKNNAPI
-//#if 0
 #include "RKNNWrapper/rknn_wrapper.hpp"
+#include <opencv2/opencv.hpp>
 #endif
 
 namespace
@@ -91,6 +91,7 @@ namespace glasssix::longinus
         {
         }
 
+#ifdef USE_RKNNAPI
         exposing::param_vector<face_info> detect(exposing::param_span<std::uint8_t> bitmap, int channels, int height, int width, int min_size, float threshold, int order, bool do_attributing)
         {
             if (bitmap.empty())
@@ -98,45 +99,28 @@ namespace glasssix::longinus
                 throw exposing::abi_invalid_argument("current frame is empty");
             }
 
+            if (order != 1)
+                throw exposing::abi_invalid_argument("Not supported order");
+
             CHECK_EQ(channels, 3);
             CHECK_EQ(bitmap.size(), channels * height * width);
 
-            std::shared_ptr<memory::tensor<std::uint8_t>> cache_temp;
-            init_cache(bitmap, channels, height, width, order, cache_temp);
-
-#ifdef USE_RKNNAPI
-//#if 0
+            //#if 0
+            cv::Mat cache_temp(height, width, CV_8UC3, bitmap.data());
             const int fix_size = 320;
             int max_edge = std::max(width, height);
             float scale = max_edge * 1.0f / fix_size;
 
             int ws = fix_size;
             int hs = fix_size;
-            std::shared_ptr<memory::tensor<std::uint8_t>> cache_forward;
-            excalibur::resize_cpu(cache_temp, cache_forward, std::round(height / scale), std::round(width / scale));
-            excalibur::make_border(cache_forward, cache_forward, 0, hs - std::round(height / scale), 0, ws - std::round(width / scale));
+            cv::Mat cache_forward;
+            cv::resize(cache_temp, cache_forward, cv::Size(std::round(width / scale), std::round(height / scale)));
+            cv::copyMakeBorder(cache_forward, cache_forward, 0, hs - std::round(height / scale), 0, ws - std::round(width / scale), cv::BORDER_CONSTANT, cv::Scalar::all(0));
 
-            const char* score_suffix[3]={"_74_125","_98_128","_122_131"};
-            const char* bbox_suffix[3]={"_75_126","_99_129","_123_132"};
-            const char* landmark_suffix[3]={"_76_127","_100_130","_124_133"};
-            auto blob_data = retina_.forward(cache_forward);
-#else
-            if (min_size < 16)
-                min_size = 16;
-
-            float scale = min_size / 16.0f;
-            int ws = (int(width / scale) + 31) / 32 * 32;
-            int hs = (int(height / scale) + 31) / 32 * 32;
-
-            std::shared_ptr<memory::tensor<std::uint8_t>> cache_forward;
-            excalibur::resize_cpu(cache_temp, cache_forward, int(height / scale), int(width / scale));
-            excalibur::make_border(cache_forward, cache_forward, 0, hs - int(height / scale), 0, ws - int(width / scale));
-
-            const char* score_suffix[3]={"","",""};
-            const char* bbox_suffix[3]={"","",""};
-            const char* landmark_suffix[3]={"","",""};
-            auto blob_data = retina_.forward(cache_forward | memory::tensor_convert_to<float>);
-#endif
+            const char* score_suffix[3] = { "_74_125","_98_128","_122_131" };
+            const char* bbox_suffix[3] = { "_75_126","_99_129","_123_132" };
+            const char* landmark_suffix[3] = { "_76_127","_100_130","_124_133" };
+            auto blob_data = retina_.forward(cache_forward.data, { 1, hs, ws, 3 }, RKNN_TENSOR_NHWC);
 
             std::string name_bbox = "face_rpn_bbox_pred_";
             std::string name_score = "face_rpn_cls_prob_reshape_";
@@ -151,18 +135,188 @@ namespace glasssix::longinus
                 std::string str = name_score + key + score_suffix[i];
                 auto score_blob = blob_data[str];
                 auto score_blob_count = score_blob->count();
+                const float* scoreB = score_blob->cpu_data() + score_blob_count / 2;
+                const float* scoreE = scoreB + score_blob_count / 2;
+                std::vector<float> score = std::vector<float>(scoreB, scoreE);
+
+                str = name_bbox + key + bbox_suffix[i];
+                auto bbox_blob = blob_data[str];
+                auto bbox_blob_count = bbox_blob->count();
+                const float* bboxB = bbox_blob->cpu_data();
+                const float* bboxE = bboxB + bbox_blob_count;
+                std::vector<float> bbox_delta = std::vector<float>(bboxB, bboxE);
+
+                str = name_landmark + key + landmark_suffix[i];
+                auto landmark_blob = blob_data[str];
+                auto landmark_blob_count = landmark_blob->count();
+                const float* landmarkB = landmark_blob->cpu_data();
+                const float* landmarkE = landmarkB + landmark_blob_count;
+                std::vector<float> landmark_delta = std::vector<float>(landmarkB, landmarkE);
+
+                int score_width = score_blob->width();
+                int score_height = score_blob->height();
+                size_t count = score_width * score_height;
+                size_t num_anchor = num_anchors_[key];
+
+                //store order: h * w * num_anchor
+                std::vector<anchor_box> anchors = anchors_plane(score_height, score_width, stride, anchors_fpn_[key]);
+
+                for (size_t num = 0; num < num_anchor; num++)
+                {
+                    for (size_t j = 0; j < count; j++)
+                    {
+                        float conf = score[j + count * num];
+                        if (conf <= threshold)
+                        {
+                            continue;
+                        }
+
+                        float dx = bbox_delta[j + count * (0 + num * 4)];
+                        float dy = bbox_delta[j + count * (1 + num * 4)];
+                        float dw = bbox_delta[j + count * (2 + num * 4)];
+                        float dh = bbox_delta[j + count * (3 + num * 4)];
+                        auto regress = std::vector<float>{ dx, dy, dw, dh };
+
+                        // regression face bbox
+                        anchor_box rect = bbox_pred(anchors[j + count * num], regress);
+                        //Out of bounds
+                        clip_box(rect, ws, hs);
+
+                        face_pts pts;
+                        for (size_t k = 0; k < 5; k++)
+                        {
+                            pts.x[k] = landmark_delta[j + count * (num * 10 + k * 2)];
+                            pts.y[k] = landmark_delta[j + count * (num * 10 + k * 2 + 1)];
+                        }
+                        //regression facial landmark
+                        face_pts landmarks = landmark_pred(anchors[j + count * num], pts);
+
+                        face_info_internal tmp;
+                        tmp.score = conf;
+                        tmp.rect = rect;
+                        tmp.pts = landmarks;
+                        face_infos.push_back(tmp);
+                    }
+                }
+            }
+
+            face_infos = nms(face_infos, nms_threshold_);
+
+            std::vector<face_info_internal> temp_vec;
+            for (auto& face : face_infos)
+            {
+                if (scale != 1.0f)
+                {
+                    face.rect.x *= scale;
+                    face.rect.y *= scale;
+                    face.rect.h *= scale;
+                    face.rect.w *= scale;
+                    for (size_t i = 0; i < std::size(face.pts.x); i++)
+                    {
+                        face.pts.x[i] *= scale;
+                        face.pts.y[i] *= scale;
+                    }
+                }
+
+                refine(face, height, width, true);
+
+                if (do_attributing)
+                {
+
+                    if (face.rect.h * face.rect.w <= 0)
+                        throw exposing::abi_invalid_argument("face.rect.h * face.rect.w <= 0");
+
+                    cv::Rect rect(face.rect.x, face.rect.y, face.rect.w, face.rect.h);
+                    cv::Mat faceROI_in_frame;
+                    safty_cut(cache_temp, faceROI_in_frame, rect);
+                    face.headpose[0] = face.headpose[1] = face.headpose[2] = std::numeric_limits<float>::min();
+                    face.clarity = std::numeric_limits<float>::min();
+                    face.is_alive = false;
+                    face.has_mask = std::numeric_limits<float>::min();
+
+                    float score = face.score;
+                    tracking_landmark(faceROI_in_frame, face, rect.x, rect.y);
+                    face.score = score;
+                    refine(face, height, width, true);
+                }
+
+                excalibur::point<float> center_eye = excalibur::point<float>((face.pts.x[0] + face.pts.x[1]) / 2, (face.pts.y[0] + face.pts.y[1] / 2));
+                excalibur::point<float> center_mouth = excalibur::point<float>((face.pts.x[3] + face.pts.x[4]) / 2, (face.pts.y[3] + face.pts.y[4]) / 2);
+                double distance = std::sqrt((center_eye.x - center_mouth.x) * (center_eye.x - center_mouth.x) + (center_eye.y - center_mouth.y) * (center_eye.y - center_mouth.y));
+
+                if (distance > std::numeric_limits<double>::epsilon())
+                {
+                    temp_vec.push_back(face);
+                }
+            }
+
+            std::sort(temp_vec.begin(), temp_vec.end(), [](const face_info_internal& a, const face_info_internal& b)
+                { return a.rect.h * a.rect.w > b.rect.h * b.rect.w; });
+
+            if (temp_vec.size() > 0)
+            {
+                cache0_ = cache1_;
+                cache1_ = cache_temp.clone();
+            }
+
+            auto faces = exposing::make_param_vector<face_info>();
+            for (auto& i : temp_vec)
+                faces.push_back(exposing::make_as_first<face_info_impl>(i));
+
+            return faces;
+        }
+#else
+        exposing::param_vector<face_info> detect(exposing::param_span<std::uint8_t> bitmap, int channels, int height, int width, int min_size, float threshold, int order, bool do_attributing)
+        {
+            if (bitmap.empty())
+            {
+                throw exposing::abi_invalid_argument("current frame is empty");
+            }
+
+            CHECK_EQ(channels, 3);
+            CHECK_EQ(bitmap.size(), channels * height * width);
+
+            std::shared_ptr<memory::tensor<std::uint8_t>> cache_temp;
+            init_cache(bitmap, channels, height, width, order, cache_temp);
+
+            if (min_size < 16)
+                min_size = 16;
+
+            float scale = min_size / 16.0f;
+            int ws = (int(width / scale) + 31) / 32 * 32;
+            int hs = (int(height / scale) + 31) / 32 * 32;
+
+            std::shared_ptr<memory::tensor<std::uint8_t>> cache_forward;
+            excalibur::resize_cpu(cache_temp, cache_forward, int(height / scale), int(width / scale));
+            excalibur::make_border(cache_forward, cache_forward, 0, hs - int(height / scale), 0, ws - int(width / scale));
+
+            auto blob_data = retina_.forward(cache_forward | memory::tensor_convert_to<float>);
+
+            std::string name_bbox = "face_rpn_bbox_pred_";
+            std::string name_score = "face_rpn_cls_prob_reshape_";
+            std::string name_landmark = "face_rpn_landmark_pred_";
+
+            std::vector<face_info_internal> face_infos;
+            for (size_t i = 0; i < feat_stride_fpn_.size(); i++)
+            {
+                std::string key = "stride" + std::to_string(feat_stride_fpn_[i]);
+                int stride = feat_stride_fpn_[i];
+
+                std::string str = name_score + key;
+                auto score_blob = blob_data[str];
+                auto score_blob_count = score_blob->count();
                 const float *scoreB = score_blob->cpu_data() + score_blob_count / 2;
                 const float *scoreE = scoreB + score_blob_count / 2;
                 std::vector<float> score = std::vector<float>(scoreB, scoreE);
 
-                str = name_bbox + key + bbox_suffix[i];
+                str = name_bbox + key;
                 auto bbox_blob = blob_data[str];
                 auto bbox_blob_count = bbox_blob->count();
                 const float *bboxB = bbox_blob->cpu_data();
                 const float *bboxE = bboxB + bbox_blob_count;
                 std::vector<float> bbox_delta = std::vector<float>(bboxB, bboxE);
 
-                str = name_landmark + key + landmark_suffix[i];
+                str = name_landmark + key;
                 auto landmark_blob = blob_data[str];
                 auto landmark_blob_count = landmark_blob->count();
                 const float *landmarkB = landmark_blob->cpu_data();
@@ -238,10 +392,11 @@ namespace glasssix::longinus
 
                 if (do_attributing)
                 {
-                    excalibur::rectangle<float> rect(face.rect.x, face.rect.y, face.rect.h, face.rect.w);
-                    if (rect.h * rect.w <= 0)
-                        throw exposing::abi_invalid_argument("rect.h * rect.w <= 0");
 
+                    if (face.rect.h * face.rect.w <= 0)
+                        throw exposing::abi_invalid_argument("face.rect.h * face.rect.w <= 0");
+
+                    excalibur::rectangle<float> rect(face.rect.x, face.rect.y, face.rect.h, face.rect.w);
                     std::shared_ptr<memory::tensor<std::uint8_t>> faceROI_in_frame;
                     excalibur::safty_cut_cpu(cache_temp, faceROI_in_frame, &rect);
 
@@ -281,9 +436,72 @@ namespace glasssix::longinus
 
             return faces;
         }
+#endif
 
+#ifdef USE_RKNNAPI
+        face_info single_trace(face_info& face, exposing::param_span<std::uint8_t> bitmap, int channels, int height, int width, int order)
+        {
+            if (bitmap.empty())
+                throw exposing::abi_invalid_argument("current frame is empty");
+
+            if (order != 1)
+                throw exposing::abi_invalid_argument("Not supported order");
+
+            CHECK_EQ(channels, 3);
+            CHECK_EQ(bitmap.size(), channels * height * width);
+
+            if (cache1_.empty())
+                throw exposing::abi_invalid_argument("previous frame cache is empty");
+
+            cv::Rect2f track_box(face.x(), face.y(), face.width(), face.height());
+            if (track_box.height * track_box.width <= 0)
+                throw exposing::abi_invalid_argument("track_box.h * track_box.w <= 0");
+
+            cv::Mat face_in_prev_frame;
+            safty_cut(cache1_, face_in_prev_frame, track_box);
+
+            cv::Mat cache_temp(height, width, CV_8UC3, bitmap.data());
+
+            int min_edge = std::min(track_box.height, track_box.width);
+            float scale = min_edge / 20.0f;
+            if (scale < 1.0)
+                scale = 1.0;
+
+            tracking_corrfilter(cache_temp, face_in_prev_frame, track_box, scale);
+            cv::Mat faceROI_in_frame;
+            safty_cut(cache_temp, faceROI_in_frame, track_box);
+            face_info_internal face_internal;
+            face_internal.headpose[0] = face_internal.headpose[1] = face_internal.headpose[2] = std::numeric_limits<float>::min();
+            face_internal.clarity = std::numeric_limits<float>::min();
+            face_internal.is_alive = false;
+            face_internal.has_mask = std::numeric_limits<float>::min();
+            tracking_landmark(faceROI_in_frame, face_internal, track_box.x, track_box.y);
+            refine(face_internal, height, width, true);
+
+            excalibur::point<float> center_eye = excalibur::point<float>((face_internal.pts.x[0] + face_internal.pts.x[1]) / 2, (face_internal.pts.y[0] + face_internal.pts.y[1] / 2));
+            excalibur::point<float> center_mouth = excalibur::point<float>((face_internal.pts.x[3] + face_internal.pts.x[4]) / 2, (face_internal.pts.y[3] + face_internal.pts.y[4]) / 2);
+            double distance = std::sqrt((center_eye.x - center_mouth.x) * (center_eye.x - center_mouth.x) + (center_eye.y - center_mouth.y) * (center_eye.y - center_mouth.y));
+
+            if (face_internal.score > 0.1f && distance > std::numeric_limits<double>::epsilon())
+            {
+                cache0_ = cache1_;
+                cache1_ = cache_temp.clone();
+            }
+
+            if (distance <= std::numeric_limits<double>::epsilon())
+                face_internal.score = 0.0f;
+
+            return exposing::make_as_first<face_info_impl>(face_internal);
+        }
+#else
         face_info single_trace(face_info &face, exposing::param_span<std::uint8_t> bitmap, int channels, int height, int width, int order)
         {
+            if (bitmap.empty())
+                throw exposing::abi_invalid_argument("current frame is empty");
+
+            CHECK_EQ(channels, 3);
+            CHECK_EQ(bitmap.size(), channels * height * width);
+
             if (cache1_->empty())
                 throw exposing::abi_invalid_argument("previous frame cache is empty");
 
@@ -294,14 +512,9 @@ namespace glasssix::longinus
             std::shared_ptr<memory::tensor<std::uint8_t>> face_in_prev_frame;
             excalibur::safty_cut_cpu(cache1_, face_in_prev_frame, &track_box);
 
-            if (bitmap.empty())
-                throw exposing::abi_invalid_argument("current frame is empty");
-
-            CHECK_EQ(channels, 3);
-            CHECK_EQ(bitmap.size(), channels * height * width);
-
             std::shared_ptr<memory::tensor<std::uint8_t>> cache_temp;
             init_cache(bitmap, channels, height, width, order, cache_temp);
+
             int min_edge = std::min(track_box.h, track_box.w);
             float scale = min_edge / 20.0f;
             if (scale < 1.0)
@@ -310,6 +523,7 @@ namespace glasssix::longinus
             tracking_corrfilter(cache_temp, face_in_prev_frame, track_box, scale);
             std::shared_ptr<memory::tensor<std::uint8_t>> faceROI_in_frame;
             excalibur::safty_cut_cpu(cache_temp, faceROI_in_frame, &track_box);
+
             face_info_internal face_internal;
             face_internal.headpose[0] = face_internal.headpose[1] = face_internal.headpose[2] = std::numeric_limits<float>::min();
             face_internal.clarity = std::numeric_limits<float>::min();
@@ -333,7 +547,110 @@ namespace glasssix::longinus
 
             return exposing::make_as_first<face_info_impl>(face_internal);
         }
+#endif
 
+#ifdef USE_RKNNAPI
+        exposing::param_vector<exposing::param_vector<std::uint8_t>> center_scale_align(exposing::param_span<std::uint8_t> bitmap, std::int32_t channels, std::int32_t height, std::int32_t width,
+            float scale, std::int32_t order)
+        {
+            if (bitmap.empty())
+            {
+                throw exposing::abi_invalid_argument("current frame is empty");
+            }
+            if(order != 1)
+                throw exposing::abi_invalid_argument("Not supported order");
+
+            cv::Mat img(height, width, CV_8UC3, bitmap.data());
+
+            int center_x = width / 2;
+            int center_y = height / 2;
+            int ori_width = width * scale;
+            int ori_height = height * scale;
+
+            int ori_x = center_x - ori_width / 2;
+            int ori_y = center_y - ori_height / 2;
+
+            face_info_internal ori_face;
+            ori_face.rect.x = ori_x;
+            ori_face.rect.y = ori_y;
+            ori_face.rect.h = ori_height;
+            ori_face.rect.w = ori_width;
+
+            refine(ori_face, height, width, true);
+
+            cv::Rect ori_rect(ori_face.rect.x, ori_face.rect.y, ori_face.rect.w, ori_face.rect.h);
+            cv::Mat ori_img;
+            safty_cut(img, ori_img, ori_rect);
+
+            ori_face.headpose[0] = ori_face.headpose[1] = ori_face.headpose[2] = std::numeric_limits<float>::min();
+            ori_face.clarity = std::numeric_limits<float>::min();
+            ori_face.is_alive = false;
+            ori_face.has_mask = std::numeric_limits<float>::min();
+
+            tracking_landmark(ori_img, ori_face, ori_rect.x, ori_rect.y);
+            refine(ori_face, height, width, true);
+
+
+            cv::Mat ROI, rotated_ROI, final_mat, final_mat_gray, resized_color_img;
+            auto res = exposing::make_param_vector<std::uint8_t, 2>();
+
+            cv::Rect MarginRect(ori_face.rect.x - ori_face.rect.w * 0.0f,
+                ori_face.rect.y - ori_face.rect.h * 0.0f,
+                ori_face.rect.w * 1.0f,
+                ori_face.rect.h * 1.0f);
+
+            safty_cut(img, ROI, MarginRect);
+            float min_edge = std::min(MarginRect.width, MarginRect.height);
+            float ROI_scale = 160.f / min_edge;
+            if (ROI_scale < 1.0f)
+                cv::resize(ROI, ROI, cv::Size(ROI.cols * ROI_scale, ROI.rows * ROI_scale));
+            else
+                ROI_scale = 1.0f;
+
+            cv::Point2f ldmk5[5];
+            for (size_t j = 0; j < 5; j++)
+            {
+                ldmk5[j] = cv::Point2f(ori_face.pts.x[j] - MarginRect.x, ori_face.pts.y[j] - MarginRect.y);
+            }
+            cv::Point2f center_eye((ldmk5[0].x + ldmk5[1].x) / 2, (ldmk5[0].y + ldmk5[1].y) / 2);
+            cv::Point2f center_mouth((ldmk5[3].x + ldmk5[4].x) / 2, (ldmk5[3].y + ldmk5[4].y) / 2);
+            double tan = (center_eye.x - center_mouth.x) / (center_eye.y - center_mouth.y);
+            double arctan = atan(tan) * 180 / 3.1415926;
+
+            cv::Point2f center((center_eye.x + center_mouth.x) * ROI_scale / 2, (center_eye.y + center_mouth.y) * ROI_scale / 2);
+            cv::Mat rot_mat = cv::getRotationMatrix2D(center, -1 * arctan, 1.0);
+            cv::warpAffine(ROI, rotated_ROI, rot_mat, ROI.size(), cv::INTER_CUBIC, cv::BORDER_CONSTANT, cv::Scalar::all(0));
+
+            double distance = std::sqrt((center_eye.x - center_mouth.x) * (center_eye.x - center_mouth.x) + (center_eye.y - center_mouth.y) * (center_eye.y - center_mouth.y));
+
+            if (distance < std::numeric_limits<double>::epsilon())
+            {
+                throw exposing::abi_invalid_argument("Illegal distance. Error landmarks.");
+            }
+
+            double cos = (center_mouth.y - center_eye.y) / distance;
+            double sin = (center_mouth.x - center_eye.x) / distance;
+            cv::Point2f new_center_eye(center_eye.x + (float)(sin * distance / 2), (float)(center_eye.y - (1 - cos) * distance / 2));
+            cv::Point2f new_center_mouth(center_mouth.x - (float)(sin * distance / 2), (float)(center_mouth.y + (1 - cos) * distance / 2));
+           cv::Rect2f final_rect((new_center_eye.x - distance * 1.25f) * ROI_scale,
+                (new_center_eye.y - distance * 0.75f) * ROI_scale,
+                distance * 2.5f * ROI_scale, distance * 2.5f * ROI_scale);
+            safty_cut(rotated_ROI, final_mat, final_rect);
+
+            cv::resize(final_mat, resized_color_img, cv::Size(128, 128));
+            std::vector<cv::Mat> img_channel_vec;
+            cv::split(resized_color_img, img_channel_vec);
+
+            auto temp_vec = exposing::make_param_vector<std::uint8_t>();
+            temp_vec.resize(static_cast<size_t>(3 * 128 * 128));
+            for (size_t j = 0; j < 3; j++)
+                temp_vec.copy_from({ img_channel_vec[j].data, 128 * 128 }, j * 128 * 128);
+
+            res.push_back(temp_vec);
+
+            return res;
+        }
+#else
         exposing::param_vector<exposing::param_vector<std::uint8_t>> center_scale_align(exposing::param_span<std::uint8_t> bitmap, std::int32_t channels, std::int32_t height, std::int32_t width,
             float scale, std::int32_t order)
         {
@@ -425,6 +742,7 @@ namespace glasssix::longinus
 
             return res;
         }
+#endif
 
         static std::string version()
         {
@@ -860,7 +1178,73 @@ namespace glasssix::longinus
             return bboxes_nms;
         }
 
-        inline void tracking_corrfilter(const std::shared_ptr<memory::tensor<std::uint8_t>> &frame, const std::shared_ptr<memory::tensor<std::uint8_t>> &face_in_prev_frame, excalibur::rectangle<float> &track_box, float scale)
+#ifdef USE_RKNNAPI
+        inline void tracking_corrfilter(const cv::Mat &frame, const cv::Mat &face_in_prev_frame, cv::Rect2f& track_box, float scale)
+        {
+            track_box.x /= scale;
+            track_box.y /= scale;
+            track_box.height /= scale;
+            track_box.width /= scale;
+            int zeroadd_x = 0;
+            int zeroadd_y = 0;
+            cv::Mat frame_;
+            cv::Mat model_;
+            cv::resize(frame, frame_, cv::Size(frame.cols / scale, frame.rows / scale));
+            cv::resize(face_in_prev_frame, model_, cv::Size(face_in_prev_frame.cols / scale, face_in_prev_frame.rows / scale));
+            cv::Mat gray;
+            cv::cvtColor(frame_, gray, CV_BGR2GRAY);
+            cv::Mat gray_model;
+            cv::cvtColor(model_, gray_model, CV_BGR2GRAY);
+            cv::Rect2f search_window;
+            search_window.width = track_box.width * 3;
+            search_window.height = track_box.height * 3;
+            search_window.x = track_box.x + track_box.width * 0.5 - search_window.width * 0.5;
+            search_window.y = track_box.y + track_box.height * 0.5 - search_window.height * 0.5;
+            search_window &= cv::Rect2f(0, 0, frame_.cols, frame_.rows);
+
+            cv::Mat similarity;
+            cv::Mat match_roi;
+            safty_cut(gray, match_roi, search_window);
+            matchTemplateCpu(match_roi, gray_model, similarity);
+            cv::Point minpoint;
+            //find min-distance point
+            cv::minMaxLoc(similarity, 0, 0, &minpoint, 0);
+            track_box.x = minpoint.x + search_window.x;
+            track_box.y = minpoint.y + search_window.y;
+            track_box.x *= scale;
+            track_box.y *= scale;
+            track_box.height *= scale;
+            track_box.width *= scale;
+        }
+
+        void matchTemplateCpu(const cv::Mat& img, const cv::Mat& templ, cv::Mat& result)
+        {
+            result = cv::Mat(img.rows - templ.rows + 1, img.cols - templ.cols + 1, CV_32FC1);
+            const std::uint8_t* img_data = img.data;
+            const std::uint8_t* templ_data = templ.data;
+            float* result_data = reinterpret_cast<float*>(result.data);
+            for (int y = 0; y < result.rows; y++)
+            {
+                float* presult = result_data + y * result.cols;
+                for (int x = 0; x < result.cols; x++)
+                {
+                    long sum = 0;
+                    for (int yy = 0; yy < templ.rows; yy++)
+                    {
+                        const unsigned char* pimg = img_data + (y + yy) * img.cols;
+                        const unsigned char* ptempl = templ_data + (yy)*templ.cols;
+                        for (int xx = 0; xx < templ.cols; xx++)
+                        {
+                            int diff = pimg[x + xx] - ptempl[xx];
+                            sum += (diff * diff);
+                        }
+                    }
+                    presult[x] = sum;
+                }
+            }
+        }
+#else
+        inline void tracking_corrfilter(const std::shared_ptr<memory::tensor<std::uint8_t>>& frame, const std::shared_ptr<memory::tensor<std::uint8_t>>& face_in_prev_frame, excalibur::rectangle<float>& track_box, float scale)
         {
             track_box.x /= scale;
             track_box.y /= scale;
@@ -925,8 +1309,8 @@ namespace glasssix::longinus
             }
         }
 
-        inline void minMaxIdx_(const float *src, float *_minVal, float *_maxVal,
-                               size_t *_minIdx, size_t *_maxIdx, int len, size_t startIdx)
+        inline void minMaxIdx_(const float* src, float* _minVal, float* _maxVal,
+            size_t* _minIdx, size_t* _maxIdx, int len, size_t startIdx)
         {
             float minVal = std::numeric_limits<float>::infinity(), maxVal = -minVal;
             size_t minIdx = 0, maxIdx = 0;
@@ -952,7 +1336,7 @@ namespace glasssix::longinus
             *_maxVal = maxVal;
         }
 
-        inline void ofs2idx(const std::shared_ptr<memory::tensor<float>> &a, size_t ofs, excalibur::point<int> *loc)
+        inline void ofs2idx(const std::shared_ptr<memory::tensor<float>>& a, size_t ofs, excalibur::point<int>* loc)
         {
             if (ofs > 0)
             {
@@ -967,8 +1351,8 @@ namespace glasssix::longinus
             }
         }
 
-        inline void minMaxLoc(const std::shared_ptr<memory::tensor<float>> &_src, float *minVal, float *maxVal,
-                              excalibur::point<int> *minLoc, excalibur::point<int> *maxLoc)
+        inline void minMaxLoc(const std::shared_ptr<memory::tensor<float>>& _src, float* minVal, float* maxVal,
+            excalibur::point<int>* minLoc, excalibur::point<int>* maxLoc)
         {
             size_t minidx = 0, maxidx = 0;
             size_t startidx = 1;
@@ -986,30 +1370,22 @@ namespace glasssix::longinus
             if (maxLoc)
                 ofs2idx(_src, maxidx, maxLoc);
         }
-
-        void tracking_landmark(std::shared_ptr<memory::tensor<std::uint8_t>> &face, face_info_internal &trackfaceinfo, int offset_x, int offset_y)
-        {
-            int width = face->width();
-            int height = face->height();
-
-            excalibur::resize_cpu(face, face, 80, 80);
+#endif
 
 #ifdef USE_RKNNAPI
-//#if 0
-            auto res = tracker_.forward(face);
+        void tracking_landmark(cv::Mat& face, face_info_internal& trackfaceinfo, int offset_x, int offset_y)
+        {
+            int width = face.cols;
+            int height = face.rows;
+
+            cv::resize(face, face, cv::Size(80, 80));
+            auto res = tracker_.forward(face.data, { 1, 80, 80, 3 }, RKNN_TENSOR_NHWC);
             trackfaceinfo.score = res["Softmax_Softmax_103/out0_2"]->cpu_data()[1];
             const float* glass_data = res["Softmax_Softmax_76/out0_3"]->cpu_data();
             const float* mask_data = res["Softmax_Softmax_79/out0_4"]->cpu_data();
             const float* landmark_data = res["MatMul_MatMul_124/out0_1"]->cpu_data();
             const float* bbox_data = res["MatMul_MatMul_113/out0_0"]->cpu_data();
-#else
-            auto res = tracker_.forward(face | memory::tensor_convert_to<float>);
-            trackfaceinfo.score = res["188"]->cpu_data()[1];
-            const float* glass_data = res["157"]->cpu_data();
-            const float* mask_data = res["161"]->cpu_data();
-            const float* landmark_data = res["215"]->cpu_data();
-            const float *bbox_data = res["output"]->cpu_data();
-#endif
+
             int x1 = bbox_data[0] * width / 10 + offset_x;
             int y1 = bbox_data[1] * height / 10 + offset_y;
             int x2 = bbox_data[2] * width / 10 + width + offset_x;
@@ -1038,6 +1414,49 @@ namespace glasssix::longinus
             trackfaceinfo.headpose[1] = pitch;
             trackfaceinfo.headpose[2] = atan(((trackfaceinfo.pts.y[0] - trackfaceinfo.pts.y[1]) / (trackfaceinfo.pts.x[0] - trackfaceinfo.pts.x[1]) + (trackfaceinfo.pts.y[3] - trackfaceinfo.pts.y[4]) / (trackfaceinfo.pts.x[3] - trackfaceinfo.pts.x[4])) / 2) * 180 / 3.1415926;
         }
+#else
+        void tracking_landmark(std::shared_ptr<memory::tensor<std::uint8_t>>& face, face_info_internal& trackfaceinfo, int offset_x, int offset_y)
+        {
+
+            int width = face->width();
+            int height = face->height();
+            excalibur::resize_cpu(face, face, 80, 80);
+            auto res = tracker_.forward(face | memory::tensor_convert_to<float>);
+            trackfaceinfo.score = res["188"]->cpu_data()[1];
+            const float* glass_data = res["157"]->cpu_data();
+            const float* mask_data = res["161"]->cpu_data();
+            const float* landmark_data = res["215"]->cpu_data();
+            const float *bbox_data = res["output"]->cpu_data();
+
+            int x1 = bbox_data[0] * width / 10 + offset_x;
+            int y1 = bbox_data[1] * height / 10 + offset_y;
+            int x2 = bbox_data[2] * width / 10 + width + offset_x;
+            int y2 = bbox_data[3] * height / 10 + height + offset_y;
+            trackfaceinfo.rect.x = x1;
+            trackfaceinfo.rect.w = x2 - x1 + 1;
+            trackfaceinfo.rect.y = y1;
+            trackfaceinfo.rect.h = y2 - y1 + 1;
+            trackfaceinfo.glass_index = std::max_element(glass_data, glass_data + 3) - glass_data;
+            trackfaceinfo.mask_index = std::max_element(mask_data, mask_data + 2) - mask_data;
+            for (size_t i = 0; i < 2; i++)
+            {
+                trackfaceinfo.pts.x[i] = (landmark_data[4 * i] + landmark_data[4 * i + 2]) * width / 80 + offset_x;
+                trackfaceinfo.pts.y[i] = (landmark_data[4 * i + 1] + landmark_data[4 * i + 3]) * height / 80 + offset_y;
+            }
+
+            for (size_t i = 2; i < 5; i++)
+            {
+                trackfaceinfo.pts.x[i] = landmark_data[2 * (i - 2) + 8] * width / 40 + offset_x;
+                trackfaceinfo.pts.y[i] = landmark_data[2 * (i - 2) + 9] * height / 40 + offset_y;
+            }
+
+            float yaw, pitch, roll;
+            estimate_head_pose(landmark_data, bbox_data, yaw, pitch, roll);
+            trackfaceinfo.headpose[0] = yaw;
+            trackfaceinfo.headpose[1] = pitch;
+            trackfaceinfo.headpose[2] = atan(((trackfaceinfo.pts.y[0] - trackfaceinfo.pts.y[1]) / (trackfaceinfo.pts.x[0] - trackfaceinfo.pts.x[1]) + (trackfaceinfo.pts.y[3] - trackfaceinfo.pts.y[4]) / (trackfaceinfo.pts.x[3] - trackfaceinfo.pts.x[4])) / 2) * 180 / 3.1415926;
+        }
+#endif
 
         inline void estimate_head_pose(const float *ldmk7_data, const float *bbox_data, float &yaw, float &pitch, float &roll)
         {
@@ -1068,6 +1487,42 @@ namespace glasssix::longinus
             pitch = predict[1];
         }
 
+#ifdef USE_RKNNAPI
+        inline void safty_cut(cv::Mat& img, cv::Mat& dst, cv::Rect roi)
+        {
+            int width = roi.width;
+            int height = roi.height;
+            int x = roi.x;
+            int y = roi.y;
+
+            cv::Mat mat(height, width, img.type(), cv::Scalar(0));
+            int _x = x;
+            int _y = y;
+            int _width = width;
+            int _height = height;
+            if (x < 0)
+            {
+                _x = 0;
+                _width = width + x;
+            }
+
+            if (_x + _width > img.cols)
+                _width = img.cols - _x;
+
+            if (y < 0)
+            {
+                _y = 0;
+                _height = height + y;
+            }
+
+            if (_y + _height > img.rows)
+                _height = img.rows - _y;
+
+            img(cv::Rect(_x, _y, _width, _height)).copyTo(mat(cv::Rect(_x - x, _y - y, _width, _height)));
+            dst = mat;
+        }
+#endif
+
     private:
 #ifdef USE_RKNNAPI
 //#if 0
@@ -1091,8 +1546,14 @@ namespace glasssix::longinus
         //each layer's fpn has how many shapes of anchor = number of ratio * number of scales
         std::map<std::string, int> num_anchors_;
 
+#ifdef USE_RKNNAPI
+        //#if 0
+        cv::Mat cache0_;
+        cv::Mat cache1_;
+#else
         std::shared_ptr<memory::tensor<std::uint8_t>> cache0_;
         std::shared_ptr<memory::tensor<std::uint8_t>> cache1_;
+#endif
     };
 
     //######################################################################
