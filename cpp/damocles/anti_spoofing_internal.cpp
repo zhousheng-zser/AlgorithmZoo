@@ -69,7 +69,7 @@ namespace glasssix::damocles
 			std::vector<std::vector<float>> result;
 #ifdef USE_RKNNAPI
 			auto network_result = fasmv2_.forward(crop_faces);
-			if (auto iter = network_result.find("softmax"); iter != network_result.end())
+			if (auto iter = network_result.find("softmax_98_99"); iter != network_result.end())
 #else
 			auto network_result = fasmv2_.forward(crop_faces | memory::tensor_convert_to<float>);
 			if (auto iter = network_result.find("softmax"); iter != network_result.end())
@@ -104,14 +104,19 @@ namespace glasssix::damocles
 			excalibur::safty_cut_cpu(cache_, crop_face, &rect);
 			excalibur::resize_cpu(crop_face, crop_face, 112, 112);
 
+#ifdef USE_RKNNAPI
+			auto network_result = landmark65_.forward(crop_face);
+			auto prob = network_result["Softmax_prob/out0_2"]->cpu_data();
+			auto ptr = network_result["Gemm_Gemm_114/out0_1"]->cpu_data();
+			int count = network_result["Gemm_Gemm_114/out0_1"]->count();
+#else
 			auto network_result = landmark65_.forward(crop_face | memory::tensor_convert_to<float>);
 			auto prob = network_result["prob"]->cpu_data();
-			if (prob[1] < 0.5)
-				return false;
-
-			std::cout << prob[0] << " " << prob[1] << std::endl;
 			auto ptr = network_result["218"]->cpu_data();
 			int count = network_result["218"]->count();
+#endif
+			if (prob[1] < 0.5)
+				return false;
 			std::vector<float> ldmk_info(count, 0.0f);
 			std::copy(ptr, ptr + count, ldmk_info.begin());
 			for (size_t i = 0; i < 130; i++)
@@ -273,11 +278,11 @@ namespace glasssix::damocles
 		int device_;
 #ifdef USE_RKNNAPI
 		rknnwrapper::rknn_wrapper fasmv2_;
+		rknnwrapper::rknn_wrapper landmark65_;
 #else
 		excalibur::pipeline<float> fasmv2_;
-#endif
-
 		excalibur::pipeline<float> landmark65_;
+#endif
 
 		std::shared_ptr<memory::tensor<std::uint8_t>> cache_;
 	};

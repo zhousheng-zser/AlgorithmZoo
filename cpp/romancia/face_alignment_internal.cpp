@@ -289,80 +289,6 @@ namespace glasssix::romancia
 			return result;
 		}
 
-		//bool mask_detect(const exposing::param_vector<longinus::face_info>& faces, exposing::param_span<std::uint8_t> bitmap, int channels, int height, int width, int order = 0)
-		//{
-		//	cv::Mat src;
-		//	if (channels == 3 && order == memory::NHWC)
-		//	{
-		//		cv::Mat img(height, width, CV_8UC3, const_cast<uchar*>(bitmap.data()));
-		//		safty_cut(img, src, cv::Rect(face.x(), face.y(), face.width(), face.height()));
-		//	}
-		//	else
-		//		throw exposing::abi_invalid_argument("Not supported channels or order");
-
-		//	auto landmark = face.pts();
-		//	cv::Point face_start(face.x(), face.y());
-		//	std::vector<cv::Point> vec;
-		//	vec.emplace_back(landmark[2].key() - face_start.x, landmark[2].value() - face_start.y);
-		//	vec.emplace_back(landmark[3].key() - face_start.x, landmark[3].value() - face_start.y);
-		//	vec.emplace_back(landmark[4].key() - face_start.x, landmark[4].value() - face_start.y);
-
-		//	std::sort(vec.begin(), vec.end(), [](const cv::Point& first, const cv::Point& second) {return first.y < second.y; });
-		//	int topy = vec[2].y;
-		//	int bottomy = vec[0].y;
-		//	std::sort(vec.begin(), vec.end(), [](const cv::Point& first, const cv::Point& second) {return first.x < second.x; });
-		//	int rightx = vec[2].x;
-		//	int leftx = vec[0].x;
-
-		//	int w = rightx - leftx;
-		//	int h = topy - bottomy;
-
-		//	w = 1.3 * w;
-		//	int pad = int(0.15 * w);
-		//	leftx = leftx - pad;
-		//	rightx = rightx + pad;
-		//	int max_edge = std::max(w, h);
-		//	int min_edge = std::min(w, h);
-		//	int padding = (max_edge - min_edge) / 2;
-		//	if (h > w)
-		//	{
-		//		leftx = leftx - padding;
-		//		rightx = leftx + max_edge;
-		//	}
-		//	else if (h < w)
-		//	{
-		//		bottomy = bottomy - int(0.5 * padding);
-		//		topy = bottomy + max_edge;
-		//	}
-
-		//	cv::Mat crop;
-
-		//	safty_cut(src, crop, cv::Rect(leftx, bottomy, rightx - leftx + 1, topy - bottomy + 1));
-		//	cv::resize(crop, crop, cv::Size(30, 30));
-
-		//	cv::HOGDescriptor hog(cv::Size(30, 30), cv::Size(30, 30), cv::Size(30, 30), cv::Size(5, 5), 9);
-		//	std::vector<float> descriptors;//HOG����������
-		//	int DescriptorDim = 0;//HOG�����ӵ�ά��
-
-		//	cv::Mat gray;
-		//	cv::cvtColor(crop, gray, CV_BGR2GRAY);
-		//	hog.compute(gray, descriptors);
-
-		//	DescriptorDim = descriptors.size();
-		//	svm_node* node = new svm_node[DescriptorDim + 1];
-		//	node[DescriptorDim].index = -1;
-		//	for (size_t i = 0; i < DescriptorDim; i++)
-		//	{
-		//		node[i].value = descriptors[i];
-		//		node[i].index = i+1;
-		//	}
-
-		//	double value = svm_predict(mask_detector_, node);
-		//	delete[] node;
-
-		//	return (value == 1.0);
-		//}
-
 		exposing::param_vector<double> mask_detect(const exposing::param_vector<longinus::face_info>& faces, exposing::param_span<std::uint8_t> bitmap, int channels, int height, int width, int order)
 		{
 			cv::Mat img;
@@ -431,6 +357,46 @@ namespace glasssix::romancia
 				result.push_back(m1);
 			}
 			
+			return result;
+		}
+
+		exposing::param_vector<std::uint8_t> rotate(float angle, exposing::param_span<std::uint8_t> bitmap, int channels, int height, int width, int order)
+		{
+			cv::Mat src;
+			if (channels == 3 && order == memory::NHWC)
+			{
+				src = cv::Mat(height, width, CV_8UC3, const_cast<uchar*>(bitmap.data()));
+			}
+			else
+				throw exposing::abi_invalid_argument("Not supported channels or order");
+
+			cv::Mat img;
+			auto result = exposing::make_param_vector<std::uint8_t>();
+
+			if (angle == 0.0f)
+			{
+				img = src;
+			}
+			else if (angle == 90.0f)
+			{
+				cv::transpose(src, img);
+				cv::flip(img, img, 1);
+			}
+			else if (angle == 180.0f)
+			{
+				cv::flip(src, img, -1);
+			}
+			else if (angle == 270.0f)
+			{
+				cv::transpose(src, img);
+				cv::flip(img, img, 0);
+			}
+			else
+				throw exposing::abi_invalid_argument("Not supported angle");
+
+			for (size_t i = 0; i < src.channels() * src.cols * src.rows; i++)
+				result.push_back(img.data[i]);
+
 			return result;
 		}
 
@@ -711,6 +677,11 @@ namespace glasssix::romancia
 	exposing::param_vector<double> face_alignment_internal::mask_detect(const exposing::param_vector<longinus::face_info>& faces, exposing::param_span<std::uint8_t> bitmap, int channels, int height, int width, int order) const
 	{
 		return impl_->mask_detect(faces, bitmap, channels, height, width, order);
+	}
+
+	exposing::param_vector<std::uint8_t> face_alignment_internal::rotate(float angle, exposing::param_span<std::uint8_t> bitmap, int channels, int height, int width, int order) const
+	{
+		return impl_->rotate(angle, bitmap, channels, height, width, order);
 	}
 
 	std::string face_alignment_internal::version()

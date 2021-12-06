@@ -43,6 +43,10 @@ namespace glasssix::exposing::impl
 			virtual std::int32_t G6_ABI_CALL insert_at(std::uint64_t index, abi_in_t<T> item) noexcept = 0;
 			virtual std::int32_t G6_ABI_CALL contains(abi_in_t<T> item, abi_out_t<bool> result) noexcept = 0;
 			virtual std::int32_t G6_ABI_CALL clear() noexcept = 0;
+			virtual std::int32_t G6_ABI_CALL resize(std::uint64_t size) noexcept = 0;
+			virtual std::int32_t G6_ABI_CALL reserve(std::uint64_t capacity) noexcept = 0;
+			virtual std::int32_t G6_ABI_CALL copy_from(abi_in_t<param_span<const T>> data, std::uint64_t index) noexcept = 0;
+			virtual std::int32_t G6_ABI_CALL copy_to(std::uint64_t index, abi_in_t<param_span<T>> data) noexcept = 0;
 		};
 	};
 
@@ -95,6 +99,26 @@ namespace glasssix::exposing::impl
 		virtual std::int32_t G6_ABI_CALL clear() noexcept override
 		{
 			return abi_safe_call([&] { this->self().clear(); });
+		}
+
+		virtual std::int32_t G6_ABI_CALL resize(std::uint64_t size) noexcept override
+		{
+			return abi_safe_call([&] { this->self().resize(size); });
+		}
+
+		virtual std::int32_t G6_ABI_CALL reserve(std::uint64_t capacity) noexcept override
+		{
+			return abi_safe_call([&] { this->self().reserve(capacity); });
+		}
+
+		virtual std::int32_t G6_ABI_CALL copy_from(abi_in_t<param_span<const T>> data, std::uint64_t index) noexcept override
+		{
+			return abi_safe_call([&] { this->self().copy_from(create_from_abi<param_span<const T>>(data), index); });
+		}
+
+		virtual std::int32_t G6_ABI_CALL copy_to(std::uint64_t index, abi_in_t<param_span<T>> data) noexcept override
+		{
+			return abi_safe_call([&] { this->self().copy_to(index, create_from_abi<param_span<T>>(data)); });
 		}
 	};
 
@@ -163,6 +187,26 @@ namespace glasssix::exposing::impl
 			void clear() const
 			{
 				check_abi_result(this->self_abi().clear());
+			}
+
+			void resize(std::uint64_t size) const
+			{
+				check_abi_result(this->self_abi().resize(get_abi(size)));
+			}
+
+			void reserve(std::uint64_t capacity) const
+			{
+				check_abi_result(this->self_abi().reserve(get_abi(capacity)));
+			}
+
+			void copy_from(param_span<const T> data, std::uint64_t index) const
+			{
+				check_abi_result(this->self_abi().copy_from(get_abi(data), get_abi(index)));
+			}
+
+			void copy_to(std::uint64_t index, param_span<T> data) const
+			{
+				check_abi_result(this->self_abi().copy_to(get_abi(index), get_abi(data)));
 			}
 		};
 	};
@@ -256,6 +300,37 @@ namespace glasssix::exposing::impl
 		{
 			return make_as_first<object_iterator_impl>(*this);
 		}
+
+		void resize(std::uint64_t size)
+		{
+			buffer_.resize(static_cast<std::size_t>(size));
+		}
+
+		void reserve(std::uint64_t capacity)
+		{
+			buffer_.reserve(static_cast<std::size_t>(capacity));
+		}
+
+		void copy_from(param_span<const T> data, std::uint64_t index)
+		{
+			if (data.size() > buffer_.size() || index > buffer_.size() - data.size())
+			{
+				throw abi_out_of_bounds{};
+			}
+
+			std::copy(data.begin(), data.end(), buffer_.begin() + index);
+		}
+
+		void copy_to(std::uint64_t index, param_span<T> data)
+		{
+			if (data.size() > buffer_.size() || index > buffer_.size() - data.size())
+			{
+				throw abi_out_of_bounds{};
+			}
+
+			std::copy(buffer_.begin() + index, buffer_.begin() + index + data.size(), data.begin());
+		}
+
 	private:
 		/// <summary>
 		/// Implements an object iterator.

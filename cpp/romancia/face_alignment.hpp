@@ -19,7 +19,7 @@ namespace glasssix::exposing::impl
 
 		struct type : abi_unknown_object
 		{
-			virtual std::int32_t G6_ABI_CALL init(/*abi_in_t<param_string> mask_detector_model_path, */abi_in_t<param_string> antispoofing_model_path, std::int32_t device) noexcept = 0;
+			virtual std::int32_t G6_ABI_CALL init(abi_in_t<param_string> antispoofing_model_path, std::int32_t device) noexcept = 0;
 			virtual std::int32_t G6_ABI_CALL align128(abi_in_t<param_span<std::uint8_t>> bitmap, std::int32_t channels, std::int32_t height, std::int32_t width,
 				abi_in_t<exposing::param_vector<longinus::face_info>> faces, std::int32_t order, abi_out_t<param_vector< param_vector<std::uint8_t>>> result) noexcept = 0;
 			virtual std::int32_t G6_ABI_CALL align(abi_in_t<param_span<std::uint8_t>> bitmap, std::int32_t channels, std::int32_t height, std::int32_t width,
@@ -28,10 +28,10 @@ namespace glasssix::exposing::impl
 				std::int32_t order, abi_out_t<param_vector<double>> result) noexcept = 0;
 			virtual std::int32_t G6_ABI_CALL antispoofing(abi_in_t<longinus::face_info> face, abi_in_t<param_span<std::uint8_t>> bitmap, std::int32_t channels, std::int32_t height, std::int32_t width,
 				std::int32_t order, abi_out_t<param_vector<bool>> result) noexcept = 0;
-			//virtual std::int32_t G6_ABI_CALL mask_detect(abi_in_t<longinus::face_info> face, abi_in_t<param_span<std::uint8_t>> bitmap, std::int32_t channels, std::int32_t height, std::int32_t width,
-			//	std::int32_t order, abi_out_t<bool> result) noexcept = 0;
 			virtual std::int32_t G6_ABI_CALL mask_detect(abi_in_t<longinus::face_info> face, abi_in_t<param_span<std::uint8_t>> bitmap, std::int32_t channels, std::int32_t height, std::int32_t width,
 				std::int32_t order, abi_out_t<param_vector<double>> result) noexcept = 0;
+			virtual std::int32_t G6_ABI_CALL rotate(float angle, abi_in_t<param_span<std::uint8_t>> bitmap, std::int32_t channels, std::int32_t height, std::int32_t width,
+				std::int32_t order, abi_out_t<param_vector<std::uint8_t>> result) noexcept = 0;
 			virtual std::int32_t G6_ABI_CALL version(abi_out_t<param_string> result) noexcept = 0;
 		};
 	};
@@ -39,9 +39,9 @@ namespace glasssix::exposing::impl
 	template<typename Derived>
 	struct interface_vtable<Derived, romancia::face_alignment> : interface_vtable_base<Derived, romancia::face_alignment>
 	{
-		virtual std::int32_t G6_ABI_CALL init(/*abi_in_t<param_string> mask_detector_model_path, */abi_in_t<param_string> antispoofing_model_path, std::int32_t device) noexcept override
+		virtual std::int32_t G6_ABI_CALL init(abi_in_t<param_string> antispoofing_model_path, std::int32_t device) noexcept override
 		{
-			return abi_safe_call([&] { this->self().init(/*create_from_abi<param_string>(mask_detector_model_path), */create_from_abi<param_string>(antispoofing_model_path), device); });
+			return abi_safe_call([&] { this->self().init(create_from_abi<param_string>(antispoofing_model_path), device); });
 		}
 
 		virtual std::int32_t G6_ABI_CALL align128(abi_in_t<param_span<std::uint8_t>> bitmap, std::int32_t channels, std::int32_t height, std::int32_t width,
@@ -75,6 +75,12 @@ namespace glasssix::exposing::impl
 			return abi_safe_call([&] { *result = detach_abi(this->self().mask_detect(create_from_abi<param_vector<longinus::face_info>>(faces), create_from_abi<param_span<std::uint8_t>>(bitmap), channels, height, width, order)); });
 		}
 
+		virtual std::int32_t G6_ABI_CALL rotate(float angle, abi_in_t<param_span<std::uint8_t>> bitmap, std::int32_t channels, std::int32_t height, std::int32_t width,
+			std::int32_t order, abi_out_t<param_vector<std::uint8_t>> result) noexcept override
+		{
+			return abi_safe_call([&] { *result = detach_abi(this->self().rotate(angle, create_from_abi<param_span<std::uint8_t>>(bitmap), channels, height, width, order)); });
+		}
+
 		virtual std::int32_t G6_ABI_CALL version(abi_out_t<param_string> result) noexcept override
 		{
 			return abi_safe_call([&] { *result = detach_abi(this->self().version()); });
@@ -86,9 +92,9 @@ namespace glasssix::exposing::impl
 		template<typename Derived>
 		struct type : enable_self_abi_awareness<Derived, romancia::face_alignment>
 		{
-			void init(/*const param_string& mask_detector_model_path, */const exposing::param_string& antispoofing_model_path, std::int32_t device = -1) const
+			void init(const exposing::param_string& antispoofing_model_path, std::int32_t device = -1) const
 			{
-				check_abi_result(this->self_abi().init(/*get_abi(mask_detector_model_path), */get_abi(antispoofing_model_path), get_abi(device)));
+				check_abi_result(this->self_abi().init(get_abi(antispoofing_model_path), get_abi(device)));
 			}
 
 			param_string version() const
@@ -128,6 +134,12 @@ namespace glasssix::exposing::impl
 			{
 				param_vector<double> result{ nullptr };
 				return (check_abi_result(this->self_abi().mask_detect(get_abi(faces), get_abi(bitmap), channels, height, width, order, put_abi(result))), result);
+			}
+
+			param_vector<std::uint8_t> rotate(float angle, param_span<std::uint8_t> bitmap, std::int32_t channels, std::int32_t height, std::int32_t width, std::int32_t order) const
+			{
+				param_vector<std::uint8_t> result{ nullptr };
+				return (check_abi_result(this->self_abi().rotate(angle, get_abi(bitmap), channels, height, width, order, put_abi(result))), result);
 			}
 		};
 	};
