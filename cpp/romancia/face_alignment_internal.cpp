@@ -504,19 +504,11 @@ namespace glasssix::romancia
 				img = src;
 			}
 			else if (angle == 90.0f)
-			{
-				cv::transpose(src, img);
-				cv::flip(img, img, 1);
-			}
+				cv::rotate(src, img, cv::ROTATE_90_COUNTERCLOCKWISE);
 			else if (angle == 180.0f)
-			{
-				cv::flip(src, img, -1);
-			}
+				cv::rotate(src, img, cv::ROTATE_180);
 			else if (angle == 270.0f)
-			{
-				cv::transpose(src, img);
-				cv::flip(img, img, 0);
-			}
+				cv::rotate(src, img, cv::ROTATE_90_CLOCKWISE);
 			else
 				throw exposing::abi_invalid_argument("Not supported angle");
 
