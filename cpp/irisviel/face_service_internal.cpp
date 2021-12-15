@@ -75,7 +75,7 @@ namespace glasssix
 					cache_.begin(),
 					cache_.end(),
 					0ULL,
-					[&](std::uint64_t init, const std::shared_ptr<database_cache>& item) { return item->manager->count(); });
+					[&](std::uint64_t init, const std::shared_ptr<database_cache>& item) { return init + item->manager->count(); });
 			}
 
 			bool contains_key(std::string_view key) const
