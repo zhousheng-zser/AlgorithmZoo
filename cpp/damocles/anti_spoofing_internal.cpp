@@ -11,6 +11,7 @@
 
 #ifdef USE_RKNNAPI
 #include "RKNNWrapper/rknn_wrapper.hpp"
+#include <opencv2/opencv.hpp>
 #endif
 
 #ifdef USE_CUDA
@@ -49,13 +50,33 @@ namespace glasssix::damocles
 				throw exposing::abi_invalid_argument("current frame is empty");
 			}
 
-			init_cache(bitmap, channels, height, width, order);
-
 			auto boxes = calculate_box(faces, width, height, 2.7f);
-			std::shared_ptr<memory::tensor<uint8_t>> crop_faces(new memory::tensor<uint8_t>(std::vector<int>{static_cast<int>(boxes.size()), forward_input_channels, forward_input_height, forward_input_width}, -1, memory::NCHW, nullptr));
-			
-			uint8_t* ptr = crop_faces->mutable_cpu_data();
 
+			std::vector<std::vector<float>> result;
+
+#ifdef USE_RKNNAPI
+			if (order != 1)
+				throw exposing::abi_invalid_argument("Not supported order");
+
+			cv::Mat img(height, width, CV_8UC3, bitmap.data());
+			std::uint8_t temp[boxes.size() * forward_input_bytes];
+			std::uint8_t* ptr = temp;
+			for (size_t i = 0; i < boxes.size(); i++)
+			{
+				cv::Mat crop_face;
+				cv::Rect2f rect(boxes[i].x, boxes[i].y, boxes[i].w, boxes[i].h);
+				safty_cut(img, crop_face, rect);
+				cv::resize(crop_face, crop_face, cv::Size(forward_input_width, forward_input_height));
+				std::copy(crop_face.data, crop_face.data + forward_input_bytes, ptr);
+				ptr += forward_input_bytes;
+			}
+
+			auto network_result = fasmv2_.forward(temp, {boxes.size(), forward_input_height, forward_input_width, forward_input_channels }, RKNN_TENSOR_NHWC);
+			if (auto iter = network_result.find("softmax_98_99"); iter != network_result.end())
+#else
+			init_cache(bitmap, channels, height, width, order);
+			std::shared_ptr<memory::tensor<uint8_t>> crop_faces(new memory::tensor<uint8_t>(std::vector<int>{static_cast<int>(boxes.size()), forward_input_channels, forward_input_height, forward_input_width}, -1, memory::NCHW, nullptr));
+			uint8_t* ptr = crop_faces->mutable_cpu_data();
 			for (size_t i = 0; i < boxes.size(); i++)
 			{
 				std::shared_ptr<memory::tensor<uint8_t>> crop_face;
@@ -65,12 +86,6 @@ namespace glasssix::damocles
 				std::copy(crop_data, crop_data + forward_input_bytes, ptr);
 				ptr += forward_input_bytes;
 			}
-
-			std::vector<std::vector<float>> result;
-#ifdef USE_RKNNAPI
-			auto network_result = fasmv2_.forward(crop_faces);
-			if (auto iter = network_result.find("softmax_98_99"); iter != network_result.end())
-#else
 			auto network_result = fasmv2_.forward(crop_faces | memory::tensor_convert_to<float>);
 			if (auto iter = network_result.find("softmax"); iter != network_result.end())
 #endif
@@ -97,19 +112,25 @@ namespace glasssix::damocles
 				throw exposing::abi_invalid_argument("current frame is empty");
 			}
 
-			init_cache(bitmap, channels, height, width, order);
-
-			std::shared_ptr<memory::tensor<uint8_t>> crop_face;
-			excalibur::rectangle<float> rect(face.x(), face.y(), face.height(), face.width());
-			excalibur::safty_cut_cpu(cache_, crop_face, &rect);
-			excalibur::resize_cpu(crop_face, crop_face, 112, 112);
 
 #ifdef USE_RKNNAPI
-			auto network_result = landmark65_.forward(crop_face);
+			if(order != 1)
+				throw exposing::abi_invalid_argument("Not supported order");
+			cv::Mat img(height, width, CV_8UC3, bitmap.data());
+			cv::Mat crop_face;
+			cv::Rect2f rect(face.x(), face.y(), face.width(), face.height());
+			safty_cut(img, crop_face, rect);
+			cv::resize(crop_face, crop_face, cv::Size(112, 112));
+			auto network_result = landmark65_.forward(crop_face.data, {1, 3, 112, 112}, RKNN_TENSOR_NHWC);
 			auto prob = network_result["Softmax_prob/out0_2"]->cpu_data();
 			auto ptr = network_result["Gemm_Gemm_114/out0_1"]->cpu_data();
 			int count = network_result["Gemm_Gemm_114/out0_1"]->count();
 #else
+			init_cache(bitmap, channels, height, width, order);
+			std::shared_ptr<memory::tensor<uint8_t>> crop_face;
+			excalibur::rectangle<float> rect(face.x(), face.y(), face.height(), face.width());
+			excalibur::safty_cut_cpu(cache_, crop_face, &rect);
+			excalibur::resize_cpu(crop_face, crop_face, 112, 112);
 			auto network_result = landmark65_.forward(crop_face | memory::tensor_convert_to<float>);
 			auto prob = network_result["prob"]->cpu_data();
 			auto ptr = network_result["218"]->cpu_data();
@@ -275,6 +296,41 @@ namespace glasssix::damocles
 			return boxes;
 		}
 
+#ifdef USE_RKNNAPI
+		inline void safty_cut(cv::Mat& img, cv::Mat& dst, cv::Rect roi)
+		{
+			int width = roi.width;
+			int height = roi.height;
+			int x = roi.x;
+			int y = roi.y;
+
+			cv::Mat mat(height, width, img.type(), cv::Scalar(0));
+			int _x = x;
+			int _y = y;
+			int _width = width;
+			int _height = height;
+			if (x < 0)
+			{
+				_x = 0;
+				_width = width + x;
+			}
+
+			if (_x + _width > img.cols)
+				_width = img.cols - _x;
+
+			if (y < 0)
+			{
+				_y = 0;
+				_height = height + y;
+			}
+
+			if (_y + _height > img.rows)
+				_height = img.rows - _y;
+
+			img(cv::Rect(_x, _y, _width, _height)).copyTo(mat(cv::Rect(_x - x, _y - y, _width, _height)));
+			dst = mat;
+		}
+#endif
 		int device_;
 #ifdef USE_RKNNAPI
 		rknnwrapper::rknn_wrapper fasmv2_;
