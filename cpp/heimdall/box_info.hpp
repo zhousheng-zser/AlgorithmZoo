@@ -22,6 +22,9 @@ namespace glasssix::exposing::impl
             virtual std::int32_t G6_ABI_CALL location(abi_out_t<param_vector<float>> result) noexcept = 0;
             virtual std::int32_t G6_ABI_CALL strinfos(abi_out_t<param_vector<param_string>> result) noexcept = 0;
             virtual std::int32_t G6_ABI_CALL angle(abi_out_t<float> result) noexcept = 0;
+            virtual std::int32_t G6_ABI_CALL cut_roi(abi_out_t<param_vector<std::uint8_t>> result) noexcept = 0;
+            virtual std::int32_t G6_ABI_CALL cut_roi_width(abi_out_t<std::int32_t> result) noexcept = 0;
+            virtual std::int32_t G6_ABI_CALL cut_roi_height(abi_out_t<std::int32_t> result) noexcept = 0;
         };
     };
 
@@ -44,6 +47,24 @@ namespace glasssix::exposing::impl
         {
             return abi_safe_call([&]
                                  { *result = detach_abi(this->self().angle()); });
+        }
+
+        virtual std::int32_t G6_ABI_CALL cut_roi(abi_out_t<param_vector<std::uint8_t>> result) noexcept override
+        {
+            return abi_safe_call([&]
+                { *result = detach_abi(this->self().cut_roi()); });
+        }
+
+        virtual std::int32_t G6_ABI_CALL cut_roi_width(abi_out_t<std::int32_t> result) noexcept override
+        {
+            return abi_safe_call([&]
+                { *result = detach_abi(this->self().cut_roi_width()); });
+        }
+
+        virtual std::int32_t G6_ABI_CALL cut_roi_height(abi_out_t<std::int32_t> result) noexcept override
+        {
+            return abi_safe_call([&]
+                { *result = detach_abi(this->self().cut_roi_height()); });
         }
     };
 
@@ -72,6 +93,27 @@ namespace glasssix::exposing::impl
                 float result;
 
                 return (check_abi_result(this->self_abi().angle(put_abi(result))), result);
+            }
+
+            param_vector<std::uint8_t> cut_roi() const
+            {
+                param_vector<std::uint8_t> result;
+
+                return (check_abi_result(this->self_abi().cut_roi(put_abi(result))), result);
+            }
+
+            std::int32_t cut_roi_width() const
+            {
+                std::int32_t result;
+
+                return (check_abi_result(this->self_abi().cut_roi_width(put_abi(result))), result);
+            }
+
+            std::int32_t cut_roi_height() const
+            {
+                std::int32_t result;
+
+                return (check_abi_result(this->self_abi().cut_roi_height(put_abi(result))), result);
             }
         };
     };

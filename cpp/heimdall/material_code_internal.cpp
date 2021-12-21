@@ -4,6 +4,7 @@
 #include <fstream>
 #include <algorithm>
 #include "box_info_impl.hpp"
+#include "cool_cut_roi.hpp"
 #include <Excalibur/pipeline.hpp>
 #include <Primitives/pool_allocator.hpp>
 #include <Primitives/tensor_conversions.hpp>
@@ -51,7 +52,15 @@ namespace glasssix::heimdall
     class material_code_internal::impl
     {
     public:
-        impl(int factory_type, const std::vector<std::string> &det_phai, std::string_view det_racy_path, const std::vector<std::string> &angle_phai, std::string_view angle_racy_path, const std::vector<std::string> &rec_phai, std::string_view rec_racy_path, std::string_view alphabet_path, int device) : factory_type_(factory_type), device_{device}, det_instance_{det_phai, std::string{det_racy_path}, device}, angle_instance_{angle_phai, std::string{angle_racy_path}, device}, rec_instance_{rec_phai, std::string{rec_racy_path}, device}, alphabet_path_{std::string{alphabet_path}}
+        impl(int factory_type, const std::vector<std::string> &det_phai, std::string_view det_racy_path, 
+            const std::vector<std::string> &angle_phai, std::string_view angle_racy_path, 
+            const std::vector<std::string> &rec_phai, std::string_view rec_racy_path,
+            std::string_view alphabet_path, int device) 
+            : factory_type_(factory_type), device_{device}, det_instance_{det_phai, std::string{det_racy_path}, device}, 
+            angle_instance_{angle_phai, std::string{angle_racy_path}, device},
+            rec_instance_{rec_phai, std::string{rec_racy_path}, device}, 
+            alphabet_path_{std::string{alphabet_path}},
+            cut_rois{ 2500 }
         {
             // std::cout << "det_racy_path: " << det_racy_path << std::endl;
             // std::cout << "angle_racy_path: " << angle_racy_path << std::endl;
@@ -437,27 +446,6 @@ namespace glasssix::heimdall
             return std::make_pair(boxes, scores);
         }
 
-        void init_character(std::vector<std::string> &character, bool use_space_char = false)
-        {
-            character.reserve(37);
-            std::ifstream in(alphabet_path_);
-            std::string line;
-            if (in)
-            {
-                while (std::getline(in, line))
-                {
-                    character.push_back(line);
-                }
-                if (use_space_char)
-                {
-                    character.insert(character.end(), " ");
-                }
-                character.insert(character.begin(), "blank");
-                return;
-            }
-            LOG(ERROR) << "no such file";
-        }
-
         std::pair<std::vector<std::string>, std::vector<std::vector<float>>> decode(std::vector<std::vector<int>> &idxs, std::vector<std::vector<float>> &probs, std::vector<std::string> &character, int top_five, bool remove_duplicate = true)
         {
             int K = 1;
@@ -522,20 +510,20 @@ namespace glasssix::heimdall
                     max_val = 0;
                 }
             }
-            // init alphabet
-            std::vector<std::string> character{"blank", "1", "2", "3", "4", "5", "6", "7", "8", "9", "0", "A", "B", "C", "D", "E", "F", "G", "H", "I", "J", "K", "L", "M", "N", "O", "P", "Q", "R", "S", "T", "U", "V", "W", "X", "Y", "Z"};
-            // init_character(character);
+            static std::vector<std::string> heimdall_rec_character{"blank", "1", "2", "3", "4", "5", "6", "7", "8", "9", "0", "A", "B", "C", "D", "E", "F", "G", "H", "I", "J", "K", "L", "M", "N", "O", "P", "Q", "R", "S", "T", "U", "V", "W", "X", "Y", "Z"};
+
             // decode char
-            return decode(idxs, probs, character, top_five);
+            return decode(idxs, probs, heimdall_rec_character, top_five);
         }
 
         std::pair<std::vector<std::string>, std::vector<std::vector<float>>> rec_combine_best(cv::Mat &cut_img, int top_five)
         {
             float ratio = 32.f / cut_img.rows;
-            cv::resize(cut_img, cut_img, cv::Size(0, 0), ratio, ratio, cv::INTER_LINEAR);
+            cv::Mat resized_cut_img;
+            cv::resize(cut_img, resized_cut_img, cv::Size(0, 0), ratio, ratio, cv::INTER_LINEAR);
             // convert from mat to tensor
-            std::shared_ptr<memory::tensor<uint8_t>> input(new memory::tensor<uint8_t>(cut_img.channels(), cut_img.rows, cut_img.cols, -1, memory::NHWC, nullptr));
-            std::copy(cut_img.data, cut_img.data + cut_img.step[0] * cut_img.rows, input->mutable_cpu_data());
+            std::shared_ptr<memory::tensor<uint8_t>> input(new memory::tensor<uint8_t>(resized_cut_img.channels(), resized_cut_img.rows, resized_cut_img.cols, -1, memory::NHWC, nullptr));
+            std::copy(resized_cut_img.data, resized_cut_img.data + resized_cut_img.step[0] * resized_cut_img.rows, input->mutable_cpu_data());
             input->convert_order();
             auto input_tensor = input | memory::tensor_convert_to<float>;
             //// pre process
@@ -735,73 +723,6 @@ namespace glasssix::heimdall
             }
         }
 
-        void calc_abc_from_line_2d(float x0, float y0, float x1, float y1, float x[])
-        {
-            x[0] = y0 - y1;
-            x[1] = x1 - x0;
-            x[2] = x0 * y1 - x1 * y0;
-        }
-
-        cv::Point2f get_line_cross_point(float line1[], float line2[])
-        {
-            float x1[3] = { 0.0f }, x2[3] = { 0.0f };
-            calc_abc_from_line_2d(line1[0], line1[1], line1[2], line1[3], x1);
-            calc_abc_from_line_2d(line2[0], line2[1], line2[2], line2[3], x2);
-            float a0 = x1[0];
-            float b0 = x1[1];
-            float c0 = x1[2];
-            float a1 = x2[0];
-            float b1 = x2[1];
-            float c1 = x2[2];
-            float D = a0 * b1 - a1 * b0;
-            cv::Point2f point;
-            if(D == 0)
-            {
-                point.x = 0.0f;
-                point.y = 0.0f;
-            }
-            else
-            {
-                float x = (b0 * c1 - b1 * c0) / D;
-                float y = (a1 * c0 - a0 * c1) / D;
-                point.x = x;
-                point.y = y;
-            }
-            return point;
-        }
-
-        cv::Mat crop_cool_rect(cv::Mat& img, cv::RotatedRect& rect, cv::Point2f& point, float &angle, float alpha = 0.2)
-        {
-            float center_x = rect.center.x;
-            float center_y = rect.center.y;
-            float point_x = point.x;
-            float point_y = point.y;
-            float h = rect.size.height;
-            float w = rect.size.width;
-            
-            float theta = std::acos((center_x - point_x) / std::sqrt(std::pow(center_x - point_x, 2) + std::pow(center_y - point_y, 2))) * 180 / 3.1415926f;
-            if (center_y <= point_y)
-                angle = 90 - theta;
-            else
-                angle = 90 + theta;
-
-            cv::Size new_size;
-            new_size.width = (int)(std::max(h, w));
-            new_size.height = (int)(std::min(h, w));
-            new_size.width = new_size.width + new_size.height * alpha;
-
-            int max_edge = std::max(img.rows, img.cols);
-
-            cv::Mat rot_mat = cv::getRotationMatrix2D(rect.center, angle, 1.0);
-            cv::Mat warp_mat;
-            cv::warpAffine(img, warp_mat, rot_mat, cv::Size(max_edge, max_edge));
-            //cv::imshow("wrap_mat", warp_mat);
-            //cv::waitKey();
-            cv::Mat img_crop;
-            cv::getRectSubPix(warp_mat, new_size, rect.center, img_crop);
-            return img_crop;
-        }
-
         void run_cool_roll(std::vector<box_info_internal>& results, std::vector<int>& roi, int top_five)
         {
             excalibur::rectangle<int> rect(roi[0], roi[1], roi[2], roi[3]);
@@ -826,152 +747,40 @@ namespace glasssix::heimdall
             std::pair<std::vector<std::vector<cv::Point2f>>, std::vector<float>> result = det_combine_best(resized_img);
             std::vector<std::vector<cv::Point2f>> box_list = result.first;
 
-            cv::Mat temp = resized_mat_img.clone();
-
             float ratio = roi[3] * 1.0f / resized_img->width();
+
             if (box_list.size() > 1)
             {
-                std::vector<cv::RotatedRect> rect(box_list.size());
-                std::vector<std::pair<int, float>> area(rect.size());
-                std::vector<float> edge_center_x(box_list.size(), 0.0f), edge_center_y(box_list.size(), 0.0f);
-                for (size_t i = 0; i < box_list.size(); i++)
-                {
-                    //cv::line(temp, cv::Point2f(box_list[i][0].x, box_list[i][0].y), cv::Point2f(box_list[i][1].x, box_list[i][1].y), cv::Scalar(0, 255, 0));
-                    //cv::line(temp, cv::Point2f(box_list[i][1].x, box_list[i][1].y), cv::Point2f(box_list[i][2].x, box_list[i][2].y), cv::Scalar(0, 255, 0));
-                    //cv::line(temp, cv::Point2f(box_list[i][2].x, box_list[i][2].y), cv::Point2f(box_list[i][3].x, box_list[i][3].y), cv::Scalar(0, 255, 0));
-                    //cv::line(temp, cv::Point2f(box_list[i][3].x, box_list[i][3].y), cv::Point2f(box_list[i][0].x, box_list[i][0].y), cv::Scalar(0, 255, 0));
+                cordinate_roi result_cut = cut_rois.cut_roi_gather(box_list, resized_mat_img);
 
-                    rect[i] = cv::minAreaRect(box_list[i]);
-                    area[i].first = i;
-                    area[i].second = rect[i].size.height * rect[i].size.width;
-                    cv::Point2f box_origin[4];
-                    rect[i].points(box_origin);
-                    if (rect[i].size.height > rect[i].size.width)
-                    {
-                        edge_center_x[i] = (box_origin[0].x + box_origin[1].x) / 2;
-                        edge_center_y[i] = (box_origin[0].y + box_origin[1].y) / 2;
-                    }
-                    else
-                    {
-                        edge_center_x[i] = (box_origin[1].x + box_origin[2].x) / 2;
-                        edge_center_y[i] = (box_origin[1].y + box_origin[2].y) / 2;
-                    }
-                }
-
-                //cv::imshow("temp", temp);
-                //cv::waitKey();
-
-                std::sort(area.begin(), area.end(), [](auto& a, auto& b) { return a.second > b.second; });
-
-                float line1[4] = {rect[area[0].first].center.x, rect[area[0].first].center.y, edge_center_x[area[0].first], edge_center_y[area[0].first]};
-                float line2[4] = {rect[area[1].first].center.x, rect[area[1].first].center.y, edge_center_x[area[1].first], edge_center_y[area[1].first]};
-
-                cv::Point2f cross_pt = get_line_cross_point(line1, line2);
-
-                for (size_t i = 0; i < box_list.size(); i++)
+                for (size_t i = 0; i < result_cut.rois.size(); i++)
                 {
                     float angle = 0.f;
-                    cv::Mat cut_img = crop_cool_rect(resized_mat_img, rect[i], cross_pt, angle);
-                    //cv::imshow("cut_img", cut_img);
-                    //cv::waitKey();
                     // run identify network
-                    std::pair<std::vector<std::string>, std::vector<std::vector<float>>> out = rec_combine_best(cut_img, top_five);
+                    std::pair<std::vector<std::string>, std::vector<std::vector<float>>> out = rec_combine_best(result_cut.rois[i], top_five);
                     box_info_internal box;
-                    auto location = exposing::make_param_vector<float>();
-                    for (int j = 0; j < box_list[i].size(); ++j)
+                    box.location = exposing::make_param_vector<float>();
+                    for (size_t j = 0; j < result_cut.cordinate[i].size(); ++j)
                     {
-                        location.push_back(box_list[i][j].x * ratio);
-                        location.push_back(box_list[i][j].y * ratio);
+                        box.location.push_back(result_cut.cordinate[i][j].x * ratio);
+                        box.location.push_back(result_cut.cordinate[i][j].y * ratio);
                     }
-                    box.location = location;
-                    auto strinfos = exposing::make_param_vector<exposing::param_string>();
-                    for (int j = 0; j < out.first.size(); ++j)
+                    box.strinfos = exposing::make_param_vector<exposing::param_string>();
+                    for (size_t j = 0; j < out.first.size(); ++j)
                     {
-                        strinfos.push_back(exposing::param_string(out.first[j]));
+                        box.strinfos.push_back(exposing::param_string(out.first[j]));
                     }
-                    box.strinfos = strinfos;
                     box.angle = angle;
+
+                    box.cut_roi = exposing::make_param_vector<std::uint8_t>();
+                    box.cut_roi.resize(result_cut.rois[i].step[0] * result_cut.rois[i].rows);
+                    box.cut_roi.copy_from({ result_cut.rois[i].data, static_cast<size_t>(result_cut.rois[i].step[0] * result_cut.rois[i].rows) }, 0);
+
+                    box.cut_roi_width = result_cut.rois[i].cols;
+                    box.cut_roi_height = result_cut.rois[i].rows;
+
                     results.push_back(box);
                 }
-            }
-            else if(box_list.size() == 1)
-            {
-                bool rotate = false;
-                bool inverse = false;
-                cv::RotatedRect rect = cv::minAreaRect(box_list[0]);
-                // crop img
-                cv::Mat cut_img = crop_rect(resized_mat_img, rect);
-                int newH = cut_img.rows;
-                int newW = cut_img.cols;
-                // ignore
-                if (std::max(newH, newW) / (std::min(newH, newW) * 1.0) <= 1.5)
-                {
-                    return;
-                }
-                /////////////////////////////////
-                // cv::imshow("img", cut_img);
-                // cv::waitKey(0);
-                /////////////////////////////////
-                if (newH > newW)
-                {
-                    cut_img = rotateAntiClockWise90(cut_img);
-                    rotate = true;
-                }
-                /////////////////////////////////
-                // cv::imshow("img", cut_img);
-                // cv::waitKey(0);
-                /////////////////////////////////
-                std::vector<float> res_vec = angel_infer(cut_img);
-                // 0: The character direction is inverse  1: The character direction is positive
-                if (res_vec[0] == 0)
-                {
-                    cv::flip(cut_img, cut_img, -1);
-                    inverse = true;
-                }
-                // run identify network
-                std::pair<std::vector<std::string>, std::vector<std::vector<float>>> out = rec_combine_best(cut_img, top_five);
-                box_info_internal box;
-                auto location = exposing::make_param_vector<float>();
-                for (int j = 0; j < box_list[0].size(); ++j)
-                {
-                    location.push_back(box_list[0][j].x * ratio);
-                    location.push_back(box_list[0][j].y * ratio);
-                }
-                box.location = location;
-                auto strinfos = exposing::make_param_vector<exposing::param_string>();
-                for (int j = 0; j < out.first.size(); ++j)
-                {
-                    strinfos.push_back(exposing::param_string(out.first[j]));
-                }
-                box.strinfos = strinfos;
-                // process angle -> [0, 360)
-                float angle;
-                if (!rotate && !inverse)
-                {
-                    angle = std::abs(rect.angle);
-                }
-                else if (rotate && inverse)
-                {
-                    angle = std::abs(rect.angle) + 90;
-                }
-                else if (!rotate && inverse)
-                {
-                    angle = std::abs(rect.angle) + 180;
-                }
-                else if (rotate && !inverse)
-                {
-                    angle = std::abs(rect.angle) + 270;
-                    angle = angle == 360 ? 0 : angle;
-                }
-                box.angle = angle;
-                results.push_back(box);
-
-                // print info
-                // for (int j = 0; j < result.first[i].size(); ++j)
-                // {
-                //     std::cout << "x: " << result.first[i][j].x << "  y: " << result.first[i][j].y << "    ";
-                // }
-                // std::cout << "strinfo: " << out.first << std::endl;
             }
         }
 
@@ -982,6 +791,8 @@ namespace glasssix::heimdall
         excalibur::pipeline<float> angle_instance_;
         excalibur::pipeline<float> rec_instance_;
         std::string alphabet_path_;
+
+        cut_reg_roi cut_rois;
         std::shared_ptr<memory::tensor<std::uint8_t>> cache_;
     };
 

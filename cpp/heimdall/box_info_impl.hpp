@@ -19,6 +19,10 @@ namespace glasssix::heimdall
 		exposing::param_vector<exposing::param_string> strinfos() const;
         float angle() const;
 
+        exposing::param_vector<std::uint8_t> cut_roi() const;
+        std::int32_t cut_roi_width() const;
+        std::int32_t cut_roi_height() const;
+
     private:
         box_info_internal internal_;
     };
