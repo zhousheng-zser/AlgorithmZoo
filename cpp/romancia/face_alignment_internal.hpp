@@ -25,7 +25,7 @@ namespace glasssix::romancia
 		/// Creates an instance with a specified GPU core or the default CPU.
 		/// </summary>
 		/// <param name="device">The device ID; -1 for CPU or a non-negative number for a GPU core</param>
-		face_alignment_internal(/*const exposing::param_string& mask_detector_model_path, */const exposing::param_string& antispoofing_model_path, int device);
+		face_alignment_internal(const exposing::param_string& blur_racy_path, int device);
 
 		/// <summary>
 		/// The copy constructor must be disabled in PImpl pattern.
@@ -53,10 +53,7 @@ namespace glasssix::romancia
 		exposing::param_vector<exposing::param_vector<std::uint8_t>> align128(exposing::param_span<std::uint8_t> bitmap, std::int32_t channels, std::int32_t height, std::int32_t width, const exposing::param_vector<longinus::face_info>& faces, std::int32_t order = 1) const;
 		exposing::param_vector<exposing::param_vector<std::uint8_t>> align(exposing::param_span<std::uint8_t> bitmap, std::int32_t channels, std::int32_t height, std::int32_t width, const exposing::param_vector<longinus::face_info>& faces, std::int32_t order = 1) const;
 		
-		exposing::param_vector<double> blur_detect(const exposing::param_vector<longinus::face_info>& faces, exposing::param_span<std::uint8_t> bitmap, std::int32_t channels, std::int32_t height, std::int32_t width, std::int32_t order = 1) const;
-
-
-		exposing::param_vector<bool> antispoofing(const exposing::param_vector<longinus::face_info>& faces, exposing::param_span<std::uint8_t> bitmap, int channels, int height, int width, int order = 1) const;
+		exposing::param_vector<float> blur_detect(const exposing::param_vector<longinus::face_info>& faces, exposing::param_span<std::uint8_t> bitmap, std::int32_t channels, std::int32_t height, std::int32_t width, std::int32_t order = 1) const;
 
 		exposing::param_vector<double> mask_detect(const exposing::param_vector<longinus::face_info>& faces, exposing::param_span<std::uint8_t> bitmap, int channels, int height, int width, int order = 1) const;
 		

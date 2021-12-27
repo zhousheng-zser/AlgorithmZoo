@@ -1,7 +1,7 @@
 cmake_minimum_required(VERSION 3.14.3)
 set(module_name romancia)
 file(GLOB src ${CMAKE_CURRENT_SOURCE_DIR}/../../cpp/romancia/*.cpp)
-file(GLOB header ${CMAKE_CURRENT_SOURCE_DIR}/../../cpp/romancia/*.hpp)
+file(GLOB header ${CMAKE_CURRENT_SOURCE_DIR}/../../cpp/romancia/*.hpp ${CMAKE_CURRENT_SOURCE_DIR}/../../cpp/romancia/*.h)
 add_library(${module_name} SHARED ${src} ${header})
 
 if(NOT (CMAKE_CXX_COMPILER_ID STREQUAL "MSVC"))
@@ -13,7 +13,8 @@ if(CMAKE_CXX_COMPILER_ID STREQUAL "MSVC")
 endif()
 
 target_include_directories(${module_name} PRIVATE ${COMMON_INCLUDE_DIRS})
-target_link_libraries(${module_name} PRIVATE ${COMMON_LIBRARIES})
+target_link_libraries(${module_name} PRIVATE ${COMMON_LIBRARIES} hardcode)
+add_dependencies(${module_name} hardcode)
 
 target_include_directories(${module_name} PRIVATE ${OpenCV_INCLUDE_DIRS})
 if(NOT OPENCV_FOUND)

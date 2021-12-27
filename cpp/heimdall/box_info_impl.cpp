@@ -28,4 +28,19 @@ namespace glasssix::heimdall
 	{
 		return internal_.angle;
 	}
+
+	exposing::param_vector<std::uint8_t> box_info_impl::cut_roi() const
+	{
+		return internal_.cut_roi;
+	}
+
+	std::int32_t box_info_impl::cut_roi_width() const
+	{
+		return internal_.cut_roi_width;
+	}
+
+	std::int32_t box_info_impl::cut_roi_height() const
+	{
+		return internal_.cut_roi_height;
+	}
 }

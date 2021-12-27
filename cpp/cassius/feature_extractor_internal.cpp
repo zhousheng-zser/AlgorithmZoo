@@ -51,7 +51,7 @@ namespace glasssix::cassius
             std::vector<std::vector<float>> result;
 #ifdef USE_RKNNAPI
             auto network_result = unicorn_.forward(bitmaps.data(), { count, 3, 128, 128 }, static_cast<rknn_tensor_format>(order));
-            if (auto iter = network_result.find("conv5_dw_72_73"); iter != network_result.end())
+            if (auto iter = network_result.find("conv5_dw_83_84"); iter != network_result.end())
 #else
             init_cache(bitmaps, count, order);
             auto network_result = unicorn_.forward(cache_ | memory::tensor_convert_to<float>);
