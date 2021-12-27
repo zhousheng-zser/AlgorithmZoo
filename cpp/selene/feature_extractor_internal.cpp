@@ -11,6 +11,11 @@
 #include <cuda_runtime_api.h>
 #endif
 
+#ifdef USE_RKNNAPI
+//#if 0
+#include "../../common/include/RKNNWrapper/rknn_wrapper.hpp"
+#endif
+
 namespace glasssix::selene
 {
 	namespace
@@ -40,22 +45,24 @@ namespace glasssix::selene
 				return {};
 			}
 
-			init_cache(bitmaps, count, order);
-
 			std::vector<std::vector<float>> result;
-			std::unordered_map<std::string, std::shared_ptr<memory::tensor<float>>> network_result;
-			network_result = unicorn_light_.forward(cache_ | memory::tensor_convert_to<float>);
-
+#ifdef USE_RKNNAPI
+			auto network_result = unicorn_light_.forward(bitmaps.data(), { count, 3, 128, 128 }, static_cast<rknn_tensor_format>(order));
+			if (auto iter = network_result.find("conv5_dw_83_84"); iter != network_result.end())
+#else
+			init_cache(bitmaps, count, order);
+			auto network_result = unicorn_light_.forward(cache_ | memory::tensor_convert_to<float>);
 			if (auto iter = network_result.find("conv5_dw"); iter != network_result.end())
+#endif
 			{
-				auto iter_conv5_dw = iter->second->cpu_data();
+				auto iter_conv5 = iter->second->cpu_data();
 
 				for (std::size_t i = 0; i < count; i++)
 				{
 					std::vector<float> feature(feature_size);
 
-					std::copy(iter_conv5_dw, iter_conv5_dw + feature_size, feature.data());
-					iter_conv5_dw += feature_size;
+					std::copy(iter_conv5, iter_conv5 + feature_size, feature.data());
+					iter_conv5 += feature_size;
 					result.emplace_back(feature);
 				}
 			}
@@ -95,7 +102,12 @@ namespace glasssix::selene
 
 		int model_type_;
 		int device_;
-		excalibur::pipeline<float> unicorn_light_;
+#ifdef USE_RKNNAPI
+		//#if 0
+		rknnwrapper::rknn_wrapper unicorn_light_;
+#else
+		glasssix::excalibur::pipeline<float> unicorn_light_;
+#endif
 		std::shared_ptr<memory::tensor<std::uint8_t>> cache_;
 	};
 

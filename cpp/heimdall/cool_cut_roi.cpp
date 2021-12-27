@@ -11,9 +11,10 @@ namespace glasssix
 				throw 1;
 
 			std::vector<std::vector<cv::Point2f>> new_bbox = get_coordinate_order(pre_rois, img, threshold_);
-			std::vector<cv::Mat> rois = handel_img(img, new_bbox);
+			std::pair<std::vector<cv::Mat>, std::vector<float>> rois = handel_img(img, new_bbox);
 			result.cordinate = new_bbox;
-			result.rois = rois;
+			result.rois = rois.first;
+			result.max_R = rois.second;
 			return result;
 		}
 		bool  cut_reg_roi::triangleCircle(const cv::Point2f& p1, const cv::Point2f& p2, const cv::Point2f& p3, cv::Point2f& center, double& radius) {
@@ -122,77 +123,74 @@ namespace glasssix
 					medium_cordi[i][1] = (cordi[i][2] + cordi[i][3])/2;*/
 				}
 			}
-			std::vector<cv::Point2i> remove_new_bbox;
 			float judge_close, judge_remote;
 			bool is_continue = true;
 			for (size_t k = 0; k < medium_cordi.size(); k++)
 			{
-				for (size_t l = 0; l < medium_cordi.size(); l++)
+				for (size_t l = k + 1; l < medium_cordi.size(); l++)
 				{
-					if (l != k)
+					for (size_t for_one = 0; for_one < 2; for_one++)
 					{
-						for (size_t for_one = 0; for_one < 2; for_one++)
+						for (size_t for_second = 0; for_second < 2; for_second++)
 						{
-							for (size_t for_second = 0; for_second < 2; for_second++)
+							/*int max_number = std::max(k, l);
+							int min_number = std::min(k, l);*/
+							cv::Point2f difference_matrix = medium_cordi[k][for_one] - medium_cordi[l][for_second];
+							float Euclidean_distance = difference_matrix.dot(difference_matrix);
+							if (Euclidean_distance <= threshold)
 							{
-								int max_number = std::max(k, l);
-								int min_number = std::min(k, l);
-								cv::Point2f difference_matrix = medium_cordi[k][for_one] - medium_cordi[l][for_second];
-								float Euclidean_distance = difference_matrix.dot(difference_matrix);
-								if (Euclidean_distance <= threshold)
-								{
-									//判断又没重复找框
-									if (!remove_new_bbox.empty()) {
-										for (size_t number = 0; number < remove_new_bbox.size(); number++)
-										{
-											if (remove_new_bbox[number] == cv::Point2i{ max_number, min_number })
-											{
-												is_continue = false;
-												continue;
-											}
-										}
-									}
-									if (is_continue)
+								//判断又没重复找框
+								/*if (!remove_new_bbox.empty()) {
+									for (size_t number = 0; number < remove_new_bbox.size(); number++)
 									{
-										cv::Point2f medium_1 = new_cordi[k][select_cordi1[for_one]] - new_cordi[l][select_cordi2[for_second]];
-										cv::Point2f medium_2 = new_cordi[l][select_cordi2[for_second]] - new_cordi[l][select_cordi2[for_second]];
-										float dis_1 = medium_1.dot(medium_1);
-										float dis_2 = medium_2.dot(medium_2);
-										if (dis_1 < dis_2) {
-											out_inner_turn(new_cordi[l]);
+										if (remove_new_bbox[number] == cv::Point2i{ max_number, min_number })
+										{
+											is_continue = false;
+											continue;
 										}
-										cv::Point2f pt1 = new_cordi[k][select_cordi1[1 - for_one]];
-										//cout << cordi[k][select_cordi1[for_one]]<<"mm"<< cordi[l][select_cordi1[for_second]]<<endl;
-										//cv::Point2f pt2 = (new_cordi[k][select_cordi1[for_one]] + new_cordi[l][select_cordi1[for_second]]) / 2;
-										cv::Point2f pt3 = new_cordi[l][select_cordi1[1 - for_second]];
-										cv::Point2f pt4 = new_cordi[k][select_cordi2[1 - for_one]];
-
-										//cv::Point2f pt5 = (new_cordi[k][select_cordi2[for_one]] + new_cordi[l][select_cordi2[for_second]]) / 2;
-										cv::Point2f pt6 = new_cordi[l][select_cordi2[1 - for_second]];
-										cv::Point2f dis_value_close = new_cordi[k][select_cordi1[for_one]] - new_cordi[l][select_cordi1[for_second]];
-										cv::Point2f dis_value_remote = new_cordi[k][select_cordi1[for_one]] - new_cordi[l][select_cordi2[for_second]];
-										judge_close = dis_value_close.dot(dis_value_close);
-										judge_remote = dis_value_remote.dot(dis_value_remote);
-										//找到中间点相邻匹配点
-										if (judge_close > judge_remote) {
-											cv::Point2f pt2 = (new_cordi[k][select_cordi1[for_one]] + new_cordi[l][select_cordi2[for_second]]) / 2;
-											cv::Point2f pt5 = (new_cordi[k][select_cordi2[for_one]] + new_cordi[l][select_cordi1[for_second]]) / 2;
-											remove_new_bbox.push_back(cv::Point2i{ max_number, min_number });
-											reback_cordi.push_back(std::vector<cv::Point2f>{pt1, pt2, pt6, pt4, pt5, pt3});
-										}
-										else {
-											cv::Point2f pt2 = (new_cordi[k][select_cordi1[for_one]] + new_cordi[l][select_cordi1[for_second]]) / 2;
-											cv::Point2f pt5 = (new_cordi[k][select_cordi2[for_one]] + new_cordi[l][select_cordi2[for_second]]) / 2;
-											remove_new_bbox.push_back(cv::Point2i{ max_number, min_number });
-											reback_cordi.push_back(std::vector<cv::Point2f>{pt1, pt2, pt3, pt4, pt5, pt6});
-										}
-
 									}
 								}
+								if (is_continue)
+								{*/
+								cv::Point2f medium_1 = new_cordi[k][select_cordi1[for_one]] - new_cordi[l][select_cordi2[for_second]];
+								cv::Point2f medium_2 = new_cordi[l][select_cordi2[for_second]] - new_cordi[l][select_cordi2[for_second]];
+								float dis_1 = medium_1.dot(medium_1);
+								float dis_2 = medium_2.dot(medium_2);
+								if (dis_1 < dis_2) {
+									out_inner_turn(new_cordi[l]);
+								}
+								cv::Point2f pt1 = new_cordi[k][select_cordi1[1 - for_one]];
+								//cout << cordi[k][select_cordi1[for_one]]<<"mm"<< cordi[l][select_cordi1[for_second]]<<endl;
+								//cv::Point2f pt2 = (new_cordi[k][select_cordi1[for_one]] + new_cordi[l][select_cordi1[for_second]]) / 2;
+								cv::Point2f pt3 = new_cordi[l][select_cordi1[1 - for_second]];
+								cv::Point2f pt4 = new_cordi[k][select_cordi2[1 - for_one]];
+
+								//cv::Point2f pt5 = (new_cordi[k][select_cordi2[for_one]] + new_cordi[l][select_cordi2[for_second]]) / 2;
+								cv::Point2f pt6 = new_cordi[l][select_cordi2[1 - for_second]];
+								cv::Point2f dis_value_close = new_cordi[k][select_cordi1[for_one]] - new_cordi[l][select_cordi1[for_second]];
+								cv::Point2f dis_value_remote = new_cordi[k][select_cordi1[for_one]] - new_cordi[l][select_cordi2[for_second]];
+								judge_close = dis_value_close.dot(dis_value_close);
+								judge_remote = dis_value_remote.dot(dis_value_remote);
+								//找到中间点相邻匹配点
+								if (judge_close > judge_remote)
+								{
+									cv::Point2f pt2 = (new_cordi[k][select_cordi1[for_one]] + new_cordi[l][select_cordi2[for_second]]) / 2;
+									cv::Point2f pt5 = (new_cordi[k][select_cordi2[for_one]] + new_cordi[l][select_cordi1[for_second]]) / 2;
+									//remove_new_bbox.push_back(cv::Point2i{ max_number, min_number });
+									reback_cordi.push_back(std::vector<cv::Point2f>{pt1, pt2, pt6, pt4, pt5, pt3});
+								}
+								else
+								{
+									cv::Point2f pt2 = (new_cordi[k][select_cordi1[for_one]] + new_cordi[l][select_cordi1[for_second]]) / 2;
+									cv::Point2f pt5 = (new_cordi[k][select_cordi2[for_one]] + new_cordi[l][select_cordi2[for_second]]) / 2;
+									//remove_new_bbox.push_back(cv::Point2i{ max_number, min_number });
+									reback_cordi.push_back(std::vector<cv::Point2f>{pt1, pt2, pt3, pt4, pt5, pt6});
+								}
+
 							}
 						}
-
 					}
+
 				}
 			}
 			return reback_cordi;
@@ -271,8 +269,9 @@ namespace glasssix
 
 			return temp_crop_img;
 		};
-		std::vector<cv::Mat> cut_reg_roi::handel_img(cv::Mat& img, std::vector<std::vector<cv::Point2f>>& bbox) {
-			std::vector<cv::Mat> roi_gather;
+		std::pair<std::vector<cv::Mat>, std::vector<float>> cut_reg_roi::handel_img(cv::Mat& img, std::vector<std::vector<cv::Point2f>>& bbox) {
+			std::pair<std::vector<cv::Mat>, std::vector<float>> roi_gather;
+			//std::pair< cv::Mat, float> temp_roi_R;
 			double radi_out, radi_in; //, radi_max, radi_min;
 			float radi_out_f, radi_in_f, theta1, theta2;
 			cv::Point2f center_out, center_in, center, distance, start_point, end_point;
@@ -290,10 +289,11 @@ namespace glasssix
 					array_distance[j] = distance.dot(distance);
 				}
 				auto max_posi = std::distance(array_distance.begin(), std::max_element(array_distance.begin(), array_distance.end()));
-				std::cout << max_posi << std::endl;
 				auto min_posi = std::distance(array_distance.begin(), std::min_element(array_distance.begin(), array_distance.end()));
 				auto max_radi = std::sqrt(array_distance[max_posi]);
 				auto min_radi = std::sqrt(array_distance[min_posi]);
+
+				//td::cout << max_radi << std::endl;
 
 				//cv::circle(img, bbox[i][0], 3, cv::Scalar{ 0, 0, 255 });
 				//cv::circle(img, bbox[i][2], 3, cv::Scalar{ 0, 255, 255 });
@@ -340,7 +340,9 @@ namespace glasssix
 				cv::imshow("img", img);
 				cv::waitKey();*/
 				cv::Mat new_img = cut_roi_region(img, center, start_point_theta.first, end_point_theta.first, start_point_theta.second, end_point_theta.second, max_radi, min_radi);
-				roi_gather.push_back(new_img);
+				//temp_roi_R = std::pair{ new_img, max_radi };
+				roi_gather.first.push_back(new_img);
+				roi_gather.second.push_back(max_radi);
 			}
 			return roi_gather;
 		}

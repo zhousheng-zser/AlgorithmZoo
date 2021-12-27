@@ -1,7 +1,7 @@
 #include "face_alignment_internal.hpp"
 #include "../hardcode/hardcode.hpp"
-//#ifdef USE_RKNNAPI
-#if 0
+#ifdef USE_RKNNAPI
+//#if 0
 #include "../../common/include/RKNNWrapper/rknn_wrapper.hpp"
 #endif
 
@@ -333,8 +333,8 @@ namespace glasssix::romancia
 
 			auto result = exposing::make_param_vector<float>();
 
-//#ifdef USE_RKNNAPI
-#if 0
+#ifdef USE_RKNNAPI
+//#if 0
 			if (order != 1)
 				throw exposing::abi_invalid_argument("Not supported order");
 
@@ -351,8 +351,8 @@ namespace glasssix::romancia
 				ptr += 3 * 128 * 128;
 			}
 
-			auto network_result = fasmv2_.forward(temp, { faces.size(), 3, 128, 128 }, RKNN_TENSOR_NHWC);
-			if (auto iter = network_result.find("output_98_99"); iter != network_result.end())
+			auto network_result = blur_instance_.forward(temp, { faces.size(), 128, 128, 3 }, RKNN_TENSOR_NHWC);
+			if (auto iter = network_result.find("Gemm_Gemm_226/out0_0"); iter != network_result.end())
 #else
 			init_cache(bitmap, channels, height, width, order);
 			std::shared_ptr<memory::tensor<uint8_t>> crop_faces(new memory::tensor<uint8_t>(std::vector<int>{static_cast<int>(faces.size()), 3, 128, 128}, -1, memory::NCHW, nullptr));
@@ -556,8 +556,8 @@ namespace glasssix::romancia
 			dst = mat;
 		}
 
-//#ifdef USE_RKNNAPI
-#if 0
+#ifdef USE_RKNNAPI
+//#if 0
 		rknnwrapper::rknn_wrapper blur_instance_;
 #else
 		glasssix::excalibur::pipeline<float> blur_instance_;

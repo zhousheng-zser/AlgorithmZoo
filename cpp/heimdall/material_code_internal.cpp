@@ -755,6 +755,9 @@ namespace glasssix::heimdall
 
                 for (size_t i = 0; i < result_cut.rois.size(); i++)
                 {
+                    if (result_cut.max_R[i] > 1500)
+                        continue;
+
                     float angle = 0.f;
                     // run identify network
                     std::pair<std::vector<std::string>, std::vector<std::vector<float>>> out = rec_combine_best(result_cut.rois[i], top_five);
