@@ -353,10 +353,16 @@ namespace glasssix::exposing
 	/// <typeparam name="T">The object type</typeparam>
 	/// <param name="object">The object</param>
 	/// <returns>The ABI</returns>
-	template<typename T, typename = std::enable_if_t<std::disjunction_v<impl::is_primitive<T>, std::is_enum<T>>>>
+	template<typename T, std::enable_if_t<impl::is_primitive_v<T>>* = nullptr>
 	auto get_abi(const T& object) noexcept
 	{
-		return impl::abi_t<T>{ object };
+		return impl::abi_t<T>(object);
+	}
+
+	template<typename T, std::enable_if_t<std::is_enum_v<T>>* = nullptr>
+	auto get_abi(const T& object) noexcept
+	{
+		return static_cast<impl::abi_t<T>>(object);
 	}
 
 	/// <summary>

@@ -14,8 +14,9 @@ namespace glasssix::logging
 	struct log_config
 	{
 		log_level level;
-		std::uint64_t limit;
+		std::uint64_t max_size;
 		bool enable_file_output;
+		bool enable_stderr_output;
 		std::string home_directory;
 		std::string application_name;
 		

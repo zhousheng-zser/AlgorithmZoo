@@ -3,6 +3,7 @@
 #include "dllexport.hpp"
 #include "log_level.hpp"
 #include "source_location.hpp"
+#include "char8_t_remediation.hpp"
 
 #include "abi/consumer.hpp"
 #include "abi/g6_attributes.hpp"
@@ -11,8 +12,6 @@
 #include <cstdint>
 #include <exception>
 #include <type_traits>
-
-#define FMT_ARGS(format, ...) glasssix::source_location::current(), FMT_STRING(format), __VA_ARGS__
 
 namespace glasssix::logging
 {
@@ -133,8 +132,17 @@ namespace glasssix::logging
 
 namespace glasssix::details
 {
-	template<typename... Args>
-	inline constexpr bool has_legal_formattable_arguments_v = sizeof...(Args) != 0 && std::conjunction_v<std::negation<std::is_same<std::decay_t<Args>, source_location>>...>;
+	struct string_view_with_source_location
+	{
+		exposing::utf8_string_view str;
+		source_location location;
+
+		template<typename String, typename std::enable_if_t<std::is_convertible_v<String, exposing::utf8_string_view>>* = nullptr>
+		constexpr string_view_with_source_location(String&& str, const source_location& location = source_location::current()) noexcept
+			: str{ std::forward<String>(str) }, location{ location }
+		{
+		}
+	};
 
 	/// <summary>
 	/// Gets the application-wise logger.
@@ -153,6 +161,15 @@ namespace glasssix::details
 	{
 	public:
 		/// <summary>
+		/// Sets the current log config file.
+		/// </summary>
+		/// <param name="level">The log level</param>
+		static void init(exposing::utf8_string_view config_path)
+		{
+			get_logger().init(config_path);
+		}
+
+		/// <summary>
 		/// Sets the current log level.
 		/// </summary>
 		/// <param name="level">The log level</param>
@@ -164,46 +181,91 @@ namespace glasssix::details
 		/// <summary>
 		/// Prints debugging information.
 		/// </summary>
-		/// <param name="message">The message</param>
-		static void d(exposing::utf8_string_view message, const source_location& location = source_location::current())
+		/// <param name="format_or_message">Message or format string</param>
+		/// <param name="...args">The arguments</param>
+		template<typename... Args>
+		static void d(const string_view_with_source_location& format_or_message, Args&&... args)
 		{
-			invoke_impl(location, [&] { get_logger().debug(message, IncludingDebuggingInfo); });
+			if constexpr (sizeof...(Args) == 0)
+			{
+				invoke_impl(format_or_message.location, [&] { get_logger().debug(format_or_message.str, IncludingDebuggingInfo); });
+			}
+			else
+			{
+				invoke_impl(format_or_message.location, [&] { get_logger().debug(exposing::format(format_or_message.str, std::forward<Args>(args)...), IncludingDebuggingInfo); });
+			}
 		}
 
 		/// <summary>
 		/// Prints ordinary information.
 		/// </summary>
-		/// <param name="message">The message</param>
-		static void i(exposing::utf8_string_view message, const source_location& location = source_location::current())
+		/// <param name="format_or_message">Message or format string</param>
+		/// <param name="...args">The arguments</param>
+		template<typename... Args>
+		static void i(const string_view_with_source_location& format_or_message, Args&&... args)
 		{
-			invoke_impl(location, [&] { get_logger().info(message, IncludingDebuggingInfo); });
+			if constexpr (sizeof...(Args) == 0)
+			{
+				invoke_impl(format_or_message.location, [&] { get_logger().info(format_or_message.str, IncludingDebuggingInfo); });
+			}
+			else
+			{
+				invoke_impl(format_or_message.location, [&] { get_logger().info(exposing::format(format_or_message.str, std::forward<Args>(args)...), IncludingDebuggingInfo); });
+			}
 		}
 
 		/// <summary>
 		/// Prints a warning.
 		/// </summary>
-		/// <param name="message">The message</param>
-		static void w(exposing::utf8_string_view message, const source_location& location = source_location::current())
+		/// <param name="format_or_message">Message or format string</param>
+		/// <param name="...args">The arguments</param>
+		template<typename... Args>
+		static void w(const string_view_with_source_location& format_or_message, Args&&... args)
 		{
-			invoke_impl(location, [&] { get_logger().warning(message, IncludingDebuggingInfo); });
+			if constexpr (sizeof...(Args) == 0)
+			{
+				invoke_impl(format_or_message.location, [&] { get_logger().warning(format_or_message.str, IncludingDebuggingInfo); });
+			}
+			else
+			{
+				invoke_impl(format_or_message.location, [&] { get_logger().warning(exposing::format(format_or_message.str, std::forward<Args>(args)...), IncludingDebuggingInfo); });
+			}
 		}
 
 		/// <summary>
 		/// Prints an error.
 		/// </summary>
-		/// <param name="message">The message</param>
-		static void e(exposing::utf8_string_view message, const source_location& location = source_location::current())
+		/// <param name="format_or_message">Message or format string</param>
+		/// <param name="...args">The arguments</param>
+		template<typename... Args>
+		static void e(const string_view_with_source_location& format_or_message, Args&&... args)
 		{
-			invoke_impl(location, [&] { get_logger().error(message, IncludingDebuggingInfo); });
+			if constexpr (sizeof...(Args) == 0)
+			{
+				invoke_impl(format_or_message.location, [&] { get_logger().error(format_or_message.str, IncludingDebuggingInfo); });
+			}
+			else
+			{
+				invoke_impl(format_or_message.location, [&] { get_logger().error(exposing::format(format_or_message.str, std::forward<Args>(args)...), IncludingDebuggingInfo); });
+			}
 		}
 
 		/// <summary>
 		/// Prints a fatal error.
 		/// </summary>
-		/// <param name="message">The message</param>
-		static void f(exposing::utf8_string_view message, const source_location& location = source_location::current())
+		/// <param name="format_or_message">Message or format string</param>
+		/// <param name="...args">The arguments</param>
+		template<typename... Args>
+		static void f(const string_view_with_source_location& format_or_message, Args&&... args)
 		{
-			invoke_impl(location, [&] { get_logger().fatal(message, IncludingDebuggingInfo); });
+			if constexpr (sizeof...(Args) == 0)
+			{
+				invoke_impl(format_or_message.location, [&] { get_logger().fatal(format_or_message.str, IncludingDebuggingInfo); });
+			}
+			else
+			{
+				invoke_impl(format_or_message.location, [&] { get_logger().fatal(exposing::format(format_or_message.str, std::forward<Args>(args)...), IncludingDebuggingInfo); });
+			}
 		}
 	private:
 		template<typename Callable>
@@ -217,90 +279,19 @@ namespace glasssix::details
 			callable();
 		}
 	};
-
-	template<bool IncludingDebuggingInfo>
-	struct logfmt
-	{
-		using log_type = log<IncludingDebuggingInfo>;
-
-		/// <summary>
-		/// Prints debugging information.
-		/// </summary>
-		/// <param name="format">The format string</param>
-		/// <param name="...args">The arguments</param>
-		template<typename FormatString, typename... Args, typename = std::enable_if_t<has_legal_formattable_arguments_v<Args...>>>
-		static void d(const source_location& location, FormatString&& format, Args&&... args)
-		{
-			log_type::d(exposing::format(std::forward<FormatString>(format), std::forward<Args>(args)...), location);
-		}
-
-		/// <summary>
-		/// Prints ordinary information.
-		/// </summary>
-		/// <param name="format">The format string</param>
-		/// <param name="...args">The arguments</param>
-		template<typename FormatString, typename... Args, typename = std::enable_if_t<has_legal_formattable_arguments_v<Args...>>>
-		static void i(const source_location& location, FormatString&& format, Args&&... args)
-		{
-			log_type::i(exposing::format(std::forward<FormatString>(format), std::forward<Args>(args)...), location);
-		}
-
-		/// <summary>
-		/// Prints a warning.
-		/// </summary>
-		/// <param name="format">The format string</param>
-		/// <param name="...args">The arguments</param>
-		template<typename FormatString, typename... Args, typename = std::enable_if_t<has_legal_formattable_arguments_v<Args...>>>
-		static void w(const source_location& location, FormatString&& format, Args&&... args)
-		{
-			log_type::w(exposing::format(std::forward<FormatString>(format), std::forward<Args>(args)...), location);
-		}
-
-		/// <summary>
-		/// Prints an error.
-		/// </summary>
-		/// <param name="format">The format string</param>
-		/// <param name="...args">The arguments</param>
-		template<typename FormatString, typename... Args, typename = std::enable_if_t<has_legal_formattable_arguments_v<Args...>>>
-		static void e(const source_location& location, FormatString&& format, Args&&... args)
-		{
-			log_type::e(exposing::format(std::forward<FormatString>(format), std::forward<Args>(args)...), location);
-		}
-
-		/// <summary>
-		/// Prints a fatal error.
-		/// </summary>
-		/// <param name="format">The format string</param>
-		/// <param name="...args">The arguments</param>
-		template<typename FormatString, typename... Args, typename = std::enable_if_t<has_legal_formattable_arguments_v<Args...>>>
-		static void f(const source_location& location, FormatString&& format, Args&&... args)
-		{
-			log_type::f(exposing::format(std::forward<FormatString>(format), std::forward<Args>(args)...), location);
-		}
-	};
 }
 
 namespace glasssix
 {
 	/// <summary>
-	/// A convenient facility for logging.
+	/// A convenient facility for message or formattable logging.
 	/// </summary>
 	struct log : details::log<false> {};
 
 	/// <summary>
-	/// A convenient facility for logging with debugging information.
+	/// A convenient facility for message or formattable logging with debugging information.
 	/// </summary>
 	struct logd : details::log<true> {};
-
-	/// <summary>
-	/// A convenient facility for formattable logging.
-	/// </summary>
-	struct logfmt : details::logfmt<false> {};
-
-	/// <summary>
-	/// A convenient facility for formattable logging with debugging information.
-	/// </summary>
-	struct logfmtd : details::logfmt<true> {};
 
 	/// <summary>
 	/// Defines an assertion operation.
@@ -314,7 +305,7 @@ namespace glasssix
 		{
 			if (!static_cast<const T&>(*this)(std::forward<Args>(args)...))
 			{
-				log::f(FMT_STRING(u8"Assertion failed: {}"), exposing::name_of_v<T>);
+				log::f(u8"Assertion failed: {}", exposing::name_of_v<T>);
 			}
 		}
 	};
@@ -462,22 +453,22 @@ namespace glasssix
 		inline static constexpr assertion<unequal_to> ne{};
 
 		/// <summary>
-		/// Asserts that a < b.
+		/// Asserts that a &lt; b.
 		/// </summary>
 		inline static constexpr assertion<less_than> lt{};
 
 		/// <summary>
-		/// Asserts that a > b.
+		/// Asserts that a &gt; b.
 		/// </summary>
 		inline static constexpr assertion<greater_than> gt{};
 
 		/// <summary>
-		/// Asserts that a <= b.
+		/// Asserts that a &lt;= b.
 		/// </summary>
 		inline static constexpr assertion<less_than_or_equal_to> le{};
 
 		/// <summary>
-		/// Asserts that a >= b.
+		/// Asserts that a &gt;= b.
 		/// </summary>
 		inline static constexpr assertion<greater_than_or_equal_to> ge{};
 	};
