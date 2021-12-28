@@ -712,6 +712,14 @@ namespace glasssix::heimdall
                     angle = angle == 360 ? 0 : angle;
                 }
                 box.angle = angle;
+
+                box.cut_roi = exposing::make_param_vector<std::uint8_t>();
+                box.cut_roi.resize(cut_img.step[0] * cut_img.rows);
+                box.cut_roi.copy_from({ cut_img.data, static_cast<size_t>(cut_img.step[0] * cut_img.rows) }, 0);
+
+                box.cut_roi_width = cut_img.cols;
+                box.cut_roi_height = cut_img.rows;
+
                 results.push_back(box);
 
                 // print info
