@@ -178,6 +178,7 @@ namespace glasssix
 				}
 				catch (...)
 				{
+					throw;
 				}
 
 				return result;
