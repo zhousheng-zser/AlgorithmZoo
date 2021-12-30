@@ -6,6 +6,8 @@
 #include "brute_force_search_impl.hpp"
 #include "feature_searcher_factory.hpp"
 
+#include "fmt/format.h"
+
 #include <cstddef>
 #include <utility>
 #include <fstream>
@@ -125,10 +127,12 @@ namespace glasssix
 
 			std::vector<database_search_result> search(const float* feature, std::optional<float> min_similarity, std::optional<std::uint32_t> top) const
 			{
-				return search_many({ feature }, min_similarity, top).front();
+				auto result = search_many({ feature }, min_similarity, top);
+
+				return result.empty() ? throw std::runtime_error{ "Searching operation returns empty: maybe an invalid input feature array was rejected." } : result.front();
 			}
 
-			std::vector<std::vector<database_search_result>> search_many(const std::vector<const float*>& features, std::optional<float> min_similarity, std::optional<std::uint32_t> top) const
+			std::vector<std::vector<database_search_result>> search_many(const std::vector<const float*>& features, std::optional<float> min_similarity, std::optional<std::uint32_t> top) const try
 			{
 				int dimension = observer_->dimension();
 				std::vector<std::vector<database_search_result>> result;
@@ -139,49 +143,44 @@ namespace glasssix
 					return result;
 				}
 
-				try
+				if (current_data_.size() < 1 || !searcher_)
 				{
-					if (current_data_.size() < 1 || !searcher_)
-					{
-						return result;
-					}
-
-					auto raw_search_result = searcher_->search_vector(features, min_similarity, top);
-
-					for (auto&& item : raw_search_result)
-					{
-						std::vector<database_search_result> inner;
-
-						for (auto [index, similarity] : item)
-						{
-							if (current_data_.size() == 1)
-							{
-								index = std::min(index, 0U);
-							}
-
-							if (index >= current_data_.size())
-							{
-								continue;
-							}
-
-							// Retrieve the orginal data in the mapping file.
-							auto offset = reinterpret_cast<const std::uint8_t*>(current_data_[index]) - database_record::feature_offset(dimension);
-							auto result = database_record::create(dimension, const_cast<std::uint8_t*>(offset));
-
-							inner.emplace_back(database_search_result{ result, similarity });
-						}
-
-						result.emplace_back(inner);
-					}
-
 					return result;
 				}
-				catch (...)
+
+				auto raw_search_result = searcher_->search_vector(features, min_similarity, top);
+
+				for (auto&& item : raw_search_result)
 				{
-					throw;
+					std::vector<database_search_result> inner;
+
+					for (auto [index, similarity] : item)
+					{
+						if (current_data_.size() == 1)
+						{
+							index = std::min(index, 0U);
+						}
+
+						if (index >= current_data_.size())
+						{
+							continue;
+						}
+
+						// Retrieve the orginal data in the mapping file.
+						auto offset = reinterpret_cast<const std::uint8_t*>(current_data_[index]) - database_record::feature_offset(dimension);
+						auto result = database_record::create(dimension, const_cast<std::uint8_t*>(offset));
+
+						inner.emplace_back(database_search_result{ result, similarity });
+					}
+
+					result.emplace_back(inner);
 				}
 
 				return result;
+			}
+			catch (const std::exception& ex)
+			{
+				throw std::runtime_error{ fmt::format("Searching operation failed: {}", ex.what()) };
 			}
 		private:
 			bool valid_state_;
