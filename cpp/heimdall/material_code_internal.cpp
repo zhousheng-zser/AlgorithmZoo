@@ -33,9 +33,11 @@ namespace glasssix::heimdall
         ANGLE
     };
 
-    std::array<std::tuple<int, std::string, std::string, std::string>, 2> types = {
+    std::array<std::tuple<int, std::string, std::string, std::string>, 4> types = {
         {{0, "hot_rolled_det", "hot_rolled_rec", "hot_material_angle"},
-        {1, "cool_rolled_det", "cool_rolled_rec", "cool_material_angle"}}};
+        {1, "cool_rolled_det", "cool_rolled_rec", "cool_material_angle"},
+        {2, "hot_rolled_det_lite", "hot_rolled_rec_lite", "hot_material_angle"},
+        {3, "cool_rolled_det_lite", "cool_rolled_rec_lite", "cool_material_angle"}}};
     // factory_type 0:hot  1:cool
     std::string get_model_type_str(int factory_type, ModelType type)
     {
@@ -81,9 +83,9 @@ namespace glasssix::heimdall
             init_cache(bitmap, channels, height, width, order, roi);
             std::vector<box_info_internal> results;
             auto result = exposing::make_param_vector<box_info>();
-            if (factory_type_ == 0)
+            if (factory_type_ == 0 || factory_type_ == 2)
                 run_hot_roll(results, roi, top_five);
-            else if (factory_type_ == 1)
+            else if (factory_type_ == 1 || factory_type_ == 3)
                 run_cool_roll(results, roi, top_five);
             else
                 return result;
@@ -754,7 +756,6 @@ namespace glasssix::heimdall
             // ocr detect
             std::pair<std::vector<std::vector<cv::Point2f>>, std::vector<float>> result = det_combine_best(resized_img);
             std::vector<std::vector<cv::Point2f>> box_list = result.first;
-
             float ratio = roi[3] * 1.0f / resized_img->width();
 
             if (box_list.size() > 1)
