@@ -33,11 +33,12 @@ namespace glasssix::heimdall
         ANGLE
     };
 
-    std::array<std::tuple<int, std::string, std::string, std::string>, 4> types = {
+    std::array<std::tuple<int, std::string, std::string, std::string>, 5> types = {
         {{0, "hot_rolled_det", "hot_rolled_rec", "hot_material_angle"},
         {1, "cool_rolled_det", "cool_rolled_rec", "cool_material_angle"},
         {2, "hot_rolled_det_lite", "hot_rolled_rec_lite", "hot_material_angle"},
-        {3, "cool_rolled_det_lite", "cool_rolled_rec_lite", "cool_material_angle"}}};
+        {3, "cool_rolled_det_lite", "cool_rolled_rec_lite", "cool_material_angle"},
+        {4, "hot_rolled_det", "hot_rolled_rec", "hot_material_angle"},}};
     // factory_type 0:hot  1:cool
     std::string get_model_type_str(int factory_type, ModelType type)
     {
@@ -83,7 +84,7 @@ namespace glasssix::heimdall
             init_cache(bitmap, channels, height, width, order, roi);
             std::vector<box_info_internal> results;
             auto result = exposing::make_param_vector<box_info>();
-            if (factory_type_ == 0 || factory_type_ == 2)
+            if (factory_type_ == 0 || factory_type_ == 2 || factory_type_ == 4)
                 run_hot_roll(results, roi, top_five);
             else if (factory_type_ == 1 || factory_type_ == 3)
                 run_cool_roll(results, roi, top_five);
@@ -630,10 +631,6 @@ namespace glasssix::heimdall
                     *(resized_mat_img.data + channels * i + c) = *(in_data + resized_img->offset(0, c) + i);
                 }
             }
-            /////////////////////////////////
-            // cv::imshow("img", resized_mat_img);
-            // cv::waitKey(0);
-            /////////////////////////////////
             // ocr detect
             std::pair<std::vector<std::vector<cv::Point2f>>, std::vector<float>> result = det_combine_best(resized_img);
             std::vector<std::vector<cv::Point2f>> box_list = result.first;
@@ -653,30 +650,22 @@ namespace glasssix::heimdall
                 {
                     continue;
                 }
-                /////////////////////////////////
-                //cv::imshow("img", cut_img);
-                //cv::waitKey(0);
-                /////////////////////////////////
                 if (newH > newW)
                 {
                     cut_img = rotateAntiClockWise90(cut_img);
                     rotate = true;
                 }
-                /////////////////////////////////
-                //cv::imshow("img", cut_img);
-                //cv::waitKey(0);
-                /////////////////////////////////
-                std::vector<float> res_vec = angel_infer(cut_img);
-                // 0: The character direction is inverse  1: The character direction is positive
-                if (res_vec[0] == 0)
+
+                if (factory_type_ != 4)
                 {
-                    cv::flip(cut_img, cut_img, -1);
-                    inverse = true;
+                    std::vector<float> res_vec = angel_infer(cut_img);
+                    // 0: The character direction is inverse  1: The character direction is positive
+                    if (res_vec[0] == 0)
+                    {
+                        cv::flip(cut_img, cut_img, -1);
+                        inverse = true;
+                    }
                 }
-                /////////////////////////////////
-                //cv::imshow("img", cut_img);
-                //cv::waitKey(0);
-                /////////////////////////////////
                 
                 // run identify network
                 std::pair<std::vector<std::string>, std::vector<std::vector<float>>> out = rec_combine_best(cut_img, top_five);
