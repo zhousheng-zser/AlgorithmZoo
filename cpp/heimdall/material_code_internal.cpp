@@ -5,6 +5,8 @@
 #include <algorithm>
 #include "box_info_impl.hpp"
 #include "cool_cut_roi.hpp"
+#include "char_segment.hpp"
+#include "char_classfi.hpp"
 #include <Excalibur/pipeline.hpp>
 #include <Primitives/pool_allocator.hpp>
 #include <Primitives/tensor_conversions.hpp>
@@ -26,48 +28,49 @@
 
 namespace glasssix::heimdall
 {
-    enum class ModelType : int8_t
-    {
-        DETECT,
-        RECOGNITION,
-        ANGLE
-    };
-
-    std::array<std::tuple<int, std::string, std::string, std::string>, 5> types = {
+    std::array<std::tuple<int, std::string, std::string, std::string>, 6> types = {
         {{0, "hot_rolled_det", "hot_rolled_rec", "hot_material_angle"},
-        {1, "cool_rolled_det", "cool_rolled_rec", "cool_material_angle"},
+        {1, "cool_rolled_det", "cool_rolled_rec", ""},
         {2, "hot_rolled_det_lite", "hot_rolled_rec_lite", "hot_material_angle"},
-        {3, "cool_rolled_det_lite", "cool_rolled_rec_lite", "cool_material_angle"},
-        {4, "hot_rolled_det", "hot_rolled_rec", "hot_material_angle"},}};
-    // factory_type 0:hot  1:cool
-    std::string get_model_type_str(int factory_type, ModelType type)
-    {
-        auto factory = std::find_if(types.begin(), types.end(), [factory_type](const std::tuple<int, std::string, std::string, std::string> &t)
-                                    { return std::get<0>(t) == factory_type; });
-        return type == ModelType::DETECT ? std::get<1>(*factory) : type == ModelType::RECOGNITION ? std::get<2>(*factory) : std::get<3>(*factory);
-    }
-
-    std::string get_racy_path(std::string_view model_directory, int factory_type, ModelType type)
-    {
-        return std::string{model_directory} + "/" + get_model_type_str(factory_type, type) + ".racy";
-    }
+        {3, "cool_rolled_det_lite", "cool_rolled_rec_lite", ""},
+        {4, "hot_rolled_det_lite", "hot_rolled_rec_lite", "hot_material_angle"},
+        {5, "cool_rolled_det", "segment_char_simp", "singel_char_classfi_simp"}}};
 
     class material_code_internal::impl
     {
     public:
-        impl(int factory_type, const std::vector<std::string> &det_phai, std::string_view det_racy_path, 
-            const std::vector<std::string> &angle_phai, std::string_view angle_racy_path, 
-            const std::vector<std::string> &rec_phai, std::string_view rec_racy_path,
-            std::string_view alphabet_path, int device) 
-            : factory_type_(factory_type), device_{device}, det_instance_{det_phai, std::string{det_racy_path}, device}, 
-            angle_instance_{angle_phai, std::string{angle_racy_path}, device},
-            rec_instance_{rec_phai, std::string{rec_racy_path}, device}, 
-            alphabet_path_{std::string{alphabet_path}},
-            cut_rois{ 2500 }
+        impl(std::string_view model_directory, int factory_type, int device)
+            : factory_type_(factory_type), device_{device}, cut_rois_{ 2500 }
         {
-            // std::cout << "det_racy_path: " << det_racy_path << std::endl;
-            // std::cout << "angle_racy_path: " << angle_racy_path << std::endl;
-            // std::cout << "rec_racy_path: " << rec_racy_path << std::endl;
+            auto factory = std::find_if(types.begin(), types.end(), [factory_type](const std::tuple<int, std::string, std::string, std::string>& t)
+                { return std::get<0>(t) == factory_type; });
+
+            if (factory == types.end())
+                throw exposing::abi_invalid_argument("Invalid factory_tpye param!");
+
+            switch (factory_type)
+            {
+            case 0:
+            case 2:
+            case 4:
+            case 5:
+                instance_.emplace_back(std::make_unique<excalibur::pipeline<float>>(hardcode::get_model_params(std::get<1>(*factory)), std::string(model_directory) + "/" + std::get<1>(*factory) + ".racy", device));
+                instance_.emplace_back(std::make_unique<excalibur::pipeline<float>>(hardcode::get_model_params(std::get<2>(*factory)), std::string(model_directory) + "/" + std::get<2>(*factory) + ".racy", device));
+                instance_.emplace_back(std::make_unique<excalibur::pipeline<float>>(hardcode::get_model_params(std::get<3>(*factory)), std::string(model_directory) + "/" + std::get<3>(*factory) + ".racy", device));
+                if (factory_type == 5)
+                {
+                    segement_instance_ = std::make_unique<char_segment>();
+                    classfi_instance_ = std::make_unique<char_classfi>();
+                }
+                break;
+            case 1:
+            case 3:
+                instance_.emplace_back(std::make_unique<excalibur::pipeline<float>>(hardcode::get_model_params(std::get<1>(*factory)), std::string(model_directory) + "/" + std::get<1>(*factory) + ".racy", device));
+                instance_.emplace_back(std::make_unique<excalibur::pipeline<float>>(hardcode::get_model_params(std::get<2>(*factory)), std::string(model_directory) + "/" + std::get<2>(*factory) + ".racy", device));
+                break;
+            default:
+                break;
+            }
         }
 
         exposing::param_vector<box_info> detect(exposing::param_span<std::uint8_t> bitmap, int channels, int height, int width, int top_five, int order, int x, int y, int roi_width, int roi_height)
@@ -86,7 +89,7 @@ namespace glasssix::heimdall
             auto result = exposing::make_param_vector<box_info>();
             if (factory_type_ == 0 || factory_type_ == 2 || factory_type_ == 4)
                 run_hot_roll(results, roi, top_five);
-            else if (factory_type_ == 1 || factory_type_ == 3)
+            else if (factory_type_ == 1 || factory_type_ == 3 || factory_type_ == 5)
                 run_cool_roll(results, roi, top_five);
             else
                 return result;
@@ -436,7 +439,7 @@ namespace glasssix::heimdall
             boxes_from_bitmap(out, mask, src_w, src_h, boxes, scores);
         }
 
-        std::pair<std::vector<std::vector<cv::Point2f>>, std::vector<float>> det_combine_best(std::shared_ptr<memory::tensor<uint8_t>> &input)
+        std::pair<std::vector<std::vector<cv::Point2f>>, std::vector<float>> det_combine_best(std::shared_ptr<memory::tensor<uint8_t>> &input, excalibur::pipeline<float>& det_instance_)
         {
             auto input_tensor = input | memory::tensor_convert_to<float>;
             // pre process
@@ -519,7 +522,7 @@ namespace glasssix::heimdall
             return decode(idxs, probs, heimdall_rec_character, top_five);
         }
 
-        std::pair<std::vector<std::string>, std::vector<std::vector<float>>> rec_combine_best(cv::Mat &cut_img, int top_five)
+        std::pair<std::vector<std::string>, std::vector<std::vector<float>>> rec_combine_best(cv::Mat &cut_img, int top_five, excalibur::pipeline<float>& rec_instance_)
         {
             float ratio = 32.f / cut_img.rows;
             cv::Mat resized_cut_img;
@@ -559,7 +562,7 @@ namespace glasssix::heimdall
             return std::vector<float>{(float)idx, prob};
         }
 
-        std::vector<float> angel_infer(cv::Mat &cut_img)
+        std::vector<float> angel_infer(cv::Mat &cut_img, excalibur::pipeline<float>& angle_instance_)
         {
             float ratio = 32.f / cut_img.rows;
             cv::resize(cut_img, cut_img, cv::Size(0, 0), ratio, ratio, cv::INTER_LINEAR);
@@ -632,7 +635,7 @@ namespace glasssix::heimdall
                 }
             }
             // ocr detect
-            std::pair<std::vector<std::vector<cv::Point2f>>, std::vector<float>> result = det_combine_best(resized_img);
+            std::pair<std::vector<std::vector<cv::Point2f>>, std::vector<float>> result = det_combine_best(resized_img, *instance_[0]);
             std::vector<std::vector<cv::Point2f>> box_list = result.first;
 
             float ratio = roi[3] * 1.0f / resized_img->width();
@@ -658,7 +661,7 @@ namespace glasssix::heimdall
 
                 if (factory_type_ != 4)
                 {
-                    std::vector<float> res_vec = angel_infer(cut_img);
+                    std::vector<float> res_vec = angel_infer(cut_img, *instance_[2]);
                     // 0: The character direction is inverse  1: The character direction is positive
                     if (res_vec[0] == 0)
                     {
@@ -668,7 +671,7 @@ namespace glasssix::heimdall
                 }
                 
                 // run identify network
-                std::pair<std::vector<std::string>, std::vector<std::vector<float>>> out = rec_combine_best(cut_img, top_five);
+                std::pair<std::vector<std::string>, std::vector<std::vector<float>>> out = rec_combine_best(cut_img, top_five, *instance_[1]);
                 box_info_internal box;
                 auto location = exposing::make_param_vector<float>();
                 for (int j = 0; j < box_list[i].size(); ++j)
@@ -743,13 +746,13 @@ namespace glasssix::heimdall
             }
 
             // ocr detect
-            std::pair<std::vector<std::vector<cv::Point2f>>, std::vector<float>> result = det_combine_best(resized_img);
+            std::pair<std::vector<std::vector<cv::Point2f>>, std::vector<float>> result = det_combine_best(resized_img, *instance_[0]);
             std::vector<std::vector<cv::Point2f>> box_list = result.first;
             float ratio = roi[3] * 1.0f / resized_img->width();
 
             if (box_list.size() > 1)
             {
-                cordinate_roi result_cut = cut_rois.cut_roi_gather(box_list, resized_mat_img);
+                cordinate_roi result_cut = cut_rois_.cut_roi_gather(box_list, resized_mat_img);
 
                 for (size_t i = 0; i < result_cut.rois.size(); i++)
                 {
@@ -758,7 +761,24 @@ namespace glasssix::heimdall
 
                     float angle = 0.f;
                     // run identify network
-                    std::pair<std::vector<std::string>, std::vector<std::vector<float>>> out = rec_combine_best(result_cut.rois[i], top_five);
+                    std::pair<std::vector<std::string>, std::vector<std::vector<float>>> out;
+                    if (factory_type_ == 5)
+                    {
+                        std::vector<float> segement_result = segement_instance_->detect(result_cut.rois[i], *instance_[1]);
+                        std::string stringinfo;
+                        std::vector<float> probs;
+                        cv::Mat temp = result_cut.rois[i].clone();
+                        for (size_t j = 0; j < segement_result.size() - 1; j++)
+                        {
+                            cv::Mat small_img = result_cut.rois[i](cv::Range::all(), cv::Range((int)segement_result[j], (int)segement_result[j + 1]));
+                            auto [label, prob] = classfi_instance_->detect(small_img, *instance_[2]);
+                            stringinfo.push_back(label);
+                            probs.push_back(prob);
+                        }
+                        out = std::make_pair<std::vector<std::string>, std::vector<std::vector<float>>>({ stringinfo }, { probs });
+                    }
+                    else
+                        out = rec_combine_best(result_cut.rois[i], top_five, *instance_[1]);
                     box_info_internal box;
                     box.location = exposing::make_param_vector<float>();
                     for (size_t j = 0; j < result_cut.cordinate[i].size(); ++j)
@@ -788,24 +808,16 @@ namespace glasssix::heimdall
     private:
         int factory_type_;
         int device_;
-        excalibur::pipeline<float> det_instance_;
-        excalibur::pipeline<float> angle_instance_;
-        excalibur::pipeline<float> rec_instance_;
-        std::string alphabet_path_;
+        std::vector<std::unique_ptr<excalibur::pipeline<float>>> instance_;
+        std::unique_ptr<char_segment> segement_instance_;
+        std::unique_ptr<char_classfi> classfi_instance_;
 
-        cut_reg_roi cut_rois;
+        cut_reg_roi cut_rois_;
         std::shared_ptr<memory::tensor<std::uint8_t>> cache_;
     };
 
     material_code_internal::material_code_internal(std::string_view model_directory, int factory_type, int device)
-        : impl_{ std::make_unique<impl>(factory_type, 
-            hardcode::get_model_params(get_model_type_str(factory_type, ModelType::DETECT)),
-            get_racy_path(model_directory, factory_type, ModelType::DETECT), 
-            hardcode::get_model_params(get_model_type_str(factory_type, ModelType::ANGLE)),
-            get_racy_path(model_directory, factory_type, ModelType::ANGLE),
-            hardcode::get_model_params(get_model_type_str(factory_type, ModelType::RECOGNITION)),
-            get_racy_path(model_directory, factory_type, ModelType::RECOGNITION), 
-            std::string{model_directory} + "/digit_eng_captial_dict.txt", device)}
+        : impl_{ std::make_unique<impl>(model_directory, factory_type, device)}
     {
     }
 
