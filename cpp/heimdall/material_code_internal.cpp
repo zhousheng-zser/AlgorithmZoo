@@ -767,8 +767,20 @@ namespace glasssix::heimdall
                         std::vector<float> segement_result = segement_instance_->detect(result_cut.rois[i], *instance_[1]);
                         std::string stringinfo;
                         std::vector<float> probs;
-                        cv::Mat temp = result_cut.rois[i].clone();
-                        for (size_t j = 0; j < segement_result.size() - 1; j++)
+
+                        float left = 0.f, right = 0.f;
+                        if (segement_result[0] < 0)
+                        {
+                            left = std::ceil(std::abs(segement_result[0]));
+                            segement_result[0] = 0;
+                        }
+
+                        if (segement_result[segement_result.size() - 1] > result_cut.rois[i].cols)
+                            right = std::ceil(segement_result[segement_result.size() - 1] - result_cut.rois[i].cols);
+                        
+                        cv::copyMakeBorder(result_cut.rois[i], result_cut.rois[i], 0, 0, left, right, cv::BorderTypes::BORDER_CONSTANT, cv::Scalar::all(0));
+
+                        for (size_t j = 0; j < segement_result.size () - 1; j++)
                         {
                             cv::Mat small_img = result_cut.rois[i](cv::Range::all(), cv::Range((int)segement_result[j], (int)segement_result[j + 1]));
                             auto [label, prob] = classfi_instance_->detect(small_img, *instance_[2]);
