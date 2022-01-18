@@ -764,7 +764,8 @@ namespace glasssix::heimdall
                     std::pair<std::vector<std::string>, std::vector<std::vector<float>>> out;
                     if (factory_type_ == 5)
                     {
-                        std::vector<float> segement_result = segement_instance_->detect(result_cut.rois[i], *instance_[1]);
+                        cv::Mat roi_temp = result_cut.rois[i].clone();
+                        std::vector<float> segement_result = segement_instance_->detect(roi_temp, *instance_[1]);
                         std::string stringinfo;
                         std::vector<float> probs;
 
@@ -775,14 +776,14 @@ namespace glasssix::heimdall
                             segement_result[0] = 0;
                         }
 
-                        if (segement_result[segement_result.size() - 1] > result_cut.rois[i].cols)
-                            right = std::ceil(segement_result[segement_result.size() - 1] - result_cut.rois[i].cols);
+                        if (segement_result[segement_result.size() - 1] > roi_temp.cols)
+                            right = std::ceil(segement_result[segement_result.size() - 1] - roi_temp.cols);
                         
-                        cv::copyMakeBorder(result_cut.rois[i], result_cut.rois[i], 0, 0, left, right, cv::BorderTypes::BORDER_CONSTANT, cv::Scalar::all(0));
+                        cv::copyMakeBorder(roi_temp, roi_temp, 0, 0, left, right, cv::BorderTypes::BORDER_CONSTANT, cv::Scalar::all(0));
 
                         for (size_t j = 0; j < segement_result.size () - 1; j++)
                         {
-                            cv::Mat small_img = result_cut.rois[i](cv::Range::all(), cv::Range((int)segement_result[j], (int)segement_result[j + 1]));
+                            cv::Mat small_img = roi_temp(cv::Range::all(), cv::Range((int)segement_result[j], (int)segement_result[j + 1]));
                             auto [label, prob] = classfi_instance_->detect(small_img, *instance_[2]);
                             stringinfo.push_back(label);
                             probs.push_back(prob);
@@ -791,6 +792,7 @@ namespace glasssix::heimdall
                     }
                     else
                         out = rec_combine_best(result_cut.rois[i], top_five, *instance_[1]);
+
                     box_info_internal box;
                     box.location = exposing::make_param_vector<float>();
                     for (size_t j = 0; j < result_cut.cordinate[i].size(); ++j)
