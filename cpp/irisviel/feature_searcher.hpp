@@ -1,6 +1,7 @@
 #pragma once
 
 #include "irisviel_types.hpp"
+#include "database_feature_observer.hpp"
 
 #include <vector>
 #include <optional>
@@ -15,7 +16,7 @@ namespace glasssix::irisviel
 		virtual void build_cache() const = 0;
 		virtual void save_cache(std::string_view path) const = 0;
 		virtual void load_cache(std::string_view path) const = 0;
-		virtual void current_data(const std::vector<const float*>& data) noexcept = 0;
+		virtual void current_data(const std::vector<database_feature_observer::feature>& data) noexcept = 0;
 		virtual vector2d<std::tuple<std::uint32_t, float>> search_vector(const std::vector<const float*>& query_data, std::optional<float> min_similarity, std::optional<std::uint32_t> top_k) const = 0;
 	};
 }

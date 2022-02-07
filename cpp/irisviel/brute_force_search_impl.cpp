@@ -26,7 +26,7 @@ namespace glasssix::irisviel
 			return dimension_;
 		}
 
-		void current_data(const std::vector<const float*>& data) noexcept
+		void current_data(const std::vector<database_feature_observer::feature>& data) noexcept
 		{
 			current_data_ = &data;
 		}
@@ -35,7 +35,7 @@ namespace glasssix::irisviel
 		{
 			vector2d<std::tuple<std::uint32_t, float>> result;
 
-			for (const auto& item : query_data)
+			for (auto&& item : query_data)
 			{
 				result.emplace_back(search_single_vector(item, min_similarity, top_k));
 			}
@@ -53,36 +53,39 @@ namespace glasssix::irisviel
 			}
 
 			// Allocates intermediate buffers.
-			std::size_t total_feature_size = dimension_ * current_data_->size();
+			auto total_feature_size = dimension_ * current_data_->size();
 			hide_exp::pmr::vector<float> input_buffer(total_feature_size, float_allocator_);
 			hide_exp::pmr::vector<float> output_buffer(current_data_->size(), float_allocator_);
-			hide_exp::pmr::vector<std::size_t> output_indexes(current_data_->size(), size_t_allocator_);
+			hide_exp::pmr::vector<std::size_t> output_indices(current_data_->size(), size_t_allocator_);
 			auto iter = input_buffer.begin();
 
-			// Filles in the indexes with 0, 1, 2, ...
-			std::iota(output_indexes.begin(), output_indexes.end(), 0);
+			// Filles in the indices with 0, 1, 2, ...
+			std::iota(output_indices.begin(), output_indices.end(), 0);
 
 			// Copies all data into the temporary buffer.
-			for (const auto& item : *current_data_)
+			for (auto&& item : *current_data_)
 			{
-				std::copy(item, item + dimension_, iter);
-				iter += dimension_;
+				iter = std::transform(item.data, item.data + dimension_, iter, [&](float inner) { return inner / item.feature_modulo_length; });
 			}
 
 			// Calculates the scores of all features.
 			excalibur::juliusblas::cblas_sgemv_AnoTrans(static_cast<int>(current_data_->size()), dimension_, 1.f, input_buffer.data(), dimension_, query_data, 1, 0.f, output_buffer.data(), 1);
-			std::sort(output_indexes.begin(), output_indexes.end(), [&](std::size_t left, std::size_t right) { return output_buffer[left] > output_buffer[right]; });
+			std::sort(output_indices.begin(), output_indices.end(), [&](std::size_t left, std::size_t right) { return output_buffer[left] > output_buffer[right]; });
 
 			// Creates a handler to check the similarity condition.
-			auto check_similarity{ min_similarity ? std::function{ [&](float similarity) { return similarity > * min_similarity; } } : [](float similarity) { return true; } };
+			const auto check_similarity{ min_similarity ? std::function{ [&](float similarity) { return similarity > *min_similarity; } } : [](float similarity) { return true; } };
 
 			// Calculates the cosine distances as final similarities.
-			for (std::size_t i = 0, real_size = top_k ? std::min<std::size_t>(current_data_->size(), *top_k) : current_data_->size(); i < real_size; i++)
+			auto real_size = top_k ? std::min<std::size_t>(current_data_->size(), *top_k) : current_data_->size();
+			auto normalized_query_data = distance_cosine::norm(query_data, dimension_);
+
+			result.reserve(real_size);
+
+			for (std::size_t i = 0; i < real_size; i++)
 			{
-				std::size_t index = output_indexes[i];
-				float normalized_query_data = distance_cosine::norm(query_data, dimension_);
-				float normalized_current_data = distance_cosine::norm((*current_data_)[index], dimension_);
-				float similarity = 1.f - distance_cosine::compare((*current_data_)[index], normalized_current_data, query_data, normalized_query_data, dimension_);
+				std::size_t index = output_indices[i];
+				auto normalized_current_data = distance_cosine::norm((*current_data_)[index].data, dimension_);
+				auto similarity = 1.f - distance_cosine::compare((*current_data_)[index].data, normalized_current_data, query_data, normalized_query_data, dimension_);
 
 				if (!check_similarity(similarity))
 				{
@@ -96,10 +99,10 @@ namespace glasssix::irisviel
 		}
 
 		int dimension_;
-		const std::vector<const float*>* current_data_;
 		std::shared_ptr<hide_exp::pmr::memory_resource> pool_;
 		hide_exp::pmr::polymorphic_allocator<float> float_allocator_;
 		hide_exp::pmr::polymorphic_allocator<std::size_t> size_t_allocator_;
+		const std::vector<database_feature_observer::feature>* current_data_;
 	};
 
 	brute_force_search_impl::brute_force_search_impl(int dimension) : impl_{ std::make_unique<impl>(dimension) }
@@ -127,7 +130,7 @@ namespace glasssix::irisviel
 	{
 	}
 
-	void brute_force_search_impl::current_data(const std::vector<const float*>& data) noexcept
+	void brute_force_search_impl::current_data(const std::vector<database_feature_observer::feature>& data) noexcept
 	{
 		impl_->current_data(data);
 	}

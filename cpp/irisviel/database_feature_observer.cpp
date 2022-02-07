@@ -9,7 +9,7 @@ namespace glasssix
 			return dimension_;
 		}
 
-		std::vector<const float*> database_feature_observer::operator()() const
+		std::vector<database_feature_observer::feature> database_feature_observer::operator()() const
 		{
 			return retriever_();
 		}
