@@ -11,16 +11,22 @@ namespace glasssix
 		class database_feature_observer
 		{
 		public:
+			struct feature
+			{
+				const float* data;
+				float feature_modulo_length;
+			};
+
 			template<typename Retriever>
 			database_feature_observer(Retriever&& retriever, int dimension) : dimension_{ dimension }, retriever_{ std::forward<Retriever>(retriever) }
 			{
 			}
 
 			int dimension() const noexcept;
-			std::vector<const float*> operator()() const;
+			std::vector<feature> operator()() const;
 		private:
 			int dimension_;
-			std::function<std::vector<const float*>()> retriever_;
+			std::function<std::vector<database_feature_observer::feature>()> retriever_;
 		};
 	}
 }

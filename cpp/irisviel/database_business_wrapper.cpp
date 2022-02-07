@@ -67,11 +67,11 @@ namespace glasssix
 
 						return valid_state_;
 					}
-					catch (nsg_calculate_error&)
+					catch (const nsg_calculate_error&)
 					{
 						return false;
 					}
-					catch (std::bad_alloc&)
+					catch (const std::bad_alloc&)
 					{
 						return false;
 					}
@@ -129,12 +129,12 @@ namespace glasssix
 			{
 				auto result = search_many({ feature }, min_similarity, top);
 
-				return result.empty() ? throw std::runtime_error{ "Searching operation returns empty: maybe an invalid input feature array was rejected." } : result.front();
+				return result.empty() ? std::vector<database_search_result>{} : result.front();
 			}
 
 			std::vector<std::vector<database_search_result>> search_many(const std::vector<const float*>& features, std::optional<float> min_similarity, std::optional<std::uint32_t> top) const try
 			{
-				int dimension = observer_->dimension();
+				auto dimension = observer_->dimension();
 				std::vector<std::vector<database_search_result>> result;
 
 				// We only search the result when the current state is valid.
@@ -154,7 +154,7 @@ namespace glasssix
 				{
 					std::vector<database_search_result> inner;
 
-					for (auto [index, similarity] : item)
+					for (auto&& [index, similarity] : item)
 					{
 						if (current_data_.size() == 1)
 						{
@@ -167,7 +167,7 @@ namespace glasssix
 						}
 
 						// Retrieve the orginal data in the mapping file.
-						auto offset = reinterpret_cast<const std::uint8_t*>(current_data_[index]) - database_record::feature_offset(dimension);
+						auto offset = reinterpret_cast<const std::uint8_t*>(current_data_[index].data) - database_record::feature_offset(dimension);
 						auto result = database_record::create(dimension, const_cast<std::uint8_t*>(offset));
 
 						inner.emplace_back(database_search_result{ result, similarity });
@@ -188,10 +188,10 @@ namespace glasssix
 			fs::path map_file_path_;
 			fs::path cache_file_path_;
 			fs::path cache_directory_;
-			std::vector<const float*> current_data_;
 			face_service_implemention implementation_;
 			std::shared_ptr<feature_searcher> searcher_;
 			std::shared_ptr<database_feature_observer> observer_;
+			std::vector<database_feature_observer::feature> current_data_;
 		};
 
 		database_business_wrapper::database_business_wrapper(face_service_implemention implementation, const std::shared_ptr<database_feature_observer>& observer, std::string_view map_file_path, std::string_view cache_directory) : impl_{ std::make_unique<impl>(implementation, observer, utils::path_from_string_view(map_file_path), utils::path_from_string_view(cache_directory)) }

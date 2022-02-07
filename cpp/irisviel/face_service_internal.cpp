@@ -215,8 +215,12 @@ namespace glasssix
 					}
 				}
 
-				std::sort(result.begin(), result.end(), [](const database_search_result& left, database_search_result& right) { return left.similarity > right.similarity; });
-				result.resize(std::min<std::size_t>(top ? *top : std::numeric_limits<std::uint32_t>::max(), result.size()));
+				std::sort(result.begin(), result.end(), [](const database_search_result& left, const database_search_result& right) { return left.similarity > right.similarity; });
+
+				if (top)
+				{
+					result.resize(std::min<std::size_t>(*top, result.size()));
+				}
 
 				return result;
 			}

@@ -5,6 +5,7 @@
 
 #include <vector>
 #include <stdexcept>
+#include <algorithm>
 #include <functional>
 
 namespace glasssix::irisviel
@@ -25,7 +26,10 @@ namespace glasssix::irisviel
 		{
 			if (current_data_)
 			{
-				nsg_search_.build_graph(*current_data_);
+				std::vector<const float*> data(current_data_->size());
+
+				std::transform(current_data_->begin(), current_data_->end(), data.begin(), [](const database_feature_observer::feature& inner) { return inner.data; });
+				nsg_search_.build_graph(data);
 				nsg_search_.optimize_graph();
 			}
 		}
@@ -40,7 +44,7 @@ namespace glasssix::irisviel
 			nsg_search_.load_graph(path.data());
 		}
 
-		void current_data(const std::vector<const float*>& data) noexcept
+		void current_data(const std::vector<database_feature_observer::feature>& data) noexcept
 		{
 			current_data_ = &data;
 		}
@@ -60,7 +64,7 @@ namespace glasssix::irisviel
 	private:
 		int dimension_;
 		irisviel_search nsg_search_;
-		const std::vector<const float*>* current_data_;
+		const std::vector<database_feature_observer::feature>* current_data_;
 	};
 
 	nsg_search_impl::nsg_search_impl(int dimension) : impl_{ std::make_unique<impl>(dimension) }
@@ -91,7 +95,7 @@ namespace glasssix::irisviel
 		impl_->load_cache(path);
 	}
 
-	void nsg_search_impl::current_data(const std::vector<const float*>& data) noexcept
+	void nsg_search_impl::current_data(const std::vector<database_feature_observer::feature>& data) noexcept
 	{
 		impl_->current_data(data);
 	}
