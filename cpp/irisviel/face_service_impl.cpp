@@ -51,7 +51,7 @@ namespace glasssix::irisviel
 		{
 			if (std::forward<Container>(feature).size() != static_cast<std::size_t>(dimension))
 			{
-				throw exposing::abi_invalid_argument{ exposing::format(u8"The feature size {} is different from {}.", dimension) };
+				throw exposing::abi_invalid_argument{ exposing::format(u8"The feature size {} is different from {}.", std::forward<Container>(feature).size(), dimension) };
 			}
 		}
 	}

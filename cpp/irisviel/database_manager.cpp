@@ -8,6 +8,8 @@
 #include <stdexcept>
 #include <unordered_map>
 
+#include <Julius/julius_nrm2.hpp>
+
 namespace glasssix
 {
 	namespace irisviel
@@ -81,7 +83,7 @@ namespace glasssix
 				if (auto iter = record_entries_.find(std::string{ key }); iter != record_entries_.end())
 				{
 					auto entry = mapping_.locate_element_bytes(iter->second, record_size_);
-					
+
 					return database_record::create(dimension_, entry);
 				}
 
@@ -133,14 +135,18 @@ namespace glasssix
 			{
 				return std::make_shared<database_feature_observer>([this]
 					{
-						std::vector<const float*> result;
+						std::vector<database_feature_observer::feature> result;
 
-						for (auto [key, index] : record_entries_)
+						result.reserve(record_entries_.size());
+
+						for (auto&& [key, index] : record_entries_)
 						{
 							auto entry = mapping_.locate_element_bytes(index, record_size_);
 							auto data_ref = database_record::create_ref(dimension_, entry);
+							auto feature_data = data_ref->feature().data();
+							auto feature_modulo_length = excalibur::juliusblas::cblas_snrm2(dimension_, feature_data, 1);
 
-							result.emplace_back(data_ref->feature().data());
+							result.emplace_back(database_feature_observer::feature{ feature_data, feature_modulo_length });
 						}
 
 						return result;
@@ -170,7 +176,7 @@ namespace glasssix
 					update_current_position_core([&](int& position) { position = new_index; });
 					removal_pending_ = false;
 				}
-				
+
 				mapping_.save_changes();
 			}
 
