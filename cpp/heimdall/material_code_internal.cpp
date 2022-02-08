@@ -28,13 +28,14 @@
 
 namespace glasssix::heimdall
 {
-    std::array<std::tuple<int, std::string, std::string, std::string>, 6> types = {
+    std::array<std::tuple<int, std::string, std::string, std::string>, 7> types = {
         {{0, "hot_rolled_det", "hot_rolled_rec", "hot_material_angle"},
         {1, "cool_rolled_det", "cool_rolled_rec", ""},
         {2, "hot_rolled_det_lite", "hot_rolled_rec_lite", "hot_material_angle"},
         {3, "cool_rolled_det_lite", "cool_rolled_rec_lite", ""},
         {4, "hot_rolled_det_lite", "hot_rolled_rec_lite", "hot_material_angle"},
-        {5, "cool_rolled_det", "segment_char_simp", "singel_char_classfi_simp"}}};
+        {5, "cool_rolled_det", "segment_char_simp", "singel_char_classfi_simp"},
+        {6, "cool_rolled_det", "segment_char_simp_3", "single_char_classfi_simp"}} };
 
     class material_code_internal::impl
     {
@@ -54,10 +55,11 @@ namespace glasssix::heimdall
             case 2:
             case 4:
             case 5:
+            case 6:
                 instance_.emplace_back(std::make_unique<excalibur::pipeline<float>>(hardcode::get_model_params(std::get<1>(*factory)), std::string(model_directory) + "/" + std::get<1>(*factory) + ".racy", device));
                 instance_.emplace_back(std::make_unique<excalibur::pipeline<float>>(hardcode::get_model_params(std::get<2>(*factory)), std::string(model_directory) + "/" + std::get<2>(*factory) + ".racy", device));
                 instance_.emplace_back(std::make_unique<excalibur::pipeline<float>>(hardcode::get_model_params(std::get<3>(*factory)), std::string(model_directory) + "/" + std::get<3>(*factory) + ".racy", device));
-                if (factory_type == 5)
+                if (factory_type == 5 || factory_type == 6)
                 {
                     segement_instance_ = std::make_unique<char_segment>();
                     classfi_instance_ = std::make_unique<char_classfi>();
@@ -89,7 +91,7 @@ namespace glasssix::heimdall
             auto result = exposing::make_param_vector<box_info>();
             if (factory_type_ == 0 || factory_type_ == 2 || factory_type_ == 4)
                 run_hot_roll(results, roi, top_five);
-            else if (factory_type_ == 1 || factory_type_ == 3 || factory_type_ == 5)
+            else if (factory_type_ == 1 || factory_type_ == 3 || factory_type_ == 5 || factory_type_ == 6)
                 run_cool_roll(results, roi, top_five);
             else
                 return result;
@@ -762,7 +764,7 @@ namespace glasssix::heimdall
                     float angle = 0.f;
                     // run identify network
                     std::pair<std::vector<std::string>, std::vector<std::vector<float>>> out;
-                    if (factory_type_ == 5)
+                    if (factory_type_ == 5 || factory_type_ == 6)
                     {
                         cv::Mat roi_temp = result_cut.rois[i].clone();
                         std::vector<float> segement_result = segement_instance_->detect(roi_temp, *instance_[1]);
