@@ -71,16 +71,8 @@ namespace glasssix
 				return img;
 			}
 			else {
-				int merge_w = new_w + pad_w;
-				cv::Mat merge_img(64, merge_w, img.type());
-				img.copyTo(merge_img.colRange(0, img.cols));
-				cv::Mat img1Rect_col;
-				img1Rect_col = img(cv::Range::all(), cv::Range(new_w - 1, new_w));
-				for (size_t i = 0; i < pad_w; i++)
-				{
-					img1Rect_col.copyTo(merge_img.colRange(img.cols + i, img.cols + i + 1));
-				}
-				return merge_img;
+				cv::copyMakeBorder(img, img, 0, 0, 0, pad_w, cv::BORDER_REPLICATE);
+				return img;
 			}
 		}
 
