@@ -35,7 +35,7 @@ namespace glasssix::heimdall
         {3, "cool_rolled_det_lite", "cool_rolled_rec_lite", ""},
         {4, "hot_rolled_det_lite", "hot_rolled_rec_lite", "hot_material_angle"},
         {5, "cool_rolled_det", "segment_char_simp", "singel_char_classfi_simp"},
-        {6, "cool_rolled_det", "segment_char_simp_3", "single_char_classfi_simp"}} };
+        {6, "cool_rolled_det", "segment_char_simp_3", "singel_char_classfi_simp"}} };
 
     class material_code_internal::impl
     {
