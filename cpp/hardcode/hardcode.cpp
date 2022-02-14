@@ -2997,26 +2997,6 @@ namespace glasssix::hardcode
                 "InnerProduct     MatMul_259               1 1 532 534 0=37 1=0 2=3552",
                 "BinaryOp         Add_260                  2 1 534 head.fc.bias output 0=0" };
 
-            inline static const std::vector<std::string> segment_char_simp{
-                "glsv1",
-                "15 15",
-                "Input            input                    0 1 input 0=-1 1=64 2=3 3=0,0,0 4=0.003921568627451",
-                "Convolution      Conv_0                   1 1 input 19 0=32 1=3 11=3 2=1 12=1 3=1 13=1 4=0 14=0 15=0 16=0 5=1 6=864",
-                "PReLU            PRelu_1                  1 1 19 21 0=1",
-                "Pooling          MaxPool_2                1 1 21 22 0=0 1=3 11=3 2=2 12=2 3=0 13=0 14=2 15=2 5=1 4=0",
-                "Convolution      Conv_3                   1 1 22 23 0=64 1=3 11=3 2=1 12=1 3=1 13=1 4=0 14=0 15=0 16=0 5=1 6=18432",
-                "PReLU            PRelu_4                  1 1 23 25 0=1",
-                "Pooling          MaxPool_5                1 1 25 26 0=0 1=3 11=3 2=2 12=2 3=0 13=0 14=0 15=0 5=1 4=0",
-                "Convolution      Conv_6                   1 1 26 27 0=64 1=3 11=3 2=1 12=1 3=1 13=1 4=0 14=0 15=0 16=0 5=1 6=36864",
-                "PReLU            PRelu_7                  1 1 27 29 0=1",
-                "Pooling          MaxPool_8                1 1 29 30 0=0 1=2 11=2 2=2 12=2 3=0 13=0 14=0 15=0 5=1 4=0",
-                "Convolution      Conv_9                   1 1 30 31 0=128 1=3 11=3 2=1 12=1 3=1 13=1 4=0 14=0 15=0 16=0 5=1 6=73728",
-                "Convolution      Conv_10                  1 1 31 32 0=128 1=3 11=3 2=1 12=1 3=1 13=1 4=0 14=0 15=0 16=0 5=1 6=147456",
-                "PReLU            PRelu_11                 1 1 32 34 0=1",
-                "Convolution      Conv_12                  1 1 34 35 0=256 1=2 11=2 2=1 12=1 3=1 13=1 4=0 14=0 15=0 16=0 5=1 6=131072",
-                "Convolution      Conv_13                  1 1 35 output 0=2 1=1 11=1 2=1 12=1 3=1 13=1 4=0 14=0 15=0 16=0 5=1 6=512"
-            };
-
             inline static const std::vector<std::string> segment_char_simp_3{
                 "glsv1",
                 "22 22",
@@ -3173,8 +3153,9 @@ namespace glasssix::hardcode
             {"cool_rolled_rec", hardcode_model_params::rolled_rec},
             {"cool_rolled_det_lite", hardcode_model_params::rolled_det_lite},
             {"cool_rolled_rec_lite", hardcode_model_params::rolled_rec_lite},
-            {"segment_char_simp", hardcode_model_params::segment_char_simp},
+            {"heavy_rail_segment_char_simp_1", hardcode_model_params::segment_char_simp_3},
             {"segment_char_simp_3", hardcode_model_params::segment_char_simp_3},
+            {"heavy_rail_classify_char_simp_1", hardcode_model_params::singel_char_classfi_simp},
             {"singel_char_classfi_simp", hardcode_model_params::singel_char_classfi_simp}
         };
     }
