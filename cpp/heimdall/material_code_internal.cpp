@@ -62,7 +62,10 @@ namespace glasssix::heimdall
                 if (factory_type == 5 || factory_type == 6)
                 {
                     segement_instance_ = std::make_unique<char_segment>();
-                    classfi_instance_ = std::make_unique<char_classfi>();
+                    if(factory_type == 5)
+                        classfi_instance_ = std::make_unique<char_classfi>(label_type::HEAVY_RAIL);
+                    else if(factory_type == 6)
+                        classfi_instance_ = std::make_unique<char_classfi>(label_type::COOL_ROLL);
                 }
                 break;
             case 1:

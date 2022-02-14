@@ -4,10 +4,21 @@ namespace glasssix
 {
 	namespace heimdall
 	{
-
-		const static char label_index[] = { '0', '1','2','3','4','5','6','7','8','9','A','C','I' };
-		char_classfi::char_classfi()
+		const static char cool_roll_label_index[] = { '0', '1','2','3','4','5','6','7','8','9','A','C','I' };
+		const static char heavy_rail_label_index[] = { '0', '1','2','3','4','5','6','7','8','9','A','B','P' };
+		char_classfi::char_classfi(label_type lt)
 		{
+			switch (lt)
+			{
+			case glasssix::heimdall::label_type::COOL_ROLL:
+				label_index_ = cool_roll_label_index;
+				break;
+			case glasssix::heimdall::label_type::HEAVY_RAIL:
+				label_index_ = heavy_rail_label_index;
+				break;
+			default:
+				break;
+			}
 		}
 		std::pair<char, float> char_classfi::detect(cv::Mat& img, excalibur::pipeline<float>& classfi_instance)
 		{
@@ -18,7 +29,7 @@ namespace glasssix
 			auto result = classfi_instance.forward(input_img | memory::tensor_convert_to<float>);
 			std::vector<float> detections(result["output"]->cpu_data(), result["output"]->cpu_data() + result["output"]->count());
 			auto biggest_index = std::distance(detections.begin(), std::max_element(detections.begin(), detections.end()));
-			return { label_index[biggest_index], detections[biggest_index] };
+			return { label_index_[biggest_index], detections[biggest_index] };
 		}
 		cv::Mat char_classfi::pre_handel_img(cv::Mat& img) {
 			int H = img.rows;
