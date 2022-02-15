@@ -269,7 +269,7 @@ namespace glasssix::romancia
 			}
 			init_cache(bitmap, channels, height, width, order);
 
-			std::shared_ptr<memory::tensor<uint8_t>> ROI, rotated_ROI, final_mat, final_mat_gray, resized_color_img;
+			std::shared_ptr<memory::tensor<uint8_t>> ROI, resized_ROI, rotated_ROI, final_mat, final_mat_gray, resized_color_img;
 			auto res = exposing::make_param_vector<std::uint8_t, 2>();
 
 			for (size_t i = 0; i < faces.size(); i++)
@@ -281,6 +281,13 @@ namespace glasssix::romancia
 
 				excalibur::safty_cut_cpu(cache_, ROI, &MarginRect);
 
+				float min_edge = std::min(MarginRect.w, MarginRect.h);
+				float scale = 160.f / min_edge;
+				if (scale < 1.0f)
+					excalibur::resize_cpu(ROI, resized_ROI, std::ceil(ROI->height() * scale), std::ceil(ROI->width() * scale));
+				else
+					scale = 1.0f;
+
 				point<float> ldmk5[5];
 				auto pts = faces[i].pts();
 				for (size_t j = 0; j < pts.size(); j++)
@@ -289,11 +296,11 @@ namespace glasssix::romancia
 				}
 				point<float> center_eye = point<float>((ldmk5[0].x + ldmk5[1].x) / 2, (ldmk5[0].y + ldmk5[1].y) / 2);
 				point<float> center_mouth = point<float>((ldmk5[3].x + ldmk5[4].x) / 2, (ldmk5[3].y + ldmk5[4].y) / 2);
-				point<float> center = point<float>((center_eye.x + center_mouth.x) / 2, (center_eye.y + center_mouth.y) / 2);
+				point<float> center = point<float>((center_eye.x + center_mouth.x) * scale / 2, (center_eye.y + center_mouth.y) * scale / 2);
 				double tan = (center_eye.x - center_mouth.x) / (center_eye.y - center_mouth.y);
 				double arctan = atan(tan) * 180 / 3.1415926;
 
-				excalibur::rotate_with_points_cpu(ROI, rotated_ROI, center, -1 * arctan);
+				excalibur::rotate_with_points_cpu(resized_ROI, rotated_ROI, center, -1 * arctan);
 
 				double distance = std::sqrt((center_eye.x - center_mouth.x) * (center_eye.x - center_mouth.x) + (center_eye.y - center_mouth.y) * (center_eye.y - center_mouth.y));
 
@@ -306,9 +313,9 @@ namespace glasssix::romancia
 				double sin = (center_mouth.x - center_eye.x) / distance;
 				point<float> new_center_eye = point<float>(center_eye.x + (float)(sin * distance / 2), (float)(center_eye.y - (1 - cos) * distance / 2));
 				point<float> new_center_mouth = point<float>(center_mouth.x - (float)(sin * distance / 2), (float)(center_mouth.y + (1 - cos) * distance / 2));
-				rectangle<float> final_rect = rectangle<float>(new_center_eye.x - distance * 1.25f,
-					new_center_eye.y - distance * 0.75f,
-					distance * 2.5f, distance * 2.5f);
+				rectangle<float> final_rect = rectangle<float>((new_center_eye.x - distance * 1.25f) * scale,
+					(new_center_eye.y - distance * 0.75f) * scale,
+					distance * 2.5f * scale, distance * 2.5f * scale);
 				excalibur::safty_cut_cpu(rotated_ROI, final_mat, &final_rect);
 
 				excalibur::resize_cpu(final_mat, resized_color_img, 128, 128);
