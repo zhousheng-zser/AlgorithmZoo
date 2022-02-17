@@ -3153,6 +3153,8 @@ namespace glasssix::hardcode
             {"cool_rolled_rec", hardcode_model_params::rolled_rec},
             {"cool_rolled_det_lite", hardcode_model_params::rolled_det_lite},
             {"cool_rolled_rec_lite", hardcode_model_params::rolled_rec_lite},
+            {"heavy_rail_det_lite", hardcode_model_params::rolled_det_lite},
+            {"heavy_rail_rec_lite", hardcode_model_params::rolled_rec_lite},
             {"heavy_rail_segment_char_simp_1", hardcode_model_params::segment_char_simp_3},
             {"segment_char_simp_3", hardcode_model_params::segment_char_simp_3},
             {"heavy_rail_classify_char_simp_1", hardcode_model_params::singel_char_classfi_simp},
