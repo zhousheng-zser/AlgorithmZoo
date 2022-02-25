@@ -14,6 +14,8 @@
 #ifdef USE_RKNNAPI
 //#if 0
 #include "../../common/include/RKNNWrapper/rknn_wrapper.hpp"
+#elif defined(USE_RKNN2API)
+#include "../../common/include/RKNN2Wrapper/rknn2_wrapper.hpp"
 #endif
 
 namespace glasssix::selene
@@ -46,8 +48,8 @@ namespace glasssix::selene
 			}
 
 			std::vector<std::vector<float>> result;
-#ifdef USE_RKNNAPI
-			auto network_result = unicorn_light_.forward(bitmaps.data(), { count, 3, 128, 128 }, static_cast<rknn_tensor_format>(order));
+#if defined(USE_RKNNAPI) || defined(USE_RKNN2API)
+			auto network_result = unicorn_light_.forward(bitmaps.data(), { static_cast<int>(count), 3, 128, 128 }, static_cast<rknn_tensor_format>(order));
 			if (auto iter = network_result.find("conv5_dw_83_84"); iter != network_result.end())
 #else
 			init_cache(bitmaps, count, order);
@@ -102,7 +104,7 @@ namespace glasssix::selene
 
 		int model_type_;
 		int device_;
-#ifdef USE_RKNNAPI
+#if defined(USE_RKNNAPI) || defined(USE_RKNN2API)
 		//#if 0
 		rknnwrapper::rknn_wrapper unicorn_light_;
 #else
