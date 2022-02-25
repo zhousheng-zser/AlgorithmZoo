@@ -5,6 +5,8 @@
 
 #ifdef USE_RKNNAPI
 #include "RKNNWrapper/rknn_wrapper.hpp"
+#elif defined(USE_RKNN2API)
+#include "RKNN2Wrapper/rknn2_wrapper.hpp"
 #else
 #include <Excalibur/pipeline.hpp>
 #endif
@@ -49,8 +51,8 @@ namespace glasssix::cassius
             }
 
             std::vector<std::vector<float>> result;
-#ifdef USE_RKNNAPI
-            auto network_result = unicorn_.forward(bitmaps.data(), { count, 3, 128, 128 }, static_cast<rknn_tensor_format>(order));
+#if defined(USE_RKNNAPI) || defined(USE_RKNN2API)
+            auto network_result = unicorn_.forward(bitmaps.data(), { static_cast<int>(count), 3, 128, 128 }, static_cast<rknn_tensor_format>(order));
             if (auto iter = network_result.find("conv5_dw_83_84"); iter != network_result.end())
 #else
             init_cache(bitmaps, count, order);
@@ -98,7 +100,7 @@ namespace glasssix::cassius
         }
 
         int device_;
-#ifdef USE_RKNNAPI
+#if defined(USE_RKNNAPI) || defined(USE_RKNN2API)
         rknnwrapper::rknn_wrapper unicorn_;
 #else
         excalibur::pipeline<float> unicorn_;

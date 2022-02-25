@@ -12,6 +12,9 @@
 #ifdef USE_RKNNAPI
 #include "RKNNWrapper/rknn_wrapper.hpp"
 #include <opencv2/opencv.hpp>
+#elif defined(USE_RKNN2API)
+#include "RKNN2Wrapper/rknn2_wrapper.hpp"
+#include <opencv2/opencv.hpp>
 #endif
 
 #ifdef USE_CUDA
@@ -54,7 +57,7 @@ namespace glasssix::damocles
 
 			std::vector<std::vector<float>> result;
 
-#ifdef USE_RKNNAPI
+#if defined(USE_RKNNAPI) || defined(USE_RKNN2API)
 			if (order != 1)
 				throw exposing::abi_invalid_argument("Not supported order");
 
@@ -71,7 +74,7 @@ namespace glasssix::damocles
 				ptr += forward_input_bytes;
 			}
 
-			auto network_result = fasmv2_.forward(temp, {boxes.size(), forward_input_height, forward_input_width, forward_input_channels }, RKNN_TENSOR_NHWC);
+			auto network_result = fasmv2_.forward(temp, {static_cast<int>(boxes.size()), static_cast<int>(forward_input_height), static_cast<int>(forward_input_width), static_cast<int>(forward_input_channels) }, RKNN_TENSOR_NHWC);
 			if (auto iter = network_result.find("softmax_98_99"); iter != network_result.end())
 #else
 			init_cache(bitmap, channels, height, width, order);
@@ -113,7 +116,7 @@ namespace glasssix::damocles
 			}
 
 
-#ifdef USE_RKNNAPI
+#if defined(USE_RKNNAPI) || defined(USE_RKNN2API)
 			if(order != 1)
 				throw exposing::abi_invalid_argument("Not supported order");
 			cv::Mat img(height, width, CV_8UC3, bitmap.data());
@@ -296,7 +299,7 @@ namespace glasssix::damocles
 			return boxes;
 		}
 
-#ifdef USE_RKNNAPI
+#if defined(USE_RKNNAPI) || defined(USE_RKNN2API)
 		inline void safty_cut(cv::Mat& img, cv::Mat& dst, cv::Rect roi)
 		{
 			int width = roi.width;
@@ -332,7 +335,7 @@ namespace glasssix::damocles
 		}
 #endif
 		int device_;
-#ifdef USE_RKNNAPI
+#if defined(USE_RKNNAPI) || defined(USE_RKNN2API)
 		rknnwrapper::rknn_wrapper fasmv2_;
 		rknnwrapper::rknn_wrapper landmark65_;
 #else

@@ -17,6 +17,11 @@
 #ifdef USE_RKNNAPI
 #include "RKNNWrapper/rknn_wrapper.hpp"
 #include <opencv2/opencv.hpp>
+#include <opencv2/imgproc/types_c.h>
+#elif defined(USE_RKNN2API)
+#include "../../common/include/RKNN2Wrapper/rknn2_wrapper.hpp"
+#include <opencv2/opencv.hpp>
+#include <opencv2/imgproc/types_c.h>
 #endif
 
 namespace
@@ -91,7 +96,7 @@ namespace glasssix::longinus
         {
         }
 
-#ifdef USE_RKNNAPI
+#if defined(USE_RKNNAPI) || defined(USE_RKNN2API)
         exposing::param_vector<face_info> detect(exposing::param_span<std::uint8_t> bitmap, int channels, int height, int width, int min_size, float threshold, int order, bool do_attributing)
         {
             if (bitmap.empty())
@@ -438,7 +443,7 @@ namespace glasssix::longinus
         }
 #endif
 
-#ifdef USE_RKNNAPI
+#if defined(USE_RKNNAPI) || defined(USE_RKNN2API)
         face_info single_trace(face_info& face, exposing::param_span<std::uint8_t> bitmap, int channels, int height, int width, int order)
         {
             if (bitmap.empty())
@@ -549,7 +554,7 @@ namespace glasssix::longinus
         }
 #endif
 
-#ifdef USE_RKNNAPI
+#if defined(USE_RKNNAPI) || defined(USE_RKNN2API)
         exposing::param_vector<exposing::param_vector<std::uint8_t>> center_scale_align(exposing::param_span<std::uint8_t> bitmap, std::int32_t channels, std::int32_t height, std::int32_t width,
             float scale, std::int32_t order)
         {
@@ -1178,7 +1183,7 @@ namespace glasssix::longinus
             return bboxes_nms;
         }
 
-#ifdef USE_RKNNAPI
+#if defined(USE_RKNNAPI) || defined(USE_RKNN2API)
         inline void tracking_corrfilter(const cv::Mat &frame, const cv::Mat &face_in_prev_frame, cv::Rect2f& track_box, float scale)
         {
             track_box.x /= scale;
@@ -1372,7 +1377,7 @@ namespace glasssix::longinus
         }
 #endif
 
-#ifdef USE_RKNNAPI
+#if defined(USE_RKNNAPI) || defined(USE_RKNN2API)
         void tracking_landmark(cv::Mat& face, face_info_internal& trackfaceinfo, int offset_x, int offset_y)
         {
             int width = face.cols;
@@ -1487,7 +1492,7 @@ namespace glasssix::longinus
             pitch = predict[1];
         }
 
-#ifdef USE_RKNNAPI
+#if defined(USE_RKNNAPI) || defined(USE_RKNN2API)
         inline void safty_cut(cv::Mat& img, cv::Mat& dst, cv::Rect roi)
         {
             int width = roi.width;
@@ -1524,7 +1529,7 @@ namespace glasssix::longinus
 #endif
 
     private:
-#ifdef USE_RKNNAPI
+#if defined(USE_RKNNAPI) || defined(USE_RKNN2API)
 //#if 0
         rknnwrapper::rknn_wrapper retina_;
         rknnwrapper::rknn_wrapper tracker_;
@@ -1546,7 +1551,7 @@ namespace glasssix::longinus
         //each layer's fpn has how many shapes of anchor = number of ratio * number of scales
         std::map<std::string, int> num_anchors_;
 
-#ifdef USE_RKNNAPI
+#if defined(USE_RKNNAPI) || defined(USE_RKNN2API)
         //#if 0
         cv::Mat cache0_;
         cv::Mat cache1_;

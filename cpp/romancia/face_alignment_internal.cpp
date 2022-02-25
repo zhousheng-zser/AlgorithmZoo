@@ -3,6 +3,8 @@
 #ifdef USE_RKNNAPI
 //#if 0
 #include "../../common/include/RKNNWrapper/rknn_wrapper.hpp"
+#elif defined(USE_RKNN2API)
+#include "../../common/include/RKNN2Wrapper/rknn2_wrapper.hpp"
 #endif
 
 #include <cmath>
@@ -340,7 +342,7 @@ namespace glasssix::romancia
 
 			auto result = exposing::make_param_vector<float>();
 
-#ifdef USE_RKNNAPI
+#if defined(USE_RKNNAPI) || defined(USE_RKNN2API)
 //#if 0
 			if (order != 1)
 				throw exposing::abi_invalid_argument("Not supported order");
@@ -358,7 +360,7 @@ namespace glasssix::romancia
 				ptr += 3 * 128 * 128;
 			}
 
-			auto network_result = blur_instance_.forward(temp, { faces.size(), 128, 128, 3 }, RKNN_TENSOR_NHWC);
+			auto network_result = blur_instance_.forward(temp, { static_cast<int>(faces.size()), 128, 128, 3 }, RKNN_TENSOR_NHWC);
 			if (auto iter = network_result.find("Gemm_Gemm_226/out0_0"); iter != network_result.end())
 #else
 			init_cache(bitmap, channels, height, width, order);
@@ -563,7 +565,7 @@ namespace glasssix::romancia
 			dst = mat;
 		}
 
-#ifdef USE_RKNNAPI
+#if defined(USE_RKNNAPI) || defined(USE_RKNN2API)
 //#if 0
 		rknnwrapper::rknn_wrapper blur_instance_;
 #else
