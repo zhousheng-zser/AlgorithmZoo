@@ -73,7 +73,7 @@ namespace glasssix
 			rknn_wrapper(const std::vector<std::string>& phai, std::string racy, int device = -1, uint32_t flag = 0):ctx_(0),flag_(flag)
 			{
 				int model_data_size = 0;
-				unsigned char* model_data = load_model((split_string(racy, ".")[0] + ".rknn").c_str(), &model_data_size);
+				unsigned char* model_data = load_model(racy.replace(racy.length() - 4, 4, "rknn").c_str(), &model_data_size);
 				
 				int ret = rknn_init(&ctx_, reinterpret_cast<void*>(model_data), model_data_size, flag_, nullptr);
 				free(model_data);
