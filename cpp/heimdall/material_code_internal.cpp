@@ -34,7 +34,7 @@ namespace glasssix::heimdall
         {2, "hot_rolled_det_lite", "hot_rolled_rec_lite", "hot_material_angle"},
         {3, "cool_rolled_det_lite", "cool_rolled_rec_lite", ""},
         {4, "heavy_rail_det_lite", "heavy_rail_rec_lite", ""},
-        {5, "heavy_rail_det_lite", "heavy_rail_segment_char_simp_1", "heavy_rail_classify_char_simp_1"},
+        {5, "heavy_rail_det_lite", "heavy_rail_segment_blank_simp", "heavy_rail_classify_char_simp_2"},
         {6, "cool_rolled_det", "segment_char_simp_3", "singel_char_classfi_simp"}} };
 
     class material_code_internal::impl
@@ -769,7 +769,7 @@ namespace glasssix::heimdall
                 if (factory_type_ == 5)
                 {
                     cv::Mat roi_temp = cut_img.clone();
-                    std::vector<float> segement_result = segement_instance_->detect(roi_temp, *instance_[1]);
+                    std::vector<float> segement_result = segement_instance_->detect(roi_temp, true, *instance_[1]);
                     std::string stringinfo;
                     std::vector<float> probs;
 
@@ -878,7 +878,7 @@ namespace glasssix::heimdall
                     if (factory_type_ == 6)
                     {
                         cv::Mat roi_temp = result_cut.rois[i].clone();
-                        std::vector<float> segement_result = segement_instance_->detect(roi_temp, *instance_[1]);
+                        std::vector<float> segement_result = segement_instance_->detect(roi_temp, false, *instance_[1]);
                         std::string stringinfo;
                         std::vector<float> probs;
 
