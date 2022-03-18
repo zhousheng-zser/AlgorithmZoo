@@ -33,8 +33,8 @@ namespace glasssix::heimdall
         {1, "cool_rolled_det", "cool_rolled_rec", ""},
         {2, "hot_rolled_det_lite", "hot_rolled_rec_lite", "hot_material_angle"},
         {3, "cool_rolled_det_lite", "cool_rolled_rec_lite", ""},
-        {4, "heavy_rail_det_lite", "heavy_rail_rec_lite", ""},
-        {5, "heavy_rail_det_lite", "heavy_rail_segment_char_simp_1", "heavy_rail_classify_char_simp_1"},
+        {4, "heavy_rail_det_lite", "heavy_rail_rec_lite", "hot_material_angle"},
+        {5, "heavy_rail_det_lite", "heavy_rail_segment_blank_simp", "heavy_rail_classify_char_simp_2"},
         {6, "cool_rolled_det", "segment_char_simp_3", "singel_char_classfi_simp"}} };
 
     class material_code_internal::impl
@@ -53,6 +53,7 @@ namespace glasssix::heimdall
             {
             case 0:
             case 2:
+            case 4:
             case 5:
             case 6:
                 instance_.emplace_back(std::make_unique<excalibur::pipeline<float>>(hardcode::get_model_params(std::get<1>(*factory)), std::string(model_directory) + "/" + std::get<1>(*factory) + ".racy", device));
@@ -69,7 +70,6 @@ namespace glasssix::heimdall
                 break;
             case 1:
             case 3:
-            case 4:
                 instance_.emplace_back(std::make_unique<excalibur::pipeline<float>>(hardcode::get_model_params(std::get<1>(*factory)), std::string(model_directory) + "/" + std::get<1>(*factory) + ".racy", device));
                 instance_.emplace_back(std::make_unique<excalibur::pipeline<float>>(hardcode::get_model_params(std::get<2>(*factory)), std::string(model_directory) + "/" + std::get<2>(*factory) + ".racy", device));
                 break;
@@ -765,11 +765,20 @@ namespace glasssix::heimdall
                     rotate = true;
                 }
 
+                bool inverse = false;
+                std::vector<float> res_vec = angel_infer(cut_img, *instance_[2]);
+                // 0: The character direction is inverse  1: The character direction is positive
+                if (res_vec[0] == 0)
+                {
+                    cv::flip(cut_img, cut_img, -1);
+                    inverse = true;
+                }
+
                 std::pair<std::vector<std::string>, std::vector<std::vector<float>>> out;
                 if (factory_type_ == 5)
                 {
                     cv::Mat roi_temp = cut_img.clone();
-                    std::vector<float> segement_result = segement_instance_->detect(roi_temp, *instance_[1]);
+                    std::vector<float> segement_result = segement_instance_->detect(roi_temp, true, *instance_[1]);
                     std::string stringinfo;
                     std::vector<float> probs;
 
@@ -816,11 +825,19 @@ namespace glasssix::heimdall
                 box.strinfos = strinfos;
                 // process angle -> [0, 360)
                 float angle;
-                if (!rotate)
+                if (!rotate && !inverse)
                 {
                     angle = std::abs(rect.angle);
                 }
-                else if (rotate)
+                else if (rotate && inverse)
+                {
+                    angle = std::abs(rect.angle) + 90;
+                }
+                else if (!rotate && inverse)
+                {
+                    angle = std::abs(rect.angle) + 180;
+                }
+                else if (rotate && !inverse)
                 {
                     angle = std::abs(rect.angle) + 270;
                     angle = angle == 360 ? 0 : angle;
@@ -878,7 +895,7 @@ namespace glasssix::heimdall
                     if (factory_type_ == 6)
                     {
                         cv::Mat roi_temp = result_cut.rois[i].clone();
-                        std::vector<float> segement_result = segement_instance_->detect(roi_temp, *instance_[1]);
+                        std::vector<float> segement_result = segement_instance_->detect(roi_temp, false, *instance_[1]);
                         std::string stringinfo;
                         std::vector<float> probs;
 

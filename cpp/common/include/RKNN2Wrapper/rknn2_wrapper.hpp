@@ -70,7 +70,7 @@ namespace glasssix
 		public:
 			rknn_wrapper() = delete;
 			rknn_wrapper(uint32_t flag):ctx_(0), flag_(flag){}
-			rknn_wrapper(const std::vector<std::string>& phai, std::string racy, int device = -1, uint32_t flag = 0):ctx_(0),flag_(flag)
+			rknn_wrapper(const std::vector<std::string>& phai, std::string racy, int device = -1, uint32_t flag = 0) :rknn_wrapper(flag)
 			{
 				int model_data_size = 0;
 				unsigned char* model_data = load_model(racy.replace(racy.length() - 4, 4, "rknn").c_str(), &model_data_size);
@@ -126,7 +126,7 @@ namespace glasssix
 			{
 				int ret = rknn_destroy(ctx_);
 				if(ret != 0)
-					throw rknn_exception(ret, "rknn_destroy fail!");
+					printf("rknn_destroy fail!\n");
 			}
 			
 			std::unordered_map<std::string, std::shared_ptr<memory::tensor<float>>> forward(const std::shared_ptr<memory::tensor<std::uint8_t>>& input_tensor)
@@ -183,9 +183,9 @@ namespace glasssix
 				for(size_t index = 0; index < io_num_.n_output; index++)
 				{
 					auto output_tensor = std::make_shared<memory::tensor<float>>(std::vector<int>{num, 
-						static_cast<int>(output_tensor_shape_index_[index][2]), 
-						static_cast<int>(output_tensor_shape_index_[index][1]),
-						static_cast<int>(output_tensor_shape_index_[index][0])});
+						static_cast<int>(output_tensor_shape_index_[index][1]), 
+						static_cast<int>(output_tensor_shape_index_[index][2]),
+						static_cast<int>(output_tensor_shape_index_[index][3])});
 					std::copy(temp[index].begin(), temp[index].end(), output_tensor->mutable_cpu_data());
 					result[output_name_index_[index]] = output_tensor;
 				}
@@ -245,9 +245,9 @@ namespace glasssix
 				for (size_t index = 0; index < io_num_.n_output; index++)
 				{
 					auto output_tensor = std::make_shared<memory::tensor<float>>(std::vector<int>{data_shape[0], 
-						static_cast<int>(output_tensor_shape_index_[index][2]),
 						static_cast<int>(output_tensor_shape_index_[index][1]),
-						static_cast<int>(output_tensor_shape_index_[index][0])});
+						static_cast<int>(output_tensor_shape_index_[index][2]),
+						static_cast<int>(output_tensor_shape_index_[index][3])});
 					std::copy(temp[index].begin(), temp[index].end(), output_tensor->mutable_cpu_data());
 					result[output_name_index_[index]] = output_tensor;
 				}

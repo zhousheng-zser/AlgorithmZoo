@@ -68,7 +68,7 @@ namespace glasssix
 		public:
 			rknn_wrapper() = delete;
 			rknn_wrapper(uint32_t flag):ctx_(0), flag_(flag){}
-			rknn_wrapper(const std::vector<std::string>& phai, std::string racy, int device = -1, uint32_t flag = 0):ctx_(0),flag_(flag)
+			rknn_wrapper(const std::vector<std::string>& phai, std::string racy, int device = -1, uint32_t flag = 0) :rknn_wrapper(flag)
 			{
 				int model_data_size = 0;
 				unsigned char* model_data = load_model(racy.replace(racy.length() - 4, 4, "rknn").c_str(), &model_data_size);
@@ -124,7 +124,7 @@ namespace glasssix
 			{
 				int ret = rknn_destroy(ctx_);
 				if(ret != 0)
-					throw rknn_exception(ret, "rknn_destroy fail!");
+					printf("rknn_destroy fail!\n");
 			}
 			
 			std::unordered_map<std::string, std::shared_ptr<memory::tensor<float>>> forward(const std::shared_ptr<memory::tensor<std::uint8_t>>& input_tensor)

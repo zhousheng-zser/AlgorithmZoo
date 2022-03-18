@@ -75,7 +75,11 @@ namespace glasssix::damocles
 			}
 
 			auto network_result = fasmv2_.forward(temp, {static_cast<int>(boxes.size()), static_cast<int>(forward_input_height), static_cast<int>(forward_input_width), static_cast<int>(forward_input_channels) }, RKNN_TENSOR_NHWC);
+#ifdef USE_RKNNAPI
 			if (auto iter = network_result.find("softmax_98_99"); iter != network_result.end())
+#else
+			if (auto iter = network_result.find("softmax"); iter != network_result.end())
+#endif
 #else
 			init_cache(bitmap, channels, height, width, order);
 			std::shared_ptr<memory::tensor<uint8_t>> crop_faces(new memory::tensor<uint8_t>(std::vector<int>{static_cast<int>(boxes.size()), forward_input_channels, forward_input_height, forward_input_width}, -1, memory::NCHW, nullptr));
@@ -125,9 +129,15 @@ namespace glasssix::damocles
 			safty_cut(img, crop_face, rect);
 			cv::resize(crop_face, crop_face, cv::Size(112, 112));
 			auto network_result = landmark65_.forward(crop_face.data, {1, 3, 112, 112}, RKNN_TENSOR_NHWC);
+#ifdef USE_RKNNAPI
 			auto prob = network_result["Softmax_prob/out0_2"]->cpu_data();
 			auto ptr = network_result["Gemm_Gemm_114/out0_1"]->cpu_data();
 			int count = network_result["Gemm_Gemm_114/out0_1"]->count();
+#else
+			auto prob = network_result["prob"]->cpu_data();
+			auto ptr = network_result["218"]->cpu_data();
+			int count = network_result["218"]->count();
+#endif
 #else
 			init_cache(bitmap, channels, height, width, order);
 			std::shared_ptr<memory::tensor<uint8_t>> crop_face;

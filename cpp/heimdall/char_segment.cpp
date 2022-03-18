@@ -19,7 +19,7 @@ namespace glasssix
 			add_segement_ = add_segement;
 		}
 
-		std::vector<float> char_segment::detect(cv::Mat& img, excalibur::pipeline<float>& segement_instance)
+		std::vector<float> char_segment::detect(cv::Mat& img, const bool with_blank, excalibur::pipeline<float>& segement_instance)
 		{
 			cv::Mat pre_img = pre_handel_img(img, stride_);
 			auto input_img = std::make_shared <memory::tensor<std::uint8_t>>(std::vector<int>{1, 64, pre_img.cols, 3}, -1, memory::NHWC);
@@ -27,14 +27,31 @@ namespace glasssix
 			input_img->convert_order();
 			auto result = segement_instance.forward(input_img | memory::tensor_convert_to<float>);
 			const float* detections = result["output"]->cpu_data();  //创建保存输出结果的vector
+			int count = result["output"]->count();
 			int w_length = result["output"]->data_shape()[3];
 			std::vector<cv::Point2f> trans_detection;
-			for (size_t i = 0; i < w_length; i++)
+			if (with_blank)
 			{
-				float temp_x = detections[i] * 6.4 + i * stride_;
-				float temp_y = detections[i + w_length] * 6.4 + i * stride_;
-				trans_detection.push_back(cv::Point2f{ temp_x, temp_y });
+				for (size_t i = 0; i < count / 3; i++)
+				{
+					if (detections[i] >= 2)
+					{
+						float temp_x = detections[i + w_length] * 6.4 + i * stride_;
+						float temp_y = detections[i + 2 * w_length] * 6.4 + i * stride_;
+						trans_detection.push_back(cv::Point2f{ temp_x, temp_y });
+					}
+				}
 			}
+			else
+			{
+				for (size_t i = 0; i < count / 2; i++)
+				{
+					float temp_x = detections[i] * 6.4 + i * stride_;
+					float temp_y = detections[i + w_length] * 6.4 + i * stride_;
+					trans_detection.push_back(cv::Point2f{ temp_x, temp_y });
+				}
+			}
+
 			if (add_segement_)
 			{
 				cv::Mat supply_img = pre_img(cv::Range::all(), cv::Range(pre_img.cols - 64, pre_img.cols)).clone();
@@ -44,10 +61,23 @@ namespace glasssix
 				input_img1->convert_order();
 				auto result1 = segement_instance.forward(input_img1 | memory::tensor_convert_to<float>);
 				const float* detections1 = result1["output"]->cpu_data();  //创建保存输出结果的vector
+				int count = result1["output"]->count();
 				cv::Point2f temp_cordi;
-				temp_cordi.x = pre_img.cols - detections1[1] * 6.4;
-				temp_cordi.y = pre_img.cols - detections1[0] * 6.4;
-				trans_detection.push_back(temp_cordi);
+				if (with_blank)
+				{
+					if (detections1[0] >= 2)
+					{
+						temp_cordi.x = pre_img.cols - detections1[2] * 6.4;
+						temp_cordi.y = pre_img.cols - detections1[1] * 6.4;
+						trans_detection.push_back(temp_cordi);
+					}
+				}
+				else
+				{
+					temp_cordi.x = pre_img.cols - detections1[1] * 6.4;
+					temp_cordi.y = pre_img.cols - detections1[0] * 6.4;
+					trans_detection.push_back(temp_cordi);
+				}
 			}
 
 			std::vector<std::pair<cv::Point2f, int>> merge_bbox = get_merge_box(trans_detection, iou_thres_);
