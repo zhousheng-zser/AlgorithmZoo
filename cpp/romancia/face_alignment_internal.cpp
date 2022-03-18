@@ -361,7 +361,11 @@ namespace glasssix::romancia
 			}
 
 			auto network_result = blur_instance_.forward(temp, { static_cast<int>(faces.size()), 128, 128, 3 }, RKNN_TENSOR_NHWC);
+#ifdef USE_RKNNAPI
 			if (auto iter = network_result.find("Gemm_Gemm_226/out0_0"); iter != network_result.end())
+#else
+			if (auto iter = network_result.find("output"); iter != network_result.end())
+#endif
 #else
 			init_cache(bitmap, channels, height, width, order);
 			std::shared_ptr<memory::tensor<uint8_t>> crop_faces(new memory::tensor<uint8_t>(std::vector<int>{static_cast<int>(faces.size()), 3, 128, 128}, -1, memory::NCHW, nullptr));

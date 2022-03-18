@@ -50,7 +50,11 @@ namespace glasssix::selene
 			std::vector<std::vector<float>> result;
 #if defined(USE_RKNNAPI) || defined(USE_RKNN2API)
 			auto network_result = unicorn_light_.forward(bitmaps.data(), { static_cast<int>(count), 3, 128, 128 }, static_cast<rknn_tensor_format>(order));
+#ifdef USE_RKNNAPI
 			if (auto iter = network_result.find("conv5_dw_83_84"); iter != network_result.end())
+#else
+			if (auto iter = network_result.find("conv5_dw"); iter != network_result.end())
+#endif
 #else
 			init_cache(bitmaps, count, order);
 			auto network_result = unicorn_light_.forward(cache_ | memory::tensor_convert_to<float>);

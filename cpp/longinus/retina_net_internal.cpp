@@ -122,9 +122,15 @@ namespace glasssix::longinus
             cv::resize(cache_temp, cache_forward, cv::Size(std::round(width / scale), std::round(height / scale)));
             cv::copyMakeBorder(cache_forward, cache_forward, 0, hs - std::round(height / scale), 0, ws - std::round(width / scale), cv::BORDER_CONSTANT, cv::Scalar::all(0));
 
+#ifdef USE_RKNNAPI
             const char* score_suffix[3] = { "_74_125","_98_128","_122_131" };
             const char* bbox_suffix[3] = { "_75_126","_99_129","_123_132" };
             const char* landmark_suffix[3] = { "_76_127","_100_130","_124_133" };
+#else
+            const char* score_suffix[3] = { "","","" };
+            const char* bbox_suffix[3] = { "","","" };
+            const char* landmark_suffix[3] = { "","","" };
+#endif
             auto blob_data = retina_.forward(cache_forward.data, { 1, hs, ws, 3 }, RKNN_TENSOR_NHWC);
 
             std::string name_bbox = "face_rpn_bbox_pred_";
@@ -1385,11 +1391,19 @@ namespace glasssix::longinus
 
             cv::resize(face, face, cv::Size(80, 80));
             auto res = tracker_.forward(face.data, { 1, 80, 80, 3 }, RKNN_TENSOR_NHWC);
+#ifdef USE_RKNNAPI
             trackfaceinfo.score = res["Softmax_Softmax_103/out0_2"]->cpu_data()[1];
             const float* glass_data = res["Softmax_Softmax_76/out0_3"]->cpu_data();
             const float* mask_data = res["Softmax_Softmax_79/out0_4"]->cpu_data();
             const float* landmark_data = res["MatMul_MatMul_124/out0_1"]->cpu_data();
             const float* bbox_data = res["MatMul_MatMul_113/out0_0"]->cpu_data();
+#else
+            trackfaceinfo.score = res["188"]->cpu_data()[1];
+            const float* glass_data = res["157"]->cpu_data();
+            const float* mask_data = res["161"]->cpu_data();
+            const float* landmark_data = res["215"]->cpu_data();
+            const float* bbox_data = res["output"]->cpu_data();
+#endif
 
             int x1 = bbox_data[0] * width / 10 + offset_x;
             int y1 = bbox_data[1] * height / 10 + offset_y;
