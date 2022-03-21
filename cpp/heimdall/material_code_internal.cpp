@@ -28,14 +28,14 @@
 
 namespace glasssix::heimdall
 {
-    std::array<std::tuple<int, std::string, std::string, std::string>, 7> types = {
-        {{0, "hot_rolled_det", "hot_rolled_rec", "hot_material_angle"},
-        {1, "cool_rolled_det", "cool_rolled_rec", ""},
-        {2, "hot_rolled_det_lite", "hot_rolled_rec_lite", "hot_material_angle"},
-        {3, "cool_rolled_det_lite", "cool_rolled_rec_lite", ""},
-        {4, "heavy_rail_det_lite", "heavy_rail_rec_lite", "hot_material_angle"},
-        {5, "heavy_rail_det_lite", "heavy_rail_segment_blank_simp", "heavy_rail_classify_char_simp_2"},
-        {6, "cool_rolled_det", "segment_char_simp_3", "singel_char_classfi_simp"}} };
+    std::array<std::tuple<int, std::string, std::string, std::string, std::string>, 7> types = {
+        {{0, "hot_rolled_det", "hot_rolled_rec", "hot_material_angle", ""},
+        {1, "cool_rolled_det", "cool_rolled_rec", "", ""},
+        {2, "hot_rolled_det_lite", "hot_rolled_rec_lite", "hot_material_angle", ""},
+        {3, "cool_rolled_det_lite", "cool_rolled_rec_lite", "", ""},
+        {4, "heavy_rail_det_lite", "heavy_rail_rec_lite", "hot_material_angle", ""},
+        {5, "heavy_rail_det_lite", "heavy_rail_segment_blank_simp", "hot_material_angle", "heavy_rail_classify_char_simp_2"},
+        {6, "cool_rolled_det", "segment_char_simp_3", "singel_char_classfi_simp", ""}} };
 
     class material_code_internal::impl
     {
@@ -43,7 +43,7 @@ namespace glasssix::heimdall
         impl(std::string_view model_directory, int factory_type, int device)
             : factory_type_(factory_type), device_{device}, cut_rois_{ 2500 }
         {
-            auto factory = std::find_if(types.begin(), types.end(), [factory_type](const std::tuple<int, std::string, std::string, std::string>& t)
+            auto factory = std::find_if(types.begin(), types.end(), [factory_type](const std::tuple<int, std::string, std::string, std::string, std::string>& t)
                 { return std::get<0>(t) == factory_type; });
 
             if (factory == types.end())
@@ -54,18 +54,14 @@ namespace glasssix::heimdall
             case 0:
             case 2:
             case 4:
-            case 5:
             case 6:
                 instance_.emplace_back(std::make_unique<excalibur::pipeline<float>>(hardcode::get_model_params(std::get<1>(*factory)), std::string(model_directory) + "/" + std::get<1>(*factory) + ".racy", device));
                 instance_.emplace_back(std::make_unique<excalibur::pipeline<float>>(hardcode::get_model_params(std::get<2>(*factory)), std::string(model_directory) + "/" + std::get<2>(*factory) + ".racy", device));
                 instance_.emplace_back(std::make_unique<excalibur::pipeline<float>>(hardcode::get_model_params(std::get<3>(*factory)), std::string(model_directory) + "/" + std::get<3>(*factory) + ".racy", device));
-                if (factory_type == 5 || factory_type == 6)
+                if (factory_type == 6)
                 {
                     segement_instance_ = std::make_unique<char_segment>();
-                    if(factory_type == 5)
-                        classfi_instance_ = std::make_unique<char_classfi>(label_type::HEAVY_RAIL);
-                    else if(factory_type == 6)
-                        classfi_instance_ = std::make_unique<char_classfi>(label_type::COOL_ROLL);
+                    classfi_instance_ = std::make_unique<char_classfi>(label_type::COOL_ROLL);
                 }
                 break;
             case 1:
@@ -73,6 +69,13 @@ namespace glasssix::heimdall
                 instance_.emplace_back(std::make_unique<excalibur::pipeline<float>>(hardcode::get_model_params(std::get<1>(*factory)), std::string(model_directory) + "/" + std::get<1>(*factory) + ".racy", device));
                 instance_.emplace_back(std::make_unique<excalibur::pipeline<float>>(hardcode::get_model_params(std::get<2>(*factory)), std::string(model_directory) + "/" + std::get<2>(*factory) + ".racy", device));
                 break;
+            case 5:
+                instance_.emplace_back(std::make_unique<excalibur::pipeline<float>>(hardcode::get_model_params(std::get<1>(*factory)), std::string(model_directory) + "/" + std::get<1>(*factory) + ".racy", device));
+                instance_.emplace_back(std::make_unique<excalibur::pipeline<float>>(hardcode::get_model_params(std::get<2>(*factory)), std::string(model_directory) + "/" + std::get<2>(*factory) + ".racy", device));
+                instance_.emplace_back(std::make_unique<excalibur::pipeline<float>>(hardcode::get_model_params(std::get<3>(*factory)), std::string(model_directory) + "/" + std::get<3>(*factory) + ".racy", device));
+                instance_.emplace_back(std::make_unique<excalibur::pipeline<float>>(hardcode::get_model_params(std::get<4>(*factory)), std::string(model_directory) + "/" + std::get<4>(*factory) + ".racy", device));
+                segement_instance_ = std::make_unique<char_segment>();
+                classfi_instance_ = std::make_unique<char_classfi>(label_type::HEAVY_RAIL);
             default:
                 break;
             }
@@ -797,7 +800,7 @@ namespace glasssix::heimdall
                     for (size_t j = 0; j < segement_result.size() - 1; j++)
                     {
                         cv::Mat small_img = roi_temp(cv::Range::all(), cv::Range((int)segement_result[j], (int)segement_result[j + 1]));
-                        auto [label, prob] = classfi_instance_->detect(small_img, *instance_[2]);
+                        auto [label, prob] = classfi_instance_->detect(small_img, *instance_[3]);
                         stringinfo.push_back(label);
                         probs.push_back(prob);
                     }
