@@ -8,7 +8,7 @@ if(USE_OPENMP)
 endif()
 
 find_package(OpenCV)
-message(WARNING "OPENCV_FOUND: ${OPENCV_FOUND}")
+message(Status "OPENCV_FOUND: ${OPENCV_FOUND}")
 if(NOT OPENCV_FOUND)
 	message(WARNING "Not Found installed OpenCV, use mannual configuration.")
 
