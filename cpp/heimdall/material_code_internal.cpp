@@ -147,20 +147,38 @@ namespace glasssix::heimdall
                 cache_->convert_order();
         }
 
-        void softmax_along_width(std::shared_ptr<memory::tensor<float>> &input)
+        void softmax_along_width(std::shared_ptr<memory::tensor<float>> &input, int dim)
         {
-            int height = input->height();
-            int width = input->width();
-            for (int h = 0; h < height; ++h)
+            if (dim == 2)
             {
-                float sum = 0.0f;
-                std::vector<float> y(width);
-                float *input_data = input->mutable_cpu_data() + input->offset(0, 0, h);
-                for (size_t i = 0; i < width; ++i)
+                int height = input->height();
+                int width = input->width();
+                for (int h = 0; h < height; ++h)
+                {
+                    float sum = 0.0f;
+                    std::vector<float> y(width);
+                    float* input_data = input->mutable_cpu_data() + input->offset(0, 0, h);
+                    for (int i = 0; i < width; ++i)
+                    {
+                        sum += y[i] = std::exp(input_data[i]);
+                    }
+                    for (int i = 0; i < width; ++i)
+                    {
+                        input_data[i] = y[i] / sum;
+                    }
+                }
+            }
+            else
+            {
+                int count = input->count();
+                float sum = 0.f;
+                std::vector<float> y(count);
+                float* input_data = input->mutable_cpu_data();
+                for (int i = 0; i < count; i++)
                 {
                     sum += y[i] = std::exp(input_data[i]);
                 }
-                for (size_t i = 0; i < width; ++i)
+                for (int i = 0; i < count; ++i)
                 {
                     input_data[i] = y[i] / sum;
                 }
@@ -498,7 +516,7 @@ namespace glasssix::heimdall
             {
                 K = 5;
             }
-            softmax_along_width(result);
+            softmax_along_width(result, 2);
             int height = result->height();
             int width = result->width();
             float *out_data = result->mutable_cpu_data();
@@ -557,7 +575,7 @@ namespace glasssix::heimdall
 
         std::vector<float> angel_postprocess(std::shared_ptr<memory::tensor<float>> &result)
         {
-            softmax_along_width(result);
+            softmax_along_width(result, 1);
             int idx = 0;
             float prob = 0;
             const float *res_data = result->cpu_data();
@@ -749,7 +767,7 @@ namespace glasssix::heimdall
             std::vector<std::vector<cv::Point2f>> box_list = result.first;
 
             float ratio = roi[3] * 1.0f / resized_img->width();
-            for (int i = 0; i < box_list.size(); ++i)
+            for (size_t i = 0; i < box_list.size(); ++i)
             {
                 bool rotate = false;
                 cv::RotatedRect rect = cv::minAreaRect(box_list[i]);
