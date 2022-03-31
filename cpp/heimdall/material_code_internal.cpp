@@ -598,6 +598,8 @@ namespace glasssix::heimdall
             std::shared_ptr<memory::tensor<uint8_t>> input(new memory::tensor<uint8_t>(cut_img.channels(), cut_img.rows, cut_img.cols, -1, memory::NHWC, nullptr));
             std::copy(cut_img.data, cut_img.data + cut_img.step[0] * cut_img.rows, input->mutable_cpu_data());
             input->convert_order();
+            if(input->width() < 320)
+                excalibur::make_border(input, input, 0, 0, 0, 320 - input->width(), excalibur::border_constant);
             auto input_tensor = input | memory::tensor_convert_to<float>;
             //// pre process
             //int count = input_tensor->count();
