@@ -5,7 +5,9 @@ namespace glasssix
 	namespace heimdall
 	{
 		const static char cool_roll_label_index[] = { '0', '1','2','3','4','5','6','7','8','9','A','C','I' };
-		const static char heavy_rail_label_index[] = { '0', '1','2','3','4','5','6','7','8','9','A','B','C','G','P','X','E' };
+		//const static char heavy_rail_label_index[] = { '0', '1','2','3','4','5','6','7','8','9','A','B','C','G','P','X','E' };
+		const static char heavy_rail_label_index[] = { '0', '1','2','3','4','5','6','7','8','9','A','B','C','D','E','F','G','H','I',
+			'J','K','L','M','N','O','P','Q','R','S','T','U','V','W','X','Y','Z' };
 		char_classfi::char_classfi(label_type lt)
 		{
 			switch (lt)

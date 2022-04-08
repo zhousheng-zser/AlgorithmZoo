@@ -3242,7 +3242,7 @@ namespace glasssix::hardcode
                 "Convolution      Conv_78                  1 1 507 510 0=32 1=3 11=3 2=1 12=1 3=2 13=2 4=0 14=0 15=0 16=0 5=1 6=4608",
                 "ReLU             Relu_79                  1 1 510 382",
                 "Reshape          Reshape_81               1 1 382 384 0=192 1=1 2=-1",
-                "InnerProduct     MatMul_82                1 1 384 output 0=17 1=0 2=3264"
+                "InnerProduct     MatMul_82                1 1 384 output 0=36 1=0 2=6912"
             };
         };
 
