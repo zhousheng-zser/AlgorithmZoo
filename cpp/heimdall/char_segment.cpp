@@ -171,6 +171,7 @@ namespace glasssix
 		}
 		std::vector<std::pair<cv::Point2f, int>> char_segment::delet_error_bbox(std::vector<std::pair<cv::Point2f, int>>& merge_bbox, const float& num_thres) {
 			std::vector<std::pair<cv::Point2f, int>> retain_box;
+			size_t num = merge_bbox.size();
 			while (merge_bbox.size() > 1)
 			{
 				cv::Point2f frist_box = merge_bbox[0].first;
@@ -190,7 +191,7 @@ namespace glasssix
 				}
 				keep_index_vector_pair(merge_bbox, retain_index);
 			}
-			return retain_box;
+			return num > 1 ? retain_box : merge_bbox;
 		}
 		std::vector<float> char_segment::merge_near_box(std::vector<std::pair<cv::Point2f, int>>& box) {
 			std::vector<float> result_cordi;
