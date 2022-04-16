@@ -7,6 +7,7 @@ if(USE_OPENMP)
 	add_compile_options(${OpenMP_CXX_FLAGS})
 endif()
 
+list(APPEND CMAKE_PREFIX_PATH "D:/lib/opencv_4.5.2/opencv/build")
 find_package(OpenCV)
 message(Status "OPENCV_FOUND: ${OPENCV_FOUND}")
 if(NOT OPENCV_FOUND)
