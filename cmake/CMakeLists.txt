@@ -138,13 +138,6 @@ if(BUILD_UNIT_TEST)
 	add_subdirectory(UnitTest)
 endif()
 
-add_subdirectory("longinus-run")
-
-add_subdirectory("yolov5")
-add_subdirectory("yolov5-run")
-
-add_subdirectory("pan")
-add_subdirectory("pan-run")
-
-add_subdirectory("rifleman")
-add_subdirectory("rifleman-run")
+add_subdirectory(yolov5)
+add_subdirectory(pan)
+add_subdirectory(rifleman)
