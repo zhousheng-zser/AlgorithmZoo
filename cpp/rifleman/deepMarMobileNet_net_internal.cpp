@@ -144,11 +144,11 @@ namespace glasssix::rifleman
             auto input_tensor = cache_forward | memory::tensor_convert_to<float>;
             input_tensor = input_tensor / 255.0;
 
+            std::cout << "src data :  ------------------------------" << std::endl;
             for (int i = 0; i < 10; ++i)
             {
                 std::cout << input_tensor->cpu_data()[i] << std::endl;
             }
-
             for (int i = 100352; i < 100352 + 10; ++i)
             {
                 std::cout << input_tensor->cpu_data()[i] << std::endl;
@@ -159,11 +159,11 @@ namespace glasssix::rifleman
             std::vector <float > var = { 0.229, 0.224, 0.225 };
             normalize(input_tensor, mean, var);
 
+            std::cout << "normalized data :  ------------------------------" << std::endl;
             for (int i = 0; i < 10; ++i)
             {
                 std::cout << input_tensor->cpu_data()[i] << std::endl;
             }
-
             for (int i = 100352; i < 100352 + 10; ++i)
             {
                 std::cout << input_tensor->cpu_data()[i] << std::endl;
@@ -188,6 +188,19 @@ namespace glasssix::rifleman
         exposing::param_vector<exposing::param_vector<exposing::param_pair<float, exposing::param_string>>>
             detect(exposing::param_span<std::uint8_t> bitmap, int channels, int height, int width, int order)
         {
+            // bgr 2 rgb
+            for (int row = 0; row < height; ++row)
+            {
+                for (int col = 0; col < width; ++col)
+                {
+                    int step0 = width * channels;
+                    int step1 = channels;
+                    
+                    auto temp = bitmap.data()[step0 * row + step1 * col + 0];
+                    bitmap.data()[step0 * row + step1 * col + 0] = bitmap.data()[step0 * row + step1 * col + 2];
+                    bitmap.data()[step0 * row + step1 * col + 2] = temp;
+                }
+            }
 
             this->init_cache(bitmap, channels, height, width, order);
 

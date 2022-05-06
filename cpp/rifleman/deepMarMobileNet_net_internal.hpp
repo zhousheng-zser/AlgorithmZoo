@@ -25,7 +25,6 @@ namespace glasssix::rifleman
         deepMarMobileNet_net_internal(const deepMarMobileNet_net_internal&) = delete;
         deepMarMobileNet_net_internal& operator=(const deepMarMobileNet_net_internal&) = delete;
         
-
         static std::string version();
 
         exposing::param_vector<exposing::param_vector<exposing::param_pair<float, exposing::param_string>>> detect(exposing::param_span<std::uint8_t> bitmap, int channels, int height, int width, int order) const;
