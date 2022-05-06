@@ -22,7 +22,7 @@ namespace glasssix
 		std::vector<float> char_segment::detect(cv::Mat& img, const bool with_blank, excalibur::pipeline<float>& segement_instance)
 		{
 			cv::Mat pre_img = pre_handel_img(img, stride_);
-			auto input_img = std::make_shared <memory::tensor<std::uint8_t>>(std::vector<int>{1, 64, pre_img.cols, 3}, -1, memory::NHWC);
+			auto input_img = std::make_shared <memory::tensor<std::uint8_t>>(std::vector<int>{1, 64, pre_img.cols, pre_img.channels()}, -1, memory::NHWC);
 			std::copy(pre_img.data, pre_img.data + pre_img.step[0] * pre_img.rows, input_img->mutable_cpu_data());
 			input_img->convert_order();
 			auto result = segement_instance.forward(input_img | memory::tensor_convert_to<float>);
@@ -56,7 +56,7 @@ namespace glasssix
 			{
 				cv::Mat supply_img = pre_img(cv::Range::all(), cv::Range(pre_img.cols - 64, pre_img.cols)).clone();
 				cv::flip(supply_img, supply_img, 1);
-				auto input_img1 = std::make_shared <memory::tensor<std::uint8_t>>(std::vector<int>{1, 64, 64, 3}, -1, memory::NHWC);
+				auto input_img1 = std::make_shared <memory::tensor<std::uint8_t>>(std::vector<int>{1, 64, 64, supply_img.channels()}, -1, memory::NHWC);
 				std::copy(supply_img.data, supply_img.data + supply_img.step[0] * supply_img.rows, input_img1->mutable_cpu_data());
 				input_img1->convert_order();
 				auto result1 = segement_instance.forward(input_img1 | memory::tensor_convert_to<float>);

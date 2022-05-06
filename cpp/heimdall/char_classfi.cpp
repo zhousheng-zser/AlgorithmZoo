@@ -25,7 +25,7 @@ namespace glasssix
 		std::pair<char, float> char_classfi::detect(cv::Mat& img, excalibur::pipeline<float>& classfi_instance)
 		{
 			cv::Mat pre_img = pre_handel_img(img);
-			auto input_img = std::make_shared<memory::tensor<std::uint8_t>>(std::vector<int>{1, 64, 48, 3}, -1, memory::NHWC);
+			auto input_img = std::make_shared<memory::tensor<std::uint8_t>>(std::vector<int>{1, 64, 48, pre_img.channels()}, -1, memory::NHWC);
 			std::copy(pre_img.data, pre_img.data + pre_img.step[0] * pre_img.rows, input_img->mutable_cpu_data());
 			input_img->convert_order();
 			auto result = classfi_instance.forward(input_img | memory::tensor_convert_to<float>);

@@ -14,6 +14,7 @@
 #include "Primitives/tensor_conversions.hpp"
 #include "Excalibur/operation_make_border.hpp"
 #include "Excalibur/operation_resize.hpp"
+#include "Excalibur/operation_rgb2gray.hpp"
 #include <opencv2/core/core.hpp>
 #include <opencv2/imgproc/imgproc.hpp>
 //#include <opencv2/highgui/highgui.hpp>
@@ -28,14 +29,15 @@
 
 namespace glasssix::heimdall
 {
-    std::array<std::tuple<int, std::string, std::string, std::string, std::string>, 7> types = {
+    std::array<std::tuple<int, std::string, std::string, std::string, std::string>, 8> types = {
         {{0, "hot_rolled_det", "hot_rolled_rec", "hot_material_angle", ""},
-        {1, "cool_rolled_det", "cool_rolled_rec", "", ""},
+        {1, "cool_rolled_det_medium", "cool_rolled_rec", "", ""},
         {2, "hot_rolled_det_lite", "hot_rolled_rec_lite", "hot_material_angle", ""},
         {3, "cool_rolled_det_lite", "cool_rolled_rec_lite", "", ""},
         {4, "heavy_rail_det_lite", "heavy_rail_rec_lite", "hot_material_angle", ""},
-        {5, "heavy_rail_det_lite", "heavy_rail_segment_blank_simp", "hot_material_angle", "heavy_rail_classify_char_simp_2"},
-        {6, "cool_rolled_det", "segment_char_simp_3", "singel_char_classfi_simp", ""}} };
+        {5, "heavy_rail_det_lite", "heavy_rail_segment", "hot_material_angle", "heavy_rail_category"},
+        {6, "cool_rolled_det_medium", "segment_char_simp_3", "singel_char_classfi_simp", ""},
+        {7, "heavy_rail_det_lite", "heavy_rail_segment_gray", "hot_material_angle", "heavy_rail_category_gray"}} };
 
     class material_code_internal::impl
     {
@@ -70,12 +72,14 @@ namespace glasssix::heimdall
                 instance_.emplace_back(std::make_unique<excalibur::pipeline<float>>(hardcode::get_model_params(std::get<2>(*factory)), std::string(model_directory) + "/" + std::get<2>(*factory) + ".racy", device));
                 break;
             case 5:
+            case 7:
                 instance_.emplace_back(std::make_unique<excalibur::pipeline<float>>(hardcode::get_model_params(std::get<1>(*factory)), std::string(model_directory) + "/" + std::get<1>(*factory) + ".racy", device));
                 instance_.emplace_back(std::make_unique<excalibur::pipeline<float>>(hardcode::get_model_params(std::get<2>(*factory)), std::string(model_directory) + "/" + std::get<2>(*factory) + ".racy", device));
                 instance_.emplace_back(std::make_unique<excalibur::pipeline<float>>(hardcode::get_model_params(std::get<3>(*factory)), std::string(model_directory) + "/" + std::get<3>(*factory) + ".racy", device));
                 instance_.emplace_back(std::make_unique<excalibur::pipeline<float>>(hardcode::get_model_params(std::get<4>(*factory)), std::string(model_directory) + "/" + std::get<4>(*factory) + ".racy", device));
                 segement_instance_ = std::make_unique<char_segment>();
                 classfi_instance_ = std::make_unique<char_classfi>(label_type::HEAVY_RAIL);
+                break;
             default:
                 break;
             }
@@ -99,7 +103,7 @@ namespace glasssix::heimdall
                 run_hot_roll(results, roi, top_five);
             else if (factory_type_ == 1 || factory_type_ == 3 || factory_type_ == 6)
                 run_cool_roll(results, roi, top_five);
-            else if (factory_type_ == 4 || factory_type_ == 5)
+            else if (factory_type_ == 4 || factory_type_ == 5 || factory_type_ == 7)
                 run_heavy_rail(results, roi, top_five);
             else
                 return result;
@@ -798,9 +802,14 @@ namespace glasssix::heimdall
                 }
 
                 std::pair<std::vector<std::string>, std::vector<std::vector<float>>> out;
-                if (factory_type_ == 5)
+                if (factory_type_ == 5 || factory_type_ == 7)
                 {
                     cv::Mat roi_temp = cut_img.clone();
+                    if (factory_type_ == 7)
+                    {
+                        cv::cvtColor(roi_temp, roi_temp, CV_BGR2GRAY);
+                        cv::threshold(roi_temp, roi_temp, 0, 255, CV_THRESH_OTSU);
+                    }
                     std::vector<float> segement_result = segement_instance_->detect(roi_temp, true, *instance_[1]);
                     std::string stringinfo;
                     std::vector<float> probs;
