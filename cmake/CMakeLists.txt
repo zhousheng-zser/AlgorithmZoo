@@ -138,6 +138,5 @@ if(BUILD_UNIT_TEST)
 	add_subdirectory(UnitTest)
 endif()
 
-add_subdirectory(yolov5)
 add_subdirectory(pan)
 add_subdirectory(rifleman)
