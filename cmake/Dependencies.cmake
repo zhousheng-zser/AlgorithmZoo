@@ -7,8 +7,6 @@ if(USE_OPENMP)
 	add_compile_options(${OpenMP_CXX_FLAGS})
 endif()
 
-#list(APPEND CMAKE_PREFIX_PATH "D:/lib/opencv_4.5.2/opencv/build")
-set(CUDA_CUDART_LIBRARY cudart.lib) # for : Could NOT find CUDA (missing: CUDA_CUDART_LIBRARY) found suitable exact version "10.2"
 find_package(OpenCV)
 message(Status "OPENCV_FOUND: ${OPENCV_FOUND}")
 if(NOT OPENCV_FOUND)
