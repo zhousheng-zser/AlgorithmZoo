@@ -1,5 +1,8 @@
 build/
 out/
 .vs/
+
 CMakeSettings.json
 CMakePresets.json
+
+yolov5/
