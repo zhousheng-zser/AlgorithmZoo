@@ -271,7 +271,7 @@ namespace glasssix::romancia
 			}
 			init_cache(bitmap, channels, height, width, order);
 
-			std::shared_ptr<memory::tensor<uint8_t>> ROI, resized_ROI, rotated_ROI, final_mat, final_mat_gray, resized_color_img;
+			std::shared_ptr<memory::tensor<uint8_t>> ROI, rotated_ROI, final_mat, final_mat_gray, resized_color_img;
 			auto res = exposing::make_param_vector<std::uint8_t, 2>();
 
 			for (size_t i = 0; i < faces.size(); i++)
@@ -286,7 +286,7 @@ namespace glasssix::romancia
 				float min_edge = std::min(MarginRect.w, MarginRect.h);
 				float scale = 160.f / min_edge;
 				if (scale < 1.0f)
-					excalibur::resize_cpu(ROI, resized_ROI, std::ceil(ROI->height() * scale), std::ceil(ROI->width() * scale));
+					excalibur::resize_cpu(ROI, ROI, std::ceil(ROI->height() * scale), std::ceil(ROI->width() * scale));
 				else
 					scale = 1.0f;
 
@@ -302,7 +302,7 @@ namespace glasssix::romancia
 				double tan = (center_eye.x - center_mouth.x) / (center_eye.y - center_mouth.y);
 				double arctan = atan(tan) * 180 / 3.1415926;
 
-				excalibur::rotate_with_points_cpu(resized_ROI, rotated_ROI, center, -1 * arctan);
+				excalibur::rotate_with_points_cpu(ROI, rotated_ROI, center, -1 * arctan);
 
 				double distance = std::sqrt((center_eye.x - center_mouth.x) * (center_eye.x - center_mouth.x) + (center_eye.y - center_mouth.y) * (center_eye.y - center_mouth.y));
 
