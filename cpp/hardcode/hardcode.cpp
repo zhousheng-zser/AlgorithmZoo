@@ -2823,7 +2823,7 @@ namespace glasssix::hardcode
 
             inline static const std::vector<std::string> rolled_rec{
                 "glsv1",
-                "126 133",
+                "119 139",
                 "Input            input                    0 1 input 0=320 1=32 2=3 3=127.5,127.5,127.5 4=0.0078125",
                 "MemoryData       head.fc.bias             0 1 head.fc.bias 0=37",
                 "Convolution      Conv_0                   1 1 input 97 0=32 1=3 11=3 2=1 12=1 3=1 13=1 4=1 14=1 15=1 16=1 5=1 6=864",
@@ -2947,7 +2947,7 @@ namespace glasssix::hardcode
 
             inline static const std::vector<std::string> rolled_rec_lite{
                 "glsv1",
-                "152 159",
+                "145 165",
                 "Input            input                    0 1 input 0=100 1=32 2=3 3=127.5,127.5,127.5 4=0.0078125",
                 "MemoryData       head.fc.bias             0 1 head.fc.bias 0=37",
                 "Convolution      Conv_0                   1 1 input 125 0=8 1=3 11=3 2=1 12=1 3=2 13=2 4=1 14=1 15=1 16=1 5=1 6=216",
