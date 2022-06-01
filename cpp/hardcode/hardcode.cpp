@@ -3380,7 +3380,12 @@ namespace glasssix::hardcode
             {"heavy_rail_segment", hardcode_model_params::heavy_rail_segment},
             {"segment_char_simp_3", hardcode_model_params::segment_char_simp_3},
             {"heavy_rail_category", hardcode_model_params::heavy_rail_category},
-            {"singel_char_classfi_simp", hardcode_model_params::singel_char_classfi_simp}
+            {"singel_char_classfi_simp", hardcode_model_params::singel_char_classfi_simp},
+
+            {"bar_det_lite", hardcode_model_params::rolled_det_medium},
+            {"bar_category", hardcode_model_params::heavy_rail_category},
+            {"bar_segment", hardcode_model_params::segment_char_simp_3},
+            {"bar_angle", hardcode_model_params::material_angle}
         };
     }
 
