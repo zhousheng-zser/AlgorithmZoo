@@ -308,7 +308,7 @@ namespace glasssix
 				auto start_point_theta = get_start_end(center, min_radi, max_radi, bbox[i][3], bbox[i][0], true);
 				auto end_point_theta = get_start_end(center, min_radi, max_radi, bbox[i][5], bbox[i][2], false);
 
-				cv::circle(img, center, 2, cv::Scalar{ 0, 0, 255 });
+				//cv::circle(img, center, 2, cv::Scalar{ 0, 0, 255 });
 				float theta_devalue = std::abs(start_point_theta.second - end_point_theta.second);
 				if (theta_devalue <= 3.1415)
 				{

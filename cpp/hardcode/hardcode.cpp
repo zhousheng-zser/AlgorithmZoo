@@ -3094,7 +3094,7 @@ namespace glasssix::hardcode
                 "InnerProduct     MatMul_259               1 1 532 534 0=37 1=0 2=3552",
                 "BinaryOp         Add_260                  2 1 534 head.fc.bias output 0=0" };
 
-            inline static const std::vector<std::string> segment_char_simp_3{
+            inline static const std::vector<std::string> cool_rolled_segment{
                 "glsv1",
                 "22 22",
                 "Input            input                    0 1 input 0=-1 1=64 2=3 3=0,0,0 4=0.003921568627451",
@@ -3148,7 +3148,7 @@ namespace glasssix::hardcode
                 "Convolution      Conv_20                  1 1 62 output 0=3 1=1 11=1 2=1 12=1 3=1 13=1 4=0 14=0 15=0 16=0 5=1 6=768"
             };
 
-            inline static const std::vector<std::string> singel_char_classfi_simp{
+            inline static const std::vector<std::string> cool_rolled_category{
                 "glsv1",
                 "92 101",
                 "Input            input                    0 1 input 0=48 1=64 2=3 3=0,0,0 4=0.003921568627451",
@@ -3378,9 +3378,10 @@ namespace glasssix::hardcode
             {"heavy_rail_det_lite", hardcode_model_params::rolled_det_lite},
             {"heavy_rail_rec_lite", hardcode_model_params::rolled_rec_lite},
             {"heavy_rail_segment", hardcode_model_params::heavy_rail_segment},
-            {"segment_char_simp_3", hardcode_model_params::segment_char_simp_3},
+            {"segment_char_simp_3", hardcode_model_params::cool_rolled_segment},
             {"heavy_rail_category", hardcode_model_params::heavy_rail_category},
-            {"singel_char_classfi_simp", hardcode_model_params::singel_char_classfi_simp}
+            {"singel_char_classfi_simp", hardcode_model_params::cool_rolled_category},
+            {"cool_rolled_category", hardcode_model_params::heavy_rail_category}
         };
     }
 
