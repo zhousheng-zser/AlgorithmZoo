@@ -21,7 +21,8 @@ namespace glasssix::exposing::impl
 
         struct type : abi_unknown_object
         {
-            virtual std::int32_t G6_ABI_CALL init(abi_in_t<param_string> model_directory, abi_in_t<std::int32_t> factory_type, std::int32_t device) noexcept = 0;
+            virtual std::int32_t G6_ABI_CALL init(abi_in_t<param_string> model_directory, 
+                abi_in_t<std::int32_t> factory_type, std::int32_t device) noexcept = 0;
             virtual std::int32_t G6_ABI_CALL detect(abi_in_t<param_span<std::uint8_t>> bitmap, std::int32_t channels, std::int32_t height, std::int32_t width, std::int32_t top_five,
                                                     std::int32_t order, std::int32_t x, std::int32_t y, std::int32_t roi_width, std::int32_t roi_height, abi_out_t<param_vector<heimdall::box_info>> result) noexcept = 0;
             virtual std::int32_t G6_ABI_CALL version(abi_out_t<param_string> result) noexcept = 0;
