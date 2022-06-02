@@ -29,14 +29,15 @@
 
 namespace glasssix::heimdall
 {
-    std::array<std::tuple<int, std::string, std::string, std::string, std::string>, 7> types = {
+    std::array<std::tuple<int, std::string, std::string, std::string, std::string>, 8> types = {
         {{0, "hot_rolled_det", "hot_rolled_rec", "hot_material_angle", ""},
         {1, "cool_rolled_det_medium", "cool_rolled_rec", "", ""},
         {2, "hot_rolled_det_lite", "hot_rolled_rec_lite", "hot_material_angle", ""},
         {3, "cool_rolled_det_lite", "cool_rolled_rec_lite", "", ""},
         {4, "heavy_rail_det_lite", "heavy_rail_rec_lite", "hot_material_angle", ""},
         {5, "heavy_rail_det_lite", "heavy_rail_segment", "hot_material_angle", "heavy_rail_category"},
-        {6, "cool_rolled_det_medium", "segment_char_simp_3", "singel_char_classfi_simp", ""}} };
+        {6, "cool_rolled_det_medium", "segment_char_simp_3", "singel_char_classfi_simp", ""},
+        {8, "bar_det_lite", "bar_segment", "bar_angle", "bar_category"}} };
 
     class material_code_internal::impl
     {
@@ -78,6 +79,14 @@ namespace glasssix::heimdall
                 segement_instance_ = std::make_unique<char_segment>();
                 classfi_instance_ = std::make_unique<char_classfi>(label_type::HEAVY_RAIL);
                 break;
+            case 8:
+                instance_.emplace_back(std::make_unique<excalibur::pipeline<float>>(hardcode::get_model_params(std::get<1>(*factory)), std::string(model_directory) + "/" + std::get<1>(*factory) + ".racy", device));
+                instance_.emplace_back(std::make_unique<excalibur::pipeline<float>>(hardcode::get_model_params(std::get<2>(*factory)), std::string(model_directory) + "/" + std::get<2>(*factory) + ".racy", device));
+                instance_.emplace_back(std::make_unique<excalibur::pipeline<float>>(hardcode::get_model_params(std::get<3>(*factory)), std::string(model_directory) + "/" + std::get<3>(*factory) + ".racy", device));
+                instance_.emplace_back(std::make_unique<excalibur::pipeline<float>>(hardcode::get_model_params(std::get<4>(*factory)), std::string(model_directory) + "/" + std::get<4>(*factory) + ".racy", device));
+                segement_instance_ = std::make_unique<char_segment>();
+                classfi_instance_ = std::make_unique<char_classfi>(label_type::HEAVY_RAIL);
+                break;
             default:
                 break;
             }
@@ -103,6 +112,8 @@ namespace glasssix::heimdall
                 run_cool_roll(results, roi, top_five);
             else if (factory_type_ == 4 || factory_type_ == 5 || factory_type_ == 7)
                 run_heavy_rail(results, roi, top_five);
+            else if (factory_type_ == 8)
+                run_bar_rail(results, roi, top_five);
             else
                 return result;
 
@@ -196,11 +207,11 @@ namespace glasssix::heimdall
         }
 
         /**
- * @brief resize the shorter edge of img to specified size
- * @param short_size specified size
- * @param img 
- * @return cv::Mat 
- */
+         * @brief resize the shorter edge of img to specified size
+         * @param short_size specified size
+         * @param img 
+         * @return cv::Mat 
+         */
         std::shared_ptr<memory::tensor<uint8_t>> resize_fixed_size(float short_size, std::shared_ptr<memory::tensor<uint8_t>> &img)
         {
             int w = img->width();
@@ -239,11 +250,11 @@ namespace glasssix::heimdall
         //}
 
         /**
- * @brief polygon retraction
- * @param pList make sure they're in counterclockwise order
- * @param out output
- * @param SAFELINE negative numbers are contractions, positive numbers are expansions
- */
+         * @brief polygon retraction
+         * @param pList make sure they're in counterclockwise order
+         * @param out output
+         * @param SAFELINE negative numbers are contractions, positive numbers are expansions
+         */
         void expand_polygon(const std::vector<cv::Point2f> &pList, std::vector<cv::Point2f> &out, float SAFELINE)
         {
             // edge set and normalize it
@@ -645,6 +656,144 @@ namespace glasssix::heimdall
             cv::warpAffine(extend_img, extend_rotated, M, cv::Size(extend_img.cols, extend_img.rows));
             cv::getRectSubPix(extend_rotated, cv::Size(width, height), center, cropped);
             return cropped;
+        }
+
+        void run_bar_rail(std::vector< box_info_internal>& results, std::vector<int>& roi, int top_five)
+        {
+            excalibur::rectangle<int> rect((int)roi[0], (int)roi[1], (int)roi[2], (int)roi[3]);
+            std::shared_ptr<memory::tensor<uint8_t>> input;
+            
+            // image preprocessing
+            excalibur::safty_cut_cpu(cache_, input, &rect);
+            std::shared_ptr<memory::tensor<uint8_t>> resized_img = resize_fixed_size(640, input);
+            cv::Mat resized_mat_img(resized_img->height(), resized_img->width(), CV_8UC3);
+            
+            // convert NCHW TO NHWC
+            const uint8_t* in_data = resized_img->cpu_data();
+            int step = resized_img->width() * resized_img->height();
+            int channels = resized_img->channels();
+            for (int i = 0; i < step; ++i)
+            {
+                for (int c = 0; c < channels; ++c)
+                {
+                    *(resized_mat_img.data + channels * i + c) = *(in_data + resized_img->offset(0, c) + i);
+                }
+            }
+
+            // ocr detect
+            std::pair<std::vector<std::vector<cv::Point2f>>, std::vector<float>> result = det_combine_best(resized_img, *instance_[0]);
+            std::vector<std::vector<cv::Point2f>> box_list = result.first;
+
+            float ratio = roi[3] * 1.0f / resized_img->width();
+            for (size_t i = 0; i < box_list.size(); ++i)
+            {
+                bool rotate = false;
+                cv::RotatedRect rect = cv::minAreaRect(box_list[i]);
+
+                // crop img
+                cv::Mat cut_img = crop_rect(resized_mat_img, rect);
+                int newH = cut_img.rows;
+                int newW = cut_img.cols;
+
+                // ignore
+                if (std::max(newH, newW) / (std::min(newH, newW) * 1.0) <= 1.5)
+                {
+                    continue;
+                }
+                if (newH > newW)
+                {
+                    cut_img = rotateAntiClockWise90(cut_img);
+                    rotate = true;
+                }
+
+                bool inverse = false;
+                std::vector<float> res_vec = angel_infer(cut_img, *instance_[2]);
+                // 0: The character direction is inverse  1: The character direction is positive
+                if (res_vec[0] == 0)
+                {
+                    cv::flip(cut_img, cut_img, -1);
+                    inverse = true;
+                }
+
+                std::pair<std::vector<std::string>, std::vector<std::vector<float>>> out;
+                if (factory_type_ == 8)
+                {
+                    cv::Mat roi_temp = cut_img.clone();
+                    std::vector<float> segement_result = segement_instance_->detect(roi_temp, true, *instance_[1]);
+                    std::string stringinfo;
+                    std::vector<float> probs;
+
+                    float left = 0.f, right = 0.f;
+                    if (segement_result[0] < 0)
+                    {
+                        left = std::ceil(std::abs(segement_result[0]));
+                        segement_result[0] = 0;
+                    }
+
+                    if (segement_result[segement_result.size() - 1] > roi_temp.cols)
+                        right = std::ceil(segement_result[segement_result.size() - 1] - roi_temp.cols);
+
+                    cv::copyMakeBorder(roi_temp, roi_temp, 0, 0, left, right, cv::BorderTypes::BORDER_CONSTANT, cv::Scalar::all(0));
+
+                    for (size_t j = 0; j < segement_result.size() - 1; j++)
+                    {
+                        cv::Mat small_img = roi_temp(cv::Range::all(), cv::Range((int)segement_result[j], (int)segement_result[j + 1]));
+                        auto [label, prob] = classfi_instance_->detect(small_img, *instance_[3]);
+                        stringinfo.push_back(label);
+                        probs.push_back(prob);
+                    }
+                    out = std::make_pair<std::vector<std::string>, std::vector<std::vector<float>>>({ stringinfo }, { probs });
+                }
+                else
+                {
+                    // run identify network
+                    out = rec_combine_best(cut_img, top_five, *instance_[1]);
+                }
+
+                box_info_internal box;
+                auto location = exposing::make_param_vector<float>();
+                for (int j = 0; j < box_list[i].size(); ++j)
+                {
+                    location.push_back(box_list[i][j].x * ratio);
+                    location.push_back(box_list[i][j].y * ratio);
+                }
+                box.location = location;
+                auto strinfos = exposing::make_param_vector<exposing::param_string>();
+                for (int j = 0; j < out.first.size(); ++j)
+                {
+                    strinfos.push_back(exposing::param_string(out.first[j]));
+                }
+                box.strinfos = strinfos;
+                // process angle -> [0, 360)
+                float angle;
+                if (!rotate && !inverse)
+                {
+                    angle = std::abs(rect.angle);
+                }
+                else if (rotate && inverse)
+                {
+                    angle = std::abs(rect.angle) + 90;
+                }
+                else if (!rotate && inverse)
+                {
+                    angle = std::abs(rect.angle) + 180;
+                }
+                else if (rotate && !inverse)
+                {
+                    angle = std::abs(rect.angle) + 270;
+                    angle = angle == 360 ? 0 : angle;
+                }
+                box.angle = angle;
+
+                box.cut_roi = exposing::make_param_vector<std::uint8_t>();
+                box.cut_roi.resize(cut_img.step[0] * cut_img.rows);
+                box.cut_roi.copy_from({ cut_img.data, static_cast<size_t>(cut_img.step[0] * cut_img.rows) }, 0);
+
+                box.cut_roi_width = cut_img.cols;
+                box.cut_roi_height = cut_img.rows;
+
+                results.push_back(box);
+            }
         }
 
         void run_hot_roll(std::vector<box_info_internal> &results, std::vector<int> &roi, int top_five)
