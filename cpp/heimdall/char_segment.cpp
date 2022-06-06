@@ -22,15 +22,41 @@ namespace glasssix
 		std::vector<float> char_segment::detect(cv::Mat& img, const bool with_blank, excalibur::pipeline<float>& segement_instance)
 		{
 			cv::Mat pre_img = pre_handel_img(img, stride_);
+			std::cout << "------------------- cut mat input -------------------" << std::endl;
+			for (int i = 0; i < 10; ++i)
+			{
+				std::cout << (float)img.data[i] << std::endl;
+			}
+
 			auto input_img = std::make_shared <memory::tensor<std::uint8_t>>(std::vector<int>{1, 64, pre_img.cols, pre_img.channels()}, -1, memory::NHWC);
 			std::copy(pre_img.data, pre_img.data + pre_img.step[0] * pre_img.rows, input_img->mutable_cpu_data());
 			input_img->convert_order();
+			
+
+			std::cout << "------------------- segment input_img input -------------------" << std::endl;
+			for (int i = 0; i < 10; ++i)
+			{
+				std::cout << (float)input_img.get()->cpu_data()[i] << std::endl;
+			}
+			
 			auto result = segement_instance.forward(input_img | memory::tensor_convert_to<float>);
+
+
 			const float* detections = result["output"]->cpu_data();  //创建保存输出结果的vector
+			
+
+
 			int count = result["output"]->count();
+
 			int w_length = result["output"]->data_shape()[3];
+
+			std::cout << "------------------- segment ouput -------------------" << w_length << std::endl;
+			for (int j = 0; j < count; j++)
+				std::cout << detections[j] << std::endl;
+			
+
 			std::vector<cv::Point2f> trans_detection;
-			if (with_blank)
+			if (with_blank) 
 			{
 				for (size_t i = 0; i < count / 3; i++)
 				{
@@ -52,7 +78,7 @@ namespace glasssix
 				}
 			}
 
-			if (add_segement_)
+			if (add_segement_) // ??
 			{
 				cv::Mat supply_img = pre_img(cv::Range::all(), cv::Range(pre_img.cols - 64, pre_img.cols)).clone();
 				cv::flip(supply_img, supply_img, 1);
@@ -85,6 +111,7 @@ namespace glasssix
 			std::vector<std::pair<cv::Point2f, int>> post_bbox = delet_error_bbox(merge_bbox, delet_iou_thres_);
 			std::sort(post_bbox.begin(), post_bbox.end(), [](const std::pair<cv::Point2f, int>& a, const std::pair<cv::Point2f, int>& b) {return a.first.x < b.first.x; });
 			std::vector<float> result_cordi = merge_near_box(post_bbox);
+
 			return result_cordi;
 		}
 		cv::Mat char_segment::pre_handel_img(cv::Mat& img, int& stride) {
