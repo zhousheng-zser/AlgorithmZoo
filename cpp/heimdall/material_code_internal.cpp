@@ -97,10 +97,6 @@ namespace glasssix::heimdall
 
         exposing::param_vector<box_info> detect(exposing::param_span<std::uint8_t> bitmap, int channels, int height, int width, int top_five, int order, int x, int y, int roi_width, int roi_height)
         {
-            cv::Mat in_mat(height, width, CV_8UC3);
-            std::copy(bitmap.begin(), bitmap.end(), in_mat.data);
-            src_mat_ = in_mat;
-
             std::cout << "-----------------detect-----------------" << std::endl;
             if (bitmap.empty())
             {
@@ -1216,7 +1212,6 @@ namespace glasssix::heimdall
 
         cut_reg_roi cut_rois_;
         std::shared_ptr<memory::tensor<std::uint8_t>> cache_;
-        cv::Mat src_mat_;
     };
 
     material_code_internal::material_code_internal(std::string_view model_directory, int factory_type, int device)
