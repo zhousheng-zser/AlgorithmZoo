@@ -52,8 +52,6 @@ namespace glasssix::heimdall
             if (factory == types.end())
                 throw exposing::abi_invalid_argument("Invalid factory_tpye param!");
 
-            std::cout << "-----------------init-----------------" << std::endl;
-
             switch (factory_type)
             {
             case 0:
@@ -96,7 +94,6 @@ namespace glasssix::heimdall
 
         exposing::param_vector<box_info> detect(exposing::param_span<std::uint8_t> bitmap, int channels, int height, int width, int top_five, int order, int x, int y, int roi_width, int roi_height)
         {
-            std::cout << "-----------------detect-----------------" << std::endl;
             if (bitmap.empty())
             {
                 throw exposing::abi_invalid_argument("current frame is empty");
@@ -120,7 +117,7 @@ namespace glasssix::heimdall
             }
             else if (factory_type_ == 8)
             {
-                std::cout << "run bar" << std::endl;
+                //std::cout << "run bar" << std::endl;
                 run_bar(results, roi, top_five);
             }
             else
