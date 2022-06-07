@@ -738,7 +738,6 @@ namespace glasssix::heimdall
    
             std::pair<std::vector<std::vector<cv::Point2f>>, std::vector<float>> result = std::make_pair(boxes, scores);
 
-            cv::Mat img = cv::imread("//192.168.15.74/dataShare/origin/anotations_ocr/big_1/big_1_videos2images_1/20210528114858111_1/image_0002.jpg");
 
             //std::int32_t x = 900; //200, 900
             //std::int32_t y = 640;
