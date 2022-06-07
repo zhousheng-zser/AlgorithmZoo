@@ -3572,8 +3572,8 @@ namespace glasssix::hardcode
                 "PReLU            PRelu_17                 1 1 57 59 0=1",
                 "Convolution      Conv_18                  1 1 59 60 0=256 1=2 11=2 2=1 12=1 3=1 13=1 4=0 14=0 15=0 16=0 5=1 6=262144",
                 "PReLU            PRelu_19                 1 1 60 62 0=1",
-                "Convolution      Conv_20                  1 1 62 output 0=2 1=1 11=1 2=1 12=1 3=1 13=1 4=0 14=0 15=0 16=0 5=1 6=512"//´ø±³¾°
-                //"Convolution      Conv_20                  1 1 62 output 0=3 1=1 11=1 2=1 12=1 3=1 13=1 4=0 14=0 15=0 16=0 5=1 6=768",//²»´ø±³¾°
+                "Convolution      Conv_20                  1 1 62 output 0=2 1=1 11=1 2=1 12=1 3=1 13=1 4=0 14=0 15=0 16=0 5=1 6=512"
+                //"Convolution      Conv_20                  1 1 62 output 0=3 1=1 11=1 2=1 12=1 3=1 13=1 4=0 14=0 15=0 16=0 5=1 6=768",
             };
 
             inline static const std::vector<std::string> bar_angle{
@@ -3764,12 +3764,7 @@ namespace glasssix::hardcode
             {"heavy_rail_category", hardcode_model_params::heavy_rail_category},
             {"singel_char_classfi_simp", hardcode_model_params::cool_rolled_category},
             {"cool_rolled_category", hardcode_model_params::heavy_rail_category},
-            
-            //{"bar_det_lite", hardcode_model_params::rolled_det_medium},
-            //{"bar_category", hardcode_model_params::heavy_rail_category},
-            //{"bar_segment", hardcode_model_params::cool_rolled_segment},
-            //{"bar_angle", hardcode_model_params::material_angle}
-            
+
             {"bar_det_lite", hardcode_model_params::bar_det_lite},
             {"bar_category", hardcode_model_params::bar_category},
             {"bar_segment", hardcode_model_params::bar_segment},
