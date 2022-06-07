@@ -28,7 +28,8 @@
 
 namespace glasssix::heimdall
 {
-   std::array<std::tuple<int, std::string, std::string, std::string, std::string>, 10> types = {
+    std::array<std::tuple<int, std::string, std::string, std::string, std::string>, 9> types = 
+    {
         {{0, "hot_rolled_det", "hot_rolled_rec", "hot_material_angle", ""},
         {1, "cool_rolled_det", "cool_rolled_rec", "", ""},
         {2, "hot_rolled_det_lite", "hot_rolled_rec_lite", "hot_material_angle", ""},
@@ -37,8 +38,8 @@ namespace glasssix::heimdall
         {5, "heavy_rail_det_lite", "heavy_rail_segment", "hot_material_angle", "heavy_rail_category"},
         {6, "cool_rolled_det_medium", "segment_char_simp_3", "singel_char_classfi_simp", ""},
         {7, "cool_rolled_det_medium", "segment_char_simp_3", "cool_rolled_category", ""},
-        {8, "bar_det_lite", "bar_segment", "bar_angle", "bar_category"},
-};;
+        {8, "bar_det_lite", "bar_segment", "bar_angle", "bar_category"}} 
+    };
         
     class material_code_internal::impl
     {
@@ -1121,7 +1122,6 @@ namespace glasssix::heimdall
             // ocr detect
             std::pair<std::vector<std::vector<cv::Point2f>>, std::vector<float>> result = det_combine_best(resized_img, *instance_[0]);
             std::vector<std::vector<cv::Point2f>> box_list = result.first;
-            cv::Mat temp = input_mat.clone();
             for (size_t i = 0; i < box_list.size(); i++)
             {
                 for (size_t j = 0; j < box_list[i].size(); j++)
