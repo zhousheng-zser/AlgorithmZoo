@@ -90,8 +90,6 @@ namespace glasssix::heimdall
                 segement_instance_ = std::make_unique<char_segment>(0.6, 0.01, 8, false);
                 classfi_instance_ = std::make_unique<char_classfi>(label_type::HEAVY_RAIL);
                 break;
-            case 120:
-
             default:
                 break;
             }
