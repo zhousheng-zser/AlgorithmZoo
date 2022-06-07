@@ -22,22 +22,22 @@ namespace glasssix
 		std::vector<float> char_segment::detect(cv::Mat& img, const bool with_blank, excalibur::pipeline<float>& segement_instance)
 		{
 			cv::Mat pre_img = pre_handel_img(img, stride_);
-			std::cout << "------------------- cut mat input -------------------" << std::endl;
-			for (int i = 0; i < 10; ++i)
-			{
-				std::cout << (float)img.data[i] << std::endl;
-			}
+			//std::cout << "------------------- cut mat input -------------------" << std::endl;
+			//for (int i = 0; i < 10; ++i)
+			//{
+			//	std::cout << (float)img.data[i] << std::endl;
+			//}
 
 			auto input_img = std::make_shared <memory::tensor<std::uint8_t>>(std::vector<int>{1, 64, pre_img.cols, pre_img.channels()}, -1, memory::NHWC);
 			std::copy(pre_img.data, pre_img.data + pre_img.step[0] * pre_img.rows, input_img->mutable_cpu_data());
 			input_img->convert_order();
 			
 
-			std::cout << "------------------- segment input_img input -------------------" << std::endl;
-			for (int i = 0; i < 10; ++i)
-			{
-				std::cout << (float)input_img.get()->cpu_data()[i] << std::endl;
-			}
+			//std::cout << "------------------- segment input_img input -------------------" << std::endl;
+			//for (int i = 0; i < 10; ++i)
+			//{
+			//	std::cout << (float)input_img.get()->cpu_data()[i] << std::endl;
+			//}
 			
 			auto result = segement_instance.forward(input_img | memory::tensor_convert_to<float>);
 
@@ -50,9 +50,9 @@ namespace glasssix
 
 			int w_length = result["output"]->data_shape()[3];
 
-			std::cout << "------------------- segment ouput -------------------" << w_length << std::endl;
-			for (int j = 0; j < count; j++)
-				std::cout << detections[j] << std::endl;
+			//std::cout << "------------------- segment ouput -------------------" << w_length << std::endl;
+			//for (int j = 0; j < count; j++)
+			//	std::cout << detections[j] << std::endl;
 			
 
 			std::vector<cv::Point2f> trans_detection;

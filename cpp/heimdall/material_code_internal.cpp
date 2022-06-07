@@ -818,9 +818,16 @@ namespace glasssix::heimdall
                     for (size_t j = 0; j < segement_result.size() - 1; j++)
                     {
                         cv::Mat small_img = roi_temp(cv::Range::all(), cv::Range((int)segement_result[j], (int)segement_result[j + 1]));
+                        //cv::imshow("small_img", small_img);
+                        //cv::imwrite("D:/Desktop/small_img" + std::to_string(i) + std::to_string(j) + ".jpg", small_img);
+                        //cv::waitKey(0);
+                        
                         auto [label, prob] = classfi_instance_->detect(small_img, *instance_[3]);
                         stringinfo.push_back(label);
                         probs.push_back(prob);
+
+                        //std::cout << stringinfo << std::endl;
+                        //std::cout << prob << std::endl;
                     }
 
                     out = std::make_pair<std::vector<std::string>, std::vector<std::vector<float>>>({ stringinfo }, { probs });
