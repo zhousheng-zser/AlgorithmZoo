@@ -227,7 +227,7 @@ namespace glasssix::heimdall
             int resized_w = 0, resized_h = 0, aligned_w = 0, aligned_h = 0;
 
             std::shared_ptr<memory::tensor<uint8_t>> resized;
-            if (flag==1 || flag==2)
+            if (flag==1)
             {
                 ratio = w < h ? (short_size / h) : (short_size / w);
                 resized_w = static_cast<int>(std::round(w * ratio));
@@ -262,15 +262,6 @@ namespace glasssix::heimdall
             std::shared_ptr<memory::tensor<uint8_t>> dst;
             if(flag == 1)
                 excalibur::make_border(resized, dst, 0, aligned_h - resized_h, 0, aligned_w - resized_w, excalibur::border_constant, (uint8_t)127);
-            else if (flag == 2)
-            {
-                auto top_size = (int)std::ceil((aligned_h - resized_h) / 2);
-                auto bottom_size = aligned_h - resized_h - top_size;
-                auto left_size = (int)std::ceil((aligned_w - resized_w) / 2);
-                auto right_size = aligned_w - resized_w - left_size;
-
-                excalibur::make_border(resized, dst, top_size, bottom_size, left_size, right_size, excalibur::border_constant, (uint8_t)127);
-            }
             else
                 excalibur::make_border(resized, dst, 0, aligned_h - resized_h, 0, aligned_w - resized_w);
             return { dst, 1.0f / ratio };
