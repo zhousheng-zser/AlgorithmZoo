@@ -18,7 +18,6 @@
 #include <opencv2/core/core.hpp>
 #include <opencv2/imgproc/imgproc.hpp>
 //#include <opencv2/highgui/highgui.hpp>
-
 // #include <opencv2/opencv.hpp>
 
 #include <cfloat>
@@ -29,7 +28,7 @@
 
 namespace glasssix::heimdall
 {
-    std::array<std::tuple<int, std::string, std::string, std::string, std::string>, 9> types = {
+   std::array<std::tuple<int, std::string, std::string, std::string, std::string>, 10> types = {
         {{0, "hot_rolled_det", "hot_rolled_rec", "hot_material_angle", ""},
         {1, "cool_rolled_det", "cool_rolled_rec", "", ""},
         {2, "hot_rolled_det_lite", "hot_rolled_rec_lite", "hot_material_angle", ""},
@@ -38,8 +37,9 @@ namespace glasssix::heimdall
         {5, "heavy_rail_det_lite", "heavy_rail_segment", "hot_material_angle", "heavy_rail_category"},
         {6, "cool_rolled_det_medium", "segment_char_simp_3", "singel_char_classfi_simp", ""},
         {7, "cool_rolled_det_medium", "segment_char_simp_3", "cool_rolled_category", ""},
-        {8, "bar_det_lite", "bar_segment", "bar_angle", "bar_category"}} };;
-
+        {8, "bar_det_lite", "bar_segment", "bar_angle", "bar_category"},
+};;
+        
     class material_code_internal::impl
     {
     public:
@@ -84,7 +84,7 @@ namespace glasssix::heimdall
                 instance_.emplace_back(std::make_unique<excalibur::pipeline<float>>(hardcode::get_model_params(std::get<2>(*factory)), std::string(model_directory) + "/" + std::get<2>(*factory) + ".racy", device));
                 instance_.emplace_back(std::make_unique<excalibur::pipeline<float>>(hardcode::get_model_params(std::get<3>(*factory)), std::string(model_directory) + "/" + std::get<3>(*factory) + ".racy", device));
                 instance_.emplace_back(std::make_unique<excalibur::pipeline<float>>(hardcode::get_model_params(std::get<4>(*factory)), std::string(model_directory) + "/" + std::get<4>(*factory) + ".racy", device));
-                segement_instance_ = std::make_unique<char_segment>();
+                segement_instance_ = std::make_unique<char_segment>(0.6, 0.01, 8, false);
                 classfi_instance_ = std::make_unique<char_classfi>(label_type::HEAVY_RAIL);
                 break;
             default:
@@ -104,14 +104,22 @@ namespace glasssix::heimdall
             // roi params
             std::vector<int> roi{x, y, roi_height, roi_width};
             init_cache(bitmap, channels, height, width, order, roi);
+
             std::vector<box_info_internal> results;
             auto result = exposing::make_param_vector<box_info>();
             if (factory_type_ == 0 || factory_type_ == 2)
                 run_hot_roll(results, roi, top_five);
             else if (factory_type_ == 1 || factory_type_ == 3 || factory_type_ == 6 || factory_type_ == 7)
                 run_cool_roll(results, roi, top_five);
-            else if (factory_type_ == 4 || factory_type_ == 5 || factory_type_ == 8)
+            else if (factory_type_ == 4 || factory_type_ == 5)
+            {
                 run_heavy_rail(results, roi, top_five);
+            }
+            else if (factory_type_ == 8)
+            {
+                //std::cout << "run bar" << std::endl;
+                run_bar(results, roi, top_five);
+            }
             else
                 return result;
 
@@ -205,11 +213,11 @@ namespace glasssix::heimdall
         }
 
         /**
- * @brief resize the shorter edge of img to specified size
- * @param short_size specified size
- * @param img 
- * @return cv::Mat 
- */
+         * @brief resize the shorter edge of img to specified size
+         * @param short_size specified size
+         * @param img 
+         * @return cv::Mat 
+         */
         std::pair<std::shared_ptr<memory::tensor<uint8_t>>, float> resize_fixed_size(float short_size, std::shared_ptr<memory::tensor<uint8_t>> &img, int flag = 0)
         {
             int w = img->width();
@@ -218,7 +226,7 @@ namespace glasssix::heimdall
             int resized_w = 0, resized_h = 0, aligned_w = 0, aligned_h = 0;
 
             std::shared_ptr<memory::tensor<uint8_t>> resized;
-            if (flag)
+            if (flag==1 || flag==2)
             {
                 ratio = w < h ? (short_size / h) : (short_size / w);
                 resized_w = static_cast<int>(std::round(w * ratio));
@@ -251,8 +259,17 @@ namespace glasssix::heimdall
             }
 
             std::shared_ptr<memory::tensor<uint8_t>> dst;
-            if(flag)
+            if(flag == 1)
                 excalibur::make_border(resized, dst, 0, aligned_h - resized_h, 0, aligned_w - resized_w, excalibur::border_constant, (uint8_t)127);
+            else if (flag == 2)
+            {
+                auto top_size = (int)std::ceil((aligned_h - resized_h) / 2);
+                auto bottom_size = aligned_h - resized_h - top_size;
+                auto left_size = (int)std::ceil((aligned_w - resized_w) / 2);
+                auto right_size = aligned_w - resized_w - left_size;
+
+                excalibur::make_border(resized, dst, top_size, bottom_size, left_size, right_size, excalibur::border_constant, (uint8_t)127);
+            }
             else
                 excalibur::make_border(resized, dst, 0, aligned_h - resized_h, 0, aligned_w - resized_w);
             return { dst, 1.0f / ratio };
@@ -509,11 +526,17 @@ namespace glasssix::heimdall
             auto input_tensor = input | memory::tensor_convert_to<float>;
             // pre process
             //det_preprocess(input_tensor);
+
             std::unordered_map<std::string, std::shared_ptr<memory::tensor<float>>> out = det_instance_.forward(input_tensor);
+
             std::shared_ptr<memory::tensor<float>> output = out["output"];
+
+
             std::vector<std::vector<cv::Point2f>> boxes;
             std::vector<float> scores;
+
             det_post_process(output, boxes, scores);
+            
             return std::make_pair(boxes, scores);
         }
 
@@ -682,6 +705,170 @@ namespace glasssix::heimdall
             return cropped;
         }
 
+        void run_bar(std::vector<box_info_internal>& results, std::vector<int>& roi, int top_five) {
+
+            excalibur::rectangle<int> rect((int)roi[0], (int)roi[1], (int)roi[2], (int)roi[3]);
+            std::shared_ptr<memory::tensor<uint8_t>> input;
+
+            // image preprocessing
+            excalibur::safty_cut_cpu(cache_, input, &rect);
+            cv::Mat input_mat(roi[2], roi[3], CV_8UC3);
+            std::copy(input->cpu_data(), input->cpu_data() + input->count(1, 4), input_mat.data);
+
+            if (input->order() == memory::NHWC)
+                input->convert_order();
+
+
+            auto [resized_img, ratio] = resize_fixed_size(640, input, 1);//ÃÓ≥‰ Ω resize
+
+
+            auto input_tensor = resized_img | memory::tensor_convert_to<float>;
+
+            // pre process
+            //det_preprocess(input_tensor);
+            std::unordered_map<std::string, std::shared_ptr<memory::tensor<float>>> out = instance_[0]->forward(input_tensor);
+
+            std::shared_ptr<memory::tensor<float>> output = out["output"];
+
+            std::vector<std::vector<cv::Point2f>> boxes;
+            std::vector<float> scores;
+
+            det_post_process(output, boxes, scores);
+   
+            std::pair<std::vector<std::vector<cv::Point2f>>, std::vector<float>> result = std::make_pair(boxes, scores);
+
+            cv::Mat img = cv::imread("//192.168.15.74/dataShare/origin/anotations_ocr/big_1/big_1_videos2images_1/20210528114858111_1/image_0002.jpg");
+
+            //std::int32_t x = 900; //200, 900
+            //std::int32_t y = 640;
+            //std::int32_t roi_width = 1460;
+            //std::int32_t roi_height = 800;
+            //cv::Rect rect2(x, y, roi_width, roi_height);
+            //cv::Mat roi2 = cv::Mat(img, rect2);
+
+            std::vector<std::vector<cv::Point2f>> box_list = result.first;
+            for (size_t i = 0; i < box_list.size(); i++)
+            {
+                for (size_t j = 0; j < box_list[i].size(); j++)
+                {
+                    box_list[i][j] *= ratio;
+                }
+            }
+
+            for (size_t i = 0; i < box_list.size(); ++i)
+            {
+                bool rotate = false;
+                cv::RotatedRect rect = cv::minAreaRect(box_list[i]);
+                // crop img
+                cv::Mat cut_img = crop_rect(input_mat, rect);
+                int newH = cut_img.rows;
+                int newW = cut_img.cols;
+
+                // ignore
+                if (std::max(newH, newW) / (std::min(newH, newW) * 1.0) <= 1.5)
+                {
+                    continue;
+                }
+                if (newH > newW)
+                {
+                    cut_img = rotateAntiClockWise90(cut_img);
+                    rotate = true;
+                }
+
+                bool inverse = false;
+                std::vector<float> res_vec = angel_infer(cut_img, *instance_[2]);
+
+                // 0: The character direction is inverse  1: The character direction is positive
+                if (res_vec[0] == 0)
+                {
+                    cv::flip(cut_img, cut_img, -1);
+                    inverse = true;
+                }
+
+                std::pair<std::vector<std::string>, std::vector<std::vector<float>>> out;
+                if (factory_type_ == 8) 
+                {
+                    cv::Mat roi_temp = cut_img.clone();
+                    std::vector<float> segement_result = segement_instance_->detect(roi_temp, false, *instance_[1]);
+                    std::string stringinfo;
+                    std::vector<float> probs;
+
+                    float left = 0.f, right = 0.f;
+                    if (segement_result[0] < 0)
+                    {
+                        left = std::ceil(std::abs(segement_result[0]));
+                        segement_result[0] = 0;
+                    }
+                    if (segement_result[segement_result.size() - 1] > roi_temp.cols)
+                        right = std::ceil(segement_result[segement_result.size() - 1] - roi_temp.cols);
+
+                    cv::copyMakeBorder(roi_temp, roi_temp, 0, 0, left, right, cv::BorderTypes::BORDER_CONSTANT, cv::Scalar::all(0));
+
+                    for (size_t j = 0; j < segement_result.size() - 1; j++)
+                    {
+                        cv::Mat small_img = roi_temp(cv::Range::all(), cv::Range((int)segement_result[j], (int)segement_result[j + 1]));
+                        //cv::imshow("small_img", small_img);
+                        //cv::imwrite("D:/Desktop/small_img" + std::to_string(i) + std::to_string(j) + ".jpg", small_img);
+                        //cv::waitKey(0);
+                        
+                        auto [label, prob] = classfi_instance_->detect(small_img, *instance_[3]);
+                        stringinfo.push_back(label);
+                        probs.push_back(prob);
+
+                        //std::cout << stringinfo << std::endl;
+                        //std::cout << prob << std::endl;
+                    }
+
+                    out = std::make_pair<std::vector<std::string>, std::vector<std::vector<float>>>({ stringinfo }, { probs });
+                }
+
+                box_info_internal box;
+                auto location = exposing::make_param_vector<float>();
+                for (int j = 0; j < box_list[i].size(); ++j)
+                {
+                    location.push_back(box_list[i][j].x);
+                    location.push_back(box_list[i][j].y);
+                }
+                box.location = location;
+                auto strinfos = exposing::make_param_vector<exposing::param_string>();
+                for (int j = 0; j < out.first.size(); ++j)
+                {
+                    strinfos.push_back(exposing::param_string(out.first[j]));
+                }
+                box.strinfos = strinfos;
+
+                // process angle -> [0, 360)
+                float angle;
+                if (!rotate && !inverse)
+                {
+                    angle = std::abs(rect.angle);
+                }
+                else if (rotate && inverse)
+                {
+                    angle = std::abs(rect.angle) + 90;
+                }
+                else if (!rotate && inverse)
+                {
+                    angle = std::abs(rect.angle) + 180;
+                }
+                else if (rotate && !inverse)
+                {
+                    angle = std::abs(rect.angle) + 270;
+                    angle = angle == 360 ? 0 : angle;
+                }
+                box.angle = angle;
+
+                box.cut_roi = exposing::make_param_vector<std::uint8_t>();
+                box.cut_roi.resize(cut_img.step[0] * cut_img.rows);
+                box.cut_roi.copy_from({ cut_img.data, static_cast<size_t>(cut_img.step[0] * cut_img.rows) }, 0);
+
+                box.cut_roi_width = cut_img.cols;
+                box.cut_roi_height = cut_img.rows;
+
+                results.push_back(box);
+            }
+        }
+
         void run_hot_roll(std::vector<box_info_internal> &results, std::vector<int> &roi, int top_five)
         {
             excalibur::rectangle<int> rect((int)roi[0], (int)roi[1], (int)roi[2], (int)roi[3]);
@@ -795,6 +982,7 @@ namespace glasssix::heimdall
 
             // ocr detect
             std::pair<std::vector<std::vector<cv::Point2f>>, std::vector<float>> result = det_combine_best(resized_img, *instance_[0]);
+
             std::vector<std::vector<cv::Point2f>> box_list = result.first;
             for (size_t i = 0; i < box_list.size(); i++)
             {
@@ -833,7 +1021,7 @@ namespace glasssix::heimdall
                 }
 
                 std::pair<std::vector<std::string>, std::vector<std::vector<float>>> out;
-                if (factory_type_ == 5 || factory_type_ == 8)
+                if (factory_type_ == 5)
                 {
                     cv::Mat roi_temp = cut_img.clone();
                     std::vector<float> segement_result = segement_instance_->detect(roi_temp, true, *instance_[1]);
@@ -859,6 +1047,7 @@ namespace glasssix::heimdall
                         stringinfo.push_back(label);
                         probs.push_back(prob);
                     }
+
                     out = std::make_pair<std::vector<std::string>, std::vector<std::vector<float>>>({ stringinfo }, { probs });
                 }
                 else

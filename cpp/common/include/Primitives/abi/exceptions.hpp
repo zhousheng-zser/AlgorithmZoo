@@ -209,8 +209,8 @@ namespace glasssix::exposing
 		return translate_current_exception();
 	}
 
-	/// <summary>
 	/// Rethrows the exception across the DLL boundary.
+	/// <summary>
 	/// </summary>
 	/// <typeparam name="Exception">The exception type</typeparam>
 	template<typename Exception, typename = std::enable_if_t<std::is_base_of_v<abi_error, Exception>>>
