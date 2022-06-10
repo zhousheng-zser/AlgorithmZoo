@@ -85,7 +85,7 @@ namespace glasssix::heimdall
                 instance_.emplace_back(std::make_unique<excalibur::pipeline<float>>(hardcode::get_model_params(std::get<2>(*factory)), std::string(model_directory) + "/" + std::get<2>(*factory) + ".racy", device));
                 instance_.emplace_back(std::make_unique<excalibur::pipeline<float>>(hardcode::get_model_params(std::get<3>(*factory)), std::string(model_directory) + "/" + std::get<3>(*factory) + ".racy", device));
                 instance_.emplace_back(std::make_unique<excalibur::pipeline<float>>(hardcode::get_model_params(std::get<4>(*factory)), std::string(model_directory) + "/" + std::get<4>(*factory) + ".racy", device));
-                segement_instance_ = std::make_unique<char_segment>(0.6, 0.01, 8, false);
+                segement_instance_ = std::make_unique<char_segment>(0.6, 0.25, 8, true);
                 classfi_instance_ = std::make_unique<char_classfi>(label_type::HEAVY_RAIL);
                 break;
             default:
@@ -118,7 +118,6 @@ namespace glasssix::heimdall
             }
             else if (factory_type_ == 8)
             {
-                //std::cout << "run bar" << std::endl;
                 run_bar(results, roi, top_five);
             }
             else
@@ -495,6 +494,62 @@ namespace glasssix::heimdall
             }
         }
 
+        void boxes_from_bitmap_bar(cv::Mat& out, cv::Mat& mask, int src_w, int src_h, std::vector<std::vector<cv::Point2f>>& boxes, std::vector<float>& scores)
+        {
+            size_t max_candidates = 1000;
+            int min_size = 3; 
+            float box_thresh = 0.5;
+
+            std::string score_mode = "fast";
+            int width = mask.cols;
+            int height = mask.rows;
+            // detect contour
+            std::vector<std::vector<cv::Point>> contours;
+            cv::findContours(mask, contours, cv::RETR_LIST, cv::CHAIN_APPROX_SIMPLE, cv::Point(0, 0));
+            size_t num_contours = std::min(contours.size(), max_candidates);
+            for (size_t i = 0; i < num_contours; ++i)
+            {
+                std::vector<cv::Point> contour = contours[i];
+                // get min rect of per contour
+                std::vector<cv::Point2f> points;
+                float sside;
+                get_mini_boxes(contour, points, sside);
+                if (sside < min_size)
+                {
+                    continue;
+                }
+                float score;
+                if (score_mode == "fast")
+                {
+                    score = box_score_fast(out, points);
+                }
+                else
+                {
+                    score = box_score_slow(out, contour);
+                }
+                if (score < box_thresh)
+                {
+                    continue;
+                }
+                std::vector<cv::Point2f> box = unclip(points);
+                // sside: minimum between width and height of external retangel
+                points.clear();
+                get_mini_boxes(box, points, sside);
+                if (sside < min_size + 2)
+                {
+                    continue;
+                }
+                for (int i = 0; i < points.size(); ++i)
+                {
+                    points[i].x = std::min(std::max(points[i].x / width * src_w, 0.f), (const float)src_w);
+                    points[i].y = std::min(std::max(points[i].y / height * src_h, 0.f), (const float)src_h);
+                }
+                // boxes.insert(boxes.end(), points.begin(), points.end());
+                boxes.push_back(points);
+                scores.push_back(score);
+            }
+        }
+
         void det_post_process(std::shared_ptr<memory::tensor<float>> &out_, std::vector<std::vector<cv::Point2f>> &boxes, std::vector<float> &scores)
         {
             cv::Mat out(out_->height(), out_->width(), CV_32FC1);
@@ -511,6 +566,25 @@ namespace glasssix::heimdall
                 mask_data[i] = (out_data[i] > thresh ? 1 : 0) * 255;
             }
             boxes_from_bitmap(out, mask, src_w, src_h, boxes, scores);
+        }
+
+        void det_post_process_bar(std::shared_ptr<memory::tensor<float>>& out_, std::vector<std::vector<cv::Point2f>>& boxes, std::vector<float>& scores)
+        {
+            float thresh = 0.3;
+
+            cv::Mat out(out_->height(), out_->width(), CV_32FC1);
+            memcpy(out.data, out_->cpu_data(), out_->count(2, 4) * sizeof(float));
+            int src_w = out.cols;
+            int src_h = out.rows;
+            int count = out_->count(2, 4);
+            const float* out_data = out_->cpu_data();
+            cv::Mat mask(out_->height(), out_->width(), CV_8UC1);
+            std::uint8_t* mask_data = mask.data;
+            for (int i = 0; i < count; ++i)
+            {
+                mask_data[i] = (out_data[i] > thresh ? 1 : 0) * 255;
+            }
+            boxes_from_bitmap_bar(out, mask, src_w, src_h, boxes, scores);
         }
 
         std::pair<std::vector<std::vector<cv::Point2f>>, std::vector<float>> det_combine_best(std::shared_ptr<memory::tensor<uint8_t>> &input, excalibur::pipeline<float>& det_instance_)
@@ -717,7 +791,7 @@ namespace glasssix::heimdall
             auto input_tensor = resized_img | memory::tensor_convert_to<float>;
 
             // pre process
-            //det_preprocess(input_tensor);
+            // det_preprocess(input_tensor);
             std::unordered_map<std::string, std::shared_ptr<memory::tensor<float>>> out = instance_[0]->forward(input_tensor);
 
             std::shared_ptr<memory::tensor<float>> output = out["output"];
@@ -725,7 +799,7 @@ namespace glasssix::heimdall
             std::vector<std::vector<cv::Point2f>> boxes;
             std::vector<float> scores;
 
-            det_post_process(output, boxes, scores);
+            det_post_process_bar(output, boxes, scores);
    
             std::pair<std::vector<std::vector<cv::Point2f>>, std::vector<float>> result = std::make_pair(boxes, scores);
 
@@ -780,7 +854,7 @@ namespace glasssix::heimdall
                 if (factory_type_ == 8) 
                 {
                     cv::Mat roi_temp = cut_img.clone();
-                    std::vector<float> segement_result = segement_instance_->detect(roi_temp, false, *instance_[1]);
+                    std::vector<float> segement_result = segement_instance_->detect(roi_temp, true, *instance_[1]);
                     std::string stringinfo;
                     std::vector<float> probs;
 
