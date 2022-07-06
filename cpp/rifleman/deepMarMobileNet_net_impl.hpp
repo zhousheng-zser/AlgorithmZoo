@@ -15,7 +15,9 @@ namespace glasssix::rifleman
 
     class deepMarMobileNet_net_internal;
 
-    class deepMarMobileNet_net_impl : public exposing::implements<deepMarMobileNet_net_impl, deepMarMobileNet_net>, public exposing::make_external_qualified_name<yolov5_deepMarMobileNet_net_qualified_name>
+    class deepMarMobileNet_net_impl : 
+        public exposing::implements<deepMarMobileNet_net_impl, deepMarMobileNet_net>, 
+        public exposing::make_external_qualified_name<yolov5_deepMarMobileNet_net_qualified_name>
     {
     public:
         deepMarMobileNet_net_impl();
