@@ -15,6 +15,7 @@
 #include "Excalibur/operation_make_border.hpp"
 #include "Excalibur/operation_resize.hpp"
 #include "Excalibur/operation_rgb2gray.hpp"
+
 #include <opencv2/core/core.hpp>
 #include <opencv2/imgproc/imgproc.hpp>
 //#include <opencv2/highgui/highgui.hpp>
@@ -38,7 +39,7 @@ namespace glasssix::heimdall
         {5, "heavy_rail_det_lite", "heavy_rail_segment", "hot_material_angle", "heavy_rail_category"},
         {6, "cool_rolled_det_medium", "segment_char_simp_3", "singel_char_classfi_simp", ""},
         {7, "cool_rolled_det_medium", "segment_char_simp_3", "cool_rolled_category", ""},
-        {8, "bar_det_lite", "bar_segment", "bar_angle", "bar_category"}} 
+        {8, "bar_det_lite", "bar_segment", "bar_angle", "bar_category"}}
     };
         
     class material_code_internal::impl
@@ -1273,6 +1274,7 @@ namespace glasssix::heimdall
         cut_reg_roi cut_rois_;
         std::shared_ptr<memory::tensor<std::uint8_t>> cache_;
     };
+
 
     material_code_internal::material_code_internal(std::string_view model_directory, int factory_type, int device)
         : impl_{ std::make_unique<impl>(model_directory, factory_type, device)}
