@@ -42,7 +42,7 @@ namespace glasssix::ring
 
         static std::string version();
 
-        exposing::param_vector<box_info> detect(exposing::param_span<std::uint8_t> bitmap, int channels, int height, int width, int order, 
+        exposing::param_vector<box_info> detect(exposing::param_span<std::uint8_t> bitmap, int channels, int height, int width, int border_orient, int order, 
                                                                      int x, int y, int roi_width, int roi_height) const;
 
     private:

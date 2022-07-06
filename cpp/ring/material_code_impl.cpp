@@ -23,13 +23,13 @@ namespace glasssix::ring
 		return exposing::to_param_string(impl_->version());
 	}
 
-	exposing::param_vector<box_info> material_code_impl::detect(exposing::param_span<std::uint8_t> bitmap, int channels, int height, int width, int order, 
+	exposing::param_vector<box_info> material_code_impl::detect(exposing::param_span<std::uint8_t> bitmap, int channels, int height, int width, int border_orient, int order,
 																int x, int y, int roi_width, int roi_height) const
 	{
 		if (!impl_)
 			throw exposing::abi_invalid_operation(u8"ring internal object not initialized");
 
-		return impl_->detect(bitmap, channels, height, width, order, x, y, roi_width, roi_height);
+		return impl_->detect(bitmap, channels, height, width, border_orient, order, x, y, roi_width, roi_height);
 	}
 
 }

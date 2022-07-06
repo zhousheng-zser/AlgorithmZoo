@@ -30,6 +30,7 @@ namespace glasssix::exposing::impl
                 std::int32_t channels, 
                 std::int32_t height, 
                 std::int32_t width, 
+                std::int32_t border_orient,
                 std::int32_t order, 
                 std::int32_t x, 
                 std::int32_t y, 
@@ -62,6 +63,7 @@ namespace glasssix::exposing::impl
             std::int32_t channels, 
             std::int32_t height, 
             std::int32_t width, 
+            std::int32_t border_orient,
             std::int32_t order, 
             std::int32_t x, 
             std::int32_t y, 
@@ -70,7 +72,7 @@ namespace glasssix::exposing::impl
             abi_out_t<param_vector<ring::box_info>> result) noexcept override
         {
             return abi_safe_call([&]
-                { *result = detach_abi(this->self().detect(create_from_abi<param_span<std::uint8_t>>(bitmap), channels, height, width, order,
+                { *result = detach_abi(this->self().detect(create_from_abi<param_span<std::uint8_t>>(bitmap), channels, height, width, border_orient, order,
                                                                            x, y, roi_width, roi_height)); });
         }
 
@@ -107,6 +109,7 @@ namespace glasssix::exposing::impl
                 std::int32_t channels, 
                 std::int32_t height, 
                 std::int32_t width, 
+                std::int32_t border_orient,
                 std::int32_t order, 
                 std::int32_t x, 
                 std::int32_t y, 
@@ -121,6 +124,7 @@ namespace glasssix::exposing::impl
                                 channels, 
                                 height, 
                                 width, 
+                                border_orient,
                                 order, 
                                 x, 
                                 y, 
