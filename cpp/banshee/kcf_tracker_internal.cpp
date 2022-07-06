@@ -21,11 +21,6 @@ namespace glasssix::banshee
     public:
         void init_trace(exposing::param_span<std::uint8_t> bitmap, std::int32_t width, std::int32_t height, std::int32_t x, std::int32_t y, std::int32_t roi_width, std::int32_t roi_height)
         {
-            // KCF tracker config parameters
-            bool HOG = true;
-            bool FIXEDWINDOW = false;
-            bool MULTISCALE = true;
-            tracker = new KCFTracker(HOG, FIXEDWINDOW, MULTISCALE);
             cv::Rect roi_bbox(x, y, roi_width, roi_height);
             cv::Mat frame(height, width, CV_8UC3);
             std::copy(bitmap.begin(), bitmap.end(), frame.data);
@@ -50,6 +45,20 @@ namespace glasssix::banshee
             track_internal.height = track_bbox.height;
             track_internal.prob = track_prob;
             return exposing::make_as_first<track_info_impl>(track_internal);
+        }
+
+        impl() :tracker{ nullptr }
+        {
+            // KCF tracker config parameters
+            bool HOG = true;
+            bool FIXEDWINDOW = false;
+            bool MULTISCALE = true;
+            tracker = new KCFTracker(HOG, FIXEDWINDOW, MULTISCALE);
+        }
+        ~impl()
+        {
+            if (tracker)
+                delete tracker;
         }
 
         static std::string version()
