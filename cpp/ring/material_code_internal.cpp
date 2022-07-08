@@ -1051,10 +1051,15 @@ namespace glasssix::ring
                 return;
 
             std::vector<cv::Point2f> book_location;
-            if(border_orient == 0)//letf
-                book_location = boxes_rect[0];
-            else if(border_orient == 1)//right
-                book_location = boxes_rect[boxes_rect.size()-1];
+            if (border_orient == 0)//letf
+            {
+            }
+            else if (border_orient == 1)//right
+            {
+                std::reverse(boxes_rect.begin(), boxes_rect.end());
+            }
+                
+            book_location = boxes_rect[0];
 
             auto book = custom_perspective(input_mat, book_location, 320);
 
@@ -1121,10 +1126,25 @@ namespace glasssix::ring
             box_info_internal box;
 
             box.location = exposing::make_param_vector<float>();
-            for (auto point : book_location)
+
+            if (false)
             {
-                box.location.push_back(point.x);
-                box.location.push_back(point.y);
+                for (auto point : book_location)
+                {
+                    box.location.push_back(point.x);
+                    box.location.push_back(point.y);
+                }
+            }
+            else
+            {
+                for (auto box_location : boxes_rect)
+                {
+                    for (auto point : box_location)
+                    {
+                        box.location.push_back(point.x);
+                        box.location.push_back(point.y);
+                    }
+                }
             }
 
             box.cut_roi = exposing::make_param_vector<std::uint8_t>();
