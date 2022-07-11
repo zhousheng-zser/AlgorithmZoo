@@ -84,7 +84,7 @@ namespace glasssix::ring
             }
         }
 
-        exposing::param_vector<box_info> detect(exposing::param_span<std::uint8_t> bitmap, int channels, int height, int width, int order, 
+        exposing::param_vector<box_info> detect(exposing::param_span<std::uint8_t> bitmap, int channels, int height, int width, int border_orient, int order,
                                                                      int x, int y, int roi_width, int roi_height)
         {
             if (bitmap.empty())
@@ -108,7 +108,7 @@ namespace glasssix::ring
             }
             else if (factory_type_ == 9)
             {
-                run_bar_2(results, roi);
+                run_bar_2(results, roi, border_orient);
             }
             else
                 return result;
@@ -540,10 +540,10 @@ namespace glasssix::ring
             boxes_from_bitmap_bar(out, mask, src_w, src_h, max_candidates, min_size, box_thresh, unclip_ratio, boxes, scores, sizes);
         }
 
-        std::pair<std::vector<std::string>, std::vector<std::vector<float>>> decode(std::vector<std::vector<int>>& idxs, std::vector<std::vector<float>>& probs, std::vector<std::string>& character, int top_five, bool remove_duplicate = true)
+        std::pair<std::vector<std::string>, std::vector<std::vector<float>>> decode(std::vector<std::vector<int>>& idxs, std::vector<std::vector<float>>& probs, std::vector<std::string>& character, int border_orient, bool remove_duplicate = true)
         {
             int K = 1;
-            if (top_five)
+            if (border_orient)
             {
                 K = 5;
             }
@@ -807,8 +807,8 @@ namespace glasssix::ring
             }
         }
 
-        inline bool tagDelBox(std::vector<cv::Point2f> box, int rect_pad_threshold, float wh_ratio=0.8) {
-            int size = box.size();  // 多边形长度
+        inline bool tagDelBox(int det_size, std::vector<cv::Point2f> box, int rect_pad_threshold, float wh_ratio=0.8) {
+            int size = box.size();  // 多边形点数
 
             std::vector<float> dist_s = {};
             for (int i = 0; i < size; ++i)
@@ -828,9 +828,11 @@ namespace glasssix::ring
             auto max_l = dist_s[3];
             if (min_l / max_l < wh_ratio)
                 return true;
-            
+
             // 边缘框更严格要求宽高比例
-            else if(  ( (min_l / max_l) < ( 1 - (1 - wh_ratio) / 2 ) ) && ( box[0].x < rect_pad_threshold) ) 
+            else if ( ((min_l / max_l) < (1 - (1 - wh_ratio) / 2)) && (box[0].x < rect_pad_threshold) )// 左边缘过滤
+                return true;
+            else if ( ((min_l / max_l) < (1 - (1 - wh_ratio) / 2)) && (box[0].x > det_size - rect_pad_threshold) )// 右边缘过滤
                 return true;
             else      
                 return false;
@@ -851,7 +853,7 @@ namespace glasssix::ring
             std::vector<int> tag_index = {};
 
             if (length == 1)
-                if(tagDelBox(box_list[0], rect_pad_threshold, wh_ratio))
+                if(tagDelBox(det_size, box_list[0], rect_pad_threshold, wh_ratio))
                     tag_index.push_back(0);
 
             // bubble sort with tag
@@ -879,7 +881,7 @@ namespace glasssix::ring
 
                 // 标记不符合要求的框
                 auto tag_idx = length - i - 1;
-                if (tagDelBox(box_list[tag_idx], rect_pad_threshold, wh_ratio))
+                if (tagDelBox(det_size, box_list[tag_idx], rect_pad_threshold, wh_ratio))
                     tag_index.push_back(tag_idx); // 记录标记
 
                 if (!swapped)
@@ -1004,7 +1006,7 @@ namespace glasssix::ring
         }
 
         
-        void run_bar_2(std::vector<box_info_internal>& results, std::vector<int>& roi) {
+        void run_bar_2(std::vector<box_info_internal>& results, std::vector<int>& roi, int border_orient) {
 
             // step 1
             // det box infer
@@ -1048,7 +1050,17 @@ namespace glasssix::ring
             if(boxes_rect.size() == 0)
                 return;
 
-            auto book_location = boxes_rect[0];
+            std::vector<cv::Point2f> book_location;
+            if (border_orient == 0)//letf
+            {
+            }
+            else if (border_orient == 1)//right
+            {
+                std::reverse(boxes_rect.begin(), boxes_rect.end());
+            }
+                
+            book_location = boxes_rect[0];
+
             auto book = custom_perspective(input_mat, book_location, 320);
 
             // step 2 det 
@@ -1068,8 +1080,6 @@ namespace glasssix::ring
             std::vector<cv::Size> sizes_text;
             std::map<std::string, float> params_orient = { {"thresh", 0.3}, {"box_thresh", 0.8}, {"min_size", 3}, {"max_candidates", 1000}, {"unclip_ratio", 1.35}};
             det_post_process_bar(output_map, params_orient, boxes_text, scores_text, sizes_text);
-
-
 
             // ott process
             std::vector<cv::Mat> text_rect_s;
@@ -1116,10 +1126,25 @@ namespace glasssix::ring
             box_info_internal box;
 
             box.location = exposing::make_param_vector<float>();
-            for (auto point : book_location)
+
+            if (false)
             {
-                box.location.push_back(point.x);
-                box.location.push_back(point.y);
+                for (auto point : book_location)
+                {
+                    box.location.push_back(point.x);
+                    box.location.push_back(point.y);
+                }
+            }
+            else
+            {
+                for (auto box_location : boxes_rect)
+                {
+                    for (auto point : box_location)
+                    {
+                        box.location.push_back(point.x);
+                        box.location.push_back(point.y);
+                    }
+                }
             }
 
             box.cut_roi = exposing::make_param_vector<std::uint8_t>();
@@ -1165,10 +1190,10 @@ namespace glasssix::ring
     }
 
 
-    exposing::param_vector<box_info> material_code_internal::detect(exposing::param_span<std::uint8_t> bitmap, int channels, int height, int width, int order, 
+    exposing::param_vector<box_info> material_code_internal::detect(exposing::param_span<std::uint8_t> bitmap, int channels, int height, int width, int border_orient, int order,
                                                                     int x, int y, int roi_width, int roi_height) const
     {
-        return impl_->detect(bitmap, channels, height, width, order, x, y, roi_width, roi_height);
+        return impl_->detect(bitmap, channels, height, width, border_orient, order, x, y, roi_width, roi_height);
     }
 
 }
