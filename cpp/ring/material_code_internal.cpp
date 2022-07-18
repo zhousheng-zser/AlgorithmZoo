@@ -33,11 +33,12 @@ namespace glasssix::ring
     template <typename T>
     std::shared_ptr < glasssix::memory::tensor<T>> operator>(std::shared_ptr<glasssix::memory::tensor<T>>& tensor, float x)
     {
+        T *ptr = tensor->mutable_cpu_data();
         for (int i = 0; i < tensor->count(); ++i) {
-            if ((*tensor)[i] > x)
-                (*tensor)[i] = 1.0;
+            if (ptr[i] > x)
+                ptr[i] = 1.0;
             else
-                (*tensor)[i] = 0.0;
+                ptr[i] = 0.0;
         }
         return tensor;
     }
