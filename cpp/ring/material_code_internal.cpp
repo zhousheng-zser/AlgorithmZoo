@@ -1099,25 +1099,28 @@ namespace glasssix::ring
                 std::string stringinfo;
                 std::vector<float> probs;
 
-                float left = 0.f, right = 0.f;
-                if (segement_result[0] < 0)
+                if (!segement_result.empty())
                 {
-                    left = std::ceil(std::abs(segement_result[0]));
-                    segement_result[0] = 0;
-                }
-                if (segement_result[segement_result.size() - 1] > roi_temp.cols)
-                    right = std::ceil(segement_result[segement_result.size() - 1] - roi_temp.cols);
+                    float left = 0.f, right = 0.f;
+                    if (segement_result[0] < 0)
+                    {
+                        left = std::ceil(std::abs(segement_result[0]));
+                        segement_result[0] = 0;
+                    }
+                    if (segement_result[segement_result.size() - 1] > roi_temp.cols)
+                        right = std::ceil(segement_result[segement_result.size() - 1] - roi_temp.cols);
 
-                cv::copyMakeBorder(roi_temp, roi_temp, 0, 0, left, right, cv::BorderTypes::BORDER_CONSTANT, cv::Scalar::all(0));
+                    cv::copyMakeBorder(roi_temp, roi_temp, 0, 0, left, right, cv::BorderTypes::BORDER_CONSTANT, cv::Scalar::all(0));
 
-                // step 4 classifi 
-                for (size_t j = 0; j < segement_result.size() - 1; j++)
-                {
-                    cv::Mat small_img = roi_temp(cv::Range::all(), cv::Range((int)segement_result[j], (int)segement_result[j + 1]));
+                    // step 4 classifi
+                    for (size_t j = 0; j < segement_result.size() - 1; j++)
+                    {
+                        cv::Mat small_img = roi_temp(cv::Range::all(), cv::Range((int)segement_result[j], (int)segement_result[j + 1]));
 
-                    auto [label, prob] = classfi_instance_->detect(small_img, *instance_[3]);
-                    stringinfo.push_back(label);
-                    probs.push_back(prob);
+                        auto [label, prob] = classfi_instance_->detect(small_img, *instance_[3]);
+                        stringinfo.push_back(label);
+                        probs.push_back(prob);
+                    }
                 }
 
                 full_stringinfo += stringinfo;

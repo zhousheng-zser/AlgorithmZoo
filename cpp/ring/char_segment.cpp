@@ -110,7 +110,11 @@ namespace glasssix
 			std::sort(merge_bbox.begin(), merge_bbox.end(), [](const std::pair<cv::Point2f, int>& left, const std::pair<cv::Point2f, int>& right) {return left.second > right.second; });
 			std::vector<std::pair<cv::Point2f, int>> post_bbox = delet_error_bbox(merge_bbox, delet_iou_thres_);
 			std::sort(post_bbox.begin(), post_bbox.end(), [](const std::pair<cv::Point2f, int>& a, const std::pair<cv::Point2f, int>& b) {return a.first.x < b.first.x; });
-			std::vector<float> result_cordi = merge_near_box(post_bbox);
+			std::vector<float> result_cordi;
+			if (!post_bbox.empty())
+			{
+				result_cordi = merge_near_box(post_bbox);
+			}
 
 			return result_cordi;
 		}
