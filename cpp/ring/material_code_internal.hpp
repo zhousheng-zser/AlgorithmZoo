@@ -4,6 +4,7 @@
 #include <memory>
 #include <string>
 #include <vector>
+#include <map>
 #include <cstddef>
 #include <cstdint>
 #include <abi/param_span.hpp>
@@ -43,7 +44,7 @@ namespace glasssix::ring
         static std::string version();
 
         exposing::param_vector<box_info> detect(exposing::param_span<std::uint8_t> bitmap, int channels, int height, int width, int border_orient, int order, 
-                                                                     int x, int y, int roi_width, int roi_height) const;
+                                                                     int x, int y, int roi_width, int roi_height, std::map<std::string, float>& param_map) const;
 
     private:
         std::unique_ptr<impl> impl_;

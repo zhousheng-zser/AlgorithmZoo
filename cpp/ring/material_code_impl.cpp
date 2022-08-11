@@ -1,6 +1,7 @@
 #include "material_code_impl.hpp"
 #include "material_code_internal.hpp"
 #include "box_info_impl.hpp"
+#include <map>
 
 namespace glasssix::ring
 {
@@ -24,12 +25,18 @@ namespace glasssix::ring
 	}
 
 	exposing::param_vector<box_info> material_code_impl::detect(exposing::param_span<std::uint8_t> bitmap, int channels, int height, int width, int border_orient, int order,
-																int x, int y, int roi_width, int roi_height) const
+																int x, int y, int roi_width, int roi_height, const exposing::param_hash_map<exposing::param_string, float>& param_map_abi) const
 	{
 		if (!impl_)
 			throw exposing::abi_invalid_operation(u8"ring internal object not initialized");
 
-		return impl_->detect(bitmap, channels, height, width, border_orient, order, x, y, roi_width, roi_height);
+		std::map<std::string, float> param_map;
+
+		for (auto& it : param_map_abi) {
+			param_map.insert(std::make_pair(it.key(), it.value()));
+		}
+
+		return impl_->detect(bitmap, channels, height, width, border_orient, order, x, y, roi_width, roi_height, param_map);
 	}
 
 }
