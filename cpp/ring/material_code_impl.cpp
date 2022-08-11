@@ -32,7 +32,7 @@ namespace glasssix::ring
 
 		std::map<std::string, float> param_map;
 
-		for (auto& it : param_map_abi) {
+		for (auto it : param_map_abi) {
 			param_map.insert(std::make_pair(it.key(), it.value()));
 		}
 
