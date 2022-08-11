@@ -86,7 +86,7 @@ namespace glasssix::ring
         }
 
         exposing::param_vector<box_info> detect(exposing::param_span<std::uint8_t> bitmap, int channels, int height, int width, int border_orient, int order,
-                                                                     int x, int y, int roi_width, int roi_height)
+                                                                     int x, int y, int roi_width, int roi_height, std::map<std::string, float>& param_map)
         {
             if (bitmap.empty())
             {
@@ -105,11 +105,11 @@ namespace glasssix::ring
 
             if (factory_type_ == 8)
             {
-                run_bar(results, roi);
+                run_bar(results, roi, param_map);
             }
             else if (factory_type_ == 9)
             {
-                run_bar_2(results, roi, border_orient);
+                run_bar_2(results, roi, border_orient, param_map);
             }
             else
                 return result;
@@ -642,7 +642,7 @@ namespace glasssix::ring
             return cropped;
         }
 
-        void run_bar(std::vector<box_info_internal>& results, std::vector<int>& roi) {
+        void run_bar(std::vector<box_info_internal>& results, std::vector<int>& roi, std::map<std::string, float>& param_map) {
 
             excalibur::rectangle<int> rect((int)roi[0], (int)roi[1], (int)roi[2], (int)roi[3]);
             std::shared_ptr<memory::tensor<uint8_t>> input;
@@ -672,7 +672,13 @@ namespace glasssix::ring
             std::vector<std::vector<cv::Point2f>> boxes;
             std::vector<float> scores;
             std::vector<cv::Size> sizes;
-            std::map<std::string, float> params = { {"thresh", 0.3}, {"box_thresh", 0.8}, {"min_size", 3}, {"max_candidates", 1000}, {"unclip_ratio", 1.5} };
+            std::map<std::string, float> params = {
+                {"thresh", param_map.count("thresh") ? param_map["thresh"] : 0.3},
+                {"box_thresh",  param_map.count("box_thresh") ? param_map["box_thresh"] : 0.8},
+                {"min_size", param_map.count("min_size") ? param_map["min_size"] : 3},
+                {"max_candidates", param_map.count("max_candidates") ? param_map["max_candidates"] : 1000},
+                {"unclip_ratio", param_map.count("unclip_ratio") ? param_map["unclip_ratio"] : 1.5} };
+
             det_post_process_bar(output, params, boxes, scores, sizes); //
             
 
@@ -839,10 +845,12 @@ namespace glasssix::ring
                 return false;
         }
 
-        void custom_sort(std::vector<std::vector<cv::Point2f>>& box_list, std::vector<float>& score_list, int det_size = 320) 
+        void custom_sort(std::vector<std::vector<cv::Point2f>>& box_list, std::vector<float>& score_list, std::map<std::string,float>& param_map, int det_size = 320) 
         {
-            float pad_ratio = 0.1;
-            float  wh_ratio = 0.8;
+            //float pad_ratio = 0.1;
+            //float  wh_ratio = 0.7;
+            float pad_ratio = param_map.count("pad_ratio") ? param_map["pad_ratio"] : 0.1;
+            float wh_ratio = param_map.count("wh_ratio") ? param_map["wh_ratio"] : 0.7;
 
             int rect_pad_threshold = int(det_size * pad_ratio);
 
@@ -1007,7 +1015,7 @@ namespace glasssix::ring
         }
 
         
-        void run_bar_2(std::vector<box_info_internal>& results, std::vector<int>& roi, int border_orient) {
+        void run_bar_2(std::vector<box_info_internal>& results, std::vector<int>& roi, int border_orient, std::map<std::string, float>& param_map) {
 
             // step 1
             // det box infer
@@ -1034,7 +1042,14 @@ namespace glasssix::ring
             std::vector<std::vector<cv::Point2f>> boxes_rect;
             std::vector<float> scores;
             std::vector<cv::Size> sizes;
-            std::map<std::string, float> params = { {"thresh", 0.3}, {"box_thresh", 0.8}, {"min_size", 3}, {"max_candidates", 1000}, {"unclip_ratio", 0.8} };
+            //std::map<std::string, float> params = { {"thresh", 0.3}, {"box_thresh", 0.6}, {"min_size", 3}, {"max_candidates", 1000}, {"unclip_ratio", 0.8} };
+            std::map<std::string, float> params = {
+                {"thresh", param_map.count("thresh") ? param_map["thresh"] : 0.3},
+                {"box_thresh",  param_map.count("box_thresh") ? param_map["box_thresh"] : 0.6},
+                {"min_size", param_map.count("min_size") ? param_map["min_size"] : 3},
+                {"max_candidates", param_map.count("max_candidates") ? param_map["max_candidates"] : 1000},
+                {"unclip_ratio", param_map.count("unclip_ratio") ? param_map["unclip_ratio"] : 0.8} };
+
             det_post_process_bar(output, params, boxes_rect, scores, sizes);
 
 
@@ -1046,7 +1061,7 @@ namespace glasssix::ring
                 }
             }
 
-            custom_sort(boxes_rect, scores);
+            custom_sort(boxes_rect, scores, param_map);
 
             if(boxes_rect.size() == 0)
                 return;
@@ -1079,7 +1094,14 @@ namespace glasssix::ring
             std::vector<std::vector<cv::Point2f>> boxes_text;
             std::vector<float> scores_text;
             std::vector<cv::Size> sizes_text;
-            std::map<std::string, float> params_orient = { {"thresh", 0.3}, {"box_thresh", 0.8}, {"min_size", 3}, {"max_candidates", 1000}, {"unclip_ratio", 1.35}};
+            //std::map<std::string, float> params_orient = { {"thresh", 0.3}, {"box_thresh", 0.6}, {"min_size", 3}, {"max_candidates", 1000}, {"unclip_ratio", 1.35}};
+			std::map<std::string, float> params_orient = {
+                {"thresh", param_map.count("orient_thresh") ? param_map["orient_thresh"] : 0.3},
+                {"box_thresh",  param_map.count("orient_box_thresh") ? param_map["orient_box_thresh"] : 0.6},
+                {"min_size", param_map.count("orient_min_size") ? param_map["orient_min_size"] : 3},
+                {"max_candidates", param_map.count("orient_max_candidates") ? param_map["orient_max_candidates"] : 1000},
+                {"unclip_ratio", param_map.count("orient_unclip_ratio") ? param_map["orient_unclip_ratio"] : 0.8} };
+
             det_post_process_bar(output_map, params_orient, boxes_text, scores_text, sizes_text);
 
             // ott process
@@ -1194,10 +1216,10 @@ namespace glasssix::ring
     }
 
 
-    exposing::param_vector<box_info> material_code_internal::detect(exposing::param_span<std::uint8_t> bitmap, int channels, int height, int width, int border_orient, int order,
-                                                                    int x, int y, int roi_width, int roi_height) const
+    exposing::param_vector<box_info> material_code_internal::detect(exposing::param_span<std::uint8_t> bitmap, int channels, int height, int width, int border_orient, int order, 
+                                                                     int x, int y, int roi_width, int roi_height, std::map<std::string, float>& param_map) const
     {
-        return impl_->detect(bitmap, channels, height, width, border_orient, order, x, y, roi_width, roi_height);
+        return impl_->detect(bitmap, channels, height, width, border_orient, order, x, y, roi_width, roi_height, param_map);
     }
 
 }
