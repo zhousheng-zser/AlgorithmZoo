@@ -245,9 +245,9 @@ namespace glasssix::longinus
                     face.is_alive = false;
                     face.has_mask = std::numeric_limits<float>::min();
 
-                    float score = face.score;
+                    //float score = face.score;
                     tracking_landmark(faceROI_in_frame, face, rect.x, rect.y);
-                    face.score = score;
+                    //face.score = score;
                     refine(face, height, width, true);
                 }
 
@@ -255,7 +255,7 @@ namespace glasssix::longinus
                 excalibur::point<float> center_mouth = excalibur::point<float>((face.pts.x[3] + face.pts.x[4]) / 2, (face.pts.y[3] + face.pts.y[4]) / 2);
                 double distance = std::sqrt((center_eye.x - center_mouth.x) * (center_eye.x - center_mouth.x) + (center_eye.y - center_mouth.y) * (center_eye.y - center_mouth.y));
 
-                if (distance > std::numeric_limits<double>::epsilon())
+                if (face.score > threshold && distance > std::numeric_limits<double>::epsilon())
                 {
                     temp_vec.push_back(face);
                 }
@@ -416,9 +416,9 @@ namespace glasssix::longinus
                     face.is_alive = false;
                     face.has_mask = std::numeric_limits<float>::min();
 
-                    float score = face.score;
+                    //float score = face.score;
                     tracking_landmark(faceROI_in_frame, face, rect.x, rect.y);
-                    face.score = score;
+                    //face.score = score;
                     refine(face, height, width, true);
                 }
 
@@ -426,7 +426,7 @@ namespace glasssix::longinus
                 excalibur::point<float> center_mouth = excalibur::point<float>((face.pts.x[3] + face.pts.x[4]) / 2, (face.pts.y[3] + face.pts.y[4]) / 2);
                 double distance = std::sqrt((center_eye.x - center_mouth.x) * (center_eye.x - center_mouth.x) + (center_eye.y - center_mouth.y) * (center_eye.y - center_mouth.y));
 
-                if (distance > std::numeric_limits<double>::epsilon())
+                if (face.score > threshold && distance > std::numeric_limits<double>::epsilon())
                 {
                     temp_vec.push_back(face);
                 }
