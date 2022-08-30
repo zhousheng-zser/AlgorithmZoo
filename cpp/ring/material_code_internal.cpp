@@ -109,7 +109,7 @@ namespace glasssix::ring
             }
             else if (factory_type_ == 9)
             {
-                run_bar_2(results, roi, border_orient, param_map);
+                run_bar_2(results, roi, border_orient, param_map, 16);
             }
             else
                 return result;
@@ -1015,7 +1015,7 @@ namespace glasssix::ring
         }
 
         
-        void run_bar_2(std::vector<box_info_internal>& results, std::vector<int>& roi, int border_orient, std::map<std::string, float>& param_map) {
+        void run_bar_2(std::vector<box_info_internal>& results, std::vector<int>& roi, int border_orient, std::map<std::string, float>& param_map, int segment_rcut = 16) {
 
             // step 1
             // det box infer
@@ -1117,7 +1117,7 @@ namespace glasssix::ring
 
                 // step 3 segment 
                 cv::Mat roi_temp = text_img.clone();
-                std::vector<float> segement_result = segement_instance_->detect(roi_temp, true, *instance_[2]);
+                std::vector<float> segement_result = segement_instance_->detect(roi_temp, false, *instance_[2]);
                 std::string stringinfo;
                 std::vector<float> probs;
 
@@ -1129,10 +1129,13 @@ namespace glasssix::ring
                         left = std::ceil(std::abs(segement_result[0]));
                         segement_result[0] = 0;
                     }
-                    if (segement_result[segement_result.size() - 1] > roi_temp.cols)
-                        right = std::ceil(segement_result[segement_result.size() - 1] - roi_temp.cols);
 
-                    cv::copyMakeBorder(roi_temp, roi_temp, 0, 0, left, right, cv::BorderTypes::BORDER_CONSTANT, cv::Scalar::all(0));
+                    for (int i = segement_result.size() - 1; i > 0; i--) {
+                        if (segement_result[i] > roi_temp.cols - segment_rcut) {
+                            segement_result.pop_back();
+                        }
+                    }
+                    segement_result.push_back(roi_temp.cols - 1);
 
                     // step 4 classifi
                     for (size_t j = 0; j < segement_result.size() - 1; j++)
