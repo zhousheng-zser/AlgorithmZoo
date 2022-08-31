@@ -1100,7 +1100,7 @@ namespace glasssix::ring
                 {"box_thresh",  param_map.count("orient_box_thresh") ? param_map["orient_box_thresh"] : 0.6},
                 {"min_size", param_map.count("orient_min_size") ? param_map["orient_min_size"] : 3},
                 {"max_candidates", param_map.count("orient_max_candidates") ? param_map["orient_max_candidates"] : 1000},
-                {"unclip_ratio", param_map.count("orient_unclip_ratio") ? param_map["orient_unclip_ratio"] : 0.8} };
+                {"unclip_ratio", param_map.count("orient_unclip_ratio") ? param_map["orient_unclip_ratio"] : 1.35} };
 
             det_post_process_bar(output_map, params_orient, boxes_text, scores_text, sizes_text);
 
