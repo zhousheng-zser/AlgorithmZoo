@@ -1130,12 +1130,15 @@ namespace glasssix::ring
                         segement_result[0] = 0;
                     }
 
+                    bool push_back_flag = false;
                     for (int i = segement_result.size() - 1; i > 0; i--) {
                         if (segement_result[i] > roi_temp.cols - segment_rcut) {
                             segement_result.pop_back();
+                            push_back_flag = true;
                         }
                     }
-                    segement_result.push_back(roi_temp.cols - 1);
+					if (push_back_flag)
+						segement_result.push_back(roi_temp.cols - 1);
 
                     // step 4 classifi
                     for (size_t j = 0; j < segement_result.size() - 1; j++)
