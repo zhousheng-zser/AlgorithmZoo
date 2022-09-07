@@ -1048,7 +1048,7 @@ namespace glasssix::ring
                 {"box_thresh",  param_map.count("box_thresh") ? param_map["box_thresh"] : 0.6},
                 {"min_size", param_map.count("min_size") ? param_map["min_size"] : 3},
                 {"max_candidates", param_map.count("max_candidates") ? param_map["max_candidates"] : 1000},
-                {"unclip_ratio", param_map.count("unclip_ratio") ? param_map["unclip_ratio"] : 0.8} };
+                {"unclip_ratio", param_map.count("unclip_ratio") ? param_map["unclip_ratio"] : 1.15} };
 
             det_post_process_bar(output, params, boxes_rect, scores, sizes);
 
@@ -1100,7 +1100,7 @@ namespace glasssix::ring
                 {"box_thresh",  param_map.count("orient_box_thresh") ? param_map["orient_box_thresh"] : 0.6},
                 {"min_size", param_map.count("orient_min_size") ? param_map["orient_min_size"] : 3},
                 {"max_candidates", param_map.count("orient_max_candidates") ? param_map["orient_max_candidates"] : 1000},
-                {"unclip_ratio", param_map.count("orient_unclip_ratio") ? param_map["orient_unclip_ratio"] : 1.35} };
+                {"unclip_ratio", param_map.count("orient_unclip_ratio") ? param_map["orient_unclip_ratio"] : 1.25} };
 
             det_post_process_bar(output_map, params_orient, boxes_text, scores_text, sizes_text);
 
@@ -1130,15 +1130,12 @@ namespace glasssix::ring
                         segement_result[0] = 0;
                     }
 
-                    bool push_back_flag = false;
-                    for (int i = segement_result.size() - 1; i > 0; i--) {
-                        if (segement_result[i] > roi_temp.cols - segment_rcut) {
+                    for (int i = segement_result.size() - 1; i > 0; i--)
+                    {
+                        if (segement_result[i] > roi_temp.cols - segment_rcut)
                             segement_result.pop_back();
-                            push_back_flag = true;
-                        }
                     }
-					if (push_back_flag)
-						segement_result.push_back(roi_temp.cols - 1);
+                    segement_result.push_back(roi_temp.cols - 1);
 
                     // step 4 classifi
                     for (size_t j = 0; j < segement_result.size() - 1; j++)
