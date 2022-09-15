@@ -109,7 +109,7 @@ namespace glasssix::ring
             }
             else if (factory_type_ == 9)
             {
-                run_bar_2(results, roi, border_orient, param_map, 16);
+                run_bar_2(results, roi, border_orient, param_map, 25);
             }
             else
                 return result;
