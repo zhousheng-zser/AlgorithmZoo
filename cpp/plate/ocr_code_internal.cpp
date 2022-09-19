@@ -84,18 +84,17 @@ namespace glasssix::plate
 
             // roi params
             std::vector<int> roi{ x, y, roi_height, roi_width };
-            init_cache(bitmap, channels, height, width, order, roi);
+            init_cache(bitmap, channels, height, width, order);
 
             std::vector<box_info_internal> results;
 
             auto result = exposing::make_param_vector<box_info>();
 
-            run_net(results, roi, param_map);
+            auto results = run_detect_classfi(roi, param_map);
 
-            for (auto i : results)
-            {
-                result.push_back(glasssix::exposing::make_as_first<box_info_impl>(i));
-            }
+
+            result.push_back(glasssix::exposing::make_as_first<box_info_impl>(results));
+            
 
             return result;
         }
@@ -107,7 +106,7 @@ namespace glasssix::plate
 
     private:
 
-        void init_cache(exposing::param_span<std::uint8_t>& bitmap, std::int32_t channels, std::int32_t height, std::int32_t width, std::int32_t order, std::vector<int>& roi)
+        void init_cache(exposing::param_span<std::uint8_t>& bitmap, std::int32_t channels, std::int32_t height, std::int32_t width, std::int32_t order)
         {
             if (cache_ == nullptr || cache_->channels() != channels || cache_->height() != height || cache_->width() != width || cache_->order() != order)
             {
@@ -1101,10 +1100,10 @@ namespace glasssix::plate
             return plate;
         }
 
-        void run_net(std::vector<box_info_internal>& results, std::vector<int>& roi, std::map<std::string, float>& param_map)
+        box_info_internal run_detect_classfi(std::vector<int>& roi, std::map<std::string, float>& param_map)
         {
-            // cut roi image
-              glasssix::excalibur::rectangle<int> rect((int)roi[0], (int)roi[1], (int)roi[2], (int)roi[3]);
+             // cut roi image
+             glasssix::excalibur::rectangle<int> rect((int)roi[0], (int)roi[1], (int)roi[2], (int)roi[3]);
              std::shared_ptr<glasssix::memory::tensor<uint8_t>> input;
 
              glasssix::excalibur::safty_cut_cpu(cache_, input, &rect);
@@ -1142,6 +1141,7 @@ namespace glasssix::plate
             auto plate = char_segment_classfi(aligned_image);
 
             box_info_internal box;
+
             box.rect.x = corn_locations.x;
             box.rect.x = corn_locations.y;
             box.rect.w = corn_locations.width;
@@ -1159,7 +1159,7 @@ namespace glasssix::plate
 
             box.aligned_images = temp_vec;
 
-            results.push_back(box);
+            return box;
        
         }
 
