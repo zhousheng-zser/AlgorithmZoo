@@ -84,7 +84,7 @@ namespace glasssix::plate
 
             // roi params
             std::vector<int> roi{ x, y, roi_height, roi_width };
-            init_cache(bitmap, channels, height, width, order);
+            init_cache(bitmap, channels, height, width, order, cache0_);
 
             std::vector<box_info_internal> results;
 
@@ -92,11 +92,56 @@ namespace glasssix::plate
 
             auto results = run_detect_classfi(roi, param_map);
 
-
             result.push_back(glasssix::exposing::make_as_first<box_info_impl>(results));
             
-
             return result;
+        }
+
+        box_info trace(box_info_internal& plate, exposing::param_span<std::uint8_t> bitmap, int channels, int height, int width, int order,
+            int x, int y, int roi_width, int roi_height, std::map<std::string, float>& param_map)
+        {
+            if (bitmap.empty())
+                throw exposing::abi_invalid_argument("current frame is empty");
+
+            CHECK_EQ(channels, 3);
+            CHECK_EQ(bitmap.size(), channels * height * width);
+
+            if (cache1_->empty())
+                throw exposing::abi_invalid_argument("previous frame cache is empty");
+
+            excalibur::rectangle<float> track_box((float)plate.rect.x, (float)plate.rect.y, (float)plate.rect.h, (float)plate.rect.w);
+            if (track_box.h * track_box.w <= 0)
+                throw exposing::abi_invalid_argument("track_box.h * track_box.w <= 0");
+
+            std::shared_ptr<memory::tensor<std::uint8_t>> face_in_prev_frame;
+            excalibur::safty_cut_cpu(cache1_, face_in_prev_frame, &track_box);
+
+            std::shared_ptr<memory::tensor<std::uint8_t>> cache_temp;
+            init_cache(bitmap, channels, height, width, order, cache_temp);
+
+            // frame now
+            std::vector<int> roi{ x, y, roi_height, roi_width };
+            double roi_distance = sqrt(roi_height* roi_height + roi_width * roi_width);
+            auto now_frame_result = run_detect_classfi(roi, param_map);
+
+            // discanse
+            double distance   = sqrt((now_frame_result.rect.x - plate.rect.x) * (now_frame_result.rect.x - plate.rect.x) + (now_frame_result.rect.y - plate.rect.y) * (now_frame_result.rect.y - plate.rect.y));
+
+            if (now_frame_result.score > 0.1f && distance < roi_distance && plate.strinfos == now_frame_result.strinfos)
+            {
+                cache0_.swap(cache1_);
+                cache1_.swap(cache_temp);
+            }
+
+            if (distance > std::numeric_limits<double>::epsilon())
+                now_frame_result.score = 0.0f;
+
+            //return exposing::make_as_first<box_info>(now_frame_result);
+            box_info box_temp;
+
+            return box_temp;
+
+
         }
 
         static std::string version()
@@ -106,9 +151,9 @@ namespace glasssix::plate
 
     private:
 
-        void init_cache(exposing::param_span<std::uint8_t>& bitmap, std::int32_t channels, std::int32_t height, std::int32_t width, std::int32_t order)
+        void init_cache(exposing::param_span<std::uint8_t>& bitmap, std::int32_t channels, std::int32_t height, std::int32_t width, std::int32_t order, std::shared_ptr<memory::tensor<std::uint8_t>>& cache)
         {
-            if (cache_ == nullptr || cache_->channels() != channels || cache_->height() != height || cache_->width() != width || cache_->order() != order)
+            if (cache == nullptr || cache->channels() != channels || cache->height() != height || cache->width() != width || cache->order() != order)
             {
                 std::vector<int> shape;
                 if (order == memory::NCHW)
@@ -118,19 +163,19 @@ namespace glasssix::plate
                 else
                     NOT_IMPLEMENTED;
 
-                cache_ = std::make_shared<memory::tensor<std::uint8_t>>(shape, -1, (memory::orderType)order /*, &memory::pool_allocator_default<std::uint8_t>::get()*/);
+                cache = std::make_shared<memory::tensor<std::uint8_t>>(shape, -1, (memory::orderType)order /*, &memory::pool_allocator_default<std::uint8_t>::get()*/);
             }
 
-            if (cache_->device() > 0)
+            if (cache->device() > 0)
             {
 #ifdef USE_CUDA
-                cudaMemcpy(cache_->mutable_gpu_data(), bitmap, channels * height * width, cudaMemcpyHostToDevice);
+                cudaMemcpy(cache->mutable_gpu_data(), bitmap, channels * height * width, cudaMemcpyHostToDevice);
 #else
                 NO_GPU;
 #endif
             }
             else
-                std::copy(bitmap.begin(), bitmap.end(), cache_->mutable_cpu_data());
+                std::copy(bitmap.begin(), bitmap.end(), cache->mutable_cpu_data());
 
         }
         
@@ -814,7 +859,7 @@ namespace glasssix::plate
             return result;
         }
 
-        void onet_detect(cv::Mat& input_image, std::vector<Point4f>& pnet_detect_locations, std::vector<float>& pnet_detect_scores, std::vector<Point4f>& onet_detect_locations)
+        std::pair<std::vector<Point4f>, size_t> onet_detect(cv::Mat& input_image, std::vector<Point4f>& pnet_detect_locations, std::vector<float>& pnet_detect_scores)
         {
             // onet preprocess:
             int boxes_num = pnet_detect_locations.size();
@@ -864,7 +909,8 @@ namespace glasssix::plate
             std::vector<float> offsets(boxes_num * 4);
             memcpy(&offsets[0], offset->cpu_data(), boxes_num * 4 * sizeof(float));
 
-            size_t keep;
+            std::vector<Point4f> onet_detect_locations;
+            size_t keep = 0;
 
             // argmax
             keep = std::max_element(probs.begin(), probs.end()) - probs.begin();
@@ -895,6 +941,8 @@ namespace glasssix::plate
                 Point4f Zero_bboxes = { 0,0,0,0 };
                 onet_detect_locations.push_back(Zero_bboxes);
             }
+
+            return std::make_pair(onet_detect_locations, keep);
         }
 
         void imgBrightness(cv::Mat& blob, cv::Mat& enhanced, float c = 0.01, const int b = 0)
@@ -1106,7 +1154,7 @@ namespace glasssix::plate
              glasssix::excalibur::rectangle<int> rect((int)roi[0], (int)roi[1], (int)roi[2], (int)roi[3]);
              std::shared_ptr<glasssix::memory::tensor<uint8_t>> input;
 
-             glasssix::excalibur::safty_cut_cpu(cache_, input, &rect);
+             glasssix::excalibur::safty_cut_cpu(cache0_, input, &rect);
              cv::Mat input_mat = cv::Mat(1, input->height(), input->width(), 3);
              std::memcpy(input_mat.data, input->cpu_data(), input->count(2, 4));
              // cut image into roi image
@@ -1127,8 +1175,12 @@ namespace glasssix::plate
             std::vector<float> onet_detect_scores;
 
             // step 3 use onet include boxes
-            onet_detect(preprocess_input_mat, pnet_detect_locations, pnet_detect_scores, onet_detect_locations);
+            auto onet_result = onet_detect(preprocess_input_mat, pnet_detect_locations, pnet_detect_scores);
             // onet end
+
+            std::vector<Point4f> onet_detect_locations;
+            size_t keep;
+            std::tie(onet_detect_locations, keep) = onet_result;
 
             //// step 4 find Corners
             cv::Mat aligned_image;
@@ -1146,6 +1198,8 @@ namespace glasssix::plate
             box.rect.x = corn_locations.y;
             box.rect.w = corn_locations.width;
             box.rect.h = corn_locations.height;
+
+            box.score = pnet_detect_scores[keep];
 
             auto strinfos = glasssix::exposing::param_string(plate);
 
@@ -1166,7 +1220,8 @@ namespace glasssix::plate
     private:
         std::string model_directory_;
         int device_;
-        std::shared_ptr<glasssix::memory::tensor<std::uint8_t>> cache_;
+        std::shared_ptr<glasssix::memory::tensor<std::uint8_t>> cache0_;
+        std::shared_ptr<glasssix::memory::tensor<std::uint8_t>> cache1_;
         std::unique_ptr<glasssix::excalibur::pipeline<float>> pnet_instance_;
         std::unique_ptr<glasssix::excalibur::pipeline<float>> onet_instance_;
         std::unique_ptr<glasssix::excalibur::pipeline<float>> resnet_chinese_instance_;
@@ -1191,5 +1246,10 @@ namespace glasssix::plate
         int x, int y, int roi_width, int roi_height, std::map<std::string, float>& param_map) const
     {
         return impl_->detect(bitmap, channels, height, width, order, x, y, roi_width, roi_height, param_map);
+    }
+
+    box_info trace(box_info_internal plate, exposing::param_span<std::uint8_t> bitmap, int channels, int height, int width, int order) 
+    {
+        // return impl_->trace(plate, bitmap, channels, height, width, order);
     }
 }
