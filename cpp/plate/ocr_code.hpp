@@ -25,18 +25,19 @@ namespace glasssix::exposing::impl
                 std::int32_t device) noexcept = 0;
 
             virtual std::int32_t G6_ABI_CALL detect(
-                abi_in_t<param_span<std::uint8_t>> bitmap, 
-                std::int32_t channels, 
-                std::int32_t height, 
-                std::int32_t width, 
-                std::int32_t order, 
-                std::int32_t x, 
-                std::int32_t y, 
-                std::int32_t roi_width, 
-                std::int32_t roi_height, 
+                abi_in_t<param_span<std::uint8_t>> bitmap,
+                std::int32_t channels,
+                std::int32_t height,
+                std::int32_t width,
+                std::int32_t order,
+                std::int32_t x,
+                std::int32_t y,
+                std::int32_t roi_width,
+                std::int32_t roi_height,
                 abi_in_t<exposing::param_hash_map<exposing::param_string, float>> param_map_abi,
                 abi_out_t<param_vector<plate::box_info>> result) noexcept = 0;
 
+            virtual std::int32_t G6_ABI_CALL trace(abi_in_t<plate::box_info> plate, abi_in_t<param_span<std::uint8_t>> bitmap, std::int32_t channels, std::int32_t height, std::int32_t width, std::int32_t order, abi_out_t<plate::box_info> result) noexcept = 0;
             //result
             virtual std::int32_t G6_ABI_CALL version(abi_out_t<param_string> result) noexcept = 0;
         };
@@ -47,30 +48,35 @@ namespace glasssix::exposing::impl
     {
 
         virtual std::int32_t G6_ABI_CALL init(
-            abi_in_t<param_string> model_directory, 
+            abi_in_t<param_string> model_directory,
             std::int32_t device) noexcept override
         {
             return abi_safe_call([&]
                 { this->self().init(
-                    create_from_abi<param_string>(model_directory), 
+                    create_from_abi<param_string>(model_directory),
                     device); });
         }
 
-        virtual std::int32_t G6_ABI_CALL detect(abi_in_t<param_span<std::uint8_t>> bitmap, 
-            std::int32_t channels, 
-            std::int32_t height, 
-            std::int32_t width, 
-            std::int32_t order, 
-            std::int32_t x, 
-            std::int32_t y, 
-            std::int32_t roi_width, 
-            std::int32_t roi_height, 
+        virtual std::int32_t G6_ABI_CALL detect(abi_in_t<param_span<std::uint8_t>> bitmap,
+            std::int32_t channels,
+            std::int32_t height,
+            std::int32_t width,
+            std::int32_t order,
+            std::int32_t x,
+            std::int32_t y,
+            std::int32_t roi_width,
+            std::int32_t roi_height,
             abi_in_t<exposing::param_hash_map<exposing::param_string, float>> param_map_abi,
             abi_out_t<param_vector<plate::box_info>> result) noexcept override
         {
             return abi_safe_call([&]
                 { *result = detach_abi(this->self().detect(create_from_abi<param_span<std::uint8_t>>(bitmap), channels, height, width, order,
-                                                                           x, y, roi_width, roi_height, create_from_abi<exposing::param_hash_map<exposing::param_string, float>>(param_map_abi))); });
+                    x, y, roi_width, roi_height, create_from_abi<exposing::param_hash_map<exposing::param_string, float>>(param_map_abi))); });
+        }
+
+        virtual std::int32_t G6_ABI_CALL trace(abi_in_t<plate::box_info> plate, abi_in_t<param_span<std::uint8_t>> bitmap, std::int32_t channels, std::int32_t height, std::int32_t width, std::int32_t order, abi_out_t<plate::box_info> result) noexcept override
+        {
+            return abi_safe_call([&] { *result = detach_abi(this->self().trace(create_from_abi<plate::box_info>(plate), create_from_abi<param_span<std::uint8_t>>(bitmap), channels, height, width, order)); });
         }
 
         virtual std::int32_t G6_ABI_CALL version(abi_out_t<param_string> result) noexcept override
@@ -91,43 +97,50 @@ namespace glasssix::exposing::impl
         struct type : enable_self_abi_awareness<Derived, plate::ocr_code>
         {
             void init(
-                const param_string& model_directory, 
+                const param_string& model_directory,
                 std::int32_t device) const
             {
                 check_abi_result(this->self_abi().init(
-                    get_abi(model_directory), 
+                    get_abi(model_directory),
                     get_abi(device)));
             }
 
             param_vector<plate::box_info> detect(
-                param_span<std::uint8_t> bitmap, 
-                std::int32_t channels, 
-                std::int32_t height, 
-                std::int32_t width, 
-                std::int32_t order, 
-                std::int32_t x, 
-                std::int32_t y, 
-                std::int32_t roi_width, 
+                param_span<std::uint8_t> bitmap,
+                std::int32_t channels,
+                std::int32_t height,
+                std::int32_t width,
+                std::int32_t order,
+                std::int32_t x,
+                std::int32_t y,
+                std::int32_t roi_width,
                 std::int32_t roi_height,
                 const exposing::param_hash_map<exposing::param_string, float>& param_map_abi) const
             {
                 param_vector<plate::box_info> result{ nullptr };
 
                 return (check_abi_result(
-                            this->self_abi().detect(
-                                get_abi(bitmap), 
-                                channels, 
-                                height, 
-                                width, 
-                                order, 
-                                x, 
-                                y, 
-                                roi_width, 
-                                roi_height, 
-                                get_abi(param_map_abi),
-                                put_abi(result))
-                            ), 
-                        result);
+                    this->self_abi().detect(
+                        get_abi(bitmap),
+                        channels,
+                        height,
+                        width,
+                        order,
+                        x,
+                        y,
+                        roi_width,
+                        roi_height,
+                        get_abi(param_map_abi),
+                        put_abi(result))
+                ),
+                    result);
+            }
+
+            plate::box_info trace(plate::box_info plate, param_span<std::uint8_t> bitmap, std::int32_t channels, std::int32_t height, std::int32_t width, std::int32_t order) const
+            {
+                plate::box_info result{ nullptr };
+
+                return (check_abi_result(this->self_abi().trace(get_abi(plate), get_abi(bitmap), get_abi(channels), get_abi(height), get_abi(width), get_abi(order), put_abi(result))), result);
             }
 
             param_string version() const

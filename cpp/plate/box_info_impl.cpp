@@ -2,21 +2,41 @@
 
 namespace glasssix::plate
 {
-    box_info_impl::box_info_impl()
-    {
-    }
-
-    box_info_impl::box_info_impl(const box_info_internal &internal) : internal_(internal)
-    {
-    }
-
-    box_info_impl::~box_info_impl()
-    {
-    }
-
-    exposing::param_vector<float> box_info_impl::location() const
+	box_info_impl::box_info_impl()
 	{
-		return internal_.location;
+	}
+
+	box_info_impl::box_info_impl(const box_info_internal& internal) : internal_(internal)
+	{
+	}
+
+	box_info_impl::~box_info_impl()
+	{
+	}
+
+	float box_info_impl::x() const
+	{
+		return internal_.rect.x;
+	}
+
+	float box_info_impl::y() const
+	{
+		return internal_.rect.y;
+	}
+
+	float box_info_impl::width() const
+	{
+		return internal_.rect.w;
+	}
+
+	float box_info_impl::height() const
+	{
+		return internal_.rect.h;
+	}
+
+	float box_info_impl::confidence() const
+	{
+		return internal_.score;
 	}
 
 	exposing::param_string box_info_impl::strinfos() const
@@ -24,9 +44,30 @@ namespace glasssix::plate
 		return internal_.strinfos;
 	}
 
-    exposing::param_vector<std::uint8_t> box_info_impl::aligned_images() const
-    {
-        return internal_.aligned_images;
-    }
+	exposing::param_vector<std::uint8_t> box_info_impl::aligned_images() const
+	{
+		return internal_.aligned_images;
+	}
+
+	void box_info_impl::set_x(float input)
+	{
+		internal_.rect.x = input;
+	}
+	void box_info_impl::set_y(float input)
+	{
+		internal_.rect.y = input;
+	}
+	void box_info_impl::set_width(float input)
+	{
+		internal_.rect.w = input;
+	}
+	void box_info_impl::set_height(float input)
+	{
+		internal_.rect.h = input;
+	}
+	void box_info_impl::set_confidence(float input)
+	{
+		internal_.score = input;
+	}
 
 }

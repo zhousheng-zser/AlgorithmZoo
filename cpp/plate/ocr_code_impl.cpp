@@ -25,7 +25,7 @@ namespace glasssix::plate
 	}
 
 	exposing::param_vector<box_info> ocr_code_impl::detect(exposing::param_span<std::uint8_t> bitmap, int channels, int height, int width, int order,
-																int roi_x, int roi_y, int roi_width, int roi_height, const exposing::param_hash_map<exposing::param_string, float>& param_map_abi) const
+		int roi_x, int roi_y, int roi_width, int roi_height, const exposing::param_hash_map<exposing::param_string, float>& param_map_abi) const
 	{
 		if (!impl_)
 			throw exposing::abi_invalid_operation(u8"plate internal object not initialized");
@@ -37,6 +37,14 @@ namespace glasssix::plate
 		}
 
 		return impl_->detect(bitmap, channels, height, width, order, roi_x, roi_y, roi_width, roi_height, param_map);
+	}
+
+	box_info ocr_code_impl::trace(box_info plate, exposing::param_span<std::uint8_t> bitmap, std::int32_t channels, std::int32_t height, std::int32_t width, std::int32_t order) const
+	{
+		if (!impl_)
+			throw exposing::abi_invalid_operation(u8"plate internal object not initialized");
+
+		return impl_->trace(plate, bitmap, channels, height, width, order);
 	}
 
 }
