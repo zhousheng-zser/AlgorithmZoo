@@ -34,7 +34,7 @@ typedef struct Point4f
     float ey;       // y2
 } box;
 
-const static int seg_index[] = { 0, 60, 130, 200, 265, 314, 375, 439 };
+const static int base_seg_index[] = { 0, 60, 130, 200, 265, 314, 375, 439 };
 
 std::vector<std::string> chinese_label_index1 = { "8499", "664b","5180","5b81","7518","8d63","9c81","8c6b","4eac","6caa","6d25","8fbd","5409","9ed1","82cf","6d59","7696","95fd","9102", "6e58","7ca4","6842", "5ddd","8d35","4e91", "85cf","9655","9752", "65b0" };
 
@@ -86,8 +86,6 @@ namespace glasssix::plate
             std::vector<int> roi{ x, y, roi_height, roi_width };
             init_cache(bitmap, channels, height, width, order, cache0_);
 
-            std::vector<box_info_internal> results;
-
             auto result = exposing::make_param_vector<box_info>();
 
             auto results = run_detect_classfi(roi, param_map);
@@ -97,52 +95,47 @@ namespace glasssix::plate
             return result;
         }
 
-        box_info trace(box_info_internal& plate, exposing::param_span<std::uint8_t> bitmap, int channels, int height, int width, int order,
-            int x, int y, int roi_width, int roi_height, std::map<std::string, float>& param_map)
-        {
-            if (bitmap.empty())
-                throw exposing::abi_invalid_argument("current frame is empty");
+        //box_info trace(box_info& plate, exposing::param_span<std::uint8_t> bitmap, int channels, int height, int width, int order,
+        //    int x, int y, int roi_width, int roi_height, std::map<std::string, float>& param_map)
+        //{
+        //    if (bitmap.empty())
+        //        throw exposing::abi_invalid_argument("current frame is empty");
 
-            CHECK_EQ(channels, 3);
-            CHECK_EQ(bitmap.size(), channels * height * width);
+        //    CHECK_EQ(channels, 3);
+        //    CHECK_EQ(bitmap.size(), channels * height * width);
 
-            if (cache1_->empty())
-                throw exposing::abi_invalid_argument("previous frame cache is empty");
+        //    if (cache1_->empty())
+        //        throw exposing::abi_invalid_argument("previous frame cache is empty");
 
-            excalibur::rectangle<float> track_box((float)plate.rect.x, (float)plate.rect.y, (float)plate.rect.h, (float)plate.rect.w);
-            if (track_box.h * track_box.w <= 0)
-                throw exposing::abi_invalid_argument("track_box.h * track_box.w <= 0");
+        //    excalibur::rectangle<float> track_box((float)plate.rect.x, (float)plate.rect.y, (float)plate.rect.h, (float)plate.rect.w);
+        //    if (track_box.h * track_box.w <= 0)
+        //        throw exposing::abi_invalid_argument("track_box.h * track_box.w <= 0");
 
-            std::shared_ptr<memory::tensor<std::uint8_t>> face_in_prev_frame;
-            excalibur::safty_cut_cpu(cache1_, face_in_prev_frame, &track_box);
+        //    std::shared_ptr<memory::tensor<std::uint8_t>> face_in_prev_frame;
+        //    excalibur::safty_cut_cpu(cache1_, face_in_prev_frame, &track_box);
 
-            std::shared_ptr<memory::tensor<std::uint8_t>> cache_temp;
-            init_cache(bitmap, channels, height, width, order, cache_temp);
+        //    std::shared_ptr<memory::tensor<std::uint8_t>> cache_temp;
+        //    init_cache(bitmap, channels, height, width, order, cache_temp);
 
-            // frame now
-            std::vector<int> roi{ x, y, roi_height, roi_width };
-            double roi_distance = sqrt(roi_height* roi_height + roi_width * roi_width);
-            auto now_frame_result = run_detect_classfi(roi, param_map);
+        //    // frame now
+        //    std::vector<int> roi{ x, y, roi_height, roi_width };
+        //    double roi_distance = sqrt(roi_height* roi_height + roi_width * roi_width);
+        //    auto now_frame_result = run_detect_classfi(roi, param_map);
 
-            // discanse
-            double distance   = sqrt((now_frame_result.rect.x - plate.rect.x) * (now_frame_result.rect.x - plate.rect.x) + (now_frame_result.rect.y - plate.rect.y) * (now_frame_result.rect.y - plate.rect.y));
+        //    // discanse
+        //    double distance   = sqrt((now_frame_result.rect.x - plate.x()) * (now_frame_result.rect.x - plate.x()) + (now_frame_result.rect.y - plate.y()) * (now_frame_result.rect.y - plate.y()));
 
-            if (now_frame_result.score > 0.1f && distance < roi_distance && plate.strinfos == now_frame_result.strinfos)
-            {
-                cache0_.swap(cache1_);
-                cache1_.swap(cache_temp);
-            }
+        //    if (now_frame_result.score > 0.1f && distance < roi_distance)
+        //    {
+        //        cache0_.swap(cache1_);
+        //        cache1_.swap(cache_temp);
+        //    }
 
-            if (distance > std::numeric_limits<double>::epsilon())
-                now_frame_result.score = 0.0f;
+        //    if (distance > std::numeric_limits<double>::epsilon())
+        //        now_frame_result.score = 0.0f;
 
-            //return exposing::make_as_first<box_info>(now_frame_result);
-            box_info box_temp;
-
-            return box_temp;
-
-
-        }
+        //    return exposing::make_as_first<box_info>(now_frame_result);
+        //}
 
         static std::string version()
         {
@@ -1086,11 +1079,66 @@ namespace glasssix::plate
             rect_location.height = ey - y;
         }
 
+        std::vector<int> row_sum(cv::Mat& binary_img)
+        {
+            int width = binary_img.cols;
+            int height = binary_img.rows;
+            int ch = binary_img.channels();
+
+            std::vector<int> row_result(height);
+            for (int i = 0; i < height; i++)
+            {
+                int sum_temp = 0;
+                for (int j = 0; j < width; j++)
+                {
+                    sum_temp += (int)binary_img.at<uchar>(i, j);
+                }
+                row_result[i] = sum_temp;
+            }
+            return row_result;
+        }
+
+        std::pair<int, int> remove_border(cv::Mat& aligned_image)
+        {
+            cv::Mat plate_gray;
+            cv::cvtColor(aligned_image, plate_gray, cv::COLOR_BGR2GRAY);
+            cv::Mat plate_binary_img;
+            cv::threshold(plate_gray, plate_binary_img, 0, 255, cv::THRESH_BINARY + cv::THRESH_OTSU);
+
+            auto rowsum = row_sum(plate_binary_img);
+            std::vector<int> row_histogram_top(70);
+            row_histogram_top.assign(rowsum.begin(), rowsum.begin() + 70);
+            std::vector<int> row_histogram_down(70);
+            row_histogram_down.assign(rowsum.begin() + 70, rowsum.end());
+            int top_y = std::min_element(row_histogram_top.begin(), row_histogram_top.end()) - row_histogram_top.begin();
+            int down_y = std::min_element(row_histogram_down.begin(), row_histogram_down.end()) - row_histogram_down.begin() + 70;
+
+            if (top_y > 20)
+            {
+                top_y = 20;
+            }
+
+            if (down_y < 120)
+            {
+                down_y = 139;
+            }
+
+            return std::make_pair(top_y, down_y);
+        }
+
         // char_segment_classfi
         std::string char_segment_classfi(cv::Mat& aligned_image)
         {
             std::string plate;
             // char segment
+            int cut_width = aligned_image.cols;
+            float scale = (float)cut_width / 440.0;
+            std::vector<int> seg_index;
+            for (int i = 0; i < 8; i++)
+            {
+                float temp = base_seg_index[i] * scale;
+                seg_index.push_back(temp);
+            }
             cv::Mat chinese_img = cv::Mat(aligned_image, cv::Range::all(), cv::Range(seg_index[0], seg_index[1] - 1));
             cv::Mat rec_chinese_img;
             cv::resize(chinese_img, rec_chinese_img, cv::Size(32, 64));
@@ -1150,14 +1198,13 @@ namespace glasssix::plate
 
         box_info_internal run_detect_classfi(std::vector<int>& roi, std::map<std::string, float>& param_map)
         {
-             // cut roi image
-             glasssix::excalibur::rectangle<int> rect((int)roi[0], (int)roi[1], (int)roi[2], (int)roi[3]);
-             std::shared_ptr<glasssix::memory::tensor<uint8_t>> input;
+            // cut roi image
+            glasssix::excalibur::rectangle<int> rect((int)roi[0], (int)roi[1], (int)roi[2], (int)roi[3]);
+            std::shared_ptr<glasssix::memory::tensor<uint8_t>> input;
 
-             glasssix::excalibur::safty_cut_cpu(cache0_, input, &rect);
-             cv::Mat input_mat = cv::Mat(1, input->height(), input->width(), 3);
-             std::memcpy(input_mat.data, input->cpu_data(), input->count(2, 4));
-             // cut image into roi image
+            glasssix::excalibur::safty_cut_cpu(cache0_, input, &rect);
+            cv::Mat input_mat = cv::Mat(1, input->height(), input->width(), 3);
+            std::memcpy(input_mat.data, input->cpu_data(), input->count(2, 4));
 
             if (input->order() == glasssix::memory::NHWC)
                 input->convert_order();
@@ -1165,33 +1212,66 @@ namespace glasssix::plate
             cv::Mat preprocess_input_mat;
             cv::cvtColor(input_mat, preprocess_input_mat, cv::COLOR_BGR2RGB);
 
+            // step 1 detect:
+            // pnet
             auto pnet_result = pnet_detect(preprocess_input_mat);
 
             std::vector<Point4f> pnet_detect_locations;
             std::vector<float> pnet_detect_scores;
             std::tie(pnet_detect_locations, pnet_detect_scores) = pnet_result;
 
-            std::vector<Point4f> onet_detect_locations;
-            std::vector<float> onet_detect_scores;
-
-            // step 3 use onet include boxes
+            // onet
             auto onet_result = onet_detect(preprocess_input_mat, pnet_detect_locations, pnet_detect_scores);
-            // onet end
 
             std::vector<Point4f> onet_detect_locations;
             size_t keep;
             std::tie(onet_detect_locations, keep) = onet_result;
 
-            //// step 4 find Corners
+            // step 2 find Corners
             cv::Mat aligned_image;
             cv::Rect corn_locations;
             find_corners(input_mat, onet_detect_locations, aligned_image, corn_locations);
 
-            //// step 5 char seg and classfi
-            // cv::cvtColor(aligned_image, aligned_image, cv::COLOR_BGR2RGB);
+            // step 3  cut border 
+            auto border = remove_border(aligned_image);
+            int top;
+            int down;
+            std::tie(top, down) = border;
 
+            cv::Range cut_range = cv::Range(top, down);
+            cv::Mat aligned_images_cut = aligned_image(cut_range, cv::Range::all());
+
+            cv::Mat gray_plate;
+            cv::cvtColor(aligned_images_cut, gray_plate, cv::COLOR_BGR2GRAY);
+            cv::Mat binary_plate;
+            cv::threshold(gray_plate, binary_plate, 0, 255, cv::THRESH_OTSU);
+
+            std::vector<float> result(60);
+            for (int i = 0; i < 60; i++)
+            {
+                for (int j = 0; j < binary_plate.rows; j++)
+                {
+                    result[i] += (float)binary_plate.at<uchar>(j, i) / 255;
+                }
+            }
+
+            size_t n = std::min_element(result.begin(), result.end()) - result.begin();
+
+            cv::Mat aligned_images_cut_left;
+
+            if (result[n] < 30)
+            {
+                aligned_images_cut_left = aligned_images_cut(cv::Range::all(), cv::Range(n, aligned_image.cols));
+            }
+            else
+            {
+                aligned_images_cut_left = aligned_images_cut;
+            }
+
+            // step 4 char seg and classfi
             auto plate = char_segment_classfi(aligned_image);
 
+            // step 5 make return
             box_info_internal box;
 
             box.rect.x = corn_locations.x;
@@ -1214,7 +1294,6 @@ namespace glasssix::plate
             box.aligned_images = temp_vec;
 
             return box;
-       
         }
 
     private:
@@ -1248,8 +1327,10 @@ namespace glasssix::plate
         return impl_->detect(bitmap, channels, height, width, order, x, y, roi_width, roi_height, param_map);
     }
 
-    box_info trace(box_info_internal plate, exposing::param_span<std::uint8_t> bitmap, int channels, int height, int width, int order) 
-    {
-        // return impl_->trace(plate, bitmap, channels, height, width, order);
-    }
+    //box_info trace(box_info plate, exposing::param_span<std::uint8_t> bitmap, int channels, int height, int width, int order) 
+    //{
+    //    box_info box_trace_temp;
+    //    return box_trace_temp;
+    //   // return impl_->trace(plate, bitmap, channels, height, width, order);
+    //}
 }
