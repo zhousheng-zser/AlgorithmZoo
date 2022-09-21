@@ -112,7 +112,7 @@ namespace glasssix::heimdall
             if (factory_type_ == 2)
                 run_hot_roll(results, roi, top_five);
             else if (factory_type_ == 0)
-                run_hot_roll_2(results, roi, top_five, 16);
+                run_hot_roll_2(results, roi, top_five, 16, 2.0);
             else if (factory_type_ == 1 || factory_type_ == 3 || factory_type_ == 6 || factory_type_ == 7)
                 run_cool_roll(results, roi, top_five);
             else if (factory_type_ == 4 || factory_type_ == 5)
@@ -442,7 +442,7 @@ namespace glasssix::heimdall
             return out;
         }
 
-        void boxes_from_bitmap(cv::Mat &out, cv::Mat &mask, int src_w, int src_h, std::vector<std::vector<cv::Point2f>> &boxes, std::vector<float> &scores)
+        void boxes_from_bitmap(cv::Mat &out, cv::Mat &mask, int src_w, int src_h, std::vector<std::vector<cv::Point2f>> &boxes, std::vector<float> &scores, float unclip_ratio = 1.5)
         {
             size_t max_candidates = 1000;
             int min_size = 3;
@@ -478,7 +478,7 @@ namespace glasssix::heimdall
                 {
                     continue;
                 }
-                std::vector<cv::Point2f> box = unclip(points);
+                std::vector<cv::Point2f> box = unclip(points, unclip_ratio);
                 // sside: minimum between width and height of external retangel
                 points.clear();
                 get_mini_boxes(box, points, sside);
@@ -553,7 +553,7 @@ namespace glasssix::heimdall
             }
         }
 
-        void det_post_process(std::shared_ptr<memory::tensor<float>> &out_, std::vector<std::vector<cv::Point2f>> &boxes, std::vector<float> &scores)
+        void det_post_process(std::shared_ptr<memory::tensor<float>> &out_, std::vector<std::vector<cv::Point2f>> &boxes, std::vector<float> &scores, float unclip_ratio = 1.5)
         {
             cv::Mat out(out_->height(), out_->width(), CV_32FC1);
             memcpy(out.data, out_->cpu_data(), out_->count(2, 4) * sizeof(float));
@@ -568,7 +568,7 @@ namespace glasssix::heimdall
             {
                 mask_data[i] = (out_data[i] > thresh ? 1 : 0) * 255;
             }
-            boxes_from_bitmap(out, mask, src_w, src_h, boxes, scores);
+            boxes_from_bitmap(out, mask, src_w, src_h, boxes, scores, unclip_ratio);
         }
 
         void det_post_process_bar(std::shared_ptr<memory::tensor<float>>& out_, std::vector<std::vector<cv::Point2f>>& boxes, std::vector<float>& scores)
@@ -590,7 +590,7 @@ namespace glasssix::heimdall
             boxes_from_bitmap_bar(out, mask, src_w, src_h, boxes, scores);
         }
 
-        std::pair<std::vector<std::vector<cv::Point2f>>, std::vector<float>> det_combine_best(std::shared_ptr<memory::tensor<uint8_t>> &input, excalibur::pipeline<float>& det_instance_)
+        std::pair<std::vector<std::vector<cv::Point2f>>, std::vector<float>> det_combine_best(std::shared_ptr<memory::tensor<uint8_t>> &input, excalibur::pipeline<float>& det_instance_, float unclip_ratio = 1.5)
         {
             auto input_tensor = input | memory::tensor_convert_to<float>;
             // pre process
@@ -604,7 +604,7 @@ namespace glasssix::heimdall
             std::vector<std::vector<cv::Point2f>> boxes;
             std::vector<float> scores;
 
-            det_post_process(output, boxes, scores);
+            det_post_process(output, boxes, scores, unclip_ratio);
             
             return std::make_pair(boxes, scores);
         }
@@ -1036,7 +1036,7 @@ namespace glasssix::heimdall
             }
         }
 
-        void run_hot_roll_2(std::vector<box_info_internal>& results, std::vector<int>& roi, int top_five, int segment_rcut = 16)
+        void run_hot_roll_2(std::vector<box_info_internal>& results, std::vector<int>& roi, int top_five, int segment_rcut = 16, float unclip_ratio = 1.5)
         {
             excalibur::rectangle<int> rect((int)roi[0], (int)roi[1], (int)roi[2], (int)roi[3]);
             std::shared_ptr<memory::tensor<uint8_t>> input;
@@ -1049,7 +1049,7 @@ namespace glasssix::heimdall
             auto [resized_img, ratio] = resize_fixed_size(640, input);
 
             // ocr detect
-            std::pair<std::vector<std::vector<cv::Point2f>>, std::vector<float>> result = det_combine_best(resized_img, *instance_[0]);
+            std::pair<std::vector<std::vector<cv::Point2f>>, std::vector<float>> result = det_combine_best(resized_img, *instance_[0], unclip_ratio);
 
             std::vector<std::vector<cv::Point2f>> box_list = result.first;
             for (size_t i = 0; i < box_list.size(); i++)
