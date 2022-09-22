@@ -32,7 +32,7 @@ namespace glasssix::heimdall
     std::array<std::tuple<int, std::string, std::string, std::string, std::string>, 9> types = 
     {
         {{0, "hot_rolled_det", "hot_rolled_segment", "hot_rolled_angle", "hot_rolled_category"},
-        {1, "cool_rolled_det", "cool_rolled_rec", "", ""},
+        {1, "cool_rolled_det", "cool_rolled_segment", "cool_rolled_angle", "cool_rolled_classify"},
         {2, "hot_rolled_det_lite", "hot_rolled_rec_lite", "hot_material_angle", ""},
         {3, "cool_rolled_det_lite", "cool_rolled_rec_lite", "", ""},
         {4, "heavy_rail_det_lite", "heavy_rail_rec_lite", "hot_material_angle", ""},
@@ -74,12 +74,12 @@ namespace glasssix::heimdall
                     classfi_instance_ = std::make_unique<char_classfi>(label_type::HEAVY_RAIL);
                 }
                 break;
-            case 1:
             case 3:
                 instance_.emplace_back(std::make_unique<excalibur::pipeline<float>>(hardcode::get_model_params(std::get<1>(*factory)), std::string(model_directory) + "/" + std::get<1>(*factory) + ".racy", device));
                 instance_.emplace_back(std::make_unique<excalibur::pipeline<float>>(hardcode::get_model_params(std::get<2>(*factory)), std::string(model_directory) + "/" + std::get<2>(*factory) + ".racy", device));
                 break;
             case 0:
+            case 1:
             case 5:
             case 8:
                 instance_.emplace_back(std::make_unique<excalibur::pipeline<float>>(hardcode::get_model_params(std::get<1>(*factory)), std::string(model_directory) + "/" + std::get<1>(*factory) + ".racy", device));
@@ -113,8 +113,10 @@ namespace glasssix::heimdall
                 run_hot_roll(results, roi, top_five);
             else if (factory_type_ == 0)
                 run_hot_roll_2(results, roi, top_five, 16, 2.0);
-            else if (factory_type_ == 1 || factory_type_ == 3 || factory_type_ == 6 || factory_type_ == 7)
+            else if (factory_type_ == 3 || factory_type_ == 6 || factory_type_ == 7)
                 run_cool_roll(results, roi, top_five);
+            else if (factory_type_ == 1)
+                run_cool_roll_2(results, roi, top_five, 1.5);
             else if (factory_type_ == 4 || factory_type_ == 5)
             {
                 run_heavy_rail(results, roi, top_five, 25);
@@ -1396,6 +1398,105 @@ namespace glasssix::heimdall
                 }
             }
         }
+
+
+        void run_cool_roll_2(std::vector<box_info_internal>& results, std::vector<int>& roi, int top_five, float unclip_ratio = 1.5) //new cool rolled 9.22.2022
+        {
+            excalibur::rectangle<int> rect(roi[0], roi[1], roi[2], roi[3]);
+            std::shared_ptr<memory::tensor<uint8_t>> input;
+            // image preprocessing
+            excalibur::safty_cut_cpu(cache_, input, &rect);
+            cv::Mat input_mat(roi[2], roi[3], CV_8UC3);
+            std::copy(input->cpu_data(), input->cpu_data() + input->count(1, 4), input_mat.data);
+            if (input->order() == memory::NHWC)
+                input->convert_order();
+            auto [resized_img, ratio] = resize_fixed_size(640, input);
+
+            // ocr detect
+            std::pair<std::vector<std::vector<cv::Point2f>>, std::vector<float>> result = det_combine_best(resized_img, *instance_[0], unclip_ratio);
+            std::vector<std::vector<cv::Point2f>> box_list = result.first;
+
+            for (size_t i = 0; i < box_list.size(); i++)
+            {
+                for (size_t j = 0; j < box_list[i].size(); j++)
+                {
+                    box_list[i][j] *= ratio;
+                }
+            }
+
+            bool box_list_valid = true;
+            for (auto& box : box_list) {
+                for (auto& point : box) {
+                    if (point.x<20 || point.y < 20 || point.x > input_mat.cols - 20 || point.y > input_mat.rows - 20)
+                        box_list_valid = false;
+                }
+            }
+
+            if (box_list.size() > 1 && box_list_valid)
+            {
+                cordinate_roi result_cut = cut_rois_.cut_roi_gather(box_list, input_mat);
+
+                for (size_t i = 0; i < result_cut.rois.size(); i++)
+                {
+                    if (result_cut.max_R[i] > 1500)
+                        continue;
+                    cv::Mat cut_img = result_cut.rois[i].clone();
+
+                    float angle = 0.0f;
+                    std::vector<float> res_vec = angel_infer(cut_img, *instance_[2]);
+                    if (res_vec[1] > res_vec[0])
+                    {
+                        angle = 1.0f;
+                    }
+
+                    cv::Mat roi_temp = cut_img.clone();
+                    std::vector<float> segement_result = segement_instance_->detect(roi_temp, false, *instance_[1]);
+                    std::string stringinfo;
+                    std::vector<float> probs;
+
+                    float left = 0.f, right = 0.f;
+                    if (segement_result[0] < 0)
+                    {
+                        left = std::ceil(std::abs(segement_result[0]));
+                        segement_result[0] = 0;
+                    }
+
+                    for (size_t j = 0; j < segement_result.size() - 1; j++)
+                    {
+                        cv::Mat small_img = roi_temp(cv::Range::all(), cv::Range((int)segement_result[j], (int)segement_result[j + 1]));
+                        auto [label, prob] = classfi_instance_->detect(small_img, *instance_[3]);
+                        stringinfo.push_back(label);
+                        probs.push_back(prob);
+                    }
+
+                    std::pair<std::vector<std::string>, std::vector<std::vector<float>>> out;
+                    out = std::make_pair<std::vector<std::string>, std::vector<std::vector<float>>>({ stringinfo }, { probs });
+
+                    box_info_internal box;
+                    box.location = exposing::make_param_vector<float>();
+                    for (size_t j = 0; j < result_cut.cordinate[i].size(); ++j)
+                    {
+                        box.location.push_back(result_cut.cordinate[i][j].x);
+                        box.location.push_back(result_cut.cordinate[i][j].y);
+                    }
+                    box.strinfos = exposing::make_param_vector<exposing::param_string>();
+                    for (size_t j = 0; j < out.first.size(); ++j)
+                    {
+                        box.strinfos.push_back(exposing::param_string(out.first[j]));
+                    }
+                    box.angle = angle;
+                    box.cut_roi = exposing::make_param_vector<std::uint8_t>();
+                    box.cut_roi.resize(result_cut.rois[i].step[0] * result_cut.rois[i].rows);
+                    box.cut_roi.copy_from({ result_cut.rois[i].data, static_cast<size_t>(result_cut.rois[i].step[0] * result_cut.rois[i].rows) }, 0);
+
+                    box.cut_roi_width = result_cut.rois[i].cols;
+                    box.cut_roi_height = result_cut.rois[i].rows;
+
+                    results.push_back(box);
+                }
+            }
+        }
+
 
     private:
         int factory_type_;
