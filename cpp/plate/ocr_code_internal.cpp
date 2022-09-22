@@ -667,12 +667,6 @@ namespace glasssix::plate
                 pnet_input_tensor_u8->convert_order();
                 auto pnet_input_tensor = pnet_input_tensor_u8 | glasssix::memory::tensor_convert_to<float>;
 
-                // load models
-                //std::string model_path = "../models/pnet_Weights_sim";
-                //int device = -1;
-                //// glasssix::hardcode::get_model_params("plate_det_box", false);
-                //auto pnet_instance_ = std::make_unique<glasssix::excalibur::pipeline<float>>(model_path + ".phai", model_path + ".racy", device);
-
                 // pnet forward
                 auto pnet_infer_output = pnet_instance_->forward(pnet_input_tensor);
 
@@ -683,33 +677,16 @@ namespace glasssix::plate
                 auto cell_size = std::make_pair(12, 44);
 
                 std::shared_ptr<glasssix::memory::tensor<float>> pnet_offset = pnet_infer_output["output"];
-                std::shared_ptr<glasssix::memory::tensor<float>> pnet_prob = pnet_infer_output["28"];
+                std::shared_ptr<glasssix::memory::tensor<float>> pnet_prob = pnet_infer_output["26"];
 
-                int probs_cstep = pnet_prob->count(1, 4);
+                size_t probs_cstep = pnet_prob->count(2, 4);
                 int probs_height = pnet_prob->height();
                 int probs_width = pnet_prob->width();
 
-                std::vector<float> pnet_probs;
-                //std::vector <float> pnet_probs_c0(probs_cstep);
-                //std::vector <float> pnet_probs_c1(probs_cstep);
-                //memcpy(&pnet_probs_c0[0], pnet_prob->cpu_data(),               probs_cstep * sizeof(float));
-                //memcpy(&pnet_probs_c1[0], pnet_prob->cpu_data() + probs_cstep, probs_cstep * sizeof(float));
+                std::vector<float> pnet_probs(probs_cstep);
+                memcpy(&pnet_probs[0], pnet_prob->cpu_data() + probs_cstep, probs_cstep * sizeof(float));
 
-                //std::ifstream infp("../data/pnet_probs.csv"); //定义声明一个ifstream对象，指定文件路径
-                //std::string lineStr;
-                //while (std::getline(infp, lineStr))
-                //{
-                //    std::stringstream ss(lineStr);
-                //    std::string str;
-                //    std::vector<float> lineArray;
-                //    while (std::getline(ss, str, ','))
-                //    {
-                //        pnet_probs.push_back(std::atof(str.c_str()));
-                //    }
-                //    pnet_probs.push_back(lineArray);
-                //}
-
-                int offsets_cstep = pnet_offset->count(2, 4);
+                size_t offsets_cstep = pnet_offset->count(2, 4);
                 int offsets_height = pnet_offset->height();
                 int offsets_width = pnet_offset->width();
 

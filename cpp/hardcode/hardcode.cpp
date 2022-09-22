@@ -3935,9 +3935,7 @@ namespace glasssix::hardcode
                 "Split            splitexcalibur_0         1 2 23 23_splitexcalibur_0 23_splitexcalibur_1",
                 "Convolution      Conv_7                   1 1 23_splitexcalibur_1 24 0=2 1=1 11=1 2=1 12=1 3=1 13=1 4=0 14=0 15=0 16=0 5=1 6=64",
                 "Convolution      Conv_8                   1 1 23_splitexcalibur_0 output 0=4 1=1 11=1 2=1 12=1 3=1 13=1 4=0 14=0 15=0 16=0 5=1 6=128",
-                "Transpose        Transpose_9              1 1 24 26 0=2,1,0",
-                "Softmax          Softmax_10               1 1 26 27 0=2 1=1",
-                "Transpose        Transpose_11             1 1 27 28 0=2,1,0"
+                "Softmax          Softmax_10               1 1 24 26 0=2 1=1"
             };
 
             inline static const std::vector<std::string> plate_det_onet{
