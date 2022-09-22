@@ -19,9 +19,9 @@
 #include "Primitives/logger.hpp"
 
 #include <opencv2/core.hpp>
-#include <opencv2/core/core.hpp>
-#include <opencv2/core/mat.hpp>
-#include <opencv2/imgproc/imgproc.hpp>
+#include <opencv2/imgproc.hpp>
+#include <opencv2/imgcodecs.hpp>
+#include <opencv2/highgui.hpp>
 
 #include <abi/param_vector.hpp>
 
@@ -29,19 +29,19 @@
 typedef struct Point4f
 {
     float x;        // x1
-    float ex;       // x2
     float y;        // y1
+    float ex;       // x2
     float ey;       // y2
 } box;
 
-// char_seg_classfi
-const static int seg_index[] = { 0, 17, 35, 50, 65, 80, 95, 110 };
+const static int base_seg_index[] = { 0, 60, 130, 200, 265, 314, 375, 439 };
 
-const static char chinese_label_index[100] = { '蒙', '晋' };
-// "冀", "宁", "甘","赣", "鲁", "豫", "京", "沪", "津", "渝","辽", "吉", "黑", "苏", "浙", "皖", "闽", "鄂", "湘", "粤", "桂", "琼", "川", "贵", "云", "藏", "陕", "青", "新"};
+std::vector<std::string> chinese_label_index1 = { "8499", "664b","5180","5b81","7518","8d63","9c81","8c6b","4eac","6caa","6d25","8fbd","5409","9ed1","82cf","6d59","7696","95fd","9102", "6e58","7ca4","6842", "5ddd","8d35","4e91", "85cf","9655","9752", "65b0" };
 
-const static char char_label_index[] = { '0', '1','2','3','4','5','6','7','8','9','A','B','C','D','E','F','G','H','I',
-    'J','K','L','M','N','O','P','Q','R','S','T','U','V','W','X','Y','Z' };
+// '蒙', '晋',"冀", "宁", "甘","赣", "鲁", "豫", "京", "沪", "津", "渝","辽", "吉", "黑", "苏", "浙", "皖", "闽", "鄂", "湘", "粤", "桂", "琼", "川", "贵", "云", "藏", "陕", "青", "新"};
+
+const static char char_label_index[] = { '0', '1', '2', '3','4','5','6','7','8','9','A','B','C','D','E','F','G','H',
+    'J','K','L','M','N','P','Q','R','S','T','U','V','W','X','Y','Z' };
 
 
 namespace glasssix::plate
@@ -68,8 +68,8 @@ namespace glasssix::plate
 
             pnet_instance_ = std::make_unique<excalibur::pipeline<float>>(hardcode::get_model_params("plate_det_box", false), std::string(model_directory)                + "/" + "pnet_Weights_sim" + ".racy", device);
             onet_instance_ = std::make_unique<excalibur::pipeline<float>>(hardcode::get_model_params("plate_det_orientation", false), std::string(model_directory)        + "/" + "onet_Weights_sim" + ".racy", device);   
-            chinese_classfi_instance_ = std::make_unique<excalibur::pipeline<float>>(hardcode::get_model_params("plate_det_chinese", false), std::string(model_directory) + "/" + "res20_chinese_sim" + ".racy", device);
-            char_classfi_instance_    = std::make_unique<excalibur::pipeline<float>>(hardcode::get_model_params("plate_det_char", false),    std::string(model_directory) + "/" + "res20_char_sim"    + ".racy", device);
+            resnet_chinese_instance_ = std::make_unique<excalibur::pipeline<float>>(hardcode::get_model_params("plate_det_chinese", false), std::string(model_directory) + "/" + "res20_chinese_sim" + ".racy", device);
+            resnet_char_instance_ = std::make_unique<excalibur::pipeline<float>>(hardcode::get_model_params("plate_det_char", false),    std::string(model_directory) + "/" + "res20_char_sim"    + ".racy", device);
         }
 
         exposing::param_vector<box_info> detect(exposing::param_span<std::uint8_t> bitmap, int channels, int height, int width, int order,
@@ -84,22 +84,58 @@ namespace glasssix::plate
 
             // roi params
             std::vector<int> roi{ x, y, roi_height, roi_width };
-            init_cache(bitmap, channels, height, width, order, roi);
-
-            std::vector<box_info_internal> results;
+            init_cache(bitmap, channels, height, width, order, cache0_);
 
             auto result = exposing::make_param_vector<box_info>();
 
-            // run pnet
-            // run_net(results, roi, param_map);
+            auto results = run_detect_classfi(roi, param_map);
 
-            for (auto i : results)
-            {
-                result.push_back(glasssix::exposing::make_as_first<box_info_impl>(i));
-            }
-
+            result.push_back(glasssix::exposing::make_as_first<box_info_impl>(results));
+            
             return result;
         }
+
+        //box_info trace(box_info& plate, exposing::param_span<std::uint8_t> bitmap, int channels, int height, int width, int order,
+        //    int x, int y, int roi_width, int roi_height, std::map<std::string, float>& param_map)
+        //{
+        //    if (bitmap.empty())
+        //        throw exposing::abi_invalid_argument("current frame is empty");
+
+        //    CHECK_EQ(channels, 3);
+        //    CHECK_EQ(bitmap.size(), channels * height * width);
+
+        //    if (cache1_->empty())
+        //        throw exposing::abi_invalid_argument("previous frame cache is empty");
+
+        //    excalibur::rectangle<float> track_box((float)plate.rect.x, (float)plate.rect.y, (float)plate.rect.h, (float)plate.rect.w);
+        //    if (track_box.h * track_box.w <= 0)
+        //        throw exposing::abi_invalid_argument("track_box.h * track_box.w <= 0");
+
+        //    std::shared_ptr<memory::tensor<std::uint8_t>> face_in_prev_frame;
+        //    excalibur::safty_cut_cpu(cache1_, face_in_prev_frame, &track_box);
+
+        //    std::shared_ptr<memory::tensor<std::uint8_t>> cache_temp;
+        //    init_cache(bitmap, channels, height, width, order, cache_temp);
+
+        //    // frame now
+        //    std::vector<int> roi{ x, y, roi_height, roi_width };
+        //    double roi_distance = sqrt(roi_height* roi_height + roi_width * roi_width);
+        //    auto now_frame_result = run_detect_classfi(roi, param_map);
+
+        //    // discanse
+        //    double distance   = sqrt((now_frame_result.rect.x - plate.x()) * (now_frame_result.rect.x - plate.x()) + (now_frame_result.rect.y - plate.y()) * (now_frame_result.rect.y - plate.y()));
+
+        //    if (now_frame_result.score > 0.1f && distance < roi_distance)
+        //    {
+        //        cache0_.swap(cache1_);
+        //        cache1_.swap(cache_temp);
+        //    }
+
+        //    if (distance > std::numeric_limits<double>::epsilon())
+        //        now_frame_result.score = 0.0f;
+
+        //    return exposing::make_as_first<box_info>(now_frame_result);
+        //}
 
         static std::string version()
         {
@@ -108,9 +144,9 @@ namespace glasssix::plate
 
     private:
 
-        void init_cache(exposing::param_span<std::uint8_t>& bitmap, std::int32_t channels, std::int32_t height, std::int32_t width, std::int32_t order, std::vector<int>& roi)
+        void init_cache(exposing::param_span<std::uint8_t>& bitmap, std::int32_t channels, std::int32_t height, std::int32_t width, std::int32_t order, std::shared_ptr<memory::tensor<std::uint8_t>>& cache)
         {
-            if (cache_ == nullptr || cache_->channels() != channels || cache_->height() != height || cache_->width() != width || cache_->order() != order)
+            if (cache == nullptr || cache->channels() != channels || cache->height() != height || cache->width() != width || cache->order() != order)
             {
                 std::vector<int> shape;
                 if (order == memory::NCHW)
@@ -120,24 +156,23 @@ namespace glasssix::plate
                 else
                     NOT_IMPLEMENTED;
 
-                cache_ = std::make_shared<memory::tensor<std::uint8_t>>(shape, -1, (memory::orderType)order /*, &memory::pool_allocator_default<std::uint8_t>::get()*/);
+                cache = std::make_shared<memory::tensor<std::uint8_t>>(shape, -1, (memory::orderType)order /*, &memory::pool_allocator_default<std::uint8_t>::get()*/);
             }
 
-            if (cache_->device() > 0)
+            if (cache->device() > 0)
             {
 #ifdef USE_CUDA
-                cudaMemcpy(cache_->mutable_gpu_data(), bitmap, channels * height * width, cudaMemcpyHostToDevice);
+                cudaMemcpy(cache->mutable_gpu_data(), bitmap, channels * height * width, cudaMemcpyHostToDevice);
 #else
                 NO_GPU;
 #endif
             }
             else
-                std::copy(bitmap.begin(), bitmap.end(), cache_->mutable_cpu_data());
+                std::copy(bitmap.begin(), bitmap.end(), cache->mutable_cpu_data());
 
         }
         
-
-        void create_scales(std::vector<float>& scales, int min_height, int min_width, std::pair<int, int>& min_lp_size)
+        void create_scales(std::vector<float>& scales, const int factor_times, const int min_height, const int min_width, std::pair<int, int>& min_lp_size)
         {
             float factor = 0.707;   // sqrt(1.5)
             int factor_count = 0;
@@ -145,7 +180,7 @@ namespace glasssix::plate
             auto height = static_cast<float>(min_height);
             auto width = static_cast<float>(min_width);
 
-            while ((min_height > min_lp_size.second) && (min_width > min_lp_size.first))
+            while ((height > min_lp_size.second) && (width > min_lp_size.first) && (factor_count < factor_times))
             {
                 scales.push_back(pow(factor, factor_count));
                 height *= factor;
@@ -154,22 +189,16 @@ namespace glasssix::plate
             }
         }
 
-        void pnet_select_indices(std::tuple<std::vector<int>, std::vector<int>>& indices, std::shared_ptr<glasssix::memory::tensor<float>>& prob, const float thresh)
+        void pnet_select_indices(std::tuple<std::vector<int>, std::vector<int>>& indices, std::vector<float>& probs, int width, int height, const float thresh)
         {
-            int probs_size = prob->count(2, 4);
-            std::vector<float> probs(probs_size);
-            memcpy(&probs[0], prob->cpu_data(), probs_size * sizeof(float));
-
             std::vector<int> indices_w;
             std::vector<int> indices_h;
-            int width = static_cast<int>(prob->width());
-            int height = static_cast<int>(prob->height());
 
-            for (int i = 0; i < width; i++)
+            for (int i = 0; i < height; i++)
             {
-                for (int j = 0; j < height; j++)
+                for (int j = 0; j < width; j++)
                 {
-                    if (probs[i * height + j] > thresh)
+                    if (probs[i * width + j] > thresh)
                     {
                         indices_w.push_back(i);
                         indices_h.push_back(j);
@@ -179,46 +208,41 @@ namespace glasssix::plate
             indices = std::make_tuple(indices_w, indices_h);
         }
 
-        void pnet_select_offsets(std::vector<Point4f>& offsets_inds, std::shared_ptr<glasssix::memory::tensor<float>>& offset, std::tuple<std::vector<int>, std::vector<int>>& indices)
+        void pnet_select_offsets(std::vector<Point4f>& offsets_inds,
+            std::vector<float>& tx1,
+            std::vector<float>& tx2,
+            std::vector<float>& ty1,
+            std::vector<float>& ty2,
+            std::tuple<std::vector<int>, std::vector<int>>& indices,
+            const int height, const int width)
         {
-            // �ܳ���
             int num = std::get<0>(indices).size();
-            // ��offset��ȡ��һ��ָ��ֵ
-            // copy tensor into vector<Point4f>
-            std::vector<Point4f> offsets(offset->count(1, 4));
-            memcpy(&offsets[0], offset->cpu_data(), offset->count(1, 4) * sizeof(float));
-            int width = offset->width();
-            int height = offset->height();
-            int offset_cstep = offset->count(2, 4);
+
             for (int i = 0; i < num; i++)
             {
-                struct Point4f t_offset;
+                struct Point4f select_offset;
 
-                t_offset.x = 0 * offset_cstep + std::get<0>(indices)[i] * height + std::get<1>(indices)[i];
-                t_offset.ex = 1 * offset_cstep + std::get<0>(indices)[i] * height + std::get<1>(indices)[i];
-                t_offset.y = 2 * offset_cstep + std::get<0>(indices)[i] * height + std::get<1>(indices)[i];
-                t_offset.ey = 3 * offset_cstep + std::get<0>(indices)[i] * height + std::get<1>(indices)[i];
+                select_offset.x = tx1[std::get<0>(indices)[i] * width + std::get<1>(indices)[i]];
+                select_offset.y = tx2[std::get<0>(indices)[i] * width + std::get<1>(indices)[i]];
+                select_offset.ex = ty1[std::get<0>(indices)[i] * width + std::get<1>(indices)[i]];
+                select_offset.ey = ty2[std::get<0>(indices)[i] * width + std::get<1>(indices)[i]];
 
-                offsets_inds.push_back(t_offset);
+                offsets_inds.push_back(select_offset);
             }
         }
 
-        void pnet_select_scores(std::vector<float>& select_scores, std::shared_ptr<glasssix::memory::tensor<float>>& prob, std::tuple<std::vector<int>, std::vector<int>>& indices)
+        void pnet_select_scores(std::vector<float>& select_scores,
+            std::vector<float>& probs,
+            int probs_width, int probs_height,
+            std::tuple<std::vector<int>, std::vector<int>>& indices)
         {
-            // �ܳ���
             int num = std::get<0>(indices).size();
 
-            int probs_size = prob->count(2, 4);
-            std::vector<float> probs(probs_size);
-            memcpy(&probs[0], prob->cpu_data(), probs_size * sizeof(float));
-
-            // ��offsets��ȡ��һ��ָ��ֵ
-            // step1 copy tensor into Mat
-            
             for (int i = 0; i < num; i++)
             {
-                int score_cstep = static_cast<float>(prob->height() + std::get<1>(indices)[i]);
-                select_scores.push_back(probs[static_cast<int>(std::get<0>(indices)[i] * score_cstep)]);
+                int x = std::get<0>(indices)[i];
+                int y = std::get<1>(indices)[i];
+                select_scores.push_back(probs[x * probs_width + y]);
             }
 
         }
@@ -229,7 +253,6 @@ namespace glasssix::plate
             const std::pair<int, int>& stride,     /*in*/
             const std::pair<int, int>& cell_size   /*in*/)
         {
-            // mat merge ��ʽ
             // indices max number;
             int num = std::get<0>(indices).size();
 
@@ -239,10 +262,10 @@ namespace glasssix::plate
 
                 float stride_1_indices_1 = static_cast<float>(stride.second * std::get<1>(indices)[i]) + 1.0;
                 float stride_0_indices_0 = static_cast<float>(stride.first * std::get<0>(indices)[i]) + 1.0;
-                local.x  = std::round(stride_1_indices_1 / scale);
-                local.ex = std::round(stride_0_indices_0 / scale);
-                local.y  = std::round((stride_1_indices_1 + cell_size.second) / scale);
-                local.ey = std::round((stride_0_indices_0 + cell_size.first)  / scale);
+                local.x = std::round(stride_1_indices_1 / scale);
+                local.y = std::round(stride_0_indices_0 / scale);
+                local.ex = std::round((stride_1_indices_1 + cell_size.second) / scale);
+                local.ey = std::round((stride_0_indices_0 + cell_size.first) / scale);
                 locations.push_back(local);
             }
         }
@@ -301,297 +324,20 @@ namespace glasssix::plate
                 temp++;
             }
 
-            for (int i = 0; i < ids.size(); i++)
+            std::sort(overlap_ids.rbegin(), overlap_ids.rend());    // keep lowwer
+
+            for (auto key = overlap_ids.begin(); key != overlap_ids.end();)
             {
-                for (int j = 0; j < overlap_ids.size(); j++)
+                if (*key < ids.size())
                 {
-                    if (i != overlap_ids[j])
-                        dst.push_back(ids[i]);
+                    ids.erase(ids.begin() + *key);
                 }
+                key++;
             }
-            return dst;
+
+            return ids;
         }
 
-        void det_pnet_infer(std::unordered_map<std::string, std::shared_ptr<glasssix::memory::tensor<float>>>& out_, /*in*/
-            const std::map<std::string, float>& params,   /*in*/
-            const float scale,                            /*in*/
-            std::tuple<std::vector<Point4f>, std::vector<float>, std::vector<Point4f>>& bboxes/*out*/)
-        {
-            float thresh = params.at("thresh");
-            float nums_thresh = params.at("nums_thresh");
-
-            auto stride = std::make_pair(2, 5);
-            auto cell_size = std::make_pair(12, 44);
-
-            std::shared_ptr<glasssix::memory::tensor<float>> pnet_offset = out_["offset"];
-            std::shared_ptr<glasssix::memory::tensor<float>> pnet_prob = out_["prob"];
-
-            // select inds indices of boxes where there is probably a lp
-            std::tuple<std::vector<int>, std::vector<int>> indices;         // tuple width and height
-            pnet_select_indices(indices, pnet_prob, thresh);
-
-            if (std::get<0>(indices).size() == 0)
-            {
-                // all vector make into null;   
-                std::vector<Point4f> locations;
-                std::vector<float> scores;
-                std::vector<Point4f> offsets;
-                struct Point4f zero_local = { 0.0f, 0.0f, 0.0f, 0.0f };
-                struct Point4f zero_offset = { 0.0f, 0.0f, 0.0f, 0.0f };
-
-                locations.push_back(zero_local);
-                scores.push_back(0.0f);
-                offsets.push_back(zero_offset);
-                bboxes = std::make_tuple(locations, scores, offsets);
-            }
-            else
-            {
-                // select offset from offset
-                std::vector<Point4f> offsets_inds;
-                pnet_select_offsets(offsets_inds, pnet_offset, indices);
-
-                // scores
-                std::vector<float> scores_inds;
-                pnet_select_scores(scores_inds, pnet_prob, indices);
-
-                // rescaled locations
-                std::vector<Point4f> locations_inds;
-                pnet_select_locations(locations_inds, indices, scale, stride, cell_size);
-
-                // merge bounding boxes
-                auto bounding_boxes = std::make_tuple(locations_inds, scores_inds, offsets_inds);
-
-                
-                // 
-                // Transpose bounding boxes into boxes
-                std::vector<size_t> keep;
-                keep = nms(bounding_boxes);
-                std::vector<Point4f> bboxes_locations;
-                std::vector<float>   bboxes_scores;
-                std::vector<Point4f> bboxes_offsets;
-                for (int i = 0; i < std::get<0>(bounding_boxes).size(); i++)
-                {
-                    for (int j = 0; j < keep.size(); j++)
-                    {
-                        if (i == keep[j])
-                        {
-                            bboxes_locations.push_back(std::get<0>(bounding_boxes)[i]);
-                            bboxes_scores.push_back(std::get<1>(bounding_boxes)[i]);
-                            bboxes_offsets.push_back(std::get<2>(bounding_boxes)[i]);
-                        }
-                    }
-                }
-                bboxes = std::make_tuple(bboxes_locations, bboxes_scores, bboxes_offsets);
-            }
-        }
-
-        void det_onet_infer(std::unordered_map<std::string, std::shared_ptr<glasssix::memory::tensor<float>>>& out_, /*in*/
-            std::vector<Point4f> bboxes,  /*in*/
-            const std::map<std::string, float>& params,                   /*in*/
-            std::vector<Point4f> locations,  /*out*/
-            std::vector<float>   out_scores)  /*out*/
-        {
-            float thresh = params.at("thresh");
-            float nums_thresh = params.at("nums_thresh");
-
-            std::shared_ptr<glasssix::memory::tensor<float>> offset = out_["offset"];   // nx4xhxw
-            std::shared_ptr<glasssix::memory::tensor<float>> prob = out_["prob"];     // nx2xhxw
-
-            // ����probs
-            int probs_size = prob->count(2, 4);
-            std::vector<float> probs(probs_size);
-            memcpy(&probs[0], prob->cpu_data(), probs_size * sizeof(float));
-
-            // ����offsets
-            int offset_size = offset->count(1, 4);
-            std::vector<Point4f> offsets(offset_size);
-            memcpy(&offsets[0], offset->cpu_data(), offset_size * sizeof(float));
-
-            std::vector<int> onet_keep;
-
-            for (int i = 0; i < probs.size(); i++)
-            {
-                if (probs[i] > thresh)
-                    onet_keep.push_back(i);
-            }
-
-            std::vector<Point4f> bboxes_local = bboxes;
-            std::vector<Point4f> onet_bboxes;
-            std::vector<Point4f> onet_offsets;
-
-            for (auto key : onet_keep)
-            {
-                onet_bboxes.push_back(bboxes_local[key]);
-                out_scores.push_back(probs[key]);
-                onet_offsets.push_back(offsets[key]);
-            }
-
-            // 163
-            auto onet_output_bboxes = calibrate_box(onet_bboxes, onet_offsets);
-            std::string mode = "min";
-            auto output_keep = nms(std::make_tuple(onet_output_bboxes, out_scores, onet_offsets), nums_thresh, mode);
-
-            // selected keep;
-            std::vector<Point4f> output_bboxes;
-            for (auto key : output_keep)
-            {
-                output_bboxes.push_back(onet_output_bboxes[key]);
-            }
-
-            // locations = std::round
-            for (auto key : output_bboxes)
-            {
-                struct Point4f out_local;
-                out_local.x  = std::round(key.x);
-                out_local.y  = std::round(key.y);
-                out_local.ex = std::round(key.ex);
-                out_local.ey = std::round(key.ey);
-                locations.push_back(out_local);
-            }
-        }
-
-        void selectCorners(std::vector<cv::Point>& contours, std::vector<std::vector<cv::Point> >& find_contours)
-        {
-            // ���α�ѡ���ֵ;
-            std::vector<cv::Point> cont = find_contours[0];
-
-            // y_x and y__x
-            std::vector<float> y_x;
-            std::vector<float> y__x;
-
-            for (auto key : cont)
-            {
-                y_x.push_back(key.y - key.x);
-                y__x.push_back(key.x + key.y);
-            }
-
-            int ind_tr = std::min_element(y_x.begin(), y_x.end()) - y_x.begin();
-            int ind_bl = std::max_element(y_x.begin(), y_x.end()) - y_x.begin();
-
-            int ind_tl = std::min_element(y__x.begin(), y__x.end()) - y__x.begin();
-            int ind_br = std::max_element(y__x.begin(), y__x.end()) - y__x.begin();
-
-
-            contours.push_back(cont[ind_tl]);
-            contours.push_back(cont[ind_tr]);
-            contours.push_back(cont[ind_br]);
-            contours.push_back(cont[ind_bl]);
-        }
-
-        std::vector<cv::Point> findCorners(cv::Mat& blob)
-        {
-            cv::Mat enhance_image;
-            cv::normalize(blob, enhance_image, 0, 255, cv::NORM_MINMAX);
-            cv::Mat gray_image;
-            cv::cvtColor(enhance_image, gray_image, cv::COLOR_BGR2GRAY);
-            cv::Mat hsl_image;
-            cv::cvtColor(enhance_image, hsl_image, cv::COLOR_BGR2HLS);
-            cv::Mat lower_bound2 = (cv::Mat_<int>(1, 3) << 20 * 179 / 239, 0, 0);
-            cv::Mat upper_bound2 = (cv::Mat_<int>(1, 3) << 50 * 179 / 239, 255, 255);
-            cv::Mat mask2;
-            cv::inRange(hsl_image, lower_bound2, upper_bound2, mask2);
-            cv::Mat masked;
-            cv::bitwise_and(gray_image, gray_image, masked, mask2);
-
-            // Use binary gray image and erode
-            cv::Mat thres;
-            cv::threshold(masked, thres, 0, 255, cv::THRESH_BINARY + cv::THRESH_OTSU);
-            cv::Mat thres_morph;
-            cv::Mat kernel = (cv::Mat_<int>(1, 5) << 1, 1, 1, 1, 1);
-            int iterations = 2;
-            cv::morphologyEx(thres, thres_morph, cv::MORPH_CLOSE, kernel, cv::Point(-1, -1), iterations);
-
-            // Denoise
-            cv::Mat thres_Gauss;
-            cv::GaussianBlur(thres_morph, thres_Gauss, cv::Size(5, 5), 0);
-            cv::Mat thres_median;
-            cv::medianBlur(thres_Gauss, thres_median, 15);
-
-            // Find contour pointsand select four corners
-            std::vector<std::vector<cv::Point> > find_contours;
-            std::vector<cv::Vec4i> hierarchy;
-            cv::findContours(thres_median, find_contours, cv::RETR_EXTERNAL, cv::CHAIN_APPROX_NONE);
-            std::vector<cv::Point> contours;
-            selectCorners(contours, find_contours);
-            return contours;
-        }
-
-        std::vector<cv::Point> retractROI(std::vector<cv::Point>& corntours, std::vector<int>& roi, Point4f& blob_bboxes)
-        {
-            std::vector< cv::Point> retractroi(4);
-            retractroi[0].x = blob_bboxes.x + roi[0] + corntours[0].x;
-            retractroi[0].y = blob_bboxes.y + roi[1] + corntours[0].y;
-            retractroi[1].x = blob_bboxes.x + roi[0] + corntours[1].x;
-            retractroi[1].y = blob_bboxes.y + roi[1] + corntours[1].y;
-            retractroi[2].x = blob_bboxes.x + roi[0] + corntours[2].x;
-            retractroi[2].y = blob_bboxes.y + roi[1] + corntours[2].x;
-            retractroi[3].x = blob_bboxes.x + roi[0] + corntours[3].y;
-            retractroi[3].y = blob_bboxes.y + roi[1] + corntours[3].y;
-            return retractroi;
-        }
-
-        void transformImage(cv::Mat& aligned_image, std::vector<cv::Point>& retract_locations, std::pair<int, int>& lp_size, std::pair<int, int>& base, std::pair<int, int>& size, cv::Mat& input_mat)
-        {
-            // pers_tf;
-            cv::Mat pts_ortho = (cv::Mat_<cv::Point2f>(2, 2) << (base.first, base.first), (base.first + lp_size.first, base.first), (base.first + lp_size.second, base.second + lp_size.second), (base.first + base.second + lp_size.second));
-            auto transform_matrix = cv::getPerspectiveTransform(retract_locations, pts_ortho);
-            cv::warpPerspective(input_mat, aligned_image, transform_matrix, cv::Size(800, 800));
-        }
-
-
-        //  char_segment_classfi
-        std::string char_segment_classfi(cv::Mat& aligned_image, std::unique_ptr<glasssix::excalibur::pipeline<float>>& chinese_classfi_instance, std::unique_ptr<glasssix::excalibur::pipeline<float>>& char_classfi_instance)
-        {
-            // char segment
-            // cut image into img;
-            std::string s;
-
-            auto pad_size = std::make_pair(64, 48);
-            cv::Mat chinese_img = cv::Mat(aligned_image, cv::Range::all(), cv::Range(seg_index[0],seg_index[1]-1));
-            cv::Mat chinese_img_border;
-            cv::copyMakeBorder(chinese_img, chinese_img_border, pad_size.first - chinese_img.cols, 0, pad_size.second - chinese_img.rows, 0, cv::BORDER_CONSTANT, cv::Scalar{ 0, 0, 0 });
-            // copy cv::Mat into tensor;
-            std::shared_ptr<memory::tensor<uint8_t>> chinese_img_tensor_u8(new memory::tensor<uint8_t>(std::vector<int>{1, chinese_img_border.cols, chinese_img_border.rows, 3}, -1, memory::NHWC));
-            std::copy(chinese_img_border.data, chinese_img_border.data + chinese_img_border.step[0] * chinese_img_border.rows, chinese_img_tensor_u8->mutable_cpu_data());
-
-            chinese_img_tensor_u8->convert_order();
-
-            auto chinese_img_tensor = chinese_img_tensor_u8 | memory::tensor_convert_to<float>;
-
-            auto chinese_classfi_output = chinese_classfi_instance->forward(chinese_img_tensor);
-
-            std::vector<float> chinese_detections(chinese_classfi_output["output"]->cpu_data(), chinese_classfi_output["output"]->cpu_data() + chinese_classfi_output["output"]->count());
-
-            auto chinese_biggest_index = std::distance(chinese_detections.begin(), std::max_element(chinese_detections.begin(), chinese_detections.end()));
-
-            s += chinese_label_index[chinese_biggest_index];
-
-            for (int i = 1; i < 7; i++)
-            {
-                cv::Mat char_img = cv::Mat(aligned_image, cv::Range::all(), cv::Range(seg_index[i], seg_index[i+1] - 1));
-                cv::Mat char_img_border;
-                cv::copyMakeBorder(char_img, char_img_border, pad_size.first - char_img.cols, 0, pad_size.second - char_img.rows, 0, cv::BORDER_CONSTANT, cv::Scalar{ 0, 0, 0 });
-                // copy cv::Mat into tensor;
-                std::shared_ptr<memory::tensor<uint8_t>> char_img_u8(new memory::tensor<uint8_t>(std::vector<int>{1, char_img_border.cols, char_img_border.rows, 3}, -1, memory::NHWC));
-                std::copy(char_img_border.data, char_img_border.data + char_img_border.step[0] * char_img_border.rows, char_img_u8->mutable_cpu_data());
-
-                char_img_u8->convert_order();
-
-                auto char_img_tensor = char_img_u8 | memory::tensor_convert_to<float>;
-
-                auto char_classfi_output = chinese_classfi_instance->forward(char_img_tensor);
-
-                std::vector<float> char_detections(char_classfi_output["output"]->cpu_data(), char_classfi_output["output"]->cpu_data() + char_classfi_output["output"]->count());
-
-                auto char_biggest_index = std::distance(char_detections.begin(), std::max_element(char_detections.begin(), char_detections.end()));
-
-                s += char_label_index[char_biggest_index];
-
-            }
-
-            return s;
-        }
-        
         /**
         * @brief select roi size larger than threshold
         * @param keep   selected satisfy larger than overlap_threshold 0.5
@@ -599,31 +345,27 @@ namespace glasssix::plate
         * @param overlap_threshold  float 0.5 or nums_threashold
         * @param mode   "union" or "min".
         */
-        std::vector<size_t> nms(std::tuple<std::vector<Point4f>, std::vector<float>, std::vector<Point4f>>& boxes, float overlap_threshold = 0.5, std::string mode = "union")
+        std::vector<size_t> nms(std::vector<Point4f>& locations, std::vector<float>& scores, float overlap_threshold = 0.5, std::string mode = "union")
         {
             std::vector<size_t> keep;
-            if (std::get<1>(boxes).size() == 0)
+            if (scores.size() == 0)
             {
                 keep.push_back(0);
                 return keep;
             }
 
-            int num = std::get<0>(boxes).size();
+            int num = scores.size();
 
             std::vector<float> x1;
             std::vector<float> y1;
             std::vector<float> x2;
             std::vector<float> y2;
 
-            std::vector<Point4f> locations;
-            std::vector<float> scores;
-            std::tie(locations, scores, std::ignore) = boxes;
-
             for (auto& key : locations)
             {
                 x1.push_back(key.x);
-                x2.push_back(key.ex);
                 y1.push_back(key.y);
+                x2.push_back(key.ex);
                 y2.push_back(key.ey);
             }
 
@@ -650,9 +392,9 @@ namespace glasssix::plate
                 for (int j = 0; j < last; j++)
                 {
                     x1_ids.push_back(x1[ids[j]]);
-                    y1_ids.push_back(x2[ids[j]]);
-                    x2_ids.push_back(y1[ids[j]]);
-                    y2_ids.push_back(y1[ids[j]]);
+                    y1_ids.push_back(y1[ids[j]]);
+                    x2_ids.push_back(x2[ids[j]]);
+                    y2_ids.push_back(y2[ids[j]]);
                 }
 
                 // left top corner of intersection boxes
@@ -679,7 +421,6 @@ namespace glasssix::plate
                 }
                 w = maximum(0.0, ix2_ix1);
                 h = maximum(0.0, iy2_iy1);
-
 
                 // intersections' areas
                 std::vector<float> overlap;
@@ -713,49 +454,66 @@ namespace glasssix::plate
                     }
 
                 }
-
                 // delete last one 
-                ids.erase(ids.end());
+                ids.pop_back();
                 // delete which larger than overlap  
                 ids = delete_larger(ids, overlap, overlap_threshold);
             }
+            return keep;
         }
 
-        std::vector<Point4f> calibrate_box(std::vector<Point4f> bboxes, std::vector<Point4f>offsets)
+        void calibrate_box(std::vector<Point4f>& out_locations, std::vector<Point4f>& keep_locations, std::vector<Point4f>& keep_offsets)
         {
-            std::vector<float> w;
-            std::vector<float> h;
-            for (auto box : bboxes)
+            std::vector<float> x1;
+            std::vector<float> y1;
+            std::vector<float> x2;
+            std::vector<float> y2;
+
+            for (auto val : keep_locations)
             {
-                w.push_back(box.ex - box.x);
-                h.push_back(box.ey - box.y);
+                x1.push_back(val.x);
+                x2.push_back(val.ex);
+                y1.push_back(val.y);
+                y2.push_back(val.ey);
             }
 
-            std::vector<Point4f> translation;
-            for (int i = 0; i < offsets.size(); i++)
+            std::vector<float> w;
+            std::vector<float> h;
+            int num = keep_locations.size();
+            for (int i = 0; i < num; i++)
             {
-                struct Point4f trans;
-                trans.x = w[i] * offsets[i].x;
-                trans.ex = h[i] * offsets[i].ex;
-                trans.y = w[i] * offsets[i].y;
-                trans.ey = h[i] * offsets[i].ey;
-                translation.push_back(trans);
+                w.push_back(x2[i] - x1[i] + 1.0);
+                h.push_back(y2[i] - y1[i] + 1.0);
             }
-            std::vector<Point4f> locations;
-            for (int i = 0; i < bboxes.size(); i++)
+
+            // translation
+            std::vector<Point4f> translations;
+            // hstack
+            std::vector<Point4f>  hstack_wh;
+            for (int i = 0; i < num; i++)
             {
-                struct Point4f location;
-                location.x = bboxes[i].x + translation[i].x;
-                location.ex = bboxes[i].ex + translation[i].ex;
-                location.y = bboxes[i].y + translation[i].y;
-                location.ey = bboxes[i].ey + translation[i].ey;
-                locations.push_back(location);
+                Point4f wh_point;
+                wh_point.x = w[i];
+                wh_point.ex = h[i];
+                wh_point.y = w[i];
+                wh_point.ey = h[i];
+                hstack_wh.push_back(wh_point);
             }
-            return locations;
+
+            for (int i = 0; i < num; i++)
+            {
+                Point4f out_point;
+                out_point.x = keep_locations[i].x + hstack_wh[i].x * keep_offsets[i].x;
+                out_point.ex = keep_locations[i].ex + hstack_wh[i].ex * keep_offsets[i].ex;
+                out_point.y = keep_locations[i].y + hstack_wh[i].y * keep_offsets[i].y;
+                out_point.ey = keep_locations[i].ey + hstack_wh[i].ey * keep_offsets[i].ey;
+                out_locations.push_back(out_point);
+            }
         }
 
         std::tuple<std::vector<Point4f>, std::vector<Point4f>, std::vector<int>, std::vector<int>> correct_bboxes(
             std::vector<Point4f>& bboxes,
+            std::vector<float>& scores,
             int width, int height)
         {
             int num_boxes = bboxes.size();
@@ -777,7 +535,7 @@ namespace glasssix::plate
                 }
                 else
                 {
-                    correct_cut.ex = key.x;
+                    correct_cut.ex = key.ex;
                 }
 
                 if (key.ey < key.y)
@@ -803,7 +561,6 @@ namespace glasssix::plate
                 coordi_cut.ey = h[i] - 1.0;
                 coordinates.push_back(coordi_cut);
             }
-
 
             for (auto key : corrected)
             {
@@ -835,16 +592,16 @@ namespace glasssix::plate
             return cutouts;
         }
 
-        void cut_image_boxes(std::vector<cv::Mat>& img_boxes, cv::Mat& image, std::vector<Point4f>& bboxes)
+        void cut_image_boxes(std::vector<cv::Mat>& img_boxes, cv::Mat& image, std::vector<Point4f>& pnet_bboxes, std::vector<float>& pnet_scores)
         {
             auto size = std::make_pair(94, 24);
-            int num_boxes = bboxes.size();
+            int num_boxes = pnet_bboxes.size();
 
             int width = image.cols;
             int height = image.rows;
 
-            std::tuple<std::vector<Point4f>, std::vector<Point4f>, std::vector<int>, std::vector<int>> cutouts;
-            cutouts = correct_bboxes(bboxes, width, height);
+            auto cutouts = correct_bboxes(pnet_bboxes, pnet_scores, width, height);
+
             std::vector<Point4f> corrected;
             std::vector<Point4f> coordinates;
             std::vector<int> w;
@@ -853,7 +610,7 @@ namespace glasssix::plate
 
             for (int i = 0; i < num_boxes; i++)
             {
-                cv::Mat img_box = cv::Mat::zeros(h[i], w[i], CV_32FC3);
+                cv::Mat img_box = cv::Mat(h[i], w[i], CV_8UC3);
 
                 int coordinates_y = coordinates[i].y;
                 int coordinates_ey = coordinates[i].ey + 1;
@@ -870,257 +627,661 @@ namespace glasssix::plate
                 cv::Range corrected_ry = cv::Range(corrected_y, corrected_ey);
                 cv::Range corrected_rx = cv::Range(corrected_x, corrected_ex);
 
-                img_box(coordinates_ry, coordinates_rx) = image(corrected_ry, corrected_rx);
+                img_box = image(corrected_ry, corrected_rx);
 
-                cv::resize(img_box, img_box, cv::Size(size.first, size.second));
-                // preprocess
-                cv::cvtColor(img_box, img_box, cv::COLOR_BGR2RGB);
-                // hwc => chw input_mat Ĭ�Ͼ���nchw    // TODO
+                cv::resize(img_box, img_box, cv::Size(94, 24), 0, 0, cv::INTER_LINEAR_EXACT);
 
-                // ��һ��
-                img_box.convertTo(img_box, CV_32FC3, 0, 255);
                 img_boxes.push_back(img_box);
             }
         }
 
-        void run_net(std::vector<box_info_internal>& results, std::vector<int>& roi, std::map<std::string, float>& param_map)
+        std::pair<std::vector<Point4f>, std::vector<float>> pnet_detect(cv::Mat& input_image)
         {
-            excalibur::rectangle<int> rect((int)roi[0], (int)roi[1], (int)roi[2], (int)roi[3]);
-            std::shared_ptr<glasssix::memory::tensor<uint8_t>> input;
-
-            // step 1 image preprocessing
-            excalibur::safty_cut_cpu(cache_, input, &rect);
-            cv::Mat input_mat = cv::Mat(1, input->height(), input->width(), 3);
-            std::memcpy(input_mat.data, input->cpu_data(), input->count(2, 4));
-            // cut image into roi image
-
-            if (input->order() == glasssix::memory::NHWC)
-                input->convert_order();
-
-            // step 2 use pnet detect bboxes;
-            int height = int(roi[2]);
-            int width = int(roi[3]);
-            std::pair<int, int> min_lp_size{ 50, 15 };
-
-            // scale by scales
+            // scales
+            std::pair<int, int> min_lp_size{ 440, 140 };
             std::vector<float> scales;
-            create_scales(scales, height, width, min_lp_size);
+            int input_width = input_image.cols;
+            int input_height = input_image.rows;
+            int factor_times = 1;
+            create_scales(scales, factor_times, input_height, input_width, min_lp_size);
 
-            std::vector<std::tuple<std::vector<Point4f>, std::vector<float>, std::vector<Point4f>>> bounding_boxes;
-
+            // bounding_boxes
+            std::vector<Point4f> bounding_boxes_locations;
+            std::vector<float>   bounding_boxes_scores;
+            std::vector<Point4f> bounding_boxes_offsets;
+            // 
             for (auto& key : scales)
             {
-                int sw = std::ceil(width * key);
-                int sh = std::ceil(height * key);
+                int sw = std::ceil(input_width * key);
+                int sh = std::ceil(input_height * key);
 
-                cv::Mat scale_mat = cv::Mat();
-                cv::resize(input_mat, scale_mat, cv::Size(sw, sh), 0, 0, cv::INTER_LINEAR_EXACT);
-                // pnet test examples
-                // cv::Mat img = cv::imread("E:pnet_test.jpg");
-                // convert pnet_test.jpg nhwc into nchw
-                std::shared_ptr<memory::tensor<uint8_t>> pnet_input_tensor_u8(new memory::tensor<uint8_t>(std::vector<int>{1, sh, sw, 3}, -1, memory::NHWC));
+                cv::Mat scale_mat;
+                cv::resize(input_image, scale_mat, cv::Size(sw, sh), 0, 0, cv::INTER_LINEAR_EXACT);
+
+                // pnet 
+                std::shared_ptr<glasssix::memory::tensor<uint8_t>> pnet_input_tensor_u8(new glasssix::memory::tensor<uint8_t>(std::vector<int>{1, sh, sw, 3}, -1, glasssix::memory::NHWC));
                 // mat convert into tensor
                 std::copy(scale_mat.data, scale_mat.data + scale_mat.step[0] * scale_mat.rows, pnet_input_tensor_u8->mutable_cpu_data());
+
+                // NHWC into NCHW tensor
                 pnet_input_tensor_u8->convert_order();
                 auto pnet_input_tensor = pnet_input_tensor_u8 | glasssix::memory::tensor_convert_to<float>;
+
                 // pnet forward
-                std::unordered_map<std::string, std::shared_ptr<memory::tensor<float>>, std::hash<std::string>> pnet_infer_output = pnet_instance_->forward(pnet_input_tensor);
+                auto pnet_infer_output = pnet_instance_->forward(pnet_input_tensor);
 
-                std::vector<Point4f> locations;
-                std::vector<float> scores;
-                std::vector<Point4f> offsets;
-                std::map<std::string, float> pnet_params = {
-                    {"thresh", param_map.count("thresh") ? param_map["thresh"] : 0.6},
-                    {"nums_thresh", param_map.count("nums_thresh") ? param_map["nums_thresh"] : 0.5}
-                };
+                float thresh = 0.6f;
+                float nums_thresh = 0.5f;
 
-                std::tuple<std::vector<Point4f>, std::vector<float>, std::vector<Point4f>> bboxes;
+                auto stride = std::make_pair(2, 5);
+                auto cell_size = std::make_pair(12, 44);
 
-                det_pnet_infer(pnet_infer_output, pnet_params, key, bboxes);
+                std::shared_ptr<glasssix::memory::tensor<float>> pnet_offset = pnet_infer_output["output"];
+                std::shared_ptr<glasssix::memory::tensor<float>> pnet_prob = pnet_infer_output["26"];
 
-                bounding_boxes.push_back(bboxes);
-               
-            }
-            
-            // collect boxes (and offsets, and scores) from different scales
-            for(auto val = bounding_boxes.begin(); val != bounding_boxes.end();)
-            {
-                if (std::get<1>(*val).size() == 1)
+                size_t probs_cstep = pnet_prob->count(2, 4);
+                int probs_height = pnet_prob->height();
+                int probs_width = pnet_prob->width();
+
+                std::vector<float> pnet_probs(probs_cstep);
+                memcpy(&pnet_probs[0], pnet_prob->cpu_data() + probs_cstep, probs_cstep * sizeof(float));
+
+                size_t offsets_cstep = pnet_offset->count(2, 4);
+                int offsets_height = pnet_offset->height();
+                int offsets_width = pnet_offset->width();
+
+                std::vector<float> pnet_offsets_c0(offsets_cstep);
+                std::vector<float> pnet_offsets_c1(offsets_cstep);
+                std::vector<float> pnet_offsets_c2(offsets_cstep);
+                std::vector<float> pnet_offsets_c3(offsets_cstep);
+
+                memcpy(&pnet_offsets_c0[0], pnet_offset->cpu_data() + 0 * offsets_cstep, offsets_cstep * sizeof(float));
+                memcpy(&pnet_offsets_c1[0], pnet_offset->cpu_data() + 1 * offsets_cstep, offsets_cstep * sizeof(float));
+                memcpy(&pnet_offsets_c2[0], pnet_offset->cpu_data() + 2 * offsets_cstep, offsets_cstep * sizeof(float));
+                memcpy(&pnet_offsets_c3[0], pnet_offset->cpu_data() + 3 * offsets_cstep, offsets_cstep * sizeof(float));
+
+                // select inds indices of boxes where there is probably a lp
+                std::tuple<std::vector<int>, std::vector<int>> indices;         // tuple width and height
+
+                // convert probs tensor into std::vector
+
+                pnet_select_indices(indices, pnet_probs, probs_width, probs_height, thresh);
+
+                std::tuple<std::vector<Point4f>, std::vector<float>, std::vector<Point4f>> boxes;
+
+                if (std::get<0>(indices).size() == 0)
                 {
-                    val = bounding_boxes.erase(val);
-                }  
+                    // all vector make into null;   
+                    std::vector<Point4f> locations;
+                    std::vector<float> scores;
+                    std::vector<Point4f> offsets;
+                    struct Point4f zero_local = { 0.0f, 0.0f, 0.0f, 0.0f };
+                    struct Point4f zero_offset = { 0.0f, 0.0f, 0.0f, 0.0f };
+
+                    locations.push_back(zero_local);
+                    scores.push_back(0.0f);
+                    offsets.push_back(zero_offset);
+                    boxes = std::make_tuple(locations, scores, offsets);
+                }
                 else
                 {
-                    val++;
-                }
-            }
+                    // select offset from offset
+                    std::vector<Point4f> offsets_inds;
+                    pnet_select_offsets(offsets_inds, pnet_offsets_c0, pnet_offsets_c1, pnet_offsets_c2, pnet_offsets_c3, indices, offsets_height, offsets_width);
 
-            float nums_thresh = 0.6;
+                    // scores
+                    std::vector<float> scores_inds;
+                    pnet_select_scores(scores_inds, pnet_probs, probs_width, probs_height, indices);
 
-            std::vector<std::tuple<std::vector<Point4f>, std::vector<float>, std::vector<Point4f>>> bounding_boxes_keeped;
-            std::vector<size_t>  bounding_boxes_keep;
-            std::vector<Point4f> keep_local;
-            std::vector<float>   keep_scores;
-            std::vector<Point4f> keep_offset;
+                    // rescaled locations
+                    std::vector<Point4f> locations_inds;
+                    pnet_select_locations(locations_inds, indices, key, stride, cell_size);
 
-            if(bounding_boxes.size() != 0)
-            {
-                for(auto key: bounding_boxes)
-                {
-                    auto bounding_boxes_keep = nms(key, nums_thresh);
-                }
+                    // vstack bounding boxes
+                    auto bounding_box = std::make_tuple(locations_inds, scores_inds, offsets_inds);
 
-                if(bounding_boxes_keep.size() > 0)
-                {
-                    for(int i = 0; i < bounding_boxes.size(); i++)
+                    // Transpose bounding boxes into boxes
+                    float overlap_threshold = 0.5;
+                    auto keep = nms(locations_inds, scores_inds, overlap_threshold);
+
+                    // Transpose bounding boxes into boxes
+                    std::vector<Point4f> boxes_locations;
+                    std::vector<float>   boxes_scores;
+                    std::vector<Point4f> boxes_offsets;
+                    for (int i = 0; i < std::get<0>(bounding_box).size(); i++)
                     {
-                        for(int j = 0; j < bounding_boxes_keep.size(); j++)
+                        for (int j = 0; j < keep.size(); j++)
                         {
-                            if (i != bounding_boxes_keep[j])
+                            if (i == keep[j])
                             {
-                                bounding_boxes_keeped.push_back(bounding_boxes[i]);
+                                boxes_locations.push_back(std::get<0>(bounding_box)[i]);
+                                boxes_scores.push_back(std::get<1>(bounding_box)[i]);
+                                boxes_offsets.push_back(std::get<2>(bounding_box)[i]);
                             }
                         }
                     }
+                    boxes = std::make_tuple(boxes_locations, boxes_scores, boxes_offsets);
                 }
+
+                // bounding_boxes only push boxes not None;
+                if (std::get<1>(boxes).size() != 1)
+                {
+                    std::vector<Point4f> locations_temp;
+                    std::vector<float> scores_temp;
+                    std::vector<Point4f> offsets_temp;
+
+                    std::tie(locations_temp, scores_temp, offsets_temp) = boxes;
+                    bounding_boxes_locations.insert(bounding_boxes_locations.end(), locations_temp.begin(), locations_temp.end());
+                    bounding_boxes_scores.insert(bounding_boxes_scores.end(), scores_temp.begin(), scores_temp.end());
+                    bounding_boxes_offsets.insert(bounding_boxes_offsets.end(), offsets_temp.begin(), offsets_temp.end());
+                }
+            }
+
+            std::vector<Point4f> keep_locations;
+            std::vector<float> keep_scores;
+            std::vector<Point4f> keep_offsets;
+
+            float nums_thresh = 0.7;
+
+            if ((bounding_boxes_locations.size() != 0) && (bounding_boxes_scores.size() != 0) && (bounding_boxes_offsets.size() != 0))
+            {
+                auto bounding_boxes_keep = nms(bounding_boxes_locations, bounding_boxes_scores, nums_thresh);
+                // bounding_boxes_locations[keep]
+                //for (int i = 0; i < bounding_boxes_locations.size(); i++)
+                //{
+                //    for (int j = 0; j < bounding_boxes_keep.size(); j++)
+                //    {
+                //        if (i == bounding_boxes_keep[j])
+                //        {
+                //            keep_locations.push_back(bounding_boxes_locations[i]);
+                //            keep_scores.push_back(bounding_boxes_scores[i]);
+                //            keep_offsets.push_back(bounding_boxes_offsets[i]);
+                //        }
+                //    }
+                //}
+                for (int j = 0; j < bounding_boxes_keep.size(); j++)
+                {
+                    for (int i = 0; i < bounding_boxes_locations.size(); i++)
+                    {
+                        if (bounding_boxes_keep[j] == i)
+                        {
+                            keep_locations.push_back(bounding_boxes_locations[i]);
+                            keep_scores.push_back(bounding_boxes_scores[i]);
+                            keep_offsets.push_back(bounding_boxes_offsets[i]);
+                        }
+                    }
+                }
+
             }
             else
             {
-                struct Point4f zero_bboxes = {0,0,0,0};
-
-                std::vector<Point4f> zero_local = {zero_bboxes};
-                std::vector<float> zero_scores  = {0};
-                std::vector<Point4f> zero_offset= {zero_bboxes};
-
-                bounding_boxes_keeped.push_back(std::make_tuple(zero_local, zero_scores, zero_offset));
-            }
-            
-            // vstack ֻȡ location4 ���� ��scores ��Ӧ�����Ŷ�
-            std::vector<Point4f> out_locations;
-            std::vector<float> out_scores;
-            std::vector<Point4f> out_offsets;
-            for (auto key : bounding_boxes_keeped)
-            {
-                int num = std::get<0>(key).size();
-                for (int i = 0; i < num; i++)
-                {
-                    out_locations.push_back(std::get<0>(key)[i]);
-                    out_scores.push_back(std::get<1>(key)[i]);
-                    out_offsets.push_back(std::get<2>(key)[i]);
-                }
+                Point4f zero_point = { 0, 0, 0, 0 };
+                keep_locations.push_back(zero_point);
+                keep_scores.push_back(0);
+                keep_offsets.push_back(zero_point);
             }
 
-            auto out_bboxes = calibrate_box(out_locations, out_offsets);
-            // step 2 end; pent detect return bboxes
+            // calibrate_box use offsets predicted by pnet to transform bounding boxes
+            std::vector<Point4f> cali_locations;
+            calibrate_box(cali_locations, keep_locations, keep_offsets);
 
-            // step 3 use onet include boxes
-            // cut image into image_boxes;
-            // onet test
-            // cv::Mat img = cv::imread("E:\onet_test.jpg")
+            auto result = std::make_pair(cali_locations, keep_scores);
+            return result;
+        }
+
+        std::pair<std::vector<Point4f>, size_t> onet_detect(cv::Mat& input_image, std::vector<Point4f>& pnet_detect_locations, std::vector<float>& pnet_detect_scores)
+        {
+            // onet preprocess:
+            int boxes_num = pnet_detect_locations.size();
             std::vector<cv::Mat> image_boxes;
-            cut_image_boxes(image_boxes, input_mat, out_bboxes);
-            // copy cv::Mat into tenosr
-            int boxes_num = image_boxes.size();
-            // 
-            std::shared_ptr<memory::tensor<uint8_t>> image_boxes_tensor_u8(new memory::tensor<uint8_t>(std::vector<int>{boxes_num, 24, 94, 3}, -1, memory::NHWC));;
+            cut_image_boxes(image_boxes, input_image, pnet_detect_locations, pnet_detect_scores);
+            // copy cv::Mat into tenoser
+
+            std::shared_ptr<glasssix::memory::tensor<uint8_t>> image_boxes_tensor_u8(new glasssix::memory::tensor<uint8_t>(std::vector<int>{boxes_num, 24, 94, 3}, -1, glasssix::memory::NHWC));;
             for (int i = 0; i < boxes_num; i++)
             {
-                std::copy(image_boxes[i].data, image_boxes[i].data + image_boxes[i].step[0] * image_boxes[i].rows, image_boxes_tensor_u8->mutable_cpu_data());
+                std::copy(image_boxes[i].data, image_boxes[i].data + image_boxes[i].step[0] * image_boxes[i].rows, image_boxes_tensor_u8->mutable_cpu_data() + i * image_boxes[i].step[0] * image_boxes[i].rows);
             }
 
             image_boxes_tensor_u8->convert_order();
 
-            auto image_boxes_tensor = image_boxes_tensor_u8 |  memory::tensor_convert_to<float>;
+            auto image_boxes_tensor = image_boxes_tensor_u8 | glasssix::memory::tensor_convert_to<float>;
 
-            // onet forward
+            // load models
+            //std::string onet_model_path = "../models/onet_Weights_sim";
+            //int device = -1;
+            //// glasssix::hardcode::get_model_params("plate_det_box", false)
+            //int conut = image_boxes_tensor->count(1, 4);
+            //auto onet_instance_ = std::make_unique<glasssix::excalibur::pipeline<float>>(onet_model_path + ".phai", onet_model_path + ".racy", device);
+            //// onet forward
             std::unordered_map<std::string, std::shared_ptr<glasssix::memory::tensor<float>>> onet_infer_output = onet_instance_->forward(image_boxes_tensor);
 
-            
-            std::vector<Point4f> onet_locations;
-            std::vector<float>   onet_scores;
+            float thresh = 0.6;
+            float nums_thresh = 0.7;
 
-            std::map<std::string, float> onet_params = {
-                    {"thresh", param_map.count("thresh") ? param_map["thresh"] : 0.6},
-                    {"nums_thresh", param_map.count("nums_thresh") ? param_map["nums_thresh"] : 0.7}
-            };
+            std::shared_ptr<glasssix::memory::tensor<float>> offset = onet_infer_output["output"];
+            std::shared_ptr<glasssix::memory::tensor<float>> prob = onet_infer_output["47"];
 
-            det_onet_infer(onet_infer_output, out_bboxes, onet_params, onet_locations, onet_scores);
-            // onet end
+            // probs = [false, true]
+            std::vector<float> probs_temp(boxes_num * 2);
+            memcpy(&probs_temp[0], prob->cpu_data(), boxes_num * 2 * sizeof(float));
 
-            // step 4 find Corners
-            // sort ���ֵ
-            std::vector<size_t> max_index(onet_scores.size());
-            std::iota(max_index.begin(), max_index.end(), 0);
-            std::sort(max_index.begin(), max_index.end(), [&onet_scores](size_t t1, size_t t2) {return onet_scores[t1] < onet_scores[t2]; });
-
-            auto blob_bboxes = onet_locations[max_index[0]];
-            cv::Mat blob = input_mat(cv::Range(blob_bboxes.x,blob_bboxes.ex),cv::Range(blob_bboxes.y,blob_bboxes.ey));
-            //  Use only license plate area to detect corners
-            std::vector<cv::Point> corners;        // x y width height
-            corners = findCorners(blob);
-
-            // Draw corners on the full - size image
-            // locations = retractROI(corners, args.roi_x1y1, args.roi_wh, new_wh, bbox)
-            std::vector<cv::Point> retract_locations;
-            retract_locations = retractROI(corners, roi, blob_bboxes);
-
-
-            auto lp_size = std::make_pair(44,14);
-            auto align_base = std::make_pair(0, 0);
-            auto align_size = std::make_pair(44, 14);
-
-            
-            // Align image
-            // according to corners
-            cv::Mat aligned_image;
-            transformImage(aligned_image, retract_locations, lp_size, align_base, align_size, input_mat);
-
-            // step 5 char seg and classfi
-            // char segment and classfi
-            // test example
-            // cv::Mat aligned_image = cv::imread("E:\char_seg_classfi.jpg");
-            // std::string plate = "��A 123456";
-
-            auto plate = char_segment_classfi(aligned_image, chinese_classfi_instance_, char_classfi_instance_);
-
-            // std::cout<< plate;
-
-            // step 6 collect C++ result into json label
-
-            box_info_internal box;
-            auto location = exposing::make_param_vector<float>();
-            for (auto key : retract_locations)
+            std::vector<float> probs;
+            for (int i = 0; i < probs_temp.size(); i++)
             {
-                location.push_back(key.x);
-                location.push_back(key.y);
+                if (i % 2 != 0)
+                {
+                    probs.push_back(probs_temp[i]);
+                }
             }
-            box.location = location;
 
-            auto strinfos = exposing::param_string(plate);
+            // offsets 
+            std::vector<float> offsets(boxes_num * 4);
+            memcpy(&offsets[0], offset->cpu_data(), boxes_num * 4 * sizeof(float));
+
+            std::vector<Point4f> onet_detect_locations;
+            size_t keep = 0;
+
+            // argmax
+            keep = std::max_element(probs.begin(), probs.end()) - probs.begin();
+
+            std::vector<Point4f> keep_locations;
+            std::vector<Point4f> keep_offsets;
+
+            if (probs[keep] > thresh)
+            {
+                Point4f keep_local;
+                keep_local.x = pnet_detect_locations[keep].x;
+                keep_local.y = pnet_detect_locations[keep].y;
+                keep_local.ex = pnet_detect_locations[keep].ex;
+                keep_local.ey = pnet_detect_locations[keep].ey;
+                keep_locations.push_back(keep_local);
+
+                Point4f keep_offset;
+                keep_offset.x = offsets[keep * 4 + 0];
+                keep_offset.y = offsets[keep * 4 + 1];
+                keep_offset.ex = offsets[keep * 4 + 2];
+                keep_offset.ey = offsets[keep * 4 + 3];
+                keep_offsets.push_back(keep_offset);
+
+                calibrate_box(onet_detect_locations, keep_locations, keep_offsets);
+            }
+            else
+            {
+                Point4f Zero_bboxes = { 0,0,0,0 };
+                onet_detect_locations.push_back(Zero_bboxes);
+            }
+
+            return std::make_pair(onet_detect_locations, keep);
+        }
+
+        void imgBrightness(cv::Mat& blob, cv::Mat& enhanced, float c = 0.01, const int b = 0)
+        {
+            int rows = blob.rows;
+            int cols = blob.cols;
+            int channels = blob.channels();
+            cv::Mat blank = cv::Mat::zeros(rows, cols, CV_8UC3);
+            cv::addWeighted(blob, c, blank, 1 - c, b, enhanced);
+        }
+
+        std::vector<cv::Point> selectCorners(std::vector<std::vector<cv::Point>>& find_contours)
+        {
+            std::vector<cv::Point> result;
+
+            if (find_contours.size() > 0)
+            {
+                // y_x and y__x
+                std::vector<float> y_x;
+                std::vector<float> y__x;
+
+                for (auto key : find_contours[0])
+                {
+                    y_x.push_back(key.y - key.x);
+                    y__x.push_back(key.x + key.y);
+                }
+
+                int ind_tr = std::min_element(y_x.begin(), y_x.end()) - y_x.begin();
+                int ind_bl = std::max_element(y_x.begin(), y_x.end()) - y_x.begin();
+
+                int ind_tl = std::min_element(y__x.begin(), y__x.end()) - y__x.begin();
+                int ind_br = std::max_element(y__x.begin(), y__x.end()) - y__x.begin();
+
+                result.push_back(find_contours[0][ind_tl]);
+                result.push_back(find_contours[0][ind_tr]);
+                result.push_back(find_contours[0][ind_br]);
+                result.push_back(find_contours[0][ind_bl]);
+            }
+            else
+            {
+                cv::Point pi = { 0,0 };
+                result.push_back(pi);
+            }
+            return result;
+        }
+
+        std::vector<cv::Point> findCorners(cv::Mat& blob)
+        {
+            cv::Mat gray_image;
+            cv::cvtColor(blob, gray_image, cv::COLOR_BGR2GRAY);
+            auto lightness = cv::mean(gray_image);
+            float lightness_left = std::pow((170 / static_cast<int>(lightness[0])), 1.5);
+            int c = std::min(lightness_left, 3.0f);
+            cv::Mat enhanced;
+            imgBrightness(blob, enhanced, c);
+
+            // Use binary gray image and erode
+            cv::cvtColor(enhanced, gray_image, cv::COLOR_BGR2GRAY);
+            cv::Mat thres;
+            cv::threshold(gray_image, thres, 0, 255, cv::THRESH_BINARY + cv::THRESH_OTSU);
+            // morphologyEx
+            cv::Mat mor_kernel = cv::Mat::ones(1, 5, CV_8UC1);
+            cv::morphologyEx(thres, thres, cv::MORPH_CLOSE, mor_kernel, cv::Point(-1, -1), 2);
+
+            // Denoise
+            cv::medianBlur(thres, thres, 5);
+            cv::blur(thres, thres, cv::Size(5, 5));
+
+            // Find contour points and select four corners
+            std::vector<std::vector<cv::Point>> contours;
+            cv::findContours(thres, contours, cv::RETR_EXTERNAL, cv::CHAIN_APPROX_SIMPLE);
+            auto result = selectCorners(contours);
+            return result;
+
+        }
+
+        std::vector<cv::Point>  retractROI(std::vector<cv::Point>& corntours, Point4f& blob_bboxes)
+        {
+            std::vector<cv::Point> retractroi(4);
+            retractroi[0].x = blob_bboxes.x + corntours[0].x;
+            retractroi[0].y = blob_bboxes.y + corntours[0].y;
+            retractroi[1].x = blob_bboxes.x + corntours[1].x;
+            retractroi[1].y = blob_bboxes.y + corntours[1].y;
+            retractroi[2].x = blob_bboxes.x + corntours[2].x;
+            retractroi[2].y = blob_bboxes.y + corntours[2].y;
+            retractroi[3].x = blob_bboxes.x + corntours[3].x;
+            retractroi[3].y = blob_bboxes.y + corntours[3].y;
+            return retractroi;
+        }
+
+        void transformImage(cv::Mat& aligned_image, std::vector<cv::Point>& retract_locations, cv::Mat& input_image, std::pair<int, int>& lp_size, std::pair<int, int>& base, std::pair<int, int>& size)
+        {
+            // pers_tf;
+            // cv::Mat pts_ortho = (cv::Mat_<cv::Point2f>(2, 2) << (base.first, base.first), (base.first + lp_size.first, base.first), (base.first + lp_size.second, base.second + lp_size.second), (base.first + base.second + lp_size.second));
+            std::vector<cv::Point2f> retract_locations_f;
+            for (auto val : retract_locations)
+            {
+                cv::Point2f pf;
+                pf.x = static_cast<float>(val.x);
+                pf.y = static_cast<float>(val.y);
+                retract_locations_f.push_back(pf);
+            }
+            std::vector<cv::Point2f> pts_ortho_f = { cv::Point2f(base.first, base.first), cv::Point2f(base.first + lp_size.first, base.first), cv::Point2f(base.first + lp_size.first, base.second + lp_size.second), cv::Point2f(base.first, base.second + lp_size.second) };
+            auto transform_matrix = cv::getPerspectiveTransform(retract_locations_f, pts_ortho_f);
+            cv::warpPerspective(input_image, aligned_image, transform_matrix, cv::Size(lp_size.first, lp_size.second));
+        }
+
+        void find_corners(cv::Mat& input_image, std::vector<Point4f>& onet_detect_locations, cv::Mat& aligned_image, cv::Rect& rect_location)
+        {
+            // range
+            int x = static_cast<int>(std::round(onet_detect_locations[0].x));
+            int ex = static_cast<int>(std::round(onet_detect_locations[0].ex));
+            int y = static_cast<int>(std::round(onet_detect_locations[0].y));
+            int ey = static_cast<int>(std::round(onet_detect_locations[0].ey));
+            cv::Range x_ex = cv::Range(x, ex);
+            cv::Range y_ey = cv::Range(y, ey);
+            cv::Mat blob = input_image(y_ey, x_ex);
+            //  Use only license plate area to detect corners
+
+            auto result_corners = findCorners(blob);
+
+            if (result_corners.size() != 0)
+            {
+                // Draw corners on the full - size image
+                auto roi_locations = retractROI(result_corners, onet_detect_locations[0]);    // new
+
+                // Align image according to corners
+                auto lp_size = std::make_pair(440, 140);
+                auto align_base = std::make_pair(0, 0);
+                auto align_size = std::make_pair(440, 140);
+                transformImage(aligned_image, roi_locations, input_image, lp_size, align_base, align_size);
+            }
+            else
+            {
+                std::cout << "Corner detection failed in \n";
+            }
+
+            rect_location.x = x;
+            rect_location.y = y;
+            rect_location.width = ex - x;
+            rect_location.height = ey - y;
+        }
+
+        std::vector<int> row_sum(cv::Mat& binary_img)
+        {
+            int width = binary_img.cols;
+            int height = binary_img.rows;
+            int ch = binary_img.channels();
+
+            std::vector<int> row_result(height);
+            for (int i = 0; i < height; i++)
+            {
+                int sum_temp = 0;
+                for (int j = 0; j < width; j++)
+                {
+                    sum_temp += (int)binary_img.at<uchar>(i, j);
+                }
+                row_result[i] = sum_temp;
+            }
+            return row_result;
+        }
+
+        std::pair<int, int> remove_border(cv::Mat& aligned_image)
+        {
+            cv::Mat plate_gray;
+            cv::cvtColor(aligned_image, plate_gray, cv::COLOR_BGR2GRAY);
+            cv::Mat plate_binary_img;
+            cv::threshold(plate_gray, plate_binary_img, 0, 255, cv::THRESH_BINARY + cv::THRESH_OTSU);
+
+            auto rowsum = row_sum(plate_binary_img);
+            std::vector<int> row_histogram_top(70);
+            row_histogram_top.assign(rowsum.begin(), rowsum.begin() + 70);
+            std::vector<int> row_histogram_down(70);
+            row_histogram_down.assign(rowsum.begin() + 70, rowsum.end());
+            int top_y = std::min_element(row_histogram_top.begin(), row_histogram_top.end()) - row_histogram_top.begin();
+            int down_y = std::min_element(row_histogram_down.begin(), row_histogram_down.end()) - row_histogram_down.begin() + 70;
+
+            if (top_y > 20)
+            {
+                top_y = 20;
+            }
+
+            if (down_y < 120)
+            {
+                down_y = 139;
+            }
+
+            return std::make_pair(top_y, down_y);
+        }
+
+        // char_segment_classfi
+        std::string char_segment_classfi(cv::Mat& aligned_image)
+        {
+            std::string plate;
+            // char segment
+            int cut_width = aligned_image.cols;
+            float scale = (float)cut_width / 440.0;
+            std::vector<int> seg_index;
+            for (int i = 0; i < 8; i++)
+            {
+                float temp = base_seg_index[i] * scale;
+                seg_index.push_back(temp);
+            }
+            cv::Mat chinese_img = cv::Mat(aligned_image, cv::Range::all(), cv::Range(seg_index[0], seg_index[1] - 1));
+            cv::Mat rec_chinese_img;
+            cv::resize(chinese_img, rec_chinese_img, cv::Size(32, 64));
+
+            // copy cv::mat into tensor;
+            std::shared_ptr<glasssix::memory::tensor<uint8_t>> chinese_img_tensor_u8(new glasssix::memory::tensor<uint8_t>(std::vector<int>{1, 64, 32, 3}, -1, glasssix::memory::NHWC));
+            std::copy(rec_chinese_img.data, rec_chinese_img.data + rec_chinese_img.step[0] * rec_chinese_img.rows, chinese_img_tensor_u8->mutable_cpu_data());
+
+            chinese_img_tensor_u8->convert_order();
+
+            auto chinese_img_tensor = chinese_img_tensor_u8 | glasssix::memory::tensor_convert_to<float>;
+
+            // load models
+            //std::string resnet_chinese_model_path = "../models/20_chinese_sim";
+            //int device = -1;
+            //auto resnet_chinese_instance_ = std::make_unique<glasssix::excalibur::pipeline<float>>(resnet_chinese_model_path + ".phai", resnet_chinese_model_path + ".racy", device);
+
+            auto chinese_classfi_output = resnet_chinese_instance_->forward(chinese_img_tensor);
+
+            std::vector<float> chinese_detections(chinese_classfi_output["output"]->cpu_data(), chinese_classfi_output["output"]->cpu_data() + chinese_classfi_output["output"]->count());
+
+            auto chinese_biggest_index = std::distance(chinese_detections.begin(), std::max_element(chinese_detections.begin(), chinese_detections.end()));
+
+            plate += chinese_label_index1[chinese_biggest_index];
+            plate += "_";
+
+            for (int i = 1; i < 7; i++)
+            {
+                cv::Mat char_img = cv::Mat(aligned_image, cv::Range::all(), cv::Range(seg_index[i], seg_index[i + 1] - 1));
+                cv::Mat rec_char_img;
+                cv::resize(char_img, rec_char_img, cv::Size(32, 64));
+                // copy cv::mat into tensor;
+                std::shared_ptr<glasssix::memory::tensor<uint8_t>> char_img_u8(new glasssix::memory::tensor<uint8_t>(std::vector<int>{1, 64, 32, 3}, -1, glasssix::memory::NHWC));
+                std::copy(rec_char_img.data, rec_char_img.data + rec_char_img.step[0] * rec_char_img.rows, char_img_u8->mutable_cpu_data());
+
+                char_img_u8->convert_order();
+
+                auto char_img_tensor = char_img_u8 | glasssix::memory::tensor_convert_to<float>;
+
+                // load models
+                //std::string resnet_char_model_path = "../models/res20_character_sim";
+                //int device = -1;
+                //auto resnet_char_instance_ = std::make_unique<glasssix::excalibur::pipeline<float>>(resnet_char_model_path + ".phai", resnet_char_model_path + ".racy", device);
+
+                auto char_classfi_output = resnet_char_instance_->forward(char_img_tensor);
+
+                std::vector<float> char_detections(char_classfi_output["output"]->cpu_data(), char_classfi_output["output"]->cpu_data() + char_classfi_output["output"]->count());
+
+                auto char_biggest_index = std::distance(char_detections.begin(), std::max_element(char_detections.begin(), char_detections.end()));
+
+                plate
+                    += (char_label_index[char_biggest_index]);
+            }
+
+            return plate;
+        }
+
+        box_info_internal run_detect_classfi(std::vector<int>& roi, std::map<std::string, float>& param_map)
+        {
+            // cut roi image
+            glasssix::excalibur::rectangle<int> rect((int)roi[0], (int)roi[1], (int)roi[2], (int)roi[3]);
+            std::shared_ptr<glasssix::memory::tensor<uint8_t>> input;
+
+            glasssix::excalibur::safty_cut_cpu(cache0_, input, &rect);
+            cv::Mat input_mat = cv::Mat(1, input->height(), input->width(), 3);
+            std::memcpy(input_mat.data, input->cpu_data(), input->count(2, 4));
+
+            if (input->order() == glasssix::memory::NHWC)
+                input->convert_order();
+
+            cv::Mat preprocess_input_mat;
+            cv::cvtColor(input_mat, preprocess_input_mat, cv::COLOR_BGR2RGB);
+
+            // step 1 detect:
+            // pnet
+            auto pnet_result = pnet_detect(preprocess_input_mat);
+
+            std::vector<Point4f> pnet_detect_locations;
+            std::vector<float> pnet_detect_scores;
+            std::tie(pnet_detect_locations, pnet_detect_scores) = pnet_result;
+
+            // onet
+            auto onet_result = onet_detect(preprocess_input_mat, pnet_detect_locations, pnet_detect_scores);
+
+            std::vector<Point4f> onet_detect_locations;
+            size_t keep;
+            std::tie(onet_detect_locations, keep) = onet_result;
+
+            // step 2 find Corners
+            cv::Mat aligned_image;
+            cv::Rect corn_locations;
+            find_corners(input_mat, onet_detect_locations, aligned_image, corn_locations);
+
+            // step 3  cut border 
+            auto border = remove_border(aligned_image);
+            int top;
+            int down;
+            std::tie(top, down) = border;
+
+            cv::Range cut_range = cv::Range(top, down);
+            cv::Mat aligned_images_cut = aligned_image(cut_range, cv::Range::all());
+
+            cv::Mat gray_plate;
+            cv::cvtColor(aligned_images_cut, gray_plate, cv::COLOR_BGR2GRAY);
+            cv::Mat binary_plate;
+            cv::threshold(gray_plate, binary_plate, 0, 255, cv::THRESH_OTSU);
+
+            std::vector<float> result(60);
+            for (int i = 0; i < 60; i++)
+            {
+                for (int j = 0; j < binary_plate.rows; j++)
+                {
+                    result[i] += (float)binary_plate.at<uchar>(j, i) / 255;
+                }
+            }
+
+            size_t n = std::min_element(result.begin(), result.end()) - result.begin();
+
+            cv::Mat aligned_images_cut_left;
+
+            if (result[n] < 30)
+            {
+                aligned_images_cut_left = aligned_images_cut(cv::Range::all(), cv::Range(n, aligned_image.cols));
+            }
+            else
+            {
+                aligned_images_cut_left = aligned_images_cut;
+            }
+
+            // step 4 char seg and classfi
+            auto plate = char_segment_classfi(aligned_image);
+
+            // step 5 make return
+            box_info_internal box;
+
+            box.rect.x = corn_locations.x;
+            box.rect.x = corn_locations.y;
+            box.rect.w = corn_locations.width;
+            box.rect.h = corn_locations.height;
+
+            box.score = pnet_detect_scores[keep];
+
+            auto strinfos = glasssix::exposing::param_string(plate);
 
             box.strinfos = strinfos;
-            
+
             // save Align image into uint8 vector
-            auto temp_vec = exposing::make_param_vector<std::uint8_t>();
-            int aligned_image_size = aligned_image.channels()* aligned_image.rows * aligned_image.cols;
+            auto temp_vec = glasssix::exposing::make_param_vector<std::uint8_t>();
+            int aligned_image_size = aligned_image.channels() * aligned_image.rows * aligned_image.cols;
             temp_vec.resize(static_cast<size_t>(aligned_image_size));
             temp_vec.copy_from({ aligned_image.data , static_cast<size_t>(aligned_image_size) }, 0);
 
             box.aligned_images = temp_vec;
 
-            results.push_back(box);
-            
+            return box;
         }
-
 
     private:
         std::string model_directory_;
         int device_;
-        std::shared_ptr<glasssix::memory::tensor<std::uint8_t>> cache_;
+        std::shared_ptr<glasssix::memory::tensor<std::uint8_t>> cache0_;
+        std::shared_ptr<glasssix::memory::tensor<std::uint8_t>> cache1_;
         std::unique_ptr<glasssix::excalibur::pipeline<float>> pnet_instance_;
         std::unique_ptr<glasssix::excalibur::pipeline<float>> onet_instance_;
-        std::unique_ptr<glasssix::excalibur::pipeline<float>> chinese_classfi_instance_;
-        std::unique_ptr<glasssix::excalibur::pipeline<float>> char_classfi_instance_;
+        std::unique_ptr<glasssix::excalibur::pipeline<float>> resnet_chinese_instance_;
+        std::unique_ptr<glasssix::excalibur::pipeline<float>> resnet_char_instance_;
     };
 
     ocr_code_internal::ocr_code_internal(std::string_view model_directory, int device)
@@ -1142,4 +1303,11 @@ namespace glasssix::plate
     {
         return impl_->detect(bitmap, channels, height, width, order, x, y, roi_width, roi_height, param_map);
     }
+
+    //box_info trace(box_info plate, exposing::param_span<std::uint8_t> bitmap, int channels, int height, int width, int order) 
+    //{
+    //    box_info box_trace_temp;
+    //    return box_trace_temp;
+    //   // return impl_->trace(plate, bitmap, channels, height, width, order);
+    //}
 }
