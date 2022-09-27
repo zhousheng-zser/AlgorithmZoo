@@ -36,9 +36,7 @@ typedef struct Point4f
 
 const static int base_seg_index[] = { 0, 60, 130, 200, 265, 314, 375, 439 };
 
-std::vector<std::string> chinese_label_index1 = { "8499", "664b","5180","5b81","7518","8d63","9c81","8c6b","4eac","6caa","6d25","8fbd","5409","9ed1","82cf","6d59","7696","95fd","9102", "6e58","7ca4","6842", "5ddd","8d35","4e91", "85cf","9655","9752", "65b0" };
-
-// '蒙', '晋',"冀", "宁", "甘","赣", "鲁", "豫", "京", "沪", "津", "渝","辽", "吉", "黑", "苏", "浙", "皖", "闽", "鄂", "湘", "粤", "桂", "琼", "川", "贵", "云", "藏", "陕", "青", "新"};
+std::vector<std::string> chinese_label_index1 = { "8499", "664b","5180","5b81","7518","8d63","9c81","8c6b","4eac","6caa","6d25", "6e1d", "8fbd","5409","9ed1","82cf","6d59","7696","95fd","9102", "6e58","7ca4","6842", "743c","5ddd","8d35","4e91", "85cf","9655","9752", "65b0" };
 
 const static char char_label_index[] = { '0', '1', '2', '3','4','5','6','7','8','9','A','B','C','D','E','F','G','H',
     'J','K','L','M','N','P','Q','R','S','T','U','V','W','X','Y','Z' };
@@ -68,8 +66,8 @@ namespace glasssix::plate
 
             pnet_instance_ = std::make_unique<excalibur::pipeline<float>>(hardcode::get_model_params("plate_det_box", false), std::string(model_directory)                + "/" + "pnet_Weights_sim" + ".racy", device);
             onet_instance_ = std::make_unique<excalibur::pipeline<float>>(hardcode::get_model_params("plate_det_orientation", false), std::string(model_directory)        + "/" + "onet_Weights_sim" + ".racy", device);   
-            resnet_chinese_instance_ = std::make_unique<excalibur::pipeline<float>>(hardcode::get_model_params("plate_det_chinese", false), std::string(model_directory) + "/" + "res20_chinese_sim" + ".racy", device);
-            resnet_char_instance_ = std::make_unique<excalibur::pipeline<float>>(hardcode::get_model_params("plate_det_char", false),    std::string(model_directory) + "/" + "res20_char_sim"    + ".racy", device);
+            resnet_chinese_instance_ = std::make_unique<excalibur::pipeline<float>>(hardcode::get_model_params("plate_det_chinese", false), std::string(model_directory)  + "/" + "res32_chinese_sim" + ".racy", device);
+            resnet_char_instance_ = std::make_unique<excalibur::pipeline<float>>(hardcode::get_model_params("plate_det_char", false),    std::string(model_directory)     + "/" + "res20_char_sim"    + ".racy", device);
         }
 
         exposing::param_vector<box_info> detect(exposing::param_span<std::uint8_t> bitmap, int channels, int height, int width, int order,
@@ -95,47 +93,40 @@ namespace glasssix::plate
             return result;
         }
 
-        //box_info trace(box_info& plate, exposing::param_span<std::uint8_t> bitmap, int channels, int height, int width, int order,
-        //    int x, int y, int roi_width, int roi_height, std::map<std::string, float>& param_map)
-        //{
-        //    if (bitmap.empty())
-        //        throw exposing::abi_invalid_argument("current frame is empty");
+        box_info trace(box_info plate, exposing::param_span<std::uint8_t> bitmap, int channels, int height, int width, int order)
+        {
+            if (bitmap.empty())
+            {
+                throw exposing::abi_invalid_argument("current frame is empty");
+            }
+            CHECK_EQ(channels, 3);
+            CHECK_EQ(bitmap.size(), channels * height * width);
 
-        //    CHECK_EQ(channels, 3);
-        //    CHECK_EQ(bitmap.size(), channels * height * width);
+            std::vector<int> plate_roi{ (int)plate.x(), (int)plate.y(), (int)plate.width(), (int)plate.height() };
+            init_cache(bitmap, channels, height, width, order, cache1_);
 
-        //    if (cache1_->empty())
-        //        throw exposing::abi_invalid_argument("previous frame cache is empty");
+            glasssix::excalibur::rectangle<int> rect(plate_roi[0], plate_roi[1], plate_roi[2], plate_roi[3]);
+            std::shared_ptr<glasssix::memory::tensor<uint8_t>> input;
 
-        //    excalibur::rectangle<float> track_box((float)plate.rect.x, (float)plate.rect.y, (float)plate.rect.h, (float)plate.rect.w);
-        //    if (track_box.h * track_box.w <= 0)
-        //        throw exposing::abi_invalid_argument("track_box.h * track_box.w <= 0");
+            glasssix::excalibur::safty_cut_cpu(cache1_, input, &rect);
+            cv::Mat cut_plate_mat = cv::Mat(1, input->height(), input->width(), 3);
+            std::memcpy(cut_plate_mat.data, input->cpu_data(), input->count(2, 4));
 
-        //    std::shared_ptr<memory::tensor<std::uint8_t>> face_in_prev_frame;
-        //    excalibur::safty_cut_cpu(cache1_, face_in_prev_frame, &track_box);
+            box_info next_frame_box_info;
+            next_frame_box_info.set_x(plate.x());
+            next_frame_box_info.set_y(plate.y());
+            next_frame_box_info.set_width(plate.width());
+            next_frame_box_info.set_height(plate.height());
 
-        //    std::shared_ptr<memory::tensor<std::uint8_t>> cache_temp;
-        //    init_cache(bitmap, channels, height, width, order, cache_temp);
+            // strinfo
+            auto next_frame_str = char_segment_classfi(cut_plate_mat);
 
-        //    // frame now
-        //    std::vector<int> roi{ x, y, roi_height, roi_width };
-        //    double roi_distance = sqrt(roi_height* roi_height + roi_width * roi_width);
-        //    auto now_frame_result = run_detect_classfi(roi, param_map);
+            auto next_frame_strinfos = exposing::param_string(next_frame_str);
+            next_frame_box_info.set_strinfos(next_frame_strinfos);
+            next_frame_box_info.set_aligned_images(plate.aligned_images());
 
-        //    // discanse
-        //    double distance   = sqrt((now_frame_result.rect.x - plate.x()) * (now_frame_result.rect.x - plate.x()) + (now_frame_result.rect.y - plate.y()) * (now_frame_result.rect.y - plate.y()));
-
-        //    if (now_frame_result.score > 0.1f && distance < roi_distance)
-        //    {
-        //        cache0_.swap(cache1_);
-        //        cache1_.swap(cache_temp);
-        //    }
-
-        //    if (distance > std::numeric_limits<double>::epsilon())
-        //        now_frame_result.score = 0.0f;
-
-        //    return exposing::make_as_first<box_info>(now_frame_result);
-        //}
+            return next_frame_box_info;
+        }
 
         static std::string version()
         {
@@ -233,7 +224,7 @@ namespace glasssix::plate
 
         void pnet_select_scores(std::vector<float>& select_scores,
             std::vector<float>& probs,
-            int probs_width, int probs_height,
+            const int probs_width, const int probs_height,
             std::tuple<std::vector<int>, std::vector<int>>& indices)
         {
             int num = std::get<0>(indices).size();
@@ -249,10 +240,11 @@ namespace glasssix::plate
 
         void pnet_select_locations(std::vector<Point4f>& locations,    /*out*/
             const std::tuple<std::vector<int>, std::vector<int>>& indices, /*in*/
-            const float scale,                    /*in*/
-            const std::pair<int, int>& stride,     /*in*/
-            const std::pair<int, int>& cell_size   /*in*/)
+            const float scale                    /*in*/)
         {
+
+            auto stride = std::make_pair(2, 5);
+            auto cell_size = std::make_pair(12, 44);
             // indices max number;
             int num = std::get<0>(indices).size();
 
@@ -592,8 +584,9 @@ namespace glasssix::plate
             return cutouts;
         }
 
-        void cut_image_boxes(std::vector<cv::Mat>& img_boxes, cv::Mat& image, std::vector<Point4f>& pnet_bboxes, std::vector<float>& pnet_scores)
+        std::vector<cv::Mat> cut_image_boxes(cv::Mat& image, std::vector<Point4f>& pnet_bboxes, std::vector<float>& pnet_scores)
         {
+            std::vector<cv::Mat> img_boxes;
             auto size = std::make_pair(94, 24);
             int num_boxes = pnet_bboxes.size();
 
@@ -612,18 +605,11 @@ namespace glasssix::plate
             {
                 cv::Mat img_box = cv::Mat(h[i], w[i], CV_8UC3);
 
-                int coordinates_y = coordinates[i].y;
-                int coordinates_ey = coordinates[i].ey + 1;
-                int coordinates_x = coordinates[i].x;
-                int coordinates_ex = coordinates[i].ex + 1;
-
                 int corrected_y = corrected[i].y;
                 int corrected_ey = corrected[i].ey + 1;
                 int corrected_x = corrected[i].x;
                 int corrected_ex = corrected[i].ex + 1;
 
-                cv::Range coordinates_ry = cv::Range(coordinates_y, coordinates_ey);
-                cv::Range coordinates_rx = cv::Range(coordinates_x, coordinates_ex);
                 cv::Range corrected_ry = cv::Range(corrected_y, corrected_ey);
                 cv::Range corrected_rx = cv::Range(corrected_x, corrected_ex);
 
@@ -633,16 +619,25 @@ namespace glasssix::plate
 
                 img_boxes.push_back(img_box);
             }
+            return img_boxes;
         }
 
-        std::pair<std::vector<Point4f>, std::vector<float>> pnet_detect(cv::Mat& input_image)
+        std::pair<std::vector<Point4f>, std::vector<float>> pnet_detect(cv::Mat& input_image, std::map<std::string, float>& param_map)
         {
+            std::map<std::string, float> params = {
+                  {"thresh", param_map.count("thresh") ? param_map["thresh"] : 0.5f},
+                  {"nums_thresh",  param_map.count("nums_thresh") ? param_map["nums_thresh"] : 0.6f}};
+
+            float thresh = params.at("thresh");
+            float nums_thresh = params.at("nums_thresh");
+            float overlap_threshold = 0.5;
+
             // scales
+            int factor_times = 4;
             std::pair<int, int> min_lp_size{ 440, 140 };
             std::vector<float> scales;
             int input_width = input_image.cols;
             int input_height = input_image.rows;
-            int factor_times = 1;
             create_scales(scales, factor_times, input_height, input_width, min_lp_size);
 
             // bounding_boxes
@@ -670,40 +665,26 @@ namespace glasssix::plate
                 // pnet forward
                 auto pnet_infer_output = pnet_instance_->forward(pnet_input_tensor);
 
-                float thresh = 0.6f;
-                float nums_thresh = 0.5f;
-
-                auto stride = std::make_pair(2, 5);
-                auto cell_size = std::make_pair(12, 44);
-
                 std::shared_ptr<glasssix::memory::tensor<float>> pnet_offset = pnet_infer_output["output"];
-                std::shared_ptr<glasssix::memory::tensor<float>> pnet_prob = pnet_infer_output["26"];
+                std::shared_ptr<glasssix::memory::tensor<float>> pnet_prob = pnet_infer_output["25"];
 
                 size_t probs_cstep = pnet_prob->count(2, 4);
                 int probs_height = pnet_prob->height();
                 int probs_width = pnet_prob->width();
 
-                std::vector<float> pnet_probs(probs_cstep);
-                memcpy(&pnet_probs[0], pnet_prob->cpu_data() + probs_cstep, probs_cstep * sizeof(float));
+                std::vector<float> pnet_probs(pnet_prob->cpu_data() + probs_cstep, pnet_prob->cpu_data() + probs_cstep * 2);
 
                 size_t offsets_cstep = pnet_offset->count(2, 4);
                 int offsets_height = pnet_offset->height();
                 int offsets_width = pnet_offset->width();
 
-                std::vector<float> pnet_offsets_c0(offsets_cstep);
-                std::vector<float> pnet_offsets_c1(offsets_cstep);
-                std::vector<float> pnet_offsets_c2(offsets_cstep);
-                std::vector<float> pnet_offsets_c3(offsets_cstep);
-
-                memcpy(&pnet_offsets_c0[0], pnet_offset->cpu_data() + 0 * offsets_cstep, offsets_cstep * sizeof(float));
-                memcpy(&pnet_offsets_c1[0], pnet_offset->cpu_data() + 1 * offsets_cstep, offsets_cstep * sizeof(float));
-                memcpy(&pnet_offsets_c2[0], pnet_offset->cpu_data() + 2 * offsets_cstep, offsets_cstep * sizeof(float));
-                memcpy(&pnet_offsets_c3[0], pnet_offset->cpu_data() + 3 * offsets_cstep, offsets_cstep * sizeof(float));
+                std::vector<float> pnet_offsets_c0(pnet_offset->cpu_data() + 0 * offsets_cstep, pnet_offset->cpu_data() + 1 * offsets_cstep);
+                std::vector<float> pnet_offsets_c1(pnet_offset->cpu_data() + 1 * offsets_cstep, pnet_offset->cpu_data() + 2 * offsets_cstep);
+                std::vector<float> pnet_offsets_c2(pnet_offset->cpu_data() + 2 * offsets_cstep, pnet_offset->cpu_data() + 3 * offsets_cstep);
+                std::vector<float> pnet_offsets_c3(pnet_offset->cpu_data() + 3 * offsets_cstep, pnet_offset->cpu_data() + 4 * offsets_cstep);
 
                 // select inds indices of boxes where there is probably a lp
                 std::tuple<std::vector<int>, std::vector<int>> indices;         // tuple width and height
-
-                // convert probs tensor into std::vector
 
                 pnet_select_indices(indices, pnet_probs, probs_width, probs_height, thresh);
 
@@ -712,16 +693,11 @@ namespace glasssix::plate
                 if (std::get<0>(indices).size() == 0)
                 {
                     // all vector make into null;   
-                    std::vector<Point4f> locations;
-                    std::vector<float> scores;
-                    std::vector<Point4f> offsets;
                     struct Point4f zero_local = { 0.0f, 0.0f, 0.0f, 0.0f };
                     struct Point4f zero_offset = { 0.0f, 0.0f, 0.0f, 0.0f };
-
-                    locations.push_back(zero_local);
-                    scores.push_back(0.0f);
-                    offsets.push_back(zero_offset);
-                    boxes = std::make_tuple(locations, scores, offsets);
+                    std::vector<Point4f> locations = {zero_local};
+                    std::vector<float> scores = {0.0f};
+                    std::vector<Point4f> offsets = {zero_local};
                 }
                 else
                 {
@@ -735,13 +711,12 @@ namespace glasssix::plate
 
                     // rescaled locations
                     std::vector<Point4f> locations_inds;
-                    pnet_select_locations(locations_inds, indices, key, stride, cell_size);
+                    pnet_select_locations(locations_inds, indices, key);
 
                     // vstack bounding boxes
                     auto bounding_box = std::make_tuple(locations_inds, scores_inds, offsets_inds);
 
                     // Transpose bounding boxes into boxes
-                    float overlap_threshold = 0.5;
                     auto keep = nms(locations_inds, scores_inds, overlap_threshold);
 
                     // Transpose bounding boxes into boxes
@@ -781,24 +756,9 @@ namespace glasssix::plate
             std::vector<float> keep_scores;
             std::vector<Point4f> keep_offsets;
 
-            float nums_thresh = 0.7;
-
             if ((bounding_boxes_locations.size() != 0) && (bounding_boxes_scores.size() != 0) && (bounding_boxes_offsets.size() != 0))
             {
                 auto bounding_boxes_keep = nms(bounding_boxes_locations, bounding_boxes_scores, nums_thresh);
-                // bounding_boxes_locations[keep]
-                //for (int i = 0; i < bounding_boxes_locations.size(); i++)
-                //{
-                //    for (int j = 0; j < bounding_boxes_keep.size(); j++)
-                //    {
-                //        if (i == bounding_boxes_keep[j])
-                //        {
-                //            keep_locations.push_back(bounding_boxes_locations[i]);
-                //            keep_scores.push_back(bounding_boxes_scores[i]);
-                //            keep_offsets.push_back(bounding_boxes_offsets[i]);
-                //        }
-                //    }
-                //}
                 for (int j = 0; j < bounding_boxes_keep.size(); j++)
                 {
                     for (int i = 0; i < bounding_boxes_locations.size(); i++)
@@ -829,12 +789,17 @@ namespace glasssix::plate
             return result;
         }
 
-        std::pair<std::vector<Point4f>, size_t> onet_detect(cv::Mat& input_image, std::vector<Point4f>& pnet_detect_locations, std::vector<float>& pnet_detect_scores)
+        std::pair<std::vector<Point4f>, size_t> onet_detect(cv::Mat& input_image, std::vector<Point4f>& pnet_detect_locations, std::vector<float>& pnet_detect_scores, std::map<std::string, float>& param_map)
         {
+            std::map<std::string, float> params = {
+                  {"thresh", param_map.count("thresh") ? param_map["thresh"] : 0.5f},
+                  {"nums_thresh",  param_map.count("nums_thresh") ? param_map["nums_thresh"] : 0.6f} };
+
+            float thresh = params.at("thresh");
+            float nums_thresh = params.at("nums_thresh");
             // onet preprocess:
             int boxes_num = pnet_detect_locations.size();
-            std::vector<cv::Mat> image_boxes;
-            cut_image_boxes(image_boxes, input_image, pnet_detect_locations, pnet_detect_scores);
+            auto image_boxes = cut_image_boxes(input_image, pnet_detect_locations, pnet_detect_scores);
             // copy cv::Mat into tenoser
 
             std::shared_ptr<glasssix::memory::tensor<uint8_t>> image_boxes_tensor_u8(new glasssix::memory::tensor<uint8_t>(std::vector<int>{boxes_num, 24, 94, 3}, -1, glasssix::memory::NHWC));;
@@ -847,24 +812,14 @@ namespace glasssix::plate
 
             auto image_boxes_tensor = image_boxes_tensor_u8 | glasssix::memory::tensor_convert_to<float>;
 
-            // load models
-            //std::string onet_model_path = "../models/onet_Weights_sim";
-            //int device = -1;
-            //// glasssix::hardcode::get_model_params("plate_det_box", false)
-            //int conut = image_boxes_tensor->count(1, 4);
-            //auto onet_instance_ = std::make_unique<glasssix::excalibur::pipeline<float>>(onet_model_path + ".phai", onet_model_path + ".racy", device);
-            //// onet forward
+            // onet forward
             std::unordered_map<std::string, std::shared_ptr<glasssix::memory::tensor<float>>> onet_infer_output = onet_instance_->forward(image_boxes_tensor);
-
-            float thresh = 0.6;
-            float nums_thresh = 0.7;
 
             std::shared_ptr<glasssix::memory::tensor<float>> offset = onet_infer_output["output"];
             std::shared_ptr<glasssix::memory::tensor<float>> prob = onet_infer_output["47"];
 
             // probs = [false, true]
-            std::vector<float> probs_temp(boxes_num * 2);
-            memcpy(&probs_temp[0], prob->cpu_data(), boxes_num * 2 * sizeof(float));
+            std::vector<float> probs_temp(prob->cpu_data(), prob->cpu_data() + boxes_num * 2);
 
             std::vector<float> probs;
             for (int i = 0; i < probs_temp.size(); i++)
@@ -876,14 +831,12 @@ namespace glasssix::plate
             }
 
             // offsets 
-            std::vector<float> offsets(boxes_num * 4);
-            memcpy(&offsets[0], offset->cpu_data(), boxes_num * 4 * sizeof(float));
+            std::vector<float> offsets(offset->cpu_data(), offset->cpu_data() + boxes_num * 4);
 
             std::vector<Point4f> onet_detect_locations;
-            size_t keep = 0;
 
             // argmax
-            keep = std::max_element(probs.begin(), probs.end()) - probs.begin();
+            auto keep = std::max_element(probs.begin(), probs.end()) - probs.begin();
 
             std::vector<Point4f> keep_locations;
             std::vector<Point4f> keep_offsets;
@@ -964,8 +917,12 @@ namespace glasssix::plate
             cv::Mat gray_image;
             cv::cvtColor(blob, gray_image, cv::COLOR_BGR2GRAY);
             auto lightness = cv::mean(gray_image);
-            float lightness_left = std::pow((170 / static_cast<int>(lightness[0])), 1.5);
-            int c = std::min(lightness_left, 3.0f);
+            float lightness_left = std::pow((170.0f / static_cast<int>(lightness[0])), 1.5);
+            float c = 3;
+            if (lightness_left - c < 0)
+            {
+                c = lightness_left;
+            }
             cv::Mat enhanced;
             imgBrightness(blob, enhanced, c);
 
@@ -1020,8 +977,10 @@ namespace glasssix::plate
             cv::warpPerspective(input_image, aligned_image, transform_matrix, cv::Size(lp_size.first, lp_size.second));
         }
 
-        void find_corners(cv::Mat& input_image, std::vector<Point4f>& onet_detect_locations, cv::Mat& aligned_image, cv::Rect& rect_location)
+        std::pair<cv::Mat, cv::Rect> find_corners(cv::Mat& input_image, std::vector<Point4f>& onet_detect_locations)
         {
+            cv::Mat aligned_image;
+            cv::Rect rect_location;
             // range
             int x = static_cast<int>(std::round(onet_detect_locations[0].x));
             int ex = static_cast<int>(std::round(onet_detect_locations[0].ex));
@@ -1054,6 +1013,8 @@ namespace glasssix::plate
             rect_location.y = y;
             rect_location.width = ex - x;
             rect_location.height = ey - y;
+
+            return std::make_pair(aligned_image, rect_location);
         }
 
         std::vector<int> row_sum(cv::Mat& binary_img)
@@ -1075,8 +1036,9 @@ namespace glasssix::plate
             return row_result;
         }
 
-        std::pair<int, int> remove_border(cv::Mat& aligned_image)
+        cv::Mat remove_border(cv::Mat& aligned_image)
         {
+            cv::Mat aligned_images_cut_left;
             cv::Mat plate_gray;
             cv::cvtColor(aligned_image, plate_gray, cv::COLOR_BGR2GRAY);
             cv::Mat plate_binary_img;
@@ -1090,9 +1052,9 @@ namespace glasssix::plate
             int top_y = std::min_element(row_histogram_top.begin(), row_histogram_top.end()) - row_histogram_top.begin();
             int down_y = std::min_element(row_histogram_down.begin(), row_histogram_down.end()) - row_histogram_down.begin() + 70;
 
-            if (top_y > 20)
+            if (top_y > 10)
             {
-                top_y = 20;
+                top_y = 10;
             }
 
             if (down_y < 120)
@@ -1100,7 +1062,36 @@ namespace glasssix::plate
                 down_y = 139;
             }
 
-            return std::make_pair(top_y, down_y);
+            // cut aligned images
+            cv::Range cut_range = cv::Range(top_y, down_y);
+            cv::Mat aligned_images_cut = aligned_image(cut_range, cv::Range::all());
+
+            cv::Mat gray_plate;
+            cv::cvtColor(aligned_images_cut, gray_plate, cv::COLOR_BGR2GRAY);
+            cv::Mat binary_plate;
+            cv::threshold(gray_plate, binary_plate, 0, 255, cv::THRESH_OTSU);
+
+            std::vector<float> result(60);
+            for (int i = 0; i < 60; i++)
+            {
+                for (int j = 0; j < binary_plate.rows; j++)
+                {
+                    result[i] += (float)binary_plate.at<uchar>(j, i) / 255;
+                }
+            }
+
+            size_t n = std::min_element(result.begin(), result.end()) - result.begin();
+
+            if (result[n] < 30)
+            {
+                aligned_images_cut_left = aligned_images_cut(cv::Range::all(), cv::Range(n, aligned_image.cols));
+            }
+            else
+            {
+                aligned_images_cut_left = aligned_images_cut;
+            }
+
+            return aligned_images_cut_left;
         }
 
         // char_segment_classfi
@@ -1128,11 +1119,6 @@ namespace glasssix::plate
 
             auto chinese_img_tensor = chinese_img_tensor_u8 | glasssix::memory::tensor_convert_to<float>;
 
-            // load models
-            //std::string resnet_chinese_model_path = "../models/20_chinese_sim";
-            //int device = -1;
-            //auto resnet_chinese_instance_ = std::make_unique<glasssix::excalibur::pipeline<float>>(resnet_chinese_model_path + ".phai", resnet_chinese_model_path + ".racy", device);
-
             auto chinese_classfi_output = resnet_chinese_instance_->forward(chinese_img_tensor);
 
             std::vector<float> chinese_detections(chinese_classfi_output["output"]->cpu_data(), chinese_classfi_output["output"]->cpu_data() + chinese_classfi_output["output"]->count());
@@ -1155,19 +1141,23 @@ namespace glasssix::plate
 
                 auto char_img_tensor = char_img_u8 | glasssix::memory::tensor_convert_to<float>;
 
-                // load models
-                //std::string resnet_char_model_path = "../models/res20_character_sim";
-                //int device = -1;
-                //auto resnet_char_instance_ = std::make_unique<glasssix::excalibur::pipeline<float>>(resnet_char_model_path + ".phai", resnet_char_model_path + ".racy", device);
-
                 auto char_classfi_output = resnet_char_instance_->forward(char_img_tensor);
 
                 std::vector<float> char_detections(char_classfi_output["output"]->cpu_data(), char_classfi_output["output"]->cpu_data() + char_classfi_output["output"]->count());
 
-                auto char_biggest_index = std::distance(char_detections.begin(), std::max_element(char_detections.begin(), char_detections.end()));
+                if (i == 1)
+                {
+                    auto char_biggest_index = std::distance(char_detections.begin() + 10, std::max_element(char_detections.begin() + 10, char_detections.end()));
 
-                plate
-                    += (char_label_index[char_biggest_index]);
+                    plate += (char_label_index[char_biggest_index + 10]);
+                    plate += "_";
+                }
+                else
+                {
+                    auto char_biggest_index = std::distance(char_detections.begin(), std::max_element(char_detections.begin(), char_detections.end()));
+
+                    plate += (char_label_index[char_biggest_index]);
+                }
             }
 
             return plate;
@@ -1183,67 +1173,48 @@ namespace glasssix::plate
             cv::Mat input_mat = cv::Mat(1, input->height(), input->width(), 3);
             std::memcpy(input_mat.data, input->cpu_data(), input->count(2, 4));
 
-            if (input->order() == glasssix::memory::NHWC)
-                input->convert_order();
-
             cv::Mat preprocess_input_mat;
             cv::cvtColor(input_mat, preprocess_input_mat, cv::COLOR_BGR2RGB);
 
-            // step 1 detect:
-            // pnet
-            auto pnet_result = pnet_detect(preprocess_input_mat);
+            // step 1 detect pnet
+            auto pnet_result = pnet_detect(preprocess_input_mat, param_map);
 
             std::vector<Point4f> pnet_detect_locations;
             std::vector<float> pnet_detect_scores;
             std::tie(pnet_detect_locations, pnet_detect_scores) = pnet_result;
 
             // onet
-            auto onet_result = onet_detect(preprocess_input_mat, pnet_detect_locations, pnet_detect_scores);
+            auto onet_result = onet_detect(preprocess_input_mat, pnet_detect_locations, pnet_detect_scores, param_map);
 
             std::vector<Point4f> onet_detect_locations;
             size_t keep;
             std::tie(onet_detect_locations, keep) = onet_result;
 
+            if ((onet_detect_locations[0].x == 0) && (onet_detect_locations[0].y == 0))
+            {
+                box_info_internal box;
+
+                box.rect.x = 0;
+                box.rect.x = 0;
+                box.rect.w = 0;
+                box.rect.h = 0;
+
+                box.strinfos = glasssix::exposing::param_string("");
+
+                auto temp_vec = glasssix::exposing::make_param_vector<std::uint8_t>();
+                box.aligned_images = temp_vec;
+
+                return box;
+            }
+
             // step 2 find Corners
+            auto corners_result = find_corners(input_mat, onet_detect_locations);
             cv::Mat aligned_image;
             cv::Rect corn_locations;
-            find_corners(input_mat, onet_detect_locations, aligned_image, corn_locations);
+            std::tie(aligned_image, corn_locations) = corners_result;
 
             // step 3  cut border 
-            auto border = remove_border(aligned_image);
-            int top;
-            int down;
-            std::tie(top, down) = border;
-
-            cv::Range cut_range = cv::Range(top, down);
-            cv::Mat aligned_images_cut = aligned_image(cut_range, cv::Range::all());
-
-            cv::Mat gray_plate;
-            cv::cvtColor(aligned_images_cut, gray_plate, cv::COLOR_BGR2GRAY);
-            cv::Mat binary_plate;
-            cv::threshold(gray_plate, binary_plate, 0, 255, cv::THRESH_OTSU);
-
-            std::vector<float> result(60);
-            for (int i = 0; i < 60; i++)
-            {
-                for (int j = 0; j < binary_plate.rows; j++)
-                {
-                    result[i] += (float)binary_plate.at<uchar>(j, i) / 255;
-                }
-            }
-
-            size_t n = std::min_element(result.begin(), result.end()) - result.begin();
-
-            cv::Mat aligned_images_cut_left;
-
-            if (result[n] < 30)
-            {
-                aligned_images_cut_left = aligned_images_cut(cv::Range::all(), cv::Range(n, aligned_image.cols));
-            }
-            else
-            {
-                aligned_images_cut_left = aligned_images_cut;
-            }
+            auto aligned_images_cut_border = remove_border(aligned_image);
 
             // step 4 char seg and classfi
             auto plate = char_segment_classfi(aligned_image);
@@ -1304,10 +1275,8 @@ namespace glasssix::plate
         return impl_->detect(bitmap, channels, height, width, order, x, y, roi_width, roi_height, param_map);
     }
 
-    //box_info trace(box_info plate, exposing::param_span<std::uint8_t> bitmap, int channels, int height, int width, int order) 
-    //{
-    //    box_info box_trace_temp;
-    //    return box_trace_temp;
-    //   // return impl_->trace(plate, bitmap, channels, height, width, order);
-    //}
+    box_info glasssix::plate::ocr_code_internal::trace(box_info plate, exposing::param_span<std::uint8_t> bitmap, int channels, int height, int width, int order)
+    {
+        return impl_->trace(plate, bitmap, channels, height, width, order);
+    }
 }

@@ -51,7 +51,7 @@ namespace glasssix::plate
         exposing::param_vector<box_info> detect(exposing::param_span<std::uint8_t> bitmap, int channels, int height, int width, int order,
             int x, int y, int roi_width, int roi_height, std::map<std::string, float>& param_map) const;
 
-        // box_info trace(box_info plate, exposing::param_span<std::uint8_t> bitmap, int channels, int height, int width, int order);
+        box_info trace(box_info plate, exposing::param_span<std::uint8_t> bitmap, int channels, int height, int width, int order);
 
     private:
         std::unique_ptr<impl> impl_;

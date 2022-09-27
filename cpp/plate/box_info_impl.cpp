@@ -65,9 +65,13 @@ namespace glasssix::plate
 	{
 		internal_.rect.h = input;
 	}
-	void box_info_impl::set_confidence(float input)
+	void box_info_impl::set_strinfos(exposing::param_string input)
 	{
-		internal_.score = input;
+		internal_.strinfos = input;
+	}
+	void box_info_impl::set_aligned_images(exposing::param_vector<std::uint8_t> input)
+	{
+		internal_.aligned_images = input;
 	}
 
 }

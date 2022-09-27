@@ -27,7 +27,8 @@ namespace glasssix::plate
         void set_y(float input);
         void set_width(float input);
         void set_height(float input);
-        void set_confidence(float input);
+        void set_strinfos(exposing::param_string input);
+        void set_aligned_images(exposing::param_vector<std::uint8_t> input);
 
     private:
         box_info_internal internal_;

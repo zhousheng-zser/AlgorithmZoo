@@ -37,7 +37,7 @@ namespace glasssix::exposing::impl
                 abi_in_t<exposing::param_hash_map<exposing::param_string, float>> param_map_abi,
                 abi_out_t<param_vector<plate::box_info>> result) noexcept = 0;
 
-            // virtual std::int32_t G6_ABI_CALL trace(abi_in_t<plate::box_info> plate, abi_in_t<param_span<std::uint8_t>> bitmap, std::int32_t channels, std::int32_t height, std::int32_t width, std::int32_t order, abi_out_t<plate::box_info> result) noexcept = 0;
+            virtual std::int32_t G6_ABI_CALL trace(abi_in_t<plate::box_info> plate, abi_in_t<param_span<std::uint8_t>> bitmap, std::int32_t channels, std::int32_t height, std::int32_t width, std::int32_t order, abi_out_t<plate::box_info> result) noexcept = 0;
             //result
             virtual std::int32_t G6_ABI_CALL version(abi_out_t<param_string> result) noexcept = 0;
         };
@@ -74,10 +74,10 @@ namespace glasssix::exposing::impl
                     x, y, roi_width, roi_height, create_from_abi<exposing::param_hash_map<exposing::param_string, float>>(param_map_abi))); });
         }
 
-        //virtual std::int32_t G6_ABI_CALL trace(abi_in_t<plate::box_info> plate, abi_in_t<param_span<std::uint8_t>> bitmap, std::int32_t channels, std::int32_t height, std::int32_t width, std::int32_t order, abi_out_t<plate::box_info> result) noexcept override
-        //{
-        //    return abi_safe_call([&] { *result = detach_abi(this->self().trace(create_from_abi<plate::box_info>(plate), create_from_abi<param_span<std::uint8_t>>(bitmap), channels, height, width, order)); });
-        //}
+        virtual std::int32_t G6_ABI_CALL trace(abi_in_t<plate::box_info> plate, abi_in_t<param_span<std::uint8_t>> bitmap, std::int32_t channels, std::int32_t height, std::int32_t width, std::int32_t order, abi_out_t<plate::box_info> result) noexcept override
+        {
+            return abi_safe_call([&] { *result = detach_abi(this->self().trace(create_from_abi<plate::box_info>(plate), create_from_abi<param_span<std::uint8_t>>(bitmap), channels, height, width, order)); });
+        }
 
         virtual std::int32_t G6_ABI_CALL version(abi_out_t<param_string> result) noexcept override
         {
@@ -136,12 +136,12 @@ namespace glasssix::exposing::impl
                     result);
             }
 
-            //plate::box_info trace(plate::box_info plate, param_span<std::uint8_t> bitmap, std::int32_t channels, std::int32_t height, std::int32_t width, std::int32_t order) const
-            //{
-            //    plate::box_info result{ nullptr };
+            plate::box_info trace(plate::box_info plate, param_span<std::uint8_t> bitmap, std::int32_t channels, std::int32_t height, std::int32_t width, std::int32_t order) const
+            {
+                plate::box_info result{ nullptr };
 
-            //    return (check_abi_result(this->self_abi().trace(get_abi(plate), get_abi(bitmap), get_abi(channels), get_abi(height), get_abi(width), get_abi(order), put_abi(result))), result);
-            //}
+                return (check_abi_result(this->self_abi().trace(get_abi(plate), get_abi(bitmap), get_abi(channels), get_abi(height), get_abi(width), get_abi(order), put_abi(result))), result);
+            }
 
             param_string version() const
             {
