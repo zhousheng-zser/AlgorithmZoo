@@ -39,12 +39,12 @@ namespace glasssix::plate
 		return impl_->detect(bitmap, channels, height, width, order, roi_x, roi_y, roi_width, roi_height, param_map);
 	}
 
-	//box_info ocr_code_impl::trace(box_info plate, exposing::param_span<std::uint8_t> bitmap, std::int32_t channels, std::int32_t height, std::int32_t width, std::int32_t order) const
-	//{
-	//	if (!impl_)
-	//		throw exposing::abi_invalid_operation(u8"plate internal object not initialized");
+	box_info ocr_code_impl::trace(box_info plate, exposing::param_span<std::uint8_t> bitmap, std::int32_t channels, std::int32_t height, std::int32_t width, std::int32_t order) const
+	{
+		if (!impl_)
+			throw exposing::abi_invalid_operation(u8"plate internal object not initialized");
 
-	//	return impl_->trace(plate, bitmap, channels, height, width, order);
-	//}
+		return impl_->trace(plate, bitmap, channels, height, width, order);
+	}
 
 }
