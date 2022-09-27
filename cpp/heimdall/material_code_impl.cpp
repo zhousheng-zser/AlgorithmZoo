@@ -1,6 +1,7 @@
 #include "material_code_impl.hpp"
 #include "material_code_internal.hpp"
 #include "box_info_impl.hpp"
+#include <map>
 
 namespace glasssix::heimdall
 {
@@ -12,9 +13,15 @@ namespace glasssix::heimdall
 	{
 	}
 
-	void material_code_impl::init(const exposing::param_string& model_directory, const std::int32_t factory_type, std::int32_t device)
+	void material_code_impl::init(const exposing::param_string& model_directory, const std::int32_t factory_type, std::int32_t device, const exposing::param_hash_map<exposing::param_string, float>& param_map_abi)
 	{
-		impl_ = std::make_unique<material_code_internal>(exposing::to_narrow_string(model_directory), factory_type, device);
+		std::map<std::string, float> param_map;
+
+		for (auto it : param_map_abi) {
+			param_map.insert(std::make_pair(it.key(), it.value()));
+		}
+
+		impl_ = std::make_unique<material_code_internal>(exposing::to_narrow_string(model_directory), factory_type, device, param_map);
 	}
 
 	exposing::param_string material_code_impl::version() const

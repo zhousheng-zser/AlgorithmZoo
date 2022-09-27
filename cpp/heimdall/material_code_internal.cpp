@@ -45,8 +45,8 @@ namespace glasssix::heimdall
     class material_code_internal::impl
     {
     public:
-        impl(std::string_view model_directory, int factory_type, int device)
-            : factory_type_(factory_type), device_{device}, cut_rois_{ 2500 }
+        impl(std::string_view model_directory, int factory_type, int device, std::map<std::string, float>& param_map)
+            : factory_type_(factory_type), device_{device}, cut_rois_{ 2500 }, param_map_{ param_map }
         {
             auto factory = std::find_if(types.begin(), types.end(), [factory_type](const std::tuple<int, std::string, std::string, std::string, std::string>& t)
                 { return std::get<0>(t) == factory_type; });
@@ -112,7 +112,7 @@ namespace glasssix::heimdall
             if (factory_type_ == 2)
                 run_hot_roll(results, roi, top_five);
             else if (factory_type_ == 0)
-                run_hot_roll_2(results, roi, top_five, 16, 2.0);
+                run_hot_roll_2(results, roi, top_five, 20, 2.0);
             else if (factory_type_ == 3 || factory_type_ == 6 || factory_type_ == 7)
                 run_cool_roll(results, roi, top_five);
             else if (factory_type_ == 1)
@@ -137,7 +137,7 @@ namespace glasssix::heimdall
 
         static std::string version()
         {
-            return "1.0.0";
+            return "1.0.1";
         }
 
     private:
@@ -437,7 +437,7 @@ namespace glasssix::heimdall
         // Outline of the contract
         std::vector<cv::Point2f> unclip(std::vector<cv::Point2f> &box, float unclip_ratio = 1.5)
         {
-            float distance = cv::contourArea(box) * unclip_ratio / cv::arcLength(box, true);
+            float distance = cv::contourArea(box) * (param_map_.count("unclip_ratio") ? param_map_["unclip_ratio"] : unclip_ratio) / cv::arcLength(box, true);
             // contour shrinkage
             std::vector<cv::Point2f> out;
             expand_polygon(box, out, distance * (-1));
@@ -448,7 +448,7 @@ namespace glasssix::heimdall
         {
             size_t max_candidates = 1000;
             int min_size = 3;
-            float box_thresh = 0.5;
+            float box_thresh = param_map_.count("box_thresh") ? param_map_["box_thresh"] : 0.5;
             std::string score_mode = "fast";
             int width = mask.cols;
             int height = mask.rows;
@@ -1106,7 +1106,7 @@ namespace glasssix::heimdall
 
                 for (int i = segement_result.size() - 1; i > 0; i--)
                 {
-                    if (segement_result[i] > roi_temp.cols - segment_rcut)
+					if (segement_result[i] > roi_temp.cols - (param_map_.count("segment_rcut") ? param_map_["segment_rcut"] : segment_rcut))
                         segement_result.pop_back();
                 }
                 segement_result.push_back(roi_temp.cols - 1);
@@ -1236,8 +1236,8 @@ namespace glasssix::heimdall
 
                     for (int i = segement_result.size() - 1; i > 0; i--)
                     {
-                        if (segement_result[i] > roi_temp.cols - segment_rcut)
-                            segement_result.pop_back();
+						if (segement_result[i] > roi_temp.cols - (param_map_.count("segment_rcut") ? param_map_["segment_rcut"] : segment_rcut))
+							segement_result.pop_back();
                     }
                     segement_result.push_back(roi_temp.cols - 1);
 
@@ -1424,15 +1424,30 @@ namespace glasssix::heimdall
                 }
             }
 
-            bool box_list_valid = true;
-            for (auto& box : box_list) {
-                for (auto& point : box) {
-                    if (point.x<20 || point.y < 20 || point.x > input_mat.cols - 20 || point.y > input_mat.rows - 20)
-                        box_list_valid = false;
+            for (auto iter = box_list.begin(); iter != box_list.end();iter++) {
+                for (auto point : *iter) {
+                    if (point.x<20 || point.y < 20 || point.x > input_mat.cols - 20 || point.y > input_mat.rows - 20) {
+                        iter = box_list.erase(iter);
+                        break;
+                    }
                 }
             }
 
-            if (box_list.size() > 1 && box_list_valid)
+            ////##YHC  TODO: box_list point visualize in roi
+            //auto visual_input_mat = input_mat.clone();
+            //for (auto& box : box_list) {
+            //    for (auto& point : box) {
+            //        cv::circle(visual_input_mat, cv::Point(point.x, point.y), 2, cv::Scalar(0, 0, 255), 1);
+            //    }
+            //}
+            //std::vector<std::vector<cv::Point> > pts{ std::vector<cv::Point>{cv::Point(20, 20),cv::Point(visual_input_mat.cols - 20, 20),cv::Point(visual_input_mat.cols - 20, visual_input_mat.rows - 20),cv::Point(20, visual_input_mat.rows - 20)} };
+            //cv::polylines(visual_input_mat, pts, true, CV_RGB(255, 255, 0));
+            //cv::imshow("box_list", visual_input_mat);
+            //cv::waitKey(0);
+            //visual_input_mat.release();
+            ////-
+
+            if (box_list.size() > 1)
             {
                 cordinate_roi result_cut = cut_rois_.cut_roi_gather(box_list, input_mat);
 
@@ -1501,6 +1516,7 @@ namespace glasssix::heimdall
     private:
         int factory_type_;
         int device_;
+        std::map<std::string, float> param_map_;
         std::vector<std::unique_ptr<excalibur::pipeline<float>>> instance_;
         std::unique_ptr<char_segment> segement_instance_;
         std::unique_ptr<char_classfi> classfi_instance_;
@@ -1510,8 +1526,8 @@ namespace glasssix::heimdall
     };
 
 
-    material_code_internal::material_code_internal(std::string_view model_directory, int factory_type, int device)
-        : impl_{ std::make_unique<impl>(model_directory, factory_type, device)}
+    material_code_internal::material_code_internal(std::string_view model_directory, int factory_type, int device, std::map<std::string, float>& param_map)
+        : impl_{ std::make_unique<impl>(model_directory, factory_type, device, param_map)}
     {
     }
 
