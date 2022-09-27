@@ -4,6 +4,7 @@
 #include <memory>
 #include <string>
 #include <vector>
+#include <map>
 #include <cstddef>
 #include <cstdint>
 #include <abi/param_span.hpp>
@@ -35,7 +36,7 @@ namespace glasssix::heimdall
         /// </summary>
         /// <param name="racy_path">The model path</param>
         /// <param name="device">The device ID; -1 for CPU or a non-negative number for a GPU core</param>
-        material_code_internal(std::string_view model_directory, int factory_type, int device);
+        material_code_internal(std::string_view model_directory, int factory_type, int device, std::map<std::string, float>& param_map);
 
         /// <summary>
         /// The copy constructor must be disabled in PImpl pattern.
