@@ -847,8 +847,6 @@ namespace glasssix::ring
 
         void custom_sort(std::vector<std::vector<cv::Point2f>>& box_list, std::vector<float>& score_list, std::map<std::string,float>& param_map, int det_size = 320) 
         {
-            //float pad_ratio = 0.1;
-            //float  wh_ratio = 0.7;
             float pad_ratio = param_map.count("pad_ratio") ? param_map["pad_ratio"] : 0.1;
             float wh_ratio = param_map.count("wh_ratio") ? param_map["wh_ratio"] : 0.7;
 
@@ -935,6 +933,7 @@ namespace glasssix::ring
             
             return cy_1 > cy_2;
         }
+
         static bool cmp_box_xlt(std::vector<cv::Point2f>& box1, std::vector<cv::Point2f>& box2)
         {
             float cx_1 = 0, cx_2 = 0;
@@ -950,7 +949,6 @@ namespace glasssix::ring
 
             return cx_1 > cx_2;
         }
-
 
         void ott_process(std::shared_ptr<memory::tensor<float>> & out_ott/*in*/, cv::Mat& book/*in*/, std::vector<std::vector<cv::Point2f>> & boxes_text/*in*/, std::vector<cv::Size>& sizes/*in*/,
             std::vector<cv::Mat>& text_rect_s /*out*/)
@@ -1014,7 +1012,43 @@ namespace glasssix::ring
             }
         }
 
-        
+        void screen_result_point(std::vector<float>& point_list) {
+            std::vector<float> first_screen_distance_list;
+            std::vector<float> distance_list;
+            std::vector<int> error_point_list;
+
+            for (int i = 0; i < point_list.size() - 1; i++) {
+                distance_list.push_back(point_list[i + 1] - point_list[i]);
+            }
+
+            float MaxDistance = *std::max_element(distance_list.begin(), distance_list.end());
+
+            for (auto it : distance_list) {
+                if (it < (MaxDistance / 5 * 2)) {
+                    continue;
+                }
+                else {
+                    first_screen_distance_list.push_back(it);
+                }
+            }
+
+            float ave_distance = 0.f;
+            for (auto it : first_screen_distance_list) {
+                ave_distance += it;
+            }
+            ave_distance /= first_screen_distance_list.size();
+
+            for (int j = 0; j < distance_list.size(); j++) {
+                if (distance_list[j] < ave_distance / 2) {
+                    error_point_list.push_back(j);
+                }
+            }
+
+            for (int i = 0; i < error_point_list.size(); i++) {
+                point_list.erase(point_list.begin() + error_point_list[i] - i);
+            }
+        }
+
         void run_bar_2(std::vector<box_info_internal>& results, std::vector<int>& roi, int border_orient, std::map<std::string, float>& param_map, int segment_rcut = 16) {
 
             // step 1
@@ -1042,16 +1076,14 @@ namespace glasssix::ring
             std::vector<std::vector<cv::Point2f>> boxes_rect;
             std::vector<float> scores;
             std::vector<cv::Size> sizes;
-            //std::map<std::string, float> params = { {"thresh", 0.3}, {"box_thresh", 0.6}, {"min_size", 3}, {"max_candidates", 1000}, {"unclip_ratio", 0.8} };
             std::map<std::string, float> params = {
                 {"thresh", param_map.count("thresh") ? param_map["thresh"] : 0.3},
                 {"box_thresh",  param_map.count("box_thresh") ? param_map["box_thresh"] : 0.6},
                 {"min_size", param_map.count("min_size") ? param_map["min_size"] : 3},
                 {"max_candidates", param_map.count("max_candidates") ? param_map["max_candidates"] : 1000},
-                {"unclip_ratio", param_map.count("unclip_ratio") ? param_map["unclip_ratio"] : 1.15} };
+                {"unclip_ratio", param_map.count("unclip_ratio") ? param_map["unclip_ratio"] : 1.1} };
 
             det_post_process_bar(output, params, boxes_rect, scores, sizes);
-
 
             for (size_t i = 0; i < boxes_rect.size(); i++)
             {
@@ -1094,13 +1126,12 @@ namespace glasssix::ring
             std::vector<std::vector<cv::Point2f>> boxes_text;
             std::vector<float> scores_text;
             std::vector<cv::Size> sizes_text;
-            //std::map<std::string, float> params_orient = { {"thresh", 0.3}, {"box_thresh", 0.6}, {"min_size", 3}, {"max_candidates", 1000}, {"unclip_ratio", 1.35}};
 			std::map<std::string, float> params_orient = {
                 {"thresh", param_map.count("orient_thresh") ? param_map["orient_thresh"] : 0.3},
                 {"box_thresh",  param_map.count("orient_box_thresh") ? param_map["orient_box_thresh"] : 0.6},
                 {"min_size", param_map.count("orient_min_size") ? param_map["orient_min_size"] : 3},
                 {"max_candidates", param_map.count("orient_max_candidates") ? param_map["orient_max_candidates"] : 1000},
-                {"unclip_ratio", param_map.count("orient_unclip_ratio") ? param_map["orient_unclip_ratio"] : 1.25} };
+                {"unclip_ratio", param_map.count("orient_unclip_ratio") ? param_map["orient_unclip_ratio"] : 1.35} };
 
             det_post_process_bar(output_map, params_orient, boxes_text, scores_text, sizes_text);
 
@@ -1112,8 +1143,6 @@ namespace glasssix::ring
             for (int i = 0; i < text_rect_s.size(); ++i)
             {
                 auto text_img = text_rect_s[i];
-                //cv::imshow("text_img", text_img);
-                //cv::waitKey();
 
                 // step 3 segment 
                 cv::Mat roi_temp = text_img.clone();
@@ -1123,19 +1152,21 @@ namespace glasssix::ring
 
                 if (!segement_result.empty())
                 {
+                    // segement point processing
                     float left = 0.f, right = 0.f;
                     if (segement_result[0] < 0)
                     {
                         left = std::ceil(std::abs(segement_result[0]));
                         segement_result[0] = 0;
                     }
-
                     for (int i = segement_result.size() - 1; i > 0; i--)
                     {
                         if (segement_result[i] > roi_temp.cols - segment_rcut)
                             segement_result.pop_back();
                     }
                     segement_result.push_back(roi_temp.cols - 1);
+                    // offset segement point
+                    screen_result_point(segement_result);
 
                     // step 4 classifi
                     for (size_t j = 0; j < segement_result.size() - 1; j++)

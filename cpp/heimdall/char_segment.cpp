@@ -128,7 +128,7 @@ namespace glasssix
 				return img;
 			}
 			else {
-				cv::copyMakeBorder(img, img, 0, 0, 0, pad_w, cv::BORDER_REPLICATE);
+				cv::copyMakeBorder(img, img, 0, 0, 0, pad_w, cv::BORDER_CONSTANT, 0);
 				return img;
 			}
 		}

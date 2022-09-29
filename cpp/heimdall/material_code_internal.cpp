@@ -32,7 +32,7 @@ namespace glasssix::heimdall
     std::array<std::tuple<int, std::string, std::string, std::string, std::string>, 9> types = 
     {
         {{0, "hot_rolled_det", "hot_rolled_segment", "hot_rolled_angle", "hot_rolled_category"},
-        {1, "cool_rolled_det", "cool_rolled_segment", "cool_rolled_angle", "cool_rolled_classify"},
+        {1, "cool_rolled_det", "cool_rolled_segment", "cool_rolled_classify", ""},
         {2, "hot_rolled_det_lite", "hot_rolled_rec_lite", "hot_material_angle", ""},
         {3, "cool_rolled_det_lite", "cool_rolled_rec_lite", "", ""},
         {4, "heavy_rail_det_lite", "heavy_rail_rec_lite", "hot_material_angle", ""},
@@ -56,6 +56,7 @@ namespace glasssix::heimdall
 
             switch (factory_type)
             {
+            case 1:
             case 2:
             case 4:
             case 6:
@@ -73,13 +74,16 @@ namespace glasssix::heimdall
                     segement_instance_ = std::make_unique<char_segment>();
                     classfi_instance_ = std::make_unique<char_classfi>(label_type::HEAVY_RAIL);
                 }
+				if (factory_type == 1) {
+					segement_instance_ = std::make_unique<char_segment>(0.6, 0.25, 8, true);
+					classfi_instance_ = std::make_unique<char_classfi>(label_type::HEAVY_RAIL);
+				}
                 break;
             case 3:
                 instance_.emplace_back(std::make_unique<excalibur::pipeline<float>>(hardcode::get_model_params(std::get<1>(*factory)), std::string(model_directory) + "/" + std::get<1>(*factory) + ".racy", device));
                 instance_.emplace_back(std::make_unique<excalibur::pipeline<float>>(hardcode::get_model_params(std::get<2>(*factory)), std::string(model_directory) + "/" + std::get<2>(*factory) + ".racy", device));
                 break;
             case 0:
-            case 1:
             case 5:
             case 8:
                 instance_.emplace_back(std::make_unique<excalibur::pipeline<float>>(hardcode::get_model_params(std::get<1>(*factory)), std::string(model_directory) + "/" + std::get<1>(*factory) + ".racy", device));
@@ -111,16 +115,14 @@ namespace glasssix::heimdall
             auto result = exposing::make_param_vector<box_info>();
             if (factory_type_ == 2)
                 run_hot_roll(results, roi, top_five);
-            else if (factory_type_ == 0)
-                run_hot_roll_2(results, roi, top_five, 20, 2.0);
             else if (factory_type_ == 3 || factory_type_ == 6 || factory_type_ == 7)
                 run_cool_roll(results, roi, top_five);
-            else if (factory_type_ == 1)
-                run_cool_roll_2(results, roi, top_five, 1.5);
-            else if (factory_type_ == 4 || factory_type_ == 5)
-            {
+            else if (factory_type_ == 4 || factory_type_ == 5) // 5 new heavy segment_rcut
                 run_heavy_rail(results, roi, top_five, 25);
-            }
+            else if (factory_type_ == 0)
+                run_hot_roll_2(results, roi, top_five, 20, 2.0);// new hot  segment_rcut  unclip_ratio
+            else if (factory_type_ == 1)
+                run_cool_roll_2(results, roi, top_five, 1.3, 0.4); //new cool  unclip_ratio  box_thresh
             else if (factory_type_ == 8)
             {
                 run_bar(results, roi, top_five);
@@ -137,7 +139,7 @@ namespace glasssix::heimdall
 
         static std::string version()
         {
-            return "1.0.1";
+            return "1.0.2";
         }
 
     private:
@@ -444,11 +446,11 @@ namespace glasssix::heimdall
             return out;
         }
 
-        void boxes_from_bitmap(cv::Mat &out, cv::Mat &mask, int src_w, int src_h, std::vector<std::vector<cv::Point2f>> &boxes, std::vector<float> &scores, float unclip_ratio = 1.5)
+        void boxes_from_bitmap(cv::Mat &out, cv::Mat &mask, int src_w, int src_h, std::vector<std::vector<cv::Point2f>> &boxes, std::vector<float> &scores, float unclip_ratio = 1.5, float box_thresh_ = 0.5)
         {
             size_t max_candidates = 1000;
             int min_size = 3;
-            float box_thresh = param_map_.count("box_thresh") ? param_map_["box_thresh"] : 0.5;
+            float box_thresh = param_map_.count("box_thresh") ? param_map_["box_thresh"] : box_thresh_;
             std::string score_mode = "fast";
             int width = mask.cols;
             int height = mask.rows;
@@ -555,7 +557,7 @@ namespace glasssix::heimdall
             }
         }
 
-        void det_post_process(std::shared_ptr<memory::tensor<float>> &out_, std::vector<std::vector<cv::Point2f>> &boxes, std::vector<float> &scores, float unclip_ratio = 1.5)
+        void det_post_process(std::shared_ptr<memory::tensor<float>> &out_, std::vector<std::vector<cv::Point2f>> &boxes, std::vector<float> &scores, float unclip_ratio = 1.5,float box_thresh_ = 0.5)
         {
             cv::Mat out(out_->height(), out_->width(), CV_32FC1);
             memcpy(out.data, out_->cpu_data(), out_->count(2, 4) * sizeof(float));
@@ -570,7 +572,7 @@ namespace glasssix::heimdall
             {
                 mask_data[i] = (out_data[i] > thresh ? 1 : 0) * 255;
             }
-            boxes_from_bitmap(out, mask, src_w, src_h, boxes, scores, unclip_ratio);
+            boxes_from_bitmap(out, mask, src_w, src_h, boxes, scores, unclip_ratio, box_thresh_);
         }
 
         void det_post_process_bar(std::shared_ptr<memory::tensor<float>>& out_, std::vector<std::vector<cv::Point2f>>& boxes, std::vector<float>& scores)
@@ -592,7 +594,7 @@ namespace glasssix::heimdall
             boxes_from_bitmap_bar(out, mask, src_w, src_h, boxes, scores);
         }
 
-        std::pair<std::vector<std::vector<cv::Point2f>>, std::vector<float>> det_combine_best(std::shared_ptr<memory::tensor<uint8_t>> &input, excalibur::pipeline<float>& det_instance_, float unclip_ratio = 1.5)
+        std::pair<std::vector<std::vector<cv::Point2f>>, std::vector<float>> det_combine_best(std::shared_ptr<memory::tensor<uint8_t>> &input, excalibur::pipeline<float>& det_instance_, float unclip_ratio = 1.5, float box_thresh_ = 0.5)
         {
             auto input_tensor = input | memory::tensor_convert_to<float>;
             // pre process
@@ -606,7 +608,7 @@ namespace glasssix::heimdall
             std::vector<std::vector<cv::Point2f>> boxes;
             std::vector<float> scores;
 
-            det_post_process(output, boxes, scores, unclip_ratio);
+            det_post_process(output, boxes, scores, unclip_ratio, box_thresh_);
             
             return std::make_pair(boxes, scores);
         }
@@ -877,16 +879,9 @@ namespace glasssix::heimdall
                     for (size_t j = 0; j < segement_result.size() - 1; j++)
                     {
                         cv::Mat small_img = roi_temp(cv::Range::all(), cv::Range((int)segement_result[j], (int)segement_result[j + 1]));
-                        //cv::imshow("small_img", small_img);
-                        //cv::imwrite("D:/Desktop/small_img" + std::to_string(i) + std::to_string(j) + ".jpg", small_img);
-                        //cv::waitKey(0);
-                        
                         auto [label, prob] = classfi_instance_->detect(small_img, *instance_[3]);
                         stringinfo.push_back(label);
                         probs.push_back(prob);
-
-                        //std::cout << stringinfo << std::endl;
-                        //std::cout << prob << std::endl;
                     }
 
                     out = std::make_pair<std::vector<std::string>, std::vector<std::vector<float>>>({ stringinfo }, { probs });
@@ -1399,54 +1394,99 @@ namespace glasssix::heimdall
             }
         }
 
+        cv::Mat cool_det_2_pre_handel(cv::Mat& img, int hope_w = 48, int hope_h = 64) {
+            int H = img.rows;
+            int W = img.cols;
+            float ratio_w = (float)W / (float)hope_w;
+            float ratio_h = (float)H / (float)hope_h;
+            cv::Mat resize_img;
+            if (ratio_w == ratio_h)
+                cv::resize(img, resize_img, cv::Size2i{ hope_w, hope_h });
+            else if (ratio_w > ratio_h) {
+                int new_x = hope_w;
+                int new_y = (int)(H / ratio_w);
+                int pad1 = (int)((hope_h - new_y) / 2);
+                int pad2 = hope_h - new_y - pad1;
+                cv::resize(img, resize_img, cv::Size2i{ new_x, new_y });
+                cv::copyMakeBorder(resize_img, resize_img, pad1, pad2, 0, 0, cv::BORDER_CONSTANT, cv::Scalar{ 127,127,127 });
+            }
+            else {
+                int new_y = hope_h;
+                int new_x = (int)(W / ratio_h);
+                int pad1 = (int)((hope_w - new_x) / 2);
+                int pad2 = hope_w - new_x - pad1;
+                cv::resize(img, resize_img, cv::Size2i{ new_x, new_y });
+                cv::copyMakeBorder(resize_img, resize_img, 0, 0, pad1, pad2, cv::BORDER_CONSTANT, cv::Scalar{ 127,127,127 });
+            }
+            return resize_img;
+        }
 
-        void run_cool_roll_2(std::vector<box_info_internal>& results, std::vector<int>& roi, int top_five, float unclip_ratio = 1.5) //new cool rolled 9.22.2022
+        void run_cool_roll_2(std::vector<box_info_internal>& results, std::vector<int>& roi, int top_five, float unclip_ratio = 1.3, float box_thresh_ = 0.4) //new cool rolled
         {
             excalibur::rectangle<int> rect(roi[0], roi[1], roi[2], roi[3]);
             std::shared_ptr<memory::tensor<uint8_t>> input;
-            // image preprocessing
+            // tensor 2 cv::Mat
             excalibur::safty_cut_cpu(cache_, input, &rect);
             cv::Mat input_mat(roi[2], roi[3], CV_8UC3);
             std::copy(input->cpu_data(), input->cpu_data() + input->count(1, 4), input_mat.data);
-            if (input->order() == memory::NHWC)
-                input->convert_order();
-            auto [resized_img, ratio] = resize_fixed_size(640, input);
+            // image preprocessing
+            cv::Mat det_mat = cool_det_2_pre_handel(input_mat, 640, 640);
 
             // ocr detect
-            std::pair<std::vector<std::vector<cv::Point2f>>, std::vector<float>> result = det_combine_best(resized_img, *instance_[0], unclip_ratio);
+            auto resized_img = std::make_shared<memory::tensor<std::uint8_t>>(std::vector<int>{1, 640, 640, det_mat.channels()}, -1, memory::NHWC);
+            std::copy(det_mat.data, det_mat.data + det_mat.step[0] * det_mat.rows, resized_img->mutable_cpu_data());
+            resized_img->convert_order();
+            std::pair<std::vector<std::vector<cv::Point2f>>, std::vector<float>> result = det_combine_best(resized_img, *instance_[0], unclip_ratio, box_thresh_);
             std::vector<std::vector<cv::Point2f>> box_list = result.first;
 
-            for (size_t i = 0; i < box_list.size(); i++)
-            {
-                for (size_t j = 0; j < box_list[i].size(); j++)
-                {
-                    box_list[i][j] *= ratio;
+            // resized_img point mapping origin roi img (input_mat)
+            float ratio_x = (float)640 / (float)input_mat.cols;
+			float ratio_y = (float)640 / (float)input_mat.rows;
+			if (ratio_x < ratio_y) {
+				for (size_t i = 0; i < box_list.size(); i++)
+				{
+					for (size_t j = 0; j < box_list[i].size(); j++)
+					{
+						box_list[i][j].x *= 1 / ratio_x;
+						box_list[i][j].y -= (640 - input_mat.rows * ratio_x) / 2;
+						box_list[i][j].y *= 1 / ratio_x;
+					}
+				}
+			}
+			else if (ratio_x > ratio_y) {
+				for (size_t i = 0; i < box_list.size(); i++)
+				{
+					for (size_t j = 0; j < box_list[i].size(); j++)
+					{
+						box_list[i][j].x -= (640 - input_mat.cols * ratio_y) / 2;
+						box_list[i][j].x *= 1 / ratio_y;
+						box_list[i][j].y *= 1 / ratio_y;
+					}
                 }
             }
+            else {
+                for (size_t i = 0; i < box_list.size(); i++)
+                    for (size_t j = 0; j < box_list[i].size(); j++)
+                        box_list[i][j] *= ratio_x;
+            }
 
-            for (auto iter = box_list.begin(); iter != box_list.end();iter++) {
-                for (auto point : *iter) {
-                    if (point.x<20 || point.y < 20 || point.x > input_mat.cols - 20 || point.y > input_mat.rows - 20) {
-                        iter = box_list.erase(iter);
+            //fliter box_list which in boundary
+            std::vector<int> pop_indexs;
+            int filter_boundary = 15;
+            for (int i = 0; i < box_list.size(); i++) {
+                for (auto point : box_list[i]) {
+                    if (point.x<filter_boundary || point.y < filter_boundary || point.x > input_mat.cols - filter_boundary || point.y > input_mat.rows - filter_boundary) {
+                        pop_indexs.push_back(i);
                         break;
                     }
                 }
             }
+            int pop_indexs_size = pop_indexs.size();
+            for (int i = 0; i < pop_indexs_size; i++) {
+                box_list.erase(box_list.begin() + pop_indexs[i] - i);
+            }
 
-            ////##YHC  TODO: box_list point visualize in roi
-            //auto visual_input_mat = input_mat.clone();
-            //for (auto& box : box_list) {
-            //    for (auto& point : box) {
-            //        cv::circle(visual_input_mat, cv::Point(point.x, point.y), 2, cv::Scalar(0, 0, 255), 1);
-            //    }
-            //}
-            //std::vector<std::vector<cv::Point> > pts{ std::vector<cv::Point>{cv::Point(20, 20),cv::Point(visual_input_mat.cols - 20, 20),cv::Point(visual_input_mat.cols - 20, visual_input_mat.rows - 20),cv::Point(20, visual_input_mat.rows - 20)} };
-            //cv::polylines(visual_input_mat, pts, true, CV_RGB(255, 255, 0));
-            //cv::imshow("box_list", visual_input_mat);
-            //cv::waitKey(0);
-            //visual_input_mat.release();
-            ////-
-
+            // segement & classify
             if (box_list.size() > 1)
             {
                 cordinate_roi result_cut = cut_rois_.cut_roi_gather(box_list, input_mat);
@@ -1455,16 +1495,7 @@ namespace glasssix::heimdall
                 {
                     if (result_cut.max_R[i] > 1500)
                         continue;
-                    cv::Mat cut_img = result_cut.rois[i].clone();
-
-                    float angle = 0.0f;
-                    std::vector<float> res_vec = angel_infer(cut_img, *instance_[2]);
-                    if (res_vec[1] > res_vec[0])
-                    {
-                        angle = 1.0f;
-                    }
-
-                    cv::Mat roi_temp = cut_img.clone();
+                    cv::Mat roi_temp = result_cut.rois[i].clone();
                     std::vector<float> segement_result = segement_instance_->detect(roi_temp, false, *instance_[1]);
                     std::string stringinfo;
                     std::vector<float> probs;
@@ -1475,11 +1506,10 @@ namespace glasssix::heimdall
                         left = std::ceil(std::abs(segement_result[0]));
                         segement_result[0] = 0;
                     }
-
                     for (size_t j = 0; j < segement_result.size() - 1; j++)
                     {
                         cv::Mat small_img = roi_temp(cv::Range::all(), cv::Range((int)segement_result[j], (int)segement_result[j + 1]));
-                        auto [label, prob] = classfi_instance_->detect(small_img, *instance_[3]);
+                        auto [label, prob] = classfi_instance_->detect(small_img, *instance_[2]);
                         stringinfo.push_back(label);
                         probs.push_back(prob);
                     }
@@ -1499,7 +1529,7 @@ namespace glasssix::heimdall
                     {
                         box.strinfos.push_back(exposing::param_string(out.first[j]));
                     }
-                    box.angle = angle;
+                    box.angle = 0.f;
                     box.cut_roi = exposing::make_param_vector<std::uint8_t>();
                     box.cut_roi.resize(result_cut.rois[i].step[0] * result_cut.rois[i].rows);
                     box.cut_roi.copy_from({ result_cut.rois[i].data, static_cast<size_t>(result_cut.rois[i].step[0] * result_cut.rois[i].rows) }, 0);
