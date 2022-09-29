@@ -4999,7 +4999,7 @@ namespace glasssix::hardcode
             {"hot_rolled_category", hardcode_model_params::heavy_rail_category},
             {"cool_rolled_det", hardcode_model_params::rolled_det_medium},
             {"cool_rolled_segment", hardcode_model_params_common::bar_segment},
-            {"cool_rolled_angle", hardcode_model_params_common::material_angle},
+            //{"cool_rolled_angle", hardcode_model_params_common::material_angle},
             {"cool_rolled_classify", hardcode_model_params_common::heavy_rail_category}
         };
     }
