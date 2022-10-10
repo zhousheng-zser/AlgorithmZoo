@@ -96,6 +96,12 @@ namespace glasssix::heimdall
             default:
                 break;
             }
+
+            // use_message_ swith
+			if (param_map.count("use_message") && (param_map["use_message"] < -0.00001 || 0.00001 < param_map["use_message"])) {
+				use_message_ = true;
+			}
+
         }
 
         exposing::param_vector<box_info> detect(exposing::param_span<std::uint8_t> bitmap, int channels, int height, int width, int top_five, int order, int x, int y, int roi_width, int roi_height)
@@ -122,7 +128,7 @@ namespace glasssix::heimdall
             else if (factory_type_ == 0)
                 run_hot_roll_2(results, roi, top_five, 20, 2.0);// new hot  segment_rcut  unclip_ratio
             else if (factory_type_ == 1)
-                run_cool_roll_2(results, roi, top_five, 1.3, 0.4); //new cool  unclip_ratio  box_thresh
+                run_cool_roll_2(results, roi, top_five, 1.5, 0.4); //new cool  unclip_ratio  box_thresh
             else if (factory_type_ == 8)
             {
                 run_bar(results, roi, top_five);
@@ -451,6 +457,7 @@ namespace glasssix::heimdall
             size_t max_candidates = 1000;
             int min_size = 3;
             float box_thresh = param_map_.count("box_thresh") ? param_map_["box_thresh"] : box_thresh_;
+            message_box_thresh_ = box_thresh;
             std::string score_mode = "fast";
             int width = mask.cols;
             int height = mask.rows;
@@ -564,6 +571,7 @@ namespace glasssix::heimdall
             int src_w = out.cols;
             int src_h = out.rows;
             float thresh = 0.3;
+            message_det_thresh_ = thresh;
             int count = out_->count(2, 4);
             const float *out_data = out_->cpu_data();
             cv::Mat mask(out_->height(), out_->width(), CV_8UC1);
@@ -930,6 +938,8 @@ namespace glasssix::heimdall
                 box.cut_roi_width = cut_img.cols;
                 box.cut_roi_height = cut_img.rows;
 
+                //message run_bar old
+                box.messages = exposing::make_param_vector<exposing::param_string>();
                 results.push_back(box);
             }
         }
@@ -1029,6 +1039,8 @@ namespace glasssix::heimdall
                 box.cut_roi_width = cut_img.cols;
                 box.cut_roi_height = cut_img.rows;
 
+                // message run_hot_roll old
+                box.messages = exposing::make_param_vector<exposing::param_string>();
                 results.push_back(box);
             }
         }
@@ -1047,7 +1059,6 @@ namespace glasssix::heimdall
 
             // ocr detect
             std::pair<std::vector<std::vector<cv::Point2f>>, std::vector<float>> result = det_combine_best(resized_img, *instance_[0], unclip_ratio);
-
             std::vector<std::vector<cv::Point2f>> box_list = result.first;
             for (size_t i = 0; i < box_list.size(); i++)
             {
@@ -1130,6 +1141,21 @@ namespace glasssix::heimdall
                     strinfos.push_back(exposing::param_string(out.first[j]));
                 }
                 box.strinfos = strinfos;
+
+                //  message hot
+                auto messages = exposing::make_param_vector<exposing::param_string>();
+                //if (use_message_) {
+                if (true) { //热轧急需，先强迫开启
+                    std::string message_str = "det_boxs sorces:  ";
+                    for (auto scores : result.second) {
+                        message_str.append(std::to_string(scores) + "  ");
+                    }
+                    messages.push_back(exposing::param_string(message_str));
+                    messages.push_back(exposing::param_string("thresh:  " + std::to_string(message_det_thresh_)));
+                    messages.push_back(exposing::param_string("box_thresh:  " + std::to_string(message_box_thresh_)));
+                }
+                box.messages = messages;
+
                 // process angle -> [0, 360)
                 float angle;
                 if (!rotate && !inverse)
@@ -1266,6 +1292,20 @@ namespace glasssix::heimdall
                     strinfos.push_back(exposing::param_string(out.first[j]));
                 }
                 box.strinfos = strinfos;
+
+                //message heavy
+                auto messages = exposing::make_param_vector<exposing::param_string>();
+                if (use_message_) {
+                    std::string message_str = "det_boxs sorces:  ";
+                    for (auto scores : result.second) {
+                        message_str.append(std::to_string(scores) + "  ");
+                    }
+                    messages.push_back(exposing::param_string(message_str));
+                    messages.push_back(exposing::param_string("thresh:  " + std::to_string(message_det_thresh_)));
+                    messages.push_back(exposing::param_string("box_thresh:  " + std::to_string(message_box_thresh_)));
+                }
+                box.messages = messages;
+
                 // process angle -> [0, 360)
                 float angle;
                 if (!rotate && !inverse)
@@ -1389,6 +1429,8 @@ namespace glasssix::heimdall
                     box.cut_roi_width = result_cut.rois[i].cols;
                     box.cut_roi_height = result_cut.rois[i].rows;
 
+                    // message run_cool_roll old
+                    box.messages = exposing::make_param_vector<exposing::param_string>();
                     results.push_back(box);
                 }
             }
@@ -1467,25 +1509,8 @@ namespace glasssix::heimdall
             else {
                 for (size_t i = 0; i < box_list.size(); i++)
                     for (size_t j = 0; j < box_list[i].size(); j++)
-                        box_list[i][j] *= ratio_x;
+                        box_list[i][j] *= 1/ratio_x;
             }
-
-            //fliter box_list which in boundary
-            std::vector<int> pop_indexs;
-            int filter_boundary = 15;
-            for (int i = 0; i < box_list.size(); i++) {
-                for (auto point : box_list[i]) {
-                    if (point.x<filter_boundary || point.y < filter_boundary || point.x > input_mat.cols - filter_boundary || point.y > input_mat.rows - filter_boundary) {
-                        pop_indexs.push_back(i);
-                        break;
-                    }
-                }
-            }
-            int pop_indexs_size = pop_indexs.size();
-            for (int i = 0; i < pop_indexs_size; i++) {
-                box_list.erase(box_list.begin() + pop_indexs[i] - i);
-            }
-
             // segement & classify
             if (box_list.size() > 1)
             {
@@ -1506,9 +1531,12 @@ namespace glasssix::heimdall
                         left = std::ceil(std::abs(segement_result[0]));
                         segement_result[0] = 0;
                     }
+
                     for (size_t j = 0; j < segement_result.size() - 1; j++)
                     {
-                        cv::Mat small_img = roi_temp(cv::Range::all(), cv::Range((int)segement_result[j], (int)segement_result[j + 1]));
+                        int left = std::max((int)segement_result[j] - 4, 0);
+                        int right = std::min((int)segement_result[j + 1] + 4, roi_temp.cols);
+                        cv::Mat small_img = roi_temp(cv::Range::all(), cv::Range(left, right));
                         auto [label, prob] = classfi_instance_->detect(small_img, *instance_[2]);
                         stringinfo.push_back(label);
                         probs.push_back(prob);
@@ -1529,6 +1557,19 @@ namespace glasssix::heimdall
                     {
                         box.strinfos.push_back(exposing::param_string(out.first[j]));
                     }
+                    //message run_cool
+                    auto messages = exposing::make_param_vector<exposing::param_string>();
+                    if (use_message_) {
+                        std::string message_str = "det_boxs sorces:  ";
+                        for (auto scores : result.second) {
+                            message_str.append(std::to_string(scores) + "  ");
+                        }
+                        messages.push_back(exposing::param_string(message_str));
+                        messages.push_back(exposing::param_string("thresh:  " + std::to_string(message_det_thresh_)));
+                        messages.push_back(exposing::param_string("box_thresh:  " + std::to_string(message_box_thresh_)));
+                    }
+                    box.messages = messages;
+
                     box.angle = 0.f;
                     box.cut_roi = exposing::make_param_vector<std::uint8_t>();
                     box.cut_roi.resize(result_cut.rois[i].step[0] * result_cut.rois[i].rows);
@@ -1547,6 +1588,9 @@ namespace glasssix::heimdall
         int factory_type_;
         int device_;
         std::map<std::string, float> param_map_;
+        bool use_message_ = false;
+        float message_det_thresh_ = -1.f;
+        float message_box_thresh_ = -1.f;
         std::vector<std::unique_ptr<excalibur::pipeline<float>>> instance_;
         std::unique_ptr<char_segment> segement_instance_;
         std::unique_ptr<char_classfi> classfi_instance_;
