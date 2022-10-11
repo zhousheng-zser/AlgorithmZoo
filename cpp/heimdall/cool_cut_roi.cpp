@@ -254,14 +254,9 @@ namespace glasssix
 					new_x = std::round(std::cos(now_theta) * temp_R + center.x) - 1;
 					float tem = -std::sin(now_theta) * temp_R;
 					new_y = std::round(-std::sin(now_theta) * temp_R + center.y) - 1;
-					if (new_y > H - 1)
-					{
-						new_y = H - 1;
-					}
-					if (new_x > W - 1)
-					{
-						new_x = W - 1;
-					}
+					// 若越界，则取边缘值（1或长\宽-1）
+					new_y = (new_y > H - 1 || new_y < 1) ? (new_y < 1 ? 1 : H - 1) : new_y;
+					new_x = (new_x > W - 1 || new_x < 1) ? (new_x < 1 ? 1 : W - 1) : new_x;
 
 					temp_reference(i, j) = img_reference(new_y, new_x);
 				}
@@ -273,7 +268,7 @@ namespace glasssix
 			std::pair<std::vector<cv::Mat>, std::vector<float>> roi_gather;
 			//std::pair< cv::Mat, float> temp_roi_R;
 			double radi_out, radi_in; //, radi_max, radi_min;
-			float radi_out_f, radi_in_f, theta1, theta2;
+			float radi_out_f, radi_in_f; //, theta1, theta2;
 			cv::Point2f center_out, center_in, center, distance, start_point, end_point;
 			std::vector<float> array_distance(6);
 			for (size_t i = 0; i < bbox.size(); i++)

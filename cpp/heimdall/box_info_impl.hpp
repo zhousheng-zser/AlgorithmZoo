@@ -17,6 +17,7 @@ namespace glasssix::heimdall
 
         exposing::param_vector<float> location() const;
 		exposing::param_vector<exposing::param_string> strinfos() const;
+		exposing::param_vector<exposing::param_string> messages() const;
         float angle() const;
 
         exposing::param_vector<std::uint8_t> cut_roi() const;

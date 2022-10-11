@@ -21,6 +21,7 @@ namespace glasssix::exposing::impl
         {
             virtual std::int32_t G6_ABI_CALL location(abi_out_t<param_vector<float>> result) noexcept = 0;
             virtual std::int32_t G6_ABI_CALL strinfos(abi_out_t<param_vector<param_string>> result) noexcept = 0;
+            virtual std::int32_t G6_ABI_CALL messages(abi_out_t<param_vector<param_string>> result) noexcept = 0;
             virtual std::int32_t G6_ABI_CALL angle(abi_out_t<float> result) noexcept = 0;
             virtual std::int32_t G6_ABI_CALL cut_roi(abi_out_t<param_vector<std::uint8_t>> result) noexcept = 0;
             virtual std::int32_t G6_ABI_CALL cut_roi_width(abi_out_t<std::int32_t> result) noexcept = 0;
@@ -41,6 +42,12 @@ namespace glasssix::exposing::impl
         {
             return abi_safe_call([&]
                                  { *result = detach_abi(this->self().strinfos()); });
+        }
+
+        virtual std::int32_t G6_ABI_CALL messages(abi_out_t<param_vector<param_string>> result) noexcept override
+        {
+            return abi_safe_call([&]
+                                 { *result = detach_abi(this->self().messages()); });
         }
 
         virtual std::int32_t G6_ABI_CALL angle(abi_out_t<float> result) noexcept override
@@ -86,6 +93,13 @@ namespace glasssix::exposing::impl
                 param_vector<param_string> result;
 
                 return (check_abi_result(this->self_abi().strinfos(put_abi(result))), result);
+            }
+
+            param_vector<param_string> messages() const
+            {
+                param_vector<param_string> result;
+
+                return (check_abi_result(this->self_abi().messages(put_abi(result))), result);
             }
 
             float angle() const
