@@ -36,16 +36,16 @@ namespace glasssix
 		cv::Mat char_classfi::pre_handel_img(cv::Mat& img) {
 			int H = img.rows;
 			int W = img.cols;
-			float ratio_w = (float)W / 48.0;
-			float ratio_h = (float)H / 64.0;
+			float ratio_w = 48.0 / (float)W;
+			float ratio_h = 64.0 / (float)H;
 			cv::Mat resize_img;
 			if (ratio_w == ratio_h)
 			{
 				cv::resize(img, resize_img, cv::Size2i{ 48, 64 });
 			}
-			else if (ratio_w > ratio_h) {
+			else if (ratio_w < ratio_h) {
 				int new_x = 48;
-				int new_y = (int)(H / ratio_w);
+				int new_y = (int)(H * ratio_w);
 				int pad1 = (int)((64 - new_y) / 2);
 				int pad2 = 64 - new_y - pad1;
 				cv::resize(img, resize_img, cv::Size2i{ new_x, new_y });
@@ -53,7 +53,7 @@ namespace glasssix
 			}
 			else {
 				int new_y = 64;
-				int new_x = (int)(W / ratio_h);
+				int new_x = (int)(W * ratio_h);
 				int pad1 = (int)((48 - new_x) / 2);
 				int pad2 = 48 - new_x - pad1;
 				cv::resize(img, resize_img, cv::Size2i{ new_x, new_y });
