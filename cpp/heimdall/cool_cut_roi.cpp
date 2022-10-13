@@ -10,9 +10,10 @@ namespace glasssix
 			if (pre_rois.size() < 2)
 				throw 1;
 
-			std::vector<std::vector<cv::Point2f>> new_bbox = get_coordinate_order(pre_rois, img, threshold_);
+			auto [new_bbox, origin_box] = get_coordinate_order(pre_rois, img, threshold_);
 			std::pair<std::vector<cv::Mat>, std::vector<float>> rois = handel_img(img, new_bbox);
 			result.cordinate = new_bbox;
+			result.origin_cordinate = origin_box;
 			result.rois = rois.first;
 			result.max_R = rois.second;
 			return result;
@@ -87,7 +88,7 @@ namespace glasssix
 			float theta = std::acos(cos_theta);
 			return theta;
 		}
-		std::vector<std::vector<cv::Point2f>> cut_reg_roi::get_coordinate_order(std::vector<std::vector<cv::Point2f>>& cordi, cv::Mat& img, const int& threshold) {
+		std::pair<std::vector<std::vector<cv::Point2f>>, std::vector<std::vector<cv::Point2f>>> cut_reg_roi::get_coordinate_order(std::vector<std::vector<cv::Point2f>>& cordi, cv::Mat& img, const int& threshold) {
 			std::vector<int> select_cordi1{ 0, 3 };
 			std::vector<int> select_cordi2{ 1, 2 };
 			std::vector<std::vector<cv::Point2f>> medium_cordi;
@@ -193,7 +194,7 @@ namespace glasssix
 
 				}
 			}
-			return reback_cordi;
+			return { reback_cordi, new_cordi };
 		}
 		std::pair<cv::Point2f, float> cut_reg_roi::get_start_end(cv::Point2f& center, float& R_iner, float& R_out, cv::Point2f& point_inner, cv::Point2f& point_out, bool is_start) {
 			float theta_frist = get_radian(center, point_out);
