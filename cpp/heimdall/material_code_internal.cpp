@@ -123,12 +123,12 @@ namespace glasssix::heimdall
                 run_hot_roll(results, roi, top_five);
             else if (factory_type_ == 3 || factory_type_ == 6 || factory_type_ == 7)
                 run_cool_roll(results, roi, top_five);
-            else if (factory_type_ == 4 || factory_type_ == 5) // 5 new heavy segment_rcut
-                run_heavy_rail(results, roi, top_five, 25);
+            else if (factory_type_ == 4 || factory_type_ == 5)// 5 new heavy
+                run_heavy_rail(results, roi, top_five);
             else if (factory_type_ == 0)
-                run_hot_roll_2(results, roi, top_five, 20, 2.0);// new hot  segment_rcut  unclip_ratio
+                run_hot_roll_2(results, roi, top_five);       // new hot
             else if (factory_type_ == 1)
-                run_cool_roll_2(results, roi, top_five, 1.5, 0.4); //new cool  unclip_ratio  box_thresh
+                run_cool_roll_2(results, roi, top_five);      // new cool
             else if (factory_type_ == 8)
             {
                 run_bar(results, roi, top_five);
@@ -1070,7 +1070,7 @@ namespace glasssix::heimdall
             }
         }
 
-        void run_hot_roll_2(std::vector<box_info_internal>& results, std::vector<int>& roi, int top_five, int segment_rcut = 16, float unclip_ratio = 1.5)
+        void run_hot_roll_2(std::vector<box_info_internal>& results, std::vector<int>& roi, int top_five)
         {
             excalibur::rectangle<int> rect((int)roi[0], (int)roi[1], (int)roi[2], (int)roi[3]);
             std::shared_ptr<memory::tensor<uint8_t>> input;
@@ -1084,7 +1084,7 @@ namespace glasssix::heimdall
             auto [ratio_w, ratio_h] = ratio_pair;
 
             // ocr detect
-            std::pair<std::vector<std::vector<cv::Point2f>>, std::vector<float>> result = det_combine_best(resized_img, *instance_[0], unclip_ratio);
+            std::pair<std::vector<std::vector<cv::Point2f>>, std::vector<float>> result = det_combine_best(resized_img, *instance_[0], 2.0, 0.5);
             std::vector<std::vector<cv::Point2f>> box_list = result.first;
             for (size_t i = 0; i < box_list.size(); i++)
             {
@@ -1139,7 +1139,7 @@ namespace glasssix::heimdall
 
                 for (int i = segement_result.size() - 1; i > 0; i--)
                 {
-					if (segement_result[i] > roi_temp.cols - (param_map_.count("segment_rcut") ? param_map_["segment_rcut"] : segment_rcut))
+					if (segement_result[i] > roi_temp.cols - (param_map_.count("segment_rcut") ? param_map_["segment_rcut"] : 20))
                         segement_result.pop_back();
                 }
                 segement_result.push_back(roi_temp.cols - 1);
@@ -1215,7 +1215,7 @@ namespace glasssix::heimdall
             }
         }
 
-        void run_heavy_rail(std::vector<box_info_internal>& results, std::vector<int>& roi, int top_five, int segment_rcut = 25)
+        void run_heavy_rail(std::vector<box_info_internal>& results, std::vector<int>& roi, int top_five)
         {
             auto heavy_start = std::chrono::system_clock::now();
             std::chrono::time_point<std::chrono::system_clock> timer_start;
@@ -1292,7 +1292,7 @@ namespace glasssix::heimdall
 
                     for (int i = segement_result.size() - 1; i > 0; i--)
                     {
-						if (segement_result[i] > roi_temp.cols - (param_map_.count("segment_rcut") ? param_map_["segment_rcut"] : segment_rcut))
+						if (segement_result[i] > roi_temp.cols - (param_map_.count("segment_rcut") ? param_map_["segment_rcut"] : 25))
 							segement_result.pop_back();
                     }
                     segement_result.push_back(roi_temp.cols - 1);
@@ -1508,7 +1508,7 @@ namespace glasssix::heimdall
             return resize_img;
         }
 
-        void run_cool_roll_2(std::vector<box_info_internal>& results, std::vector<int>& roi, int top_five, float unclip_ratio = 1.3, float box_thresh_ = 0.4) //new cool rolled
+        void run_cool_roll_2(std::vector<box_info_internal>& results, std::vector<int>& roi, int top_five) //new cool rolled
         {
             excalibur::rectangle<int> rect(roi[0], roi[1], roi[2], roi[3]);
             std::shared_ptr<memory::tensor<uint8_t>> input;
@@ -1523,7 +1523,7 @@ namespace glasssix::heimdall
             auto resized_img = std::make_shared<memory::tensor<std::uint8_t>>(std::vector<int>{1, 640, 640, det_mat.channels()}, -1, memory::NHWC);
             std::copy(det_mat.data, det_mat.data + det_mat.step[0] * det_mat.rows, resized_img->mutable_cpu_data());
             resized_img->convert_order();
-            std::pair<std::vector<std::vector<cv::Point2f>>, std::vector<float>> result = det_combine_best(resized_img, *instance_[0], unclip_ratio, box_thresh_);
+            std::pair<std::vector<std::vector<cv::Point2f>>, std::vector<float>> result = det_combine_best(resized_img, *instance_[0], 1.5, 0.4);
             std::vector<std::vector<cv::Point2f>> box_list = result.first;
 
             // resized_img point mapping origin roi img (input_mat)
@@ -1577,6 +1577,14 @@ namespace glasssix::heimdall
                         left = std::ceil(std::abs(segement_result[0]));
                         segement_result[0] = 0;
                     }
+                    for (int i = segement_result.size() - 1; i > 0; i--)
+                    {
+                        if (segement_result[i] > roi_temp.cols - (param_map_.count("segment_rcut") ? param_map_["segment_rcut"] : 0))
+                            segement_result.pop_back();
+                        else
+                            break;
+                    }
+                    segement_result.push_back(roi_temp.cols - 1);
 
                     for (size_t j = 0; j < segement_result.size() - 1; j++)
                     {
@@ -1607,11 +1615,11 @@ namespace glasssix::heimdall
                         //eight points of detbox_pair
                         std::string box_message{"origin boxes for this str: "};
                         for (int indx = 0; indx < result_cut.origin_cordinate.size(); indx++) {
-                            std::string box_loc{ "box[" };
+                            std::string box_loc{ "box{" };
                             for (auto point : result_cut.origin_cordinate[indx]) {
-                                box_loc.append(std::to_string(point.x)+","+ std::to_string(point.y)+"]  ");
+                                box_loc.append("[" + std::to_string(point.x) + "," + std::to_string(point.y) + "]");
                             }
-                            box_message.append(box_loc);
+                            box_message.append(box_loc+"} ");
                         }
                         messages.push_back(exposing::param_string(box_message));
 
