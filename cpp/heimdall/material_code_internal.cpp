@@ -1577,14 +1577,18 @@ namespace glasssix::heimdall
                         left = std::ceil(std::abs(segement_result[0]));
                         segement_result[0] = 0;
                     }
+                    bool add_tail = false;
                     for (int i = segement_result.size() - 1; i > 0; i--)
                     {
-                        if (segement_result[i] > roi_temp.cols - (param_map_.count("segment_rcut") ? param_map_["segment_rcut"] : 0))
+                        if (segement_result[i] > roi_temp.cols) {
                             segement_result.pop_back();
+                            add_tail = true;
+                        }
                         else
                             break;
                     }
-                    segement_result.push_back(roi_temp.cols - 1);
+                    if(add_tail)
+                        segement_result.push_back(roi_temp.cols - 1);
 
                     for (size_t j = 0; j < segement_result.size() - 1; j++)
                     {
