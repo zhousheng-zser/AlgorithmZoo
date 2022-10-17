@@ -301,7 +301,7 @@ namespace glasssix::heimdall
             float ratio_w = (float)aligned_w / (float)w;
             float ratio_h = (float)aligned_h / (float)h;
 
-            return { dst,{ratio_w, ratio_h} };
+            return { dst,{1.0f / ratio_w, 1.0f / ratio_h} };
         }
 
         //void det_preprocess(std::shared_ptr<memory::tensor<float>> &input)

@@ -94,6 +94,7 @@ namespace glasssix
 			std::vector<std::vector<cv::Point2f>> medium_cordi;
 			std::vector<std::vector<cv::Point2f>> new_cordi;
 			std::vector<std::vector<cv::Point2f>> reback_cordi;
+			std::vector<std::vector<cv::Point2f>> origin_cordi;
 			std::vector<cv::Point2f> temp_cordi;
 			for (size_t i = 0; i < cordi.size(); i++) {
 				temp_cordi = cordi[i];
@@ -179,6 +180,8 @@ namespace glasssix
 									cv::Point2f pt5 = (new_cordi[k][select_cordi2[for_one]] + new_cordi[l][select_cordi1[for_second]]) / 2;
 									//remove_new_bbox.push_back(cv::Point2i{ max_number, min_number });
 									reback_cordi.push_back(std::vector<cv::Point2f>{pt1, pt2, pt6, pt4, pt5, pt3});
+									origin_cordi.push_back(std::vector<cv::Point2f>{pt1, new_cordi[k][select_cordi2[for_one]], pt4, new_cordi[k][select_cordi1[for_one]]});
+									origin_cordi.push_back(std::vector<cv::Point2f>{pt6, new_cordi[l][select_cordi1[for_second]], pt3, new_cordi[l][select_cordi2[for_second]]});
 								}
 								else
 								{
@@ -186,6 +189,8 @@ namespace glasssix
 									cv::Point2f pt5 = (new_cordi[k][select_cordi2[for_one]] + new_cordi[l][select_cordi2[for_second]]) / 2;
 									//remove_new_bbox.push_back(cv::Point2i{ max_number, min_number });
 									reback_cordi.push_back(std::vector<cv::Point2f>{pt1, pt2, pt3, pt4, pt5, pt6});
+									origin_cordi.push_back(std::vector<cv::Point2f>{pt1, new_cordi[k][select_cordi2[for_one]], pt4, new_cordi[k][select_cordi1[for_one]]});
+									origin_cordi.push_back(std::vector<cv::Point2f>{pt6, new_cordi[l][select_cordi1[for_second]], pt3, new_cordi[l][select_cordi2[for_second]]});
 								}
 
 							}
@@ -194,7 +199,7 @@ namespace glasssix
 
 				}
 			}
-			return { reback_cordi, new_cordi };
+			return { reback_cordi, origin_cordi};
 		}
 		std::pair<cv::Point2f, float> cut_reg_roi::get_start_end(cv::Point2f& center, float& R_iner, float& R_out, cv::Point2f& point_inner, cv::Point2f& point_out, bool is_start) {
 			float theta_frist = get_radian(center, point_out);
