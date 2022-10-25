@@ -41,7 +41,7 @@ namespace glasssix::heimdall
         {7, "cool_rolled_det_medium", "segment_char_simp_3", "cool_rolled_category", ""},
         {8, "bar_det_lite", "bar_segment", "bar_angle", "bar_category"}}
     };
-        
+
     class material_code_internal::impl
     {
     public:
@@ -1095,18 +1095,19 @@ namespace glasssix::heimdall
                 }
             }
 
-            for (size_t i = 0; i < box_list.size(); ++i)
+            if (!result.second.empty())
             {
+                auto max_score_box = box_list[std::max_element(result.second.begin(), result.second.end()) - result.second.begin()];
                 bool rotate = false;
-                cv::RotatedRect rect = cv::minAreaRect(box_list[i]);
+                cv::RotatedRect rect = cv::minAreaRect(max_score_box);
                 // crop img
-                cv::Mat cut_img = crop_rect(input_mat, rect);
+                cv::Mat cut_img = crop_rect(input_mat, rect, 0);
                 int newH = cut_img.rows;
                 int newW = cut_img.cols;
                 // ignore
                 if (std::max(newH, newW) / (std::min(newH, newW) * 1.0) <= 1.5)
                 {
-                    continue;
+                    return;
                 }
                 if (newH > newW)
                 {
@@ -1115,7 +1116,8 @@ namespace glasssix::heimdall
                 }
 
                 bool inverse = false;
-                std::vector<float> res_vec = angel_infer(cut_img, *instance_[2]);
+                auto cut_img_angle = cut_img.clone();
+                std::vector<float> res_vec = angel_infer(cut_img_angle, *instance_[2]);
                 // 0: The character direction is inverse  1: The character direction is positive
                 if (res_vec[0] == 0)
                 {
@@ -1139,7 +1141,7 @@ namespace glasssix::heimdall
 
                 for (int i = segement_result.size() - 1; i > 0; i--)
                 {
-					if (segement_result[i] > roi_temp.cols - (param_map_.count("segment_rcut") ? param_map_["segment_rcut"] : 20))
+                    if (segement_result[i] > roi_temp.cols - (param_map_.count("segment_rcut") ? param_map_["segment_rcut"] : 20))
                         segement_result.pop_back();
                 }
                 segement_result.push_back(roi_temp.cols - 1);
@@ -1156,10 +1158,10 @@ namespace glasssix::heimdall
 
                 box_info_internal box;
                 auto location = exposing::make_param_vector<float>();
-                for (int j = 0; j < box_list[i].size(); ++j)
+                for (int j = 0; j < max_score_box.size(); ++j)
                 {
-                    location.push_back(box_list[i][j].x);
-                    location.push_back(box_list[i][j].y);
+                    location.push_back(max_score_box[j].x);
+                    location.push_back(max_score_box[j].y);
                 }
                 box.location = location;
                 auto strinfos = exposing::make_param_vector<exposing::param_string>();
@@ -1172,7 +1174,7 @@ namespace glasssix::heimdall
                 //  message hot
                 auto messages = exposing::make_param_vector<exposing::param_string>();
                 if (use_message_) {
-                    std::string message_str = "det_boxs sorces:  ";
+                    std::string message_str = "det_boxs scores:  ";
                     for (auto scores : result.second) {
                         message_str.append(std::to_string(scores) + "  ");
                     }
@@ -1218,6 +1220,9 @@ namespace glasssix::heimdall
         void run_heavy_rail(std::vector<box_info_internal>& results, std::vector<int>& roi, int top_five)
         {
             auto heavy_start = std::chrono::system_clock::now();
+            std::vector<int> angle_timer;
+            std::vector<int> segment_timer;
+            std::vector<int> class_timer;
             std::chrono::time_point<std::chrono::system_clock> timer_start;
             std::chrono::time_point<std::chrono::system_clock> timer_end;
 
@@ -1232,10 +1237,9 @@ namespace glasssix::heimdall
             auto [resized_img, ratio] = resize_fixed_size(640, input);
 
             // ocr detect
-            timer_start = std::chrono::system_clock::now();
+            timer_start = std::chrono::system_clock::now(); //timer
             std::pair<std::vector<std::vector<cv::Point2f>>, std::vector<float>> result = det_combine_best(resized_img, *instance_[0]);
-            timer_end = std::chrono::system_clock::now();
-            int det_inference = (double)std::chrono::duration_cast<std::chrono::milliseconds>(timer_end - timer_start).count();
+            int det_inference = std::chrono::duration_cast<std::chrono::milliseconds>(std::chrono::system_clock::now() - timer_start).count(); //timer
 
             std::vector<std::vector<cv::Point2f>> box_list = result.first;
             for (size_t i = 0; i < box_list.size(); i++)
@@ -1246,7 +1250,7 @@ namespace glasssix::heimdall
                 }
             }
 
-            timer_start = std::chrono::system_clock::now();
+            auto other_infr_start = std::chrono::system_clock::now(); //timer
             for (size_t i = 0; i < box_list.size(); ++i)
             {
                 bool rotate = false;
@@ -1267,7 +1271,9 @@ namespace glasssix::heimdall
                 }
 
                 bool inverse = false;
+                timer_start = std::chrono::system_clock::now(); //timer
                 std::vector<float> res_vec = angel_infer(cut_img, *instance_[2]);
+                angle_timer.push_back(std::chrono::duration_cast<std::chrono::milliseconds>(std::chrono::system_clock::now() - timer_start).count()); //timer
                 // 0: The character direction is inverse  1: The character direction is positive
                 if (res_vec[0] == 0)
                 {
@@ -1279,7 +1285,10 @@ namespace glasssix::heimdall
                 if (factory_type_ == 5)
                 {
                     cv::Mat roi_temp = cut_img.clone();
+                    timer_start = std::chrono::system_clock::now(); //timer
                     std::vector<float> segement_result = segement_instance_->detect(roi_temp, true, *instance_[1]);
+                    segment_timer.push_back(std::chrono::duration_cast<std::chrono::milliseconds>(std::chrono::system_clock::now() - timer_start).count()); //timer
+
                     std::string stringinfo;
                     std::vector<float> probs;
 
@@ -1297,6 +1306,7 @@ namespace glasssix::heimdall
                     }
                     segement_result.push_back(roi_temp.cols - 1);
 
+                    timer_start = std::chrono::system_clock::now(); //timer
                     for (size_t j = 0; j < segement_result.size() - 1; j++)
                     {
                         cv::Mat small_img = roi_temp(cv::Range::all(), cv::Range((int)segement_result[j], (int)segement_result[j + 1]));
@@ -1304,6 +1314,7 @@ namespace glasssix::heimdall
                         stringinfo.push_back(label);
                         probs.push_back(prob);
                     }
+                    class_timer.push_back(std::chrono::duration_cast<std::chrono::milliseconds>(std::chrono::system_clock::now() - timer_start).count()); //timer
 
                     out = std::make_pair<std::vector<std::string>, std::vector<std::vector<float>>>({ stringinfo }, { probs });
                 }
@@ -1330,25 +1341,34 @@ namespace glasssix::heimdall
 
                 //message heavy
                 auto messages = exposing::make_param_vector<exposing::param_string>();
-				if (use_message_) {
-					std::string message_str = "det_boxs sorces:  ";
-					for (auto scores : result.second) {
-						message_str.append(std::to_string(scores) + "  ");
-					}
-					messages.push_back(exposing::param_string(message_str));
-					messages.push_back(exposing::param_string(
-						"thresh:  " + std::to_string(message_det_thresh_) +
-						"  box_thresh:  " + std::to_string(message_box_thresh_)));
-					if (i == box_list.size() - 1) {
-						timer_end = std::chrono::system_clock::now();
-						int other_inference = (double)std::chrono::duration_cast<std::chrono::milliseconds>(timer_end - timer_start).count();
-						int heavy_inference = (double)std::chrono::duration_cast<std::chrono::milliseconds>(timer_end - heavy_start).count();
-						messages.push_back(exposing::param_string(
-							"infere cost,  det:" + std::to_string(det_inference) +
-							"ms other:" + std::to_string(other_inference) +
-							"ms all:" + std::to_string(heavy_inference) + "ms"));
-					}
-				}
+                if (use_message_) {
+                    messages.push_back(exposing::param_string(
+                        "thsh: " + std::to_string(message_det_thresh_) +
+                        "  bx_thsh: " + std::to_string(message_box_thresh_)));
+
+                    messages.push_back(exposing::param_string(
+                        "infer: [" + std::to_string(angle_timer.size()) + "]agl " + std::to_string(angle_timer[i]) + " ms  " +
+                        "[" + std::to_string(segment_timer.size()) + "]seg " + std::to_string(segment_timer[i]) + " ms  " +
+                        "[" + std::to_string(class_timer.size()) + "]cls " + std::to_string(class_timer[i]) + " ms "));
+
+                    if (i == box_list.size() - 1) {
+                        std::string message_str = "det_bxs score: ";
+                        for (auto scores : result.second) {
+                            message_str.append(std::to_string(scores) + " ");
+                        }
+                        messages.push_back(exposing::param_string(message_str));
+                        timer_end = std::chrono::system_clock::now();
+                        int other_inference = std::chrono::duration_cast<std::chrono::milliseconds>(timer_end - other_infr_start).count();
+                        int heavy_inference = std::chrono::duration_cast<std::chrono::milliseconds>(timer_end - heavy_start).count();
+                        messages.push_back(exposing::param_string(
+                            "infer: det " + std::to_string(det_inference) +
+                            "ms othr " + std::to_string(other_inference) +
+                            "ms all " + std::to_string(heavy_inference) + "ms "));
+                    }
+                    else {
+                        messages.push_back(exposing::param_string("det_score: " + std::to_string(result.second[i])));
+                    }
+                }
                 box.messages = messages;
 
                 // process angle -> [0, 360)
@@ -1508,6 +1528,43 @@ namespace glasssix::heimdall
             return resize_img;
         }
 
+        void screen_result_point(std::vector<float>& point_list) {
+            std::vector<float> first_screen_distance_list;
+            std::vector<float> distance_list;
+            std::vector<int> error_point_list;
+
+            for (int i = 0; i < point_list.size() - 1; i++) {
+                distance_list.push_back(point_list[i + 1] - point_list[i]);
+            }
+
+            float MaxDistance = *std::max_element(distance_list.begin(), distance_list.end());
+
+            for (auto it : distance_list) {
+                if (it < (MaxDistance / 5 * 2)) {
+                    continue;
+                }
+                else {
+                    first_screen_distance_list.push_back(it);
+                }
+            }
+
+            float ave_distance = 0.f;
+            for (auto it : first_screen_distance_list) {
+                ave_distance += it;
+            }
+            ave_distance /= first_screen_distance_list.size();
+
+            for (int j = 0; j < distance_list.size(); j++) {
+                if (distance_list[j] < ave_distance / 2) {
+                    error_point_list.push_back(j);
+                }
+            }
+
+            for (int i = 0; i < error_point_list.size(); i++) {
+                point_list.erase(point_list.begin() + (error_point_list[i] - i));
+            }
+        }
+
         void run_cool_roll_2(std::vector<box_info_internal>& results, std::vector<int>& roi, int top_five) //new cool rolled
         {
             excalibur::rectangle<int> rect(roi[0], roi[1], roi[2], roi[3]);
@@ -1589,6 +1646,8 @@ namespace glasssix::heimdall
                     }
                     if(add_tail)
                         segement_result.push_back(roi_temp.cols - 1);
+                    // offset segement point
+                    screen_result_point(segement_result);
 
                     for (size_t j = 0; j < segement_result.size() - 1; j++)
                     {
@@ -1627,7 +1686,7 @@ namespace glasssix::heimdall
                         }
                         messages.push_back(exposing::param_string(box_message));
 
-                        std::string message_str = "det_boxs sorces:  ";
+                        std::string message_str = "det_boxs scores:  ";
                         for (auto scores : result.second) {
                             message_str.append(std::to_string(scores) + "  ");
                         }
