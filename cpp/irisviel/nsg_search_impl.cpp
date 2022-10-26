@@ -49,17 +49,40 @@ namespace glasssix::irisviel
 			current_data_ = &data;
 		}
 
-		vector2d<std::tuple<std::uint32_t, float>> search_vector(const std::vector<const float*>& query_data, std::optional<float> min_similarity, std::optional<std::uint32_t> top_k) const
+		std::vector<std::vector<database_search_result>> search_vector(const std::vector<const float*>& query_data, std::optional<float> min_similarity, std::optional<std::uint32_t> top_k) const
 		{
 			// This implementation does not support searching by min similarity.
 			if (!top_k)
 			{
 				throw std::invalid_argument{ u8"The top K must be set in the NSG implementation." };
 			}
-
 			auto actual_size = top_k ? std::min<std::size_t>(current_data_->size(), *top_k) : current_data_->size();
 
-			return nsg_search_.search_vector(query_data, actual_size);
+			vector2d<std::tuple<std::uint32_t, float>> raw_search_result = nsg_search_.search_vector(query_data, actual_size);
+			
+			std::vector<std::vector<database_search_result>> result;
+			for (auto&& item : raw_search_result)
+			{
+				std::vector<database_search_result> inner;
+				for (auto&& [index, similarity] : item)
+				{
+					if (current_data_->size() == 1)
+					{
+						index = std::min(index, 0U);
+					}
+					if (index >= current_data_->size())
+					{
+						continue;
+					}
+					// Retrieve the orginal data in the mapping file.
+					auto offset = reinterpret_cast<const std::uint8_t*>((current_data_ + index)->data()) - database_record::feature_offset(dimension_);
+					auto result = database_record::create(dimension_, const_cast<std::uint8_t*>(offset));
+
+					inner.emplace_back(database_search_result{ result, similarity });
+				}
+				result.emplace_back(inner);
+			}
+			return result;
 		}
 	private:
 		int dimension_;
@@ -67,7 +90,7 @@ namespace glasssix::irisviel
 		const std::vector<database_feature_observer::feature>* current_data_;
 	};
 
-	nsg_search_impl::nsg_search_impl(int dimension) : impl_{ std::make_unique<impl>(dimension) }
+	nsg_search_impl::nsg_search_impl(int dimension,std::string path) : impl_{ std::make_unique<impl>(dimension) }
 	{
 	}
 
@@ -100,13 +123,26 @@ namespace glasssix::irisviel
 		impl_->current_data(data);
 	}
 
-	vector2d<std::tuple<std::uint32_t, float>> nsg_search_impl::search_vector(const std::vector<const float*>& query_data, std::optional<float> min_similarity, std::optional<std::uint32_t> top_k) const
+	std::vector<std::vector<database_search_result>>  nsg_search_impl::search_vector(const std::vector<const float*>& query_data, std::optional<float> min_similarity, std::optional<std::uint32_t> top_k) const
 	{
 		return impl_->search_vector(query_data, min_similarity, top_k);
 	}
+	void nsg_search_impl::add(database_record& record)
+	{
+	}
+
+	void nsg_search_impl::remove(std::vector<std::string>& keys)
+	{
+	}
+
+
+	void nsg_search_impl::update(const std::vector<std::shared_ptr<database_record>>& records)  const
+	{
+	}
+
 
 	namespace
 	{
-		int register_hint = (register_feature_searcher(face_service_implemention::nsg_algorithm, [](int dimension) { return std::make_shared<nsg_search_impl>(dimension); }), int{});
+		int register_hint = (register_feature_searcher(face_service_implemention::nsg_algorithm, [](int dimension, std::string path) { return std::make_shared<nsg_search_impl>(dimension, path); }), int{});
 	}
 }

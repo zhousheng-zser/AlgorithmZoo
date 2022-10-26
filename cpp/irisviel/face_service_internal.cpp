@@ -26,15 +26,17 @@ namespace glasssix
 			const fs::path cache_folder{ "tmp" };
 			const fs::path database_folder{ "data" };
 			const fs::path database_extension{ ".map" };
+			const fs::path lsh_folder{ "LSH_bucket" };
 		}
 
 		class face_service_internal::impl
 		{
 		public:
-			impl(face_service_implemention implementation, int single_database_capacity, int dimension, const fs::path& working_directory) : dimension_ { dimension }, single_database_capacity_{ single_database_capacity }, database_directory_{ working_directory / database_folder }, cache_directory_{ working_directory / cache_folder }, implementation_{ implementation }
+			impl(face_service_implemention implementation, int single_database_capacity, int dimension, const fs::path& working_directory) : dimension_ { dimension }, single_database_capacity_{ single_database_capacity }, database_directory_{ working_directory / database_folder }, cache_directory_{ working_directory / cache_folder }, lsh_directory_{ working_directory / lsh_folder }, implementation_{ implementation }
 			{
 				utils::safe_create_directories(database_directory_);
 				utils::safe_create_directories(cache_directory_);
+				utils::safe_create_directories(lsh_directory_);
 			}
 
 			int dimension() const noexcept
@@ -52,19 +54,35 @@ namespace glasssix
 				return cache_directory_.string();
 			}
 
+			std::string lsh_directory() const
+			{
+				return lsh_directory_.string();
+			}
+
 			void load_databases()
 			{
 				std::error_code code;
 				std::scoped_lock guard{ lock_ };
 
-				for (auto& item : fs::directory_iterator{ database_directory_, fs::directory_options::skip_permission_denied, code })
+				if (implementation_ == face_service_implemention::lsh_algorithm)
 				{
-					if (item.path().filename().extension() == database_extension)
+					std::ofstream fp(lsh_directory() + "\\data.map", std::fstream::out | std::ios::app);
+					fp.close();  //Generate empty files for compatibility with other algorithms
+					auto cache = create_new_database_core(lsh_directory()+"\\data.map");
+					
+					cache->wrapper->build(false);
+				}
+				else
+				{
+					for (auto& item : fs::directory_iterator{ database_directory_, fs::directory_options::skip_permission_denied, code })
 					{
-						auto cache = create_new_database_core(item.path().string());
+						if (item.path().filename().extension() == database_extension)
+						{
+							auto cache = create_new_database_core(item.path().string());
 
-						// Builds the existing database.
-						cache->wrapper->build(false);
+							// Builds the existing database.
+							cache->wrapper->build(false);
+						}
 					}
 				}
 			}
@@ -113,6 +131,7 @@ namespace glasssix
 				// Removes all remaining contents.
 				utils::safe_remove_directories(cache_directory_);
 				utils::safe_remove_directories(database_directory_);
+				utils::safe_remove_directories(lsh_directory_);
 			}
 
 			std::vector<database_search_result> search(const float* feature, std::uint32_t top)
@@ -130,31 +149,65 @@ namespace glasssix
 				std::scoped_lock guard{ lock_ };
 				std::unordered_set<std::shared_ptr<database_cache>> changed_databases;
 
-				for (auto& record : records)
+				if (implementation_ == face_service_implemention::lsh_algorithm)
 				{
-					auto item = find_available_database_core(record->key());
-
-					if (item && item->manager->add(*record))
+					for (auto& record : records)
 					{
-						changed_databases.emplace(std::move(item));
+						auto& item = *cache_.begin();
+						item->wrapper->add(*record);
 					}
 				}
-
-				// Builds the changed databases.
-				for (auto& item : changed_databases)
+				else
 				{
-					item->commit();
+					for (auto& record : records)
+					{
+						auto item = find_available_database_core(record->key());
+						std::string _key(record->key());
+
+						if (item && item->manager->add(*record))
+						{
+							changed_databases.emplace(std::move(item));
+						}
+					}
+
+					// Builds the changed databases.
+					for (auto& item : changed_databases)
+					{
+						item->commit();
+					}
 				}
 			}
 
 			void add(database_record& record)
 			{
 				std::scoped_lock guard{ lock_ };
-				auto item = find_available_database_core(record.key());
 
-				if (item && item->manager->add(record))
+				if (implementation_ == face_service_implemention::lsh_algorithm)
 				{
-					item->commit();
+					auto& item = *cache_.begin();
+					item->wrapper->add(record);
+				}
+				else
+				{
+					auto item = find_available_database_core(record.key());
+					if (item && item->manager->add(record) )
+					{
+						item->commit();
+					}
+				}
+			}
+
+			void remove(std::vector<std::string>& keys)
+			{
+				std::scoped_lock guard{ lock_ };
+				if (implementation_ == face_service_implemention::lsh_algorithm)
+				{
+					auto &item = *cache_.begin();
+					item->wrapper->remove(keys);
+				}
+				else
+				{
+					remove_if_core([&](database_cache& item) { return std::count_if(keys.begin(), keys.end(), [&](const std::string& key) { return item.manager->remove(key) && !item.manager->empty(); }) > 0; });
 				}
 			}
 
@@ -163,13 +216,6 @@ namespace glasssix
 				std::scoped_lock guard{ lock_ };
 
 				remove_if_core([&](database_cache& item) { return item.manager->remove(key) && !item.manager->empty(); });
-			}
-
-			void remove(const std::vector<std::string>& keys)
-			{
-				std::scoped_lock guard{ lock_ };
-
-				remove_if_core([&](database_cache& item) { return std::count_if(keys.begin(), keys.end(), [&](const std::string& key) { return item.manager->remove(key) && !item.manager->empty(); }) > 0; });
 			}
 
 			void update(database_record& record)
@@ -189,13 +235,22 @@ namespace glasssix
 			{
 				std::scoped_lock guard{ lock_ };
 
-				for (auto& item : cache_)
+				if (implementation_ == face_service_implemention::lsh_algorithm)
 				{
-					std::ptrdiff_t count = std::count_if(records.begin(), records.end(), [&](const std::shared_ptr<database_record>& record) { return item->manager->update(*record); });
-
-					if (count > 0)
+					// TODO    
+					auto& item = *cache_.begin();
+					item->wrapper->update(records);
+				}
+				else
+				{
+					for (auto& item : cache_)
 					{
-						item->commit();
+						std::ptrdiff_t count = std::count_if(records.begin(), records.end(), [&](const std::shared_ptr<database_record>& record) { return item->manager->update(*record); });
+
+						if (count > 0)
+						{
+							item->commit();
+						}
 					}
 				}
 			}
@@ -205,6 +260,7 @@ namespace glasssix
 				std::scoped_lock guard{ lock_ };
 				std::vector<database_search_result> result;
 
+				
 				for (auto& item : cache_)
 				{
 					auto search_result = item->wrapper->search(feature, similarity, top);
@@ -266,6 +322,7 @@ namespace glasssix
 
 				utils::safe_create_directories(cache_directory_);
 				utils::safe_create_directories(database_directory_);
+				utils::safe_create_directories(lsh_directory_);
 
 				// Generates a new empty database.
 				auto uuid = boost::uuids::to_string(boost::uuids::random_generator{}());
@@ -278,7 +335,7 @@ namespace glasssix
 			std::shared_ptr<database_cache> create_new_database_core(std::string_view path)
 			{
 				auto manager = std::make_shared<database_manager>(path, single_database_capacity_, dimension_);
-				auto wrapper = std::make_shared<database_business_wrapper>(implementation_, manager->create_feature_observer(), path, cache_directory_.string());
+				auto wrapper = std::make_shared<database_business_wrapper>(implementation_, manager->create_feature_observer(), path, cache_directory_.string(), lsh_directory_.string());
 
 				return cache_.emplace_back(std::make_shared<database_cache>(std::move(manager), std::move(wrapper)));
 			}
@@ -289,6 +346,7 @@ namespace glasssix
 			std::mutex lock_;
 			fs::path cache_directory_;
 			fs::path database_directory_;
+			fs::path lsh_directory_;
 			face_service_implemention implementation_;
 			std::list<std::shared_ptr<database_cache>> cache_;
 		};
@@ -324,6 +382,11 @@ namespace glasssix
 		std::string face_service_internal::cache_directory() const
 		{
 			return impl_->cache_directory();
+		}
+
+		std::string face_service_internal::lsh_directory() const
+		{
+			return impl_->lsh_directory();
 		}
 
 		void face_service_internal::load_databases()
@@ -371,7 +434,7 @@ namespace glasssix
 			impl_->remove(key);
 		}
 
-		void face_service_internal::remove(const std::vector<std::string>& keys)
+		void face_service_internal::remove(std::vector<std::string>& keys)
 		{
 			impl_->remove(keys);
 		}

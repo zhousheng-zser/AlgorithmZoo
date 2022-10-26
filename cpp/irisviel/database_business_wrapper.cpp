@@ -25,7 +25,7 @@ namespace glasssix
 		class database_business_wrapper::impl
 		{
 		public:
-			impl(face_service_implemention implementation, const std::shared_ptr<database_feature_observer>& observer, const fs::path& map_file_path, const fs::path& cache_directory) : valid_state_{}, mark_for_deletion_{}, map_file_path_{ map_file_path }, cache_file_path_{ cache_directory / map_file_path_.filename().replace_extension(cache_extension) }, cache_directory_{ cache_directory }, implementation_{ implementation }, observer_{ observer }
+			impl(face_service_implemention implementation, const std::shared_ptr<database_feature_observer>& observer, const fs::path& map_file_path, const fs::path& cache_directory, const fs::path& lsh_directory) : valid_state_{}, mark_for_deletion_{}, map_file_path_{ map_file_path }, cache_file_path_{ cache_directory / map_file_path_.filename().replace_extension(cache_extension) }, cache_directory_{ cache_directory }, implementation_{ implementation }, observer_{ observer }, lsh_directory_{ lsh_directory }
 			{
 			}
 
@@ -49,13 +49,8 @@ namespace glasssix
 
 			bool build(bool rebuild)
 			{
+
 				current_data_ = (*observer_)();
-
-				if (current_data_.size() < 1)
-				{
-					return false;
-				}
-
 				auto safe_handler = [&](auto&& handler)
 				{
 					valid_state_ = false;
@@ -76,6 +71,21 @@ namespace glasssix
 						return false;
 					}
 				};
+				if (implementation_ == face_service_implemention::lsh_algorithm)
+				{
+
+					if (!safe_handler([&] { searcher_ = make_shared_feature_searcher(implementation_, observer_->dimension(), lsh_directory_.string()); }))
+					{
+						return false;
+					}
+					return true;
+				}
+
+
+				if (current_data_.size() < 1)
+				{
+					return false;
+				}
 
 				auto dimension = observer_->dimension();
 
@@ -125,6 +135,36 @@ namespace glasssix
 				return true;
 			}
 
+			void add(database_record &record) 
+			{
+				if (!searcher_)
+				{
+					printf("searcher_ ==0 \n");
+					return;
+				}
+				searcher_->add(record);
+			}
+
+			void remove(std::vector<std::string>& keys)
+			{
+				if (!searcher_)
+				{
+					printf("searcher_ ==0 \n");
+					return;
+				}
+				searcher_->remove(keys);
+			}
+			
+			void update(const std::vector<std::shared_ptr<database_record>>& records) const
+			{
+				if (!searcher_)
+				{
+					printf("searcher_ ==0 \n");
+					return;
+				}
+				searcher_->update(records);
+			}
+
 			std::vector<database_search_result> search(const float* feature, std::optional<float> min_similarity, std::optional<std::uint32_t> top) const
 			{
 				auto result = search_many({ feature }, min_similarity, top);
@@ -143,38 +183,38 @@ namespace glasssix
 					return result;
 				}
 
-				if (current_data_.size() < 1 || !searcher_)
+				if (face_service_implemention::lsh_algorithm != implementation_ &&( current_data_.size() < 1 || !searcher_ ))
 				{
 					return result;
 				}
+				result = searcher_->search_vector(features, min_similarity, top);
 
-				auto raw_search_result = searcher_->search_vector(features, min_similarity, top);
+				//auto raw_search_result = searcher_->search_vector(features, min_similarity, top);
 
-				for (auto&& item : raw_search_result)
-				{
-					std::vector<database_search_result> inner;
+				//for (auto&& item : raw_search_result)
+				//{
+				//	std::vector<database_search_result> inner;
 
-					for (auto&& [index, similarity] : item)
-					{
-						if (current_data_.size() == 1)
-						{
-							index = std::min(index, 0U);
-						}
+				//	for (auto&& [index, similarity] : item)
+				//	{
+				//		if (current_data_.size() == 1)
+				//		{
+				//			index = std::min(index, 0U);
+				//		}
+				//		if (index >= current_data_.size())
+				//		{
+				//			continue;
+				//		}
 
-						if (index >= current_data_.size())
-						{
-							continue;
-						}
+				//		// Retrieve the orginal data in the mapping file.
+				//		auto offset = reinterpret_cast<const std::uint8_t*>(current_data_[index].data) - database_record::feature_offset(dimension);
+				//		auto result = database_record::create(dimension, const_cast<std::uint8_t*>(offset));
 
-						// Retrieve the orginal data in the mapping file.
-						auto offset = reinterpret_cast<const std::uint8_t*>(current_data_[index].data) - database_record::feature_offset(dimension);
-						auto result = database_record::create(dimension, const_cast<std::uint8_t*>(offset));
+				//		inner.emplace_back(database_search_result{ result, similarity });
+				//	}
 
-						inner.emplace_back(database_search_result{ result, similarity });
-					}
-
-					result.emplace_back(inner);
-				}
+				//	result.emplace_back(inner);
+				//}
 
 				return result;
 			}
@@ -188,13 +228,14 @@ namespace glasssix
 			fs::path map_file_path_;
 			fs::path cache_file_path_;
 			fs::path cache_directory_;
+			fs::path lsh_directory_;
 			face_service_implemention implementation_;
 			std::shared_ptr<feature_searcher> searcher_;
 			std::shared_ptr<database_feature_observer> observer_;
 			std::vector<database_feature_observer::feature> current_data_;
 		};
 
-		database_business_wrapper::database_business_wrapper(face_service_implemention implementation, const std::shared_ptr<database_feature_observer>& observer, std::string_view map_file_path, std::string_view cache_directory) : impl_{ std::make_unique<impl>(implementation, observer, utils::path_from_string_view(map_file_path), utils::path_from_string_view(cache_directory)) }
+		database_business_wrapper::database_business_wrapper(face_service_implemention implementation, const std::shared_ptr<database_feature_observer>& observer, std::string_view map_file_path, std::string_view cache_directory, std::string_view lsh_directory) : impl_{ std::make_unique<impl>(implementation, observer, utils::path_from_string_view(map_file_path), utils::path_from_string_view(cache_directory),utils::path_from_string_view(lsh_directory)) }
 		{
 		}
 
@@ -225,6 +266,19 @@ namespace glasssix
 		std::vector<std::vector<database_search_result>> database_business_wrapper::search_many(const std::vector<const float*>& features, std::optional<float> min_similarity, std::optional<std::uint32_t> top) const
 		{
 			return impl_->search_many(features, min_similarity, top);
+		}
+		void database_business_wrapper::add(database_record& record)
+		{
+			impl_->add(record);
+		}
+
+		void database_business_wrapper::remove(std::vector<std::string>& keys)
+		{
+			impl_->remove(keys);
+		}
+		void database_business_wrapper::update(const std::vector<std::shared_ptr<database_record>>& records) const
+		{
+			impl_->update(records);
 		}
 	}
 }

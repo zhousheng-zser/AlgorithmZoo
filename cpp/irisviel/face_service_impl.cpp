@@ -94,6 +94,11 @@ namespace glasssix::irisviel
 		return exposing::to_param_string(impl_->cache_directory());
 	}
 
+	exposing::param_string face_service_impl::lsh_directory() const
+	{
+		return exposing::to_param_string(impl_->lsh_directory());
+	}
+
 	void face_service_impl::load_databases() const
 	{
 		impl_->load_databases();
@@ -121,7 +126,10 @@ namespace glasssix::irisviel
 
 	void face_service_impl::add_record(const record& record) const
 	{
-		impl_->add(*create_internal_record(record));
+		//   impl_->add(*create_internal_record(record));
+		std::vector<std::shared_ptr<database_record>> internal_records;
+		internal_records.emplace_back(create_internal_record(record));
+		impl_->add(internal_records);
 	}
 
 	void face_service_impl::add_records(const exposing::param_vector<record>& records) const
@@ -138,7 +146,12 @@ namespace glasssix::irisviel
 
 	void face_service_impl::remove_record(const exposing::param_string& key) const
 	{
-		impl_->remove(exposing::to_narrow_string(key));
+		std::string _key(key);
+		std::vector<std::string>keys;
+		keys.emplace_back(_key);
+		
+		//impl_->remove(exposing::to_narrow_string(key));
+		impl_->remove(keys);
 	}
 
 	void face_service_impl::remove_records(const exposing::param_vector<exposing::param_string>& keys) const
@@ -155,7 +168,11 @@ namespace glasssix::irisviel
 
 	void face_service_impl::update_record(const record& record) const
 	{
-		impl_->update(*create_internal_record(record));
+		//impl_->update(*create_internal_record(record));
+		
+		std::vector<std::shared_ptr<database_record>> internal_records;
+		internal_records.emplace_back(create_internal_record(record));
+		impl_->update(internal_records);
 	}
 
 	void face_service_impl::update_records(const exposing::param_vector<record>& records) const
@@ -199,6 +216,7 @@ namespace glasssix::irisviel
 
 	exposing::param_vector<search_result> face_service_impl::search(exposing::param_span<const float> feature, std::uint32_t top_count_to_retrieve) const
 	{
+
 		check_dimension(feature, dimension());
 
 		auto internal_result = impl_->search(feature.data(), top_count_to_retrieve);
