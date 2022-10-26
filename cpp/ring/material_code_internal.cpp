@@ -1081,7 +1081,7 @@ namespace glasssix::ring
                 {"box_thresh",  param_map.count("box_thresh") ? param_map["box_thresh"] : 0.6},
                 {"min_size", param_map.count("min_size") ? param_map["min_size"] : 3},
                 {"max_candidates", param_map.count("max_candidates") ? param_map["max_candidates"] : 1000},
-                {"unclip_ratio", param_map.count("unclip_ratio") ? param_map["unclip_ratio"] : 1.1} };
+                {"unclip_ratio", param_map.count("unclip_ratio") ? param_map["unclip_ratio"] : 1.3} };
 
             det_post_process_bar(output, params, boxes_rect, scores, sizes);
 
