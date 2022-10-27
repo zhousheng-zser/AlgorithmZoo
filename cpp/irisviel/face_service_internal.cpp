@@ -260,7 +260,7 @@ namespace glasssix
 				std::scoped_lock guard{ lock_ };
 				std::vector<database_search_result> result;
 
-				
+
 				for (auto& item : cache_)
 				{
 					auto search_result = item->wrapper->search(feature, similarity, top);
@@ -270,6 +270,8 @@ namespace glasssix
 						std::copy(search_result.begin(), search_result.end(), std::back_inserter(result));
 					}
 				}
+				if (face_service_implemention::lsh_algorithm == implementation_)
+					return result;
 
 				std::sort(result.begin(), result.end(), [](const database_search_result& left, const database_search_result& right) { return left.similarity > right.similarity; });
 

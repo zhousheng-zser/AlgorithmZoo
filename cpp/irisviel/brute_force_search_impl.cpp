@@ -56,9 +56,8 @@ namespace glasssix::irisviel
 						continue;
 					}
 					// Retrieve the orginal data in the mapping file.
-					auto offset = reinterpret_cast<const std::uint8_t*>((current_data_ + index)->data()) - database_record::feature_offset(dimension_);
+					auto offset = reinterpret_cast<const std::uint8_t*>((*current_data_)[index].data) - database_record::feature_offset(dimension_);
 					auto result = database_record::create(dimension_, const_cast<std::uint8_t*>(offset));
-
 					inner.emplace_back(database_search_result{ result, similarity });
 				}
 				result.emplace_back(inner);
