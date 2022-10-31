@@ -36,7 +36,7 @@ namespace glasssix::heimdall
         {2, "hot_rolled_det_lite", "hot_rolled_rec_lite", "hot_material_angle", ""},
         {3, "cool_rolled_det_lite", "cool_rolled_rec_lite", "", ""},
         {4, "heavy_rail_det_lite", "heavy_rail_rec_lite", "hot_material_angle", ""},
-        {5, "heavy_rail_det_lite", "heavy_rail_segment", "hot_material_angle", "heavy_rail_category"},
+        {5, "heavy_rail_det_lite", "heavy_rail_segment", "heavy_rail_angle", "heavy_rail_category"},
         {6, "cool_rolled_det_medium", "segment_char_simp_3", "singel_char_classfi_simp", ""},
         {7, "cool_rolled_det_medium", "segment_char_simp_3", "cool_rolled_category", ""},
         {8, "bar_det_lite", "bar_segment", "bar_angle", "bar_category"}}
@@ -756,8 +756,9 @@ namespace glasssix::heimdall
             return std::vector<float>{(float)idx, prob};
         }
 
-        std::vector<float> angel_infer(cv::Mat &cut_img, excalibur::pipeline<float>& angle_instance_)
+        std::vector<float> angel_infer(cv::Mat &img, excalibur::pipeline<float>& angle_instance_)
         {
+            cv::Mat cut_img = img.clone();
             float ratio = 32.f / cut_img.rows;
             cv::resize(cut_img, cut_img, cv::Size(0, 0), ratio, ratio, cv::INTER_LINEAR);
             // convert from mat to tensor
@@ -774,6 +775,22 @@ namespace glasssix::heimdall
             //{
             //    input_data[i] = (input_data[i] / 255.f - 0.5) / 0.5;
             //}
+            std::unordered_map<std::string, std::shared_ptr<memory::tensor<float>>> out = angle_instance_.forward(input_tensor);
+            std::shared_ptr<memory::tensor<float>> result = out["output"];
+            return angel_postprocess(result);
+        }
+
+        std::vector<float> angel_infer_short(cv::Mat &img, excalibur::pipeline<float>& angle_instance_)
+        {
+            cv::Mat cut_img = img.clone();
+            float ratio = 32.f / cut_img.rows;
+            cv::resize(cut_img, cut_img, cv::Size(0, 0), ratio, ratio, cv::INTER_LINEAR);
+            std::shared_ptr<memory::tensor<uint8_t>> input(new memory::tensor<uint8_t>(cut_img.channels(), cut_img.rows, cut_img.cols, -1, memory::NHWC, nullptr));
+            std::copy(cut_img.data, cut_img.data + cut_img.step[0] * cut_img.rows, input->mutable_cpu_data());
+            input->convert_order();
+            if (input->width() < 160)
+                excalibur::make_border(input, input, 0, 0, 0, 160 - input->width(), excalibur::border_constant);
+            auto input_tensor = input | memory::tensor_convert_to<float>;
             std::unordered_map<std::string, std::shared_ptr<memory::tensor<float>>> out = angle_instance_.forward(input_tensor);
             std::shared_ptr<memory::tensor<float>> result = out["output"];
             return angel_postprocess(result);
@@ -1116,8 +1133,7 @@ namespace glasssix::heimdall
                 }
 
                 bool inverse = false;
-                auto cut_img_angle = cut_img.clone();
-                std::vector<float> res_vec = angel_infer(cut_img_angle, *instance_[2]);
+                std::vector<float> res_vec = angel_infer(cut_img, *instance_[2]);
                 // 0: The character direction is inverse  1: The character direction is positive
                 if (res_vec[0] == 0)
                 {
@@ -1269,10 +1285,9 @@ namespace glasssix::heimdall
                     cut_img = rotateAntiClockWise90(cut_img);
                     rotate = true;
                 }
-
                 bool inverse = false;
                 timer_start = std::chrono::system_clock::now(); //timer
-                std::vector<float> res_vec = angel_infer(cut_img, *instance_[2]);
+                std::vector<float> res_vec = angel_infer_short(cut_img, *instance_[2]);
                 angle_timer.push_back(std::chrono::duration_cast<std::chrono::milliseconds>(std::chrono::system_clock::now() - timer_start).count()); //timer
                 // 0: The character direction is inverse  1: The character direction is positive
                 if (res_vec[0] == 0)
