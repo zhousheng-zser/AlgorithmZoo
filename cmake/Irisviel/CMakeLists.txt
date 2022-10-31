@@ -5,8 +5,6 @@ file(GLOB header ${CMAKE_CURRENT_SOURCE_DIR}/../../cpp/irisviel/*.hpp)
 
 add_library(${module_name} SHARED ${src} ${header})
 
-find_package(jsoncpp CONFIG REQUIRED)
-target_link_libraries(${module_name} PRIVATE jsoncpp_lib jsoncpp_object JsonCpp::JsonCpp)
 if(COSINE_DISTANCE)
 	target_compile_definitions(${module_name} PRIVATE -DCOSINE_DISTANCE)
 endif()

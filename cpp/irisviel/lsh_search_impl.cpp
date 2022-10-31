@@ -14,7 +14,7 @@
 #include <io.h>
 #include <immintrin.h>
 #include <vector>
-#include <json/json.h>
+#include "nlohmann/json.hpp"
 #include <ctime>
 
 const int group_sum = 16;
@@ -65,17 +65,17 @@ namespace glasssix::irisviel
 
         void add(database_record& record)
         {
-            Json::Value temp_feature;
+            nlohmann::json temp_feature;
             temp_feature.clear();
 
             exposing::param_span<const float> x = record.feature();
 
             for (int i = 0; i < dimension_; i++)
             {
-                temp_feature["feature"][i] = Json::Value(x[i]);
+                temp_feature["feature"][i] = x[i];
             }
             std::string _key(record.key());
-            temp_feature["key"] = Json::Value(_key);
+            temp_feature["key"] = _key;
             LSH_addRecord(temp_feature, dimension_);
         }
 
@@ -96,7 +96,6 @@ namespace glasssix::irisviel
         {
             for (auto& record : records)
             {
-                Json::Value temp_feature;
                 std::string _key(record->key());
                 LSH_removeRecord(_key);
             }
@@ -105,13 +104,13 @@ namespace glasssix::irisviel
 
             for (auto& record : records)
             {
-                Json::Value temp_feature;
+                nlohmann::json temp_feature;
                 std::string _key(record->key());
-                temp_feature["key"] = Json::Value(_key);
+                temp_feature["key"] = _key;
                 exposing::param_span<const float> x = record->feature();
                 for (int i = 0; i < dimension_; i++)
                 {
-                    temp_feature["feature"][i] = Json::Value(x[i]);
+                    temp_feature["feature"][i] = x[i];
                 }
                 LSH_addRecord(temp_feature, dimension_);
             }
@@ -140,13 +139,13 @@ namespace glasssix::irisviel
             test.key_id.erase(_key);
         }
 
-        void LSH_addRecord(Json::Value& temp_feature, int dimension)
+        void LSH_addRecord(nlohmann::json &temp_feature, int dimension)
         {
             std::vector<float>feature_float;
             for (int i = 0; i < dimension; i++)
-                feature_float.push_back(temp_feature["feature"][i].asFloat());
-            std::string _key = temp_feature["key"].asString();
-            Json::Value mini_feature;
+                feature_float.push_back(temp_feature["feature"][i].get<float>());
+            std::string _key = temp_feature["key"].get<std::string>();
+            nlohmann::json mini_feature;
             mini_feature["key"] = temp_feature["key"];
 
             if (test.key_id.count(_key))
@@ -175,14 +174,14 @@ namespace glasssix::irisviel
             fp.open(BucketListName, std::ios::in);
             if (!fp)////  no normal_vector.json file , clear
             {
-                Json::Value temp;
+                nlohmann::json temp;
                 for (int k = 0; k < group_sum; k++)
                 {
                     for (int i = 0; i < normal_vec_sum; i++)
                     {
                         for (int j = 0; j < dimension_max; j++)
                         {
-                            temp[k][i][j] = Json::Value(test.normal_vector[k][i][j]);
+                            temp[k][i][j] = test.normal_vector[k][i][j];
                         }
                     }
                 }
@@ -196,7 +195,7 @@ namespace glasssix::irisviel
             }
             else
             {
-                Json::Value temp;
+                nlohmann::json temp;
                 ReadJsonFile_NormalVector(BucketListName, temp);
 
                 for (int k = 0; k < group_sum; k++)
@@ -206,7 +205,7 @@ namespace glasssix::irisviel
                         test.normal_vector[k][i].clear();
                         for (int j = 0; j < dimension_max; j++)
                         {
-                            test.normal_vector[k][i].push_back(temp[k][i][j].asFloat());
+                            test.normal_vector[k][i].push_back(temp[k][i][j].get<float>());
                         }
                     }
                 }
@@ -228,20 +227,18 @@ namespace glasssix::irisviel
             std::ifstream fp;
             fp.open(test.path + "/" + std::to_string(bucket_id) + ".json", std::ios::binary);
             std::string result_str;
-            Json::Reader reader(Json::Features::strictMode());
-            Json::Value result;
+            nlohmann::json result;
             int i = 0;
-            std::vector<Json::Value >write_data;
+            std::vector<nlohmann::json>write_data;
 
-            Json::FastWriter writer;
             while (std::getline(fp, result_str))
             {
                 if (result_str.length() == 0)
                     break;
                 result.clear();
-                reader.parse(result_str, result);
+                result = nlohmann::json::parse(result_str);
 
-                std::string _key = result["key"].asString();
+                std::string _key = result["key"].get<std::string>();
 
                 while (i < test.set[bucket_id].key.size())
                 {
@@ -266,21 +263,20 @@ namespace glasssix::irisviel
 
             std::ofstream fpo(test.path + "/" + std::to_string(bucket_id) + ".json", std::fstream::out | std::ios::app);
             for (int i = 0; i < write_data.size(); i++)
-                fpo << writer.write(write_data[i]);
+                fpo << write_data[i].dump()<< "\n";
             fpo.close();
             test.set[bucket_id].active = false;
         }
 
-        void  ReadJsonFile_NormalVector(std::string path, Json::Value& result)// Read Norma lVector
+        void  ReadJsonFile_NormalVector(std::string path, nlohmann::json &result)// Read Norma lVector
         {
             std::ifstream fp;
             fp.open(path, std::ios::binary);
             std::string result_str;
             std::getline(fp, result_str);
-            Json::Reader reader(Json::Features::strictMode());
 
             result.clear();
-            reader.parse(result_str, result);
+            result= nlohmann::json::parse(result_str);
             fp.close();
         }
 
@@ -299,8 +295,7 @@ namespace glasssix::irisviel
             std::ifstream fp;
             fp.open(path, std::ios::binary);
             std::string result_str;
-            Json::Reader reader(Json::Features::strictMode());
-            Json::Value result;
+            nlohmann::json result;
             while (std::getline(fp, result_str))
             {
                 if (result_str.length() == 0)
@@ -308,14 +303,14 @@ namespace glasssix::irisviel
                     break;
                 }
                 result.clear();
-                reader.parse(result_str, result);
+                result=nlohmann::json::parse(result_str);
 
                 int len = result["feature"].size();
                 std::vector<float> _feature;
                 for (int k = 0; k < len; k++)
-                    _feature.push_back(result["feature"][k].asFloat());
+                    _feature.push_back(result["feature"][k].get<float>());
 
-                std::string _key = result["key"].asString();
+                std::string _key = result["key"].get<std::string>();
                 LSH_addRecordTobucket(id, _key, _feature);
             }
             fp.close();
@@ -328,13 +323,12 @@ namespace glasssix::irisviel
             fp.close();
         }
 
-        void WriteJsonFile(std::string path, Json::Value& data)// app write
+        void WriteJsonFile(std::string path, nlohmann::json &data)// app write
         {
             std::ofstream fp(path, std::fstream::out | std::ios::app);
-            Json::FastWriter writer;
 
             if (!data.empty())
-                fp << writer.write(data);
+                fp << data.dump()<<"\n";
             else
                 fp << "";
             fp.close();
@@ -454,10 +448,10 @@ namespace glasssix::irisviel
 
         std::vector<database_search_result> LSH_searchTobucket(int dimension, int top, std::vector<float>& _feature, double similarity)
         {
-            Json::Value temp;
+            nlohmann::json temp;
             std::vector<database_search_result> result;
 
-            std::priority_queue<Json::Value, std::vector<Json::Value >, JsonCmp >q;
+            std::priority_queue<nlohmann::json, std::vector<nlohmann::json>, JsonCmp >q;
             std::unordered_map<std::string, bool >symbol;
             symbol.clear();
             result.reserve(top);
@@ -486,12 +480,12 @@ namespace glasssix::irisviel
                     {
                         int len = test.set[x].feature[y].size();
                         temp.clear();
-                        temp["data"]["key"] = Json::Value(temp_string);
+                        temp["data"]["key"] = temp_string;
                         for (int j = 0; j < len; j++)
                         {
-                            temp["data"]["feature"][j] = Json::Value(test.set[x].feature[y][j]);
+                            temp["data"]["feature"][j] = test.set[x].feature[y][j];
                         }
-                        temp["similarity"] = Json::Value(P);
+                        temp["similarity"] = P;
                         q.push(temp);
                         if (q.size() > top)
                             q.pop();
@@ -506,20 +500,18 @@ namespace glasssix::irisviel
             {
                 temp.clear();
                 temp = q.top();
-                Json::FastWriter wirter;
 
                 auto temp_record = database_record::create(dimension);
 
                 std::vector<float>val;
                 for (int i = 0; i < dimension; i++)
-                    val.push_back(temp["data"]["feature"][i].asFloat());
+                    val.push_back(temp["data"]["feature"][i].get<float>());
 
                 temp_record->feature(val);
-                temp_record->key(temp["data"]["key"].asString());
-                result.emplace_back(database_search_result{ temp_record, temp["similarity"].asFloat() });
+                temp_record->key(temp["data"]["key"].get<std::string>());
+                result.emplace_back(database_search_result{ temp_record, temp["similarity"].get<float>()});
                 q.pop();
             }
-
             return result;
         }
 
@@ -561,9 +553,9 @@ namespace glasssix::irisviel
         struct JsonCmp
         {
             //The small probability is in the top
-            bool operator()(const Json::Value& x, const Json::Value& y)
+            bool operator()(const nlohmann::json &x, const nlohmann::json &y)
             {
-                return x["similarity"].asFloat() > y["similarity"].asFloat();
+                return x["similarity"].get<float>() > y["similarity"].get<float>();
             }
         };
 
