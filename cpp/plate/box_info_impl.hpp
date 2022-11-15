@@ -21,7 +21,6 @@ namespace glasssix::plate
         float height() const;
         exposing::param_string strinfos() const;
         exposing::param_vector<std::uint8_t> aligned_images() const;
-        float confidence() const;
 
         void set_x(float input);
         void set_y(float input);

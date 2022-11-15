@@ -34,11 +34,6 @@ namespace glasssix::plate
 		return internal_.rect.h;
 	}
 
-	float box_info_impl::confidence() const
-	{
-		return internal_.score;
-	}
-
 	exposing::param_string box_info_impl::strinfos() const
 	{
 		return internal_.strinfos;

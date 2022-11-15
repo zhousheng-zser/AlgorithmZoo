@@ -22,10 +22,14 @@ namespace glasssix::plate
 
         exposing::param_string version() const;
 
-        exposing::param_vector<box_info> detect(exposing::param_span<std::uint8_t> bitmap, int channels, int height, int width, int order,
+        exposing::param_vector<plate::box_info> detect(exposing::param_span<std::uint8_t> bitmap, int channels, int height, int width, int order,
             int x, int y, int roi_width, int roi_height, const exposing::param_hash_map<exposing::param_string, float>& param_map_abi) const;
 
-        box_info ocr_code_impl::trace(box_info plate, exposing::param_span<std::uint8_t> bitmap, std::int32_t channels, std::int32_t height, std::int32_t width, std::int32_t order) const;
+        exposing::param_vector<plate::box_info> recognize(exposing::param_span<std::uint8_t> bitmap, int channels, int height, int width, int order) const;
+        
+        void ocr_code_impl::trace_init(exposing::param_span<std::uint8_t> bitmap, int channels, int height, int width, int order, int roi_x, int roi_y, int roi_width, int roi_height) const;
+
+        exposing::param_vector<plate::box_info> ocr_code_impl::trace_update(exposing::param_span<std::uint8_t> bitmap, std::int32_t channels, std::int32_t height, std::int32_t width, std::int32_t order) const;
 
     private:
 
