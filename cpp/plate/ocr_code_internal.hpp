@@ -24,7 +24,7 @@ namespace glasssix::plate
     struct box_info_internal
     {
         anchor_box rect;
-        float score;
+        float confidence = 1.0f;
         exposing::param_string strinfos;
         exposing::param_vector<std::uint8_t> aligned_images;
     };
@@ -48,10 +48,14 @@ namespace glasssix::plate
 
         static std::string version();
 
-        exposing::param_vector<box_info> detect(exposing::param_span<std::uint8_t> bitmap, int channels, int height, int width, int order,
+        exposing::param_vector<plate::box_info> detect(exposing::param_span<std::uint8_t> bitmap, int channels, int height, int width, int order,
             int x, int y, int roi_width, int roi_height, std::map<std::string, float>& param_map) const;
 
-        box_info trace(box_info plate, exposing::param_span<std::uint8_t> bitmap, int channels, int height, int width, int order);
+        exposing::param_vector<plate::box_info> recognize(exposing::param_span<std::uint8_t> bitmap, int channels, int height, int width, int order) const;
+
+        void trace_init(exposing::param_span<std::uint8_t> bitmap, int channels, int height, int width, int order, int roi_x, int roi_y, int roi_width, int roi_height);
+
+        exposing::param_vector<plate::box_info> trace_update(exposing::param_span<std::uint8_t> bitmap, int channels, int height, int width, int order);
 
     private:
         std::unique_ptr<impl> impl_;

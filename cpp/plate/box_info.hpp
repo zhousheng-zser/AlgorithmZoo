@@ -23,7 +23,7 @@ namespace glasssix::exposing::impl
             virtual std::int32_t G6_ABI_CALL y(abi_out_t<float> result) noexcept = 0;
             virtual std::int32_t G6_ABI_CALL width(abi_out_t<float> result) noexcept = 0;
             virtual std::int32_t G6_ABI_CALL height(abi_out_t<float> result) noexcept = 0;
-            virtual std::int32_t G6_ABI_CALL strinfos(abi_out_t<param_string> result) noexcept = 0;
+            virtual std::int32_t G6_ABI_CALL strinfos(abi_out_t<exposing::param_string> result) noexcept = 0;
             virtual std::int32_t G6_ABI_CALL aligned_images(abi_out_t<param_vector<std::uint8_t>> result) noexcept = 0;
 
             virtual std::int32_t G6_ABI_CALL set_x(abi_in_t<float> input) noexcept = 0;
@@ -142,9 +142,9 @@ namespace glasssix::exposing::impl
                 return (check_abi_result(this->self_abi().height(put_abi(result))), result);
             }
 
-            param_vector<param_string> strinfos() const
+            param_string strinfos() const
             {
-                param_vector<param_string> result;
+                param_string result;
 
                 return (check_abi_result(this->self_abi().strinfos(put_abi(result))), result);
             }
