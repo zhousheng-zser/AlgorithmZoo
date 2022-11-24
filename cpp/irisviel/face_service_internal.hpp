@@ -26,6 +26,7 @@ namespace glasssix
 			int dimension() const noexcept;
 			std::string database_directory() const;
 			std::string cache_directory() const;
+			std::string lsh_directory() const;
 			void load_databases();
 			std::uint64_t record_count() const;
 			bool contains_key(std::string_view key) const;
@@ -35,7 +36,7 @@ namespace glasssix
 			void add(database_record& record);
 			void add(const std::vector<std::shared_ptr<database_record>>& records);
 			void remove(std::string_view key);
-			void remove(const std::vector<std::string>& keys);
+			void remove(std::vector<std::string>& keys);
 			void update(database_record& record);
 			void update(const std::vector<std::shared_ptr<database_record>>& records);
 		private:

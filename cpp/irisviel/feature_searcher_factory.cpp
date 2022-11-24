@@ -8,7 +8,7 @@ namespace glasssix::irisviel
 	{
 		auto& get_map()
 		{
-			static std::unordered_map<face_service_implemention, std::function<std::shared_ptr<feature_searcher>(int)>> registered_factories;
+			static std::unordered_map<face_service_implemention, std::function<std::shared_ptr<feature_searcher>(int,std::string)>> registered_factories;
 
 			return registered_factories;
 		}
@@ -18,10 +18,17 @@ namespace glasssix::irisviel
 	{
 		auto iter = get_map().find(implementation);
 
-		return iter != get_map().end() ? iter->second(dimension) : nullptr;
+		return iter != get_map().end() ? iter->second(dimension,"") : nullptr;
 	}
 
-	void register_feature_searcher(face_service_implemention implementation, const std::function<std::shared_ptr<feature_searcher>(int)>& shared_maker)
+	std::shared_ptr<feature_searcher> make_shared_feature_searcher(face_service_implemention implementation, int dimension,std::string path)
+	{
+		auto iter = get_map().find(implementation);
+		
+		return (iter != get_map().end()&& face_service_implemention::lsh_algorithm == implementation )? iter->second(dimension,path) : nullptr;
+	}
+
+	void register_feature_searcher(face_service_implemention implementation, const std::function<std::shared_ptr<feature_searcher>(int,std::string)>& shared_maker)
 	{
 		get_map().insert_or_assign(implementation, shared_maker);
 	}
