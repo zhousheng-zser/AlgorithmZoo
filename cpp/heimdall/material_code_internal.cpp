@@ -524,8 +524,8 @@ namespace glasssix::heimdall
                 }
                 for (int i = 0; i < points.size(); ++i)
                 {
-                    points[i].x = std::min(std::max(points[i].x / width * src_w, 0.f), (const float)src_w);
-                    points[i].y = std::min(std::max(points[i].y / height * src_h, 0.f), (const float)src_h);
+                    points[i].x = std::round(std::min(std::max(points[i].x / width * src_w, 0.f), (const float)src_w));
+                    points[i].y = std::round(std::min(std::max(points[i].y / height * src_h, 0.f), (const float)src_h));
                 }
                 // boxes.insert(boxes.end(), points.begin(), points.end());
                 boxes.push_back(points);
@@ -756,7 +756,7 @@ namespace glasssix::heimdall
             return std::vector<float>{(float)idx, prob};
         }
 
-        std::vector<float> angel_infer(cv::Mat &img, excalibur::pipeline<float>& angle_instance_)
+        std::vector<float> angel_infer(const cv::Mat &img, excalibur::pipeline<float>& angle_instance_)
         {
             cv::Mat cut_img = img.clone();
             float ratio = 32.f / cut_img.rows;
@@ -780,16 +780,20 @@ namespace glasssix::heimdall
             return angel_postprocess(result);
         }
 
-        std::vector<float> angel_infer_short(cv::Mat &img, excalibur::pipeline<float>& angle_instance_)
+        std::vector<float> angel_infer_short(const cv::Mat &img, excalibur::pipeline<float>& angle_instance_)
         {
             cv::Mat cut_img = img.clone();
             float ratio = 32.f / cut_img.rows;
             cv::resize(cut_img, cut_img, cv::Size(0, 0), ratio, ratio, cv::INTER_LINEAR);
+            // make border in OpenCV
+            if (cut_img.cols > 160)
+                cut_img = cv::Mat(cut_img, cv::Rect(0, 0, 160, 32));
+            cv::copyMakeBorder(cut_img, cut_img, 0, 0, 0, 160 - cut_img.cols, cv::BORDER_CONSTANT);
             std::shared_ptr<memory::tensor<uint8_t>> input(new memory::tensor<uint8_t>(cut_img.channels(), cut_img.rows, cut_img.cols, -1, memory::NHWC, nullptr));
             std::copy(cut_img.data, cut_img.data + cut_img.step[0] * cut_img.rows, input->mutable_cpu_data());
             input->convert_order();
-            if (input->width() < 160)
-                excalibur::make_border(input, input, 0, 0, 0, 160 - input->width(), excalibur::border_constant);
+            //if (input->width() < 160)
+            //    excalibur::make_border(input, input, 0, 0, 0, 160 - input->width(), excalibur::border_constant);
             auto input_tensor = input | memory::tensor_convert_to<float>;
             std::unordered_map<std::string, std::shared_ptr<memory::tensor<float>>> out = angle_instance_.forward(input_tensor);
             std::shared_ptr<memory::tensor<float>> result = out["output"];
@@ -1288,6 +1292,7 @@ namespace glasssix::heimdall
                 bool inverse = false;
                 timer_start = std::chrono::system_clock::now(); //timer
                 std::vector<float> res_vec = angel_infer_short(cut_img, *instance_[2]);
+                //std::vector<float> res_vec = angel_infer(cut_img, *instance_[2]); //infer 32 * 320
                 angle_timer.push_back(std::chrono::duration_cast<std::chrono::milliseconds>(std::chrono::system_clock::now() - timer_start).count()); //timer
                 // 0: The character direction is inverse  1: The character direction is positive
                 if (res_vec[0] == 0)
@@ -1320,6 +1325,8 @@ namespace glasssix::heimdall
 							segement_result.pop_back();
                     }
                     segement_result.push_back(roi_temp.cols - 1);
+                    // offset segement point
+                    screen_result_point(segement_result);
 
                     timer_start = std::chrono::system_clock::now(); //timer
                     for (size_t j = 0; j < segement_result.size() - 1; j++)
