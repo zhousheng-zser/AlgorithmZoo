@@ -11,7 +11,6 @@
 #include <iostream>
 #include <algorithm>
 #include <fstream>
-#include <io.h>
 #include <immintrin.h>
 #include <vector>
 #include "nlohmann/json.hpp"
