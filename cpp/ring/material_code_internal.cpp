@@ -8,6 +8,7 @@
 #include "cool_cut_roi.hpp"
 #include "char_segment.hpp"
 #include "char_classfi.hpp"
+#include "con_anneal_segment.hpp"
 
 #include <Excalibur/pipeline.hpp>
 #include <Excalibur/operation_safty_cut.hpp>
@@ -43,11 +44,11 @@ namespace glasssix::ring
         return tensor;
     }
 
-    std::array<std::tuple<int, std::string, std::string, std::string, std::string>, 2> types =
+    std::array<std::tuple<int, std::string, std::string, std::string, std::string>, 3> types =
     {
-        
         { {8, "bar_det_lite", "bar_segment", "bar_angle", "bar_category"},
-          {9, "bar_det_box", "bar_det_orientation", "bar_segment", "bar_category"} }
+          {9, "bar_det_box", "bar_det_orientation", "bar_segment", "bar_category"},
+          {10, "con_anneal_det", "", "", "con_anneal_category"} }
     };
 
     class material_code_internal::impl
@@ -76,6 +77,12 @@ namespace glasssix::ring
                 instance_.emplace_back(std::make_unique<excalibur::pipeline<float>>(hardcode::get_model_params(std::get<1>(*factory)), std::string(model_directory) + "/" + std::get<1>(*factory) + ".racy", device));
                 instance_.emplace_back(std::make_unique<excalibur::pipeline<float>>(hardcode::get_model_params(std::get<2>(*factory)), std::string(model_directory) + "/" + std::get<2>(*factory) + ".racy", device));
                 instance_.emplace_back(std::make_unique<excalibur::pipeline<float>>(hardcode::get_model_params(std::get<3>(*factory)), std::string(model_directory) + "/" + std::get<3>(*factory) + ".racy", device));
+                instance_.emplace_back(std::make_unique<excalibur::pipeline<float>>(hardcode::get_model_params(std::get<4>(*factory)), std::string(model_directory) + "/" + std::get<4>(*factory) + ".racy", device));
+                segement_instance_ = std::make_unique<char_segment>(0.6, 0.25, 8, true);
+                classfi_instance_ = std::make_unique<char_classfi>(label_type::HEAVY_RAIL);
+                break;
+            case 10:
+                instance_.emplace_back(std::make_unique<excalibur::pipeline<float>>(hardcode::get_model_params(std::get<1>(*factory)), std::string(model_directory) + "/" + std::get<1>(*factory) + ".racy", device));
                 instance_.emplace_back(std::make_unique<excalibur::pipeline<float>>(hardcode::get_model_params(std::get<4>(*factory)), std::string(model_directory) + "/" + std::get<4>(*factory) + ".racy", device));
                 segement_instance_ = std::make_unique<char_segment>(0.6, 0.25, 8, true);
                 classfi_instance_ = std::make_unique<char_classfi>(label_type::HEAVY_RAIL);
@@ -110,6 +117,10 @@ namespace glasssix::ring
             else if (factory_type_ == 9)
             {
                 run_bar_2(results, roi, border_orient, param_map, 25);
+            }
+            else if (factory_type_ == 10)
+            {
+                run_con_anneal(results, roi, param_map);
             }
             else
                 return result;
@@ -1217,9 +1228,117 @@ namespace glasssix::ring
             box.strinfos = exposing::make_param_vector<exposing::param_string>();
             box.strinfos.push_back(exposing::param_string(full_stringinfo));//only one
 
-            box.angle = 0;//协议10中angle不用
+            box.angle = 0;
 
             results.push_back(box);
+        }
+
+        void run_con_anneal(std::vector<box_info_internal>& results, std::vector<int>& roi, std::map<std::string, float>& param_map)
+        {
+            // det box infer
+            excalibur::rectangle<int> rect((int)roi[0], (int)roi[1], (int)roi[2], (int)roi[3]);
+            std::shared_ptr<memory::tensor<uint8_t>> input;
+            excalibur::safty_cut_cpu(cache_, input, &rect);
+            cv::Mat input_mat(roi[2], roi[3], CV_8UC3);
+            std::copy(input->cpu_data(), input->cpu_data() + input->count(1, 4), input_mat.data);
+
+            if (input->order() == memory::NHWC)
+                input->convert_order();
+
+            auto [resized_img, ratio] = resize_fixed_size(320, input, 1);
+
+            auto input_tensor = resized_img | memory::tensor_convert_to<float>;
+            std::unordered_map<std::string, std::shared_ptr<memory::tensor<float>>> out = instance_[0]->forward(input_tensor);
+            std::shared_ptr<memory::tensor<float>> output = out["output"];
+
+            std::vector<std::vector<cv::Point2f>> boxes_rect;
+            std::vector<float> scores;
+            std::vector<cv::Size> sizes;
+            std::map<std::string, float> params = {
+                {"thresh", param_map.count("thresh") ? param_map["thresh"] : 0.3},
+                {"box_thresh",  param_map.count("box_thresh") ? param_map["box_thresh"] : 0.3},
+                {"min_size", param_map.count("min_size") ? param_map["min_size"] : 3},
+                {"max_candidates", param_map.count("max_candidates") ? param_map["max_candidates"] : 1000},
+                {"unclip_ratio", param_map.count("unclip_ratio") ? param_map["unclip_ratio"] : 1.7} };
+
+            det_post_process_bar(output, params, boxes_rect, scores, sizes);
+
+            for (size_t i = 0; i < boxes_rect.size(); i++)
+            {
+                auto w = input_tensor->width();
+                auto h = input_tensor->height();
+                for (size_t j = 0; j < boxes_rect[i].size(); j++)
+                {
+                    if (boxes_rect[i][j].x <= 1 || boxes_rect[i][j].x >= input_tensor->width() - 1 || boxes_rect[i][j].y <= 0 || boxes_rect[i][j].y >= input_tensor->height() - 1)
+                    {
+                        return;
+                    }
+                    else
+                    {
+                        boxes_rect[i][j] *= ratio;
+                    }
+                }
+            }
+
+            if (scores.size() == boxes_rect.size() && !boxes_rect.empty())
+            {
+                // optimizing img & segment
+                auto max_score_box = boxes_rect[std::max_element(scores.begin(), scores.end()) - scores.begin()];
+                cv::RotatedRect rect = cv::minAreaRect(max_score_box);
+                cv::Mat cut_img = crop_rect(input_mat, rect, 0);
+                std::vector<cv::Point2f> foot_points = findFoot(cut_img);
+                // check foot_points validity
+                for (cv::Point2f point : foot_points) {
+                    if ((int)point.x * (int)point.y == 0) {
+                        return;
+                    }
+                }
+
+                cut_img = custom_perspective(cut_img, foot_points, 640);
+                bool img_validity = redirectRect(cut_img);
+                if (!img_validity)
+                {
+                    return;
+                }
+                cv::Mat char_box = charBoxDet(cut_img, 280, 360, 94, 421);
+                std::vector<std::pair<int, int>> cord_list = find_segment_img(char_box);
+
+                // classify
+                std::pair<std::vector<std::string>, std::vector<std::vector<float>>> out;
+                std::string stringinfo;
+                std::vector<float> probs;
+                for (auto cord: cord_list)
+                {
+                    cv::Mat small_img = char_box(cv::Range::all(), cv::Range(cord.first, cord.second));
+                    auto [label, prob] = classfi_instance_->detect(small_img, *instance_[1]);
+                    stringinfo.push_back(label);
+                    probs.push_back(prob);
+                }
+                out = std::make_pair<std::vector<std::string>, std::vector<std::vector<float>>>({ stringinfo }, { probs });
+
+                // install
+                box_info_internal box;
+                auto strinfos = exposing::make_param_vector<exposing::param_string>();
+                for (int j = 0; j < out.first.size(); ++j)
+                {
+                    strinfos.push_back(exposing::param_string(out.first[j]));
+                }
+                box.strinfos = strinfos;
+
+                box.cut_roi = exposing::make_param_vector<std::uint8_t>();
+                box.cut_roi.resize(char_box.step[0] * cut_img.rows);
+                box.cut_roi.copy_from({ char_box.data, static_cast<size_t>(char_box.step[0] * char_box.rows) }, 0);
+                box.cut_roi_width = char_box.cols;
+                box.cut_roi_height = char_box.rows;
+                box.angle = 0;
+                auto location = exposing::make_param_vector<float>();
+                for (auto foot : max_score_box) {
+                    location.push_back(foot.x);
+                    location.push_back(foot.y);
+                }
+                box.location = location;
+                results.push_back(box);
+            }
         }
 
     private:
