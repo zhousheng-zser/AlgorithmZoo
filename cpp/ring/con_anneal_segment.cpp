@@ -9,67 +9,64 @@ std::vector<cv::Point2f> findFoot(const cv::Mat& img)
 {
 	cv::Mat gray_mat;
 	cv::Mat canny_mat;
-	cvtColor(img, gray_mat, CV_BGR2GRAY);
-
 	int lowThreshold = 50;
 	int maxThreshold = 100;
 	int kernel_size = 3;
+	cvtColor(img, gray_mat, CV_BGR2GRAY);
 	cv::Canny(gray_mat, canny_mat, lowThreshold, maxThreshold, kernel_size, true);
 
 	std::vector<cv::Point2f> foot_points;
-	rect_corner_points(foot_points, canny_mat);
+	int W = canny_mat.cols;
+	int H = canny_mat.rows;
+	int bias = (W + H) / 4; //bias for expanding search region. value : 0 ~ (W + H) / 4
+	foot_points.push_back(top_left_corner_point(canny_mat, 0, 0, bias));
+	foot_points.push_back(top_right_corner_point(canny_mat, W - 1, 0, bias));
+	foot_points.push_back(bottom_right_corner_point(canny_mat, W - 1, H - 1, bias));
+	foot_points.push_back(bottom_left_corner_point(canny_mat, 0, H - 1, bias));
 
 	return foot_points;
 }
 
-void redirectRect(cv::Mat& img)
+bool redirectRect(cv::Mat& img)
 {
-	if (img.rows == 640 && img.cols == 640)
+	bool img_validity = true;
+	cv::Mat plate_gray;
+	cv::Mat plate_binary_img;
+	cv::cvtColor(img, plate_gray, CV_BGR2GRAY);
+	cv::adaptiveThreshold(plate_gray, plate_binary_img, 255, cv::ADAPTIVE_THRESH_GAUSSIAN_C, cv::THRESH_BINARY, 333, -6);
+	plate_binary_img = cv::Mat(plate_binary_img, cv::Rect(25, 25, 590, 590));
+
+	cv::Mat histogram_vertical;
+	cv::Mat histogram_horizon;
+	cv::reduce(plate_binary_img, histogram_vertical, 1, cv::REDUCE_SUM, CV_32SC1);
+	cv::reduce(plate_binary_img, histogram_horizon, 0, cv::REDUCE_SUM, CV_32SC1);
+	auto waves_vertical = find_waves_by_width_amplitude(histogram_vertical, 146000, 200000, 60, 100);
+	auto waves_horizon = find_waves_by_width_amplitude(histogram_horizon, 146000, 200000, 60, 100);
+
+	if (waves_vertical.first != -1 && waves_horizon.first == -1)
 	{
-		cv::Mat plate_gray;
-		cv::Mat plate_binary_img;
-		cv::cvtColor(img, plate_gray, CV_BGR2GRAY);
-		cv::adaptiveThreshold(plate_gray, plate_binary_img, 255, cv::ADAPTIVE_THRESH_GAUSSIAN_C, cv::THRESH_BINARY, 333, -6);
-		plate_binary_img = cv::Mat(plate_binary_img, cv::Rect(25, 25, 590, 590));
-
-		cv::Mat histogram_vertical;
-		cv::Mat histogram_horizon;
-		cv::reduce(plate_binary_img, histogram_vertical, 1, cv::REDUCE_SUM, CV_32SC1);
-		cv::reduce(plate_binary_img, histogram_horizon, 0, cv::REDUCE_SUM, CV_32SC1);
-		auto waves_vertical = find_waves_by_width_amplitude(histogram_vertical, 144000, 200000, 50, 100);
-		auto waves_horizon = find_waves_by_width_amplitude(histogram_horizon, 144000, 200000, 50, 100);
-
-		if (waves_vertical.first != -1 && waves_horizon.first == -1)
+		if (std::min(waves_vertical.first, waves_vertical.second) > 320)
 		{
-			if (std::min(waves_vertical.first, waves_vertical.second) > 320)
-			{
-				cv::rotate(img, img, cv::ROTATE_180);
-			}
+			cv::rotate(img, img, cv::ROTATE_180);
 		}
-		else if (waves_vertical.first == -1 && waves_horizon.first != -1)
-		{
-			if (std::max(waves_horizon.first, waves_horizon.second) < 320)
-			{
-				cv::rotate(img, img, cv::ROTATE_90_CLOCKWISE);
-			}
-			else if (std::min(waves_horizon.first, waves_horizon.second) > 320)
-			{
-				cv::rotate(img, img, cv::ROTATE_90_COUNTERCLOCKWISE);
-			}
-		}
-
 	}
-}
+	else if (waves_vertical.first == -1 && waves_horizon.first != -1)
+	{
+		if (std::max(waves_horizon.first, waves_horizon.second) < 320)
+		{
+			cv::rotate(img, img, cv::ROTATE_90_CLOCKWISE);
+		}
+		else if (std::min(waves_horizon.first, waves_horizon.second) > 320)
+		{
+			cv::rotate(img, img, cv::ROTATE_90_COUNTERCLOCKWISE);
+		}
+	}
+	else
+	{
+		img_validity = false;
+	}
 
-void rect_corner_points(std::vector<cv::Point2f>& foot_points, cv::Mat& canny_mat)
-{
-	int W = canny_mat.cols;
-	int H = canny_mat.rows;
-	int bias = (W + H) / 14; //bias for expanding search region. value : 0 ~ (W + H) / 4
- 	foot_points.push_back(top_left_corner_point(canny_mat, 0, 0, bias));
-	foot_points.push_back(top_right_corner_point(canny_mat, W - 1, 0, bias));
-	foot_points.push_back(bottom_right_corner_point(canny_mat, W - 1, H - 1, bias));
-	foot_points.push_back(bottom_left_corner_point(canny_mat, 0, H - 1, bias));
+	return img_validity;
 }
 
 cv::Mat charBoxDet(const cv::Mat& img, int center_x = 280, int center_y = 360, int crop_h = 94, int crop_w = 421)

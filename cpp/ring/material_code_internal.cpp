@@ -1265,9 +1265,18 @@ namespace glasssix::ring
 
             for (size_t i = 0; i < boxes_rect.size(); i++)
             {
+                auto w = input_tensor->width();
+                auto h = input_tensor->height();
                 for (size_t j = 0; j < boxes_rect[i].size(); j++)
                 {
-                    boxes_rect[i][j] *= ratio;
+                    if (boxes_rect[i][j].x <= 1 || boxes_rect[i][j].x >= input_tensor->width() - 1 || boxes_rect[i][j].y <= 0 || boxes_rect[i][j].y >= input_tensor->height() - 1)
+                    {
+                        return;
+                    }
+                    else
+                    {
+                        boxes_rect[i][j] *= ratio;
+                    }
                 }
             }
 
@@ -1277,17 +1286,20 @@ namespace glasssix::ring
                 auto max_score_box = boxes_rect[std::max_element(scores.begin(), scores.end()) - scores.begin()];
                 cv::RotatedRect rect = cv::minAreaRect(max_score_box);
                 cv::Mat cut_img = crop_rect(input_mat, rect, 0);
-                auto foot_points = findFoot(cut_img);
-
+                std::vector<cv::Point2f> foot_points = findFoot(cut_img);
                 // check foot_points validity
-                for (auto& point : foot_points) {
+                for (cv::Point2f point : foot_points) {
                     if ((int)point.x * (int)point.y == 0) {
                         return;
                     }
                 }
 
                 cut_img = custom_perspective(cut_img, foot_points, 640);
-                redirectRect(cut_img);
+                bool img_validity = redirectRect(cut_img);
+                if (!img_validity)
+                {
+                    return;
+                }
                 cv::Mat char_box = charBoxDet(cut_img, 280, 360, 94, 421);
                 std::vector<std::pair<int, int>> cord_list = find_segment_img(char_box);
 
