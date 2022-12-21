@@ -31,7 +31,13 @@ namespace glasssix
 			auto result = classfi_instance.forward(input_img | memory::tensor_convert_to<float>);
 			std::vector<float> detections(result["output"]->cpu_data(), result["output"]->cpu_data() + result["output"]->count());
 			auto biggest_index = std::distance(detections.begin(), std::max_element(detections.begin(), detections.end()));
-			return { label_index_[biggest_index], detections[biggest_index] };
+			// softmax
+			float sum = 0.f;
+			for (int i = 0; i < detections.size(); i++)
+			{
+				sum += std::exp(detections[i]);
+			}
+			return { label_index_[biggest_index], std::exp(detections[biggest_index]) / sum };
 		}
 		cv::Mat char_classfi::pre_handel_img(cv::Mat& img) {
 			int H = img.rows;

@@ -1,11 +1,51 @@
 #include "con_anneal_segment.hpp"
 #include "savitzky_golay_fliter.hpp"
 #include <algorithm>
+#include <math.h>
 namespace glasssix
 {
 namespace ring
 {
-std::vector<cv::Point2f> findFoot(const cv::Mat& img)
+
+float cartesian_to_radian(const cv::Point2f& center, const cv::Point2f& coord, float R)
+{
+	float dis_x = coord.x - center.x;
+	float dis_y = coord.y - center.y;
+	if (abs(dis_x) > R)
+	{
+		dis_x = R * (dis_x / abs(dis_x));
+	}
+	if (abs(dis_y) > R)
+	{
+		dis_y = R * (dis_y / abs(dis_y));
+	}
+	float cos_theta = dis_x / R;
+	float sin_theta = -dis_y / R;
+	float theta = acos(cos_theta);
+	if (sin_theta < 0)
+	{
+		theta = -theta;
+	}
+	return theta;
+}
+
+std::vector<cv::Point2f> calcu_box_shrink_new(const cv::RotatedRect& rect, const std::vector<cv::Point2f>& box_shrink)
+{
+	std::vector<cv::Point2f> box_shrink_new;
+	cv::Point2f top_left{ rect.center.x- rect.size.width/2, rect.center.y- rect.size.height/2 };
+
+	for (auto coord : box_shrink)
+	{
+		float R = sqrtf(powf((rect.center.x - coord.x), 2) + powf((rect.center.y - coord.y), 2));
+		float rad_1 = cartesian_to_radian(rect.center, coord, R);
+		float rad_2 = rad_1 + rect.angle / 180 * 3.145926;
+		cv::Point2f coord_2{ std::round(cos(rad_2) * R + rect.center.x) - 1, std::round(-sin(rad_2) * R + rect.center.y) - 1 }; // radian_to_cartesian
+		box_shrink_new.push_back({ coord_2.x - top_left.x, coord_2.y - top_left.y });
+	}
+	return box_shrink_new;
+}
+
+std::vector<cv::Point2f> findFoot(const cv::Mat& img, const std::vector<cv::Point2f>& init_search_points)
 {
 	cv::Mat gray_mat;
 	cv::Mat canny_mat;
@@ -19,10 +59,32 @@ std::vector<cv::Point2f> findFoot(const cv::Mat& img)
 	int W = canny_mat.cols;
 	int H = canny_mat.rows;
 	int bias = (W + H) / 4; //bias for expanding search region. value : 0 ~ (W + H) / 4
-	foot_points.push_back(top_left_corner_point(canny_mat, 0, 0, bias));
-	foot_points.push_back(top_right_corner_point(canny_mat, W - 1, 0, bias));
-	foot_points.push_back(bottom_right_corner_point(canny_mat, W - 1, H - 1, bias));
-	foot_points.push_back(bottom_left_corner_point(canny_mat, 0, H - 1, bias));
+
+	for (int i = 0; i < init_search_points.size(); ++i)
+	{
+		if (init_search_points[i].x < W / 2)
+		{
+			if (init_search_points[i].y < H / 2)
+			{
+				foot_points.push_back(top_left_corner_point(canny_mat, init_search_points[i].x, init_search_points[i].y, bias));
+			}
+			else
+			{
+				foot_points.push_back(bottom_left_corner_point(canny_mat, init_search_points[i].x, init_search_points[i].y, bias));
+			}
+		}
+		else {
+			if (init_search_points[i].y < H / 2)
+			{
+				foot_points.push_back(top_right_corner_point(canny_mat, init_search_points[i].x, init_search_points[i].y, bias));
+
+			}
+			else
+			{
+				foot_points.push_back(bottom_right_corner_point(canny_mat, init_search_points[i].x, init_search_points[i].y, bias));
+			}
+		}
+	}
 
 	return foot_points;
 }
@@ -40,8 +102,8 @@ bool redirectRect(cv::Mat& img)
 	cv::Mat histogram_horizon;
 	cv::reduce(plate_binary_img, histogram_vertical, 1, cv::REDUCE_SUM, CV_32SC1);
 	cv::reduce(plate_binary_img, histogram_horizon, 0, cv::REDUCE_SUM, CV_32SC1);
-	auto waves_vertical = find_waves_by_width_amplitude(histogram_vertical, 146000, 200000, 60, 100);
-	auto waves_horizon = find_waves_by_width_amplitude(histogram_horizon, 146000, 200000, 60, 100);
+	auto waves_vertical = find_waves_by_width_amplitude(histogram_vertical, 146000, 200000, 60, 150);
+	auto waves_horizon = find_waves_by_width_amplitude(histogram_horizon, 146000, 200000, 60, 150);
 
 	if (waves_vertical.first != -1 && waves_horizon.first == -1)
 	{
