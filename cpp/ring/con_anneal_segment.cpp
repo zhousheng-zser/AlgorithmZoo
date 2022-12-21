@@ -38,7 +38,7 @@ std::vector<cv::Point2f> calcu_box_shrink_new(const cv::RotatedRect& rect, const
 	{
 		float R = sqrtf(powf((rect.center.x - coord.x), 2) + powf((rect.center.y - coord.y), 2));
 		float rad_1 = cartesian_to_radian(rect.center, coord, R);
-		float rad_2 = rad_1 + rect.angle / 180 * 3.145926;
+		float rad_2 = rad_1 + rect.angle / 180 * 3.1415926;
 		cv::Point2f coord_2{ std::round(cos(rad_2) * R + rect.center.x) - 1, std::round(-sin(rad_2) * R + rect.center.y) - 1 }; // radian_to_cartesian
 		box_shrink_new.push_back({ coord_2.x - top_left.x, coord_2.y - top_left.y });
 	}
