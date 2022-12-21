@@ -3,6 +3,7 @@
 #include "feature_searcher_factory.hpp"
 #include "memory_resource_adapter.hpp"
 
+#include "distance.hpp"
 #include <cstring>
 #include <string.h>
 #include <string>
@@ -11,7 +12,6 @@
 #include <iostream>
 #include <algorithm>
 #include <fstream>
-#include <immintrin.h>
 #include <vector>
 #include "nlohmann/json.hpp"
 #include <ctime>
@@ -382,33 +382,21 @@ namespace glasssix::irisviel
             test.key_id.clear();
         }
 
-        inline float DotProductAVX256(const std::vector<float>& emb_1, const std::vector<float>& emb_2) {
-            const static size_t kBlockWidth = 8;  // compute 8 floats in one loop
-            const float* a = emb_1.data();
-            const float* b = emb_2.data();
-            int k = std::min(emb_1.size(), emb_2.size()) / kBlockWidth;
-            __m256 ans;
-            ans = _mm256_setzero_ps();
-            float tmp[8] = { 0 };
-            for (int i = 0; i < k; i++) {
-                __m256 ai = _mm256_loadu_ps(a + i * kBlockWidth);
-                __m256 bi = _mm256_loadu_ps(b + i * kBlockWidth);
-                ans = _mm256_add_ps(ans, _mm256_mul_ps(ai, bi));
-            }
-            _mm256_store_ps(tmp, ans);
-            return tmp[0] + tmp[1] + tmp[2] + tmp[3] + tmp[4] + tmp[5] + tmp[6] + tmp[7];
-        }
 
         inline float Cosine_distance_AVX256(std::vector<float>& x, std::vector<float>& y)  
         {
             float sum, a, b;
-            a = DotProductAVX256(x, x);
-            b = DotProductAVX256(y, y);
+            int len = x.size();
+            float xx[1024],yy[1024];
+            for (int i = 0; i < x.size(); i++)
+                xx[i] = x[i], yy[i] = y[i];
+            a = distance_inner_product::compare(xx, xx, x.size());
+            b = distance_inner_product::compare(yy, yy, y.size());
             if (a == 0 || b == 0)
                 return 0;
-            sum = DotProductAVX256(x, y);
+            sum = distance_inner_product::compare(xx, yy, x.size());
             float ans = sum / (sqrt(a) * sqrt(b));
-            ans = std::min(1.0f, abs(ans));
+            ans = std::min(1.0f, static_cast<float>(fabs(ans)));
             return  ans;
         }
 
@@ -427,7 +415,7 @@ namespace glasssix::irisviel
                 return 0;
             //Prevent loss of accuracy
             float ans = cnt / (sqrt(len_x) * sqrt(len_y));
-            return std::min(1.0f, abs(ans));
+            return std::min(1.0f, static_cast<float>(fabs(ans)));
         }
 
         int get_bucket_id(const std::vector<float>& temp, int dimension, int group_id)
@@ -437,7 +425,10 @@ namespace glasssix::irisviel
             {
                 ans <<= 1;
                 float sum = 0;
-                sum = DotProductAVX256(temp, test.normal_vector[group_id][i]);
+                float xx[1024], yy[1024];
+                for (int j = 0; j < temp.size(); j++)
+                    xx[j] = temp[j], yy[j] = test.normal_vector[group_id][i][j];
+                sum = distance_inner_product::compare(xx, yy, dimension);
 
                 if (sum >= 0)
                     ans++;
@@ -471,8 +462,6 @@ namespace glasssix::irisviel
                     int x, y;
                     x = test.key_id[temp_string].bucket_id[0];
                     y = test.key_id[temp_string].key_id[0];
-
-                    //double P = Cosine_distance(_feature, test.set[x].feature[y]);
                     double P = Cosine_distance_AVX256(_feature, test.set[x].feature[y]);
 
                     if (P > similarity)
