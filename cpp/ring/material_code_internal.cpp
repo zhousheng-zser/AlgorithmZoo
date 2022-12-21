@@ -1259,7 +1259,9 @@ namespace glasssix::ring
             std::vector<std::vector<cv::Point2f>> boxes_rect;
             std::vector<std::vector<cv::Point2f>> boxes_rect_shrink;
             std::vector<float> scores;
+            std::vector<float> scores_shrink;
             std::vector<cv::Size> sizes;
+            std::vector<cv::Size> sizes_shrink;
             std::map<std::string, float> params = {
                 {"thresh", param_map.count("thresh") ? param_map["thresh"] : 0.3},
                 {"box_thresh",  param_map.count("box_thresh") ? param_map["box_thresh"] : 0.3},
@@ -1271,7 +1273,7 @@ namespace glasssix::ring
             params_shrink["unclip_ratio"] = 1.25;
 
             det_post_process_bar(output, params, boxes_rect, scores, sizes);
-            det_post_process_bar(output, params_shrink, boxes_rect_shrink, std::vector<float>{}, std::vector<cv::Size>{});
+            det_post_process_bar(output, params_shrink, boxes_rect_shrink, scores_shrink, sizes_shrink);
 
             for (size_t i = 0; i < boxes_rect.size(); i++)
             {
