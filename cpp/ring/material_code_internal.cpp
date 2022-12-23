@@ -3,6 +3,7 @@
 
 #include <fstream>
 #include <algorithm>
+#include <numeric>
 
 #include "box_info_impl.hpp"
 #include "cool_cut_roi.hpp"
@@ -1304,29 +1305,36 @@ namespace glasssix::ring
                         return;
                     }
                 }
-
                 cut_img = custom_perspective(cut_img, foot_points, 640);
-                bool img_validity = redirectRect(cut_img);
-                if (!img_validity)
-                {
-                    return;
-                }
-                cv::Mat char_box = charBoxDet(cut_img, 280, 350, 94, 480);
-                std::vector<std::pair<int, int>> cord_list = find_segment_img(char_box);
 
                 // classify
                 std::pair<std::vector<std::string>, std::vector<std::vector<float>>> out;
-                std::string stringinfo;
-                std::vector<float> probs;
-                for (auto cord: cord_list)
-                {
-                    cv::Mat small_img = char_box(cv::Range::all(), cv::Range(cord.first, cord.second));
-                    auto [label, prob] = classfi_instance_->detect(small_img, *instance_[1]);
-                    stringinfo.push_back(label);
-                    probs.push_back(prob);
+                cv::Mat out_char_box;
+                float score_max = 0.f;
+                for (int i = 0; i < 4; ++i) {
+                    cv::Mat char_box = charBoxDet(cut_img, 280, 350, 94, 480);
+                    std::vector<std::pair<int, int>> cord_list = find_segment_img(char_box);
+                    std::string stringinfo;
+                    std::vector<float> probs;
+                    for (auto cord: cord_list)
+                    {
+                        cv::Mat small_img = char_box(cv::Range::all(), cv::Range(cord.first, cord.second));
+                        auto [label, prob] = classfi_instance_->detect(small_img, *instance_[1]);
+                        stringinfo.push_back(label);
+                        probs.push_back(prob);
+                    }
+                    float probs_avg = std::accumulate(probs.begin(), probs.end(), 0.0) / probs.size();
+                    // update max
+                    if (probs_avg > score_max) {
+                        out_char_box = char_box.clone();
+                        out = std::make_pair<std::vector<std::string>, std::vector<std::vector<float>>>({ stringinfo }, { probs });
+                        score_max = probs_avg;
+                    }
+                    if (i != 3)
+                    {
+                        cv::rotate(cut_img, cut_img, cv::ROTATE_90_CLOCKWISE);
+                    }
                 }
-                out = std::make_pair<std::vector<std::string>, std::vector<std::vector<float>>>({ stringinfo }, { probs });
-
                 // install
                 box_info_internal box;
                 auto strinfos = exposing::make_param_vector<exposing::param_string>();
@@ -1337,10 +1345,10 @@ namespace glasssix::ring
                 box.strinfos = strinfos;
 
                 box.cut_roi = exposing::make_param_vector<std::uint8_t>();
-                box.cut_roi.resize(char_box.step[0] * cut_img.rows);
-                box.cut_roi.copy_from({ char_box.data, static_cast<size_t>(char_box.step[0] * char_box.rows) }, 0);
-                box.cut_roi_width = char_box.cols;
-                box.cut_roi_height = char_box.rows;
+                box.cut_roi.resize(out_char_box.step[0] * cut_img.rows);
+                box.cut_roi.copy_from({ out_char_box.data, static_cast<size_t>(out_char_box.step[0] * out_char_box.rows) }, 0);
+                box.cut_roi_width = out_char_box.cols;
+                box.cut_roi_height = out_char_box.rows;
                 box.angle = 0;
                 auto location = exposing::make_param_vector<float>();
                 for (auto foot : max_score_box) {
