@@ -127,19 +127,21 @@ namespace glasssix::irisviel
 	{
 		return impl_->search_vector(query_data, min_similarity, top_k);
 	}
-	void nsg_search_impl::add(database_record& record)
+
+	bool nsg_search_impl::add(database_record& record)
 	{
+		return false;
 	}
 
-	void nsg_search_impl::remove(std::vector<std::string>& keys)
+	std::vector<bool> nsg_search_impl::remove(std::vector<std::string>& keys)
 	{
+		return {};
 	}
 
-
-	void nsg_search_impl::update(const std::vector<std::shared_ptr<database_record>>& records)  const
+	std::vector<bool> nsg_search_impl::update(const std::vector<std::shared_ptr<database_record>>& records)  const
 	{
+		return {};
 	}
-
 
 	namespace
 	{

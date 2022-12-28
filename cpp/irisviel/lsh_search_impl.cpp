@@ -61,8 +61,7 @@ namespace glasssix::irisviel
             return result;
         }
 
-
-        void add(database_record& record)
+        bool add(database_record& record)
         {
             nlohmann::json temp_feature;
             temp_feature.clear();
@@ -75,32 +74,41 @@ namespace glasssix::irisviel
             }
             std::string _key(record.key());
             temp_feature["key"] = _key;
-            LSH_addRecord(temp_feature, dimension_);
+            
+            return LSH_addRecord(temp_feature, dimension_);
         }
 
-        void remove(std::vector<std::string>& keys)
+        std::vector<bool> remove(std::vector<std::string>& keys)
         {
+            std::size_t index{};
+            std::vector<bool> result(keys.size());
 
             for (int i = 0; i < keys.size(); i++)
             {
-                LSH_removeRecord(keys[i]);
+                result[index++] = LSH_removeRecord(keys[i]);
             }
             for (int i = 0; i < test.bucket_sum; i++)
             {
                 LSH_updataActive(i);
             }
+
+            return result;
         }
 
-        void update(const std::vector<std::shared_ptr<database_record>>& records)
+        std::vector<bool> update(const std::vector<std::shared_ptr<database_record>>& records)
         {
+            std::size_t index{};
+            std::vector<bool> result(records.size());
+
             for (auto& record : records)
             {
                 std::string _key(record->key());
-                LSH_removeRecord(_key);
+                result[index++] = LSH_removeRecord(_key);
             }
             for (int i = 0; i < test.bucket_sum; i++)
                 LSH_updataActive(i);
 
+            index = 0;
             for (auto& record : records)
             {
                 nlohmann::json temp_feature;
@@ -111,19 +119,20 @@ namespace glasssix::irisviel
                 {
                     temp_feature["feature"][i] = x[i];
                 }
-                LSH_addRecord(temp_feature, dimension_);
+                result[index++] = LSH_addRecord(temp_feature, dimension_);
             }
 
+            return result;
         }
 
     private:
-        void LSH_removeRecord(const std::string& _key)
+        bool LSH_removeRecord(const std::string& _key)
         {
             if (test.key_id.count(_key) == 0)
             {
-                std::cout << "Error : this key already delete : " << _key << std::endl;
-                return;
+                return false;
             }
+
             struct node now = test.key_id[_key];
             for (int i = 0; i < now.bucket_id.size(); i++)
             {
@@ -136,9 +145,11 @@ namespace glasssix::irisviel
                 test.set[x].active = true;
             }
             test.key_id.erase(_key);
+
+            return true;
         }
 
-        void LSH_addRecord(nlohmann::json &temp_feature, int dimension)
+        bool LSH_addRecord(nlohmann::json &temp_feature, int dimension)
         {
             std::vector<float>feature_float;
             for (int i = 0; i < dimension; i++)
@@ -149,8 +160,7 @@ namespace glasssix::irisviel
 
             if (test.key_id.count(_key))
             {
-                std::cout << "Error : this key already exists : " << _key << std::endl;
-                return;
+                return false;
             }
             for (int i = 0; i < group_sum; i++)
             {
@@ -163,6 +173,8 @@ namespace glasssix::irisviel
                 else
                     WriteJsonFile(name, mini_feature);
             }
+
+            return true;
         }
 
         void LSH_load(std::string path)
@@ -591,18 +603,18 @@ namespace glasssix::irisviel
         return impl_->search_vector(query_data, min_similarity, top_k);
     }
 
-    void lsh_search_impl::add(database_record& record)
+    bool lsh_search_impl::add(database_record& record)
     {
-        impl_->add(record);
+        return impl_->add(record);
     }
 
-    void lsh_search_impl::remove(std::vector<std::string>& keys)
+    std::vector<bool> lsh_search_impl::remove(std::vector<std::string>& keys)
     {
-        impl_->remove(keys);
+        return impl_->remove(keys);
     }
-    void lsh_search_impl::update(const std::vector<std::shared_ptr<database_record>>& records) const
+    std::vector<bool> lsh_search_impl::update(const std::vector<std::shared_ptr<database_record>>& records) const
     {
-        impl_->update(records);
+        return impl_->update(records);
     }
 
     namespace
@@ -610,4 +622,3 @@ namespace glasssix::irisviel
         int register_hint = (register_feature_searcher(face_service_implemention::lsh_algorithm, [](int dimension, std::string path) { return std::make_shared<lsh_search_impl>(dimension, path); }), int{});
     }
 }
-
