@@ -7,7 +7,7 @@ if(USE_OPENMP)
 	add_compile_options(${OpenMP_CXX_FLAGS})
 endif()
 
-find_package(OpenCV 3.4.1 EXACT)
+find_package(OpenCV 3.4.1...<4.0.0)
 message(Status "OPENCV_FOUND: ${OPENCV_FOUND}")
 if(NOT OPENCV_FOUND)
 	message(WARNING "Not Found installed OpenCV, use mannual configuration.")
