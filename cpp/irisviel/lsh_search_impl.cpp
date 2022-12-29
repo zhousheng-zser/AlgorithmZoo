@@ -476,7 +476,7 @@ namespace glasssix::irisviel
                     y = test.key_id[temp_string].key_id[0];
                     double P = Cosine_distance_AVX256(_feature, test.set[x].feature[y]);
 
-                    if (P > similarity)
+                    if (P > similarity || fabs(similarity - 1) < 0.001)
                     {
                         int len = test.set[x].feature[y].size();
                         temp.clear();
@@ -512,6 +512,7 @@ namespace glasssix::irisviel
                 result.emplace_back(database_search_result{ temp_record, temp["similarity"].get<float>()});
                 q.pop();
             }
+            std::reverse(result.begin(), result.end());
             return result;
         }
 
