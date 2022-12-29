@@ -20,8 +20,8 @@ namespace glasssix::irisviel
 		virtual void load_cache(std::string_view path) const = 0;
 		virtual void current_data(const std::vector<database_feature_observer::feature>& data) noexcept = 0;
 		virtual std::vector<std::vector<database_search_result>> search_vector(const std::vector<const float*>& query_data, std::optional<float> min_similarity, std::optional<std::uint32_t> top_k) const = 0;
-		virtual void add(database_record &record)  = 0;
-		virtual void remove(std::vector<std::string>& keys)  = 0;
-		virtual void update(const std::vector<std::shared_ptr<database_record>>& records)  const = 0;
+		virtual bool add(database_record &record)  = 0;
+		virtual std::vector<bool> remove(std::vector<std::string>& keys)  = 0;
+		virtual std::vector<bool> update(const std::vector<std::shared_ptr<database_record>>& records)  const = 0;
 	};
 }

@@ -45,16 +45,32 @@ std::vector<cv::Point2f> calcu_box_shrink_new(const cv::RotatedRect& rect, const
 	return box_shrink_new;
 }
 
-std::vector<cv::Point2f> findFoot(const cv::Mat& img, const std::vector<cv::Point2f>& init_search_points)
+std::vector<cv::Point2f> findFoot(const cv::Mat& img, std::vector<cv::Point2f>& init_search_points)
 {
 	cv::Mat gray_mat;
+	cv::Mat gaussian_mat;
 	cv::Mat canny_mat;
 	int lowThreshold = 50;
 	int maxThreshold = 100;
 	int kernel_size = 3;
-	cvtColor(img, gray_mat, CV_BGR2GRAY);
+	cv::Mat erode_kernel = getStructuringElement(0, cv::Size(3, 3));
+	cv::GaussianBlur(img, gaussian_mat, cv::Size(5, 5), 0);
+	cv::erode(gaussian_mat, gaussian_mat, erode_kernel, cv::Point(-1, -1), 2);
+	cvtColor(gaussian_mat, gray_mat, CV_BGR2GRAY);
 	cv::Canny(gray_mat, canny_mat, lowThreshold, maxThreshold, kernel_size, true);
 
+	// check init_search_points if over boundary
+	for (int i = 0; i < init_search_points.size(); ++i)
+	{
+		if (init_search_points[i].x < 0)
+			init_search_points[i].x = 0;
+		if (init_search_points[i].x > img.cols)
+			init_search_points[i].x = img.cols - 1;
+		if (init_search_points[i].y < 0)
+			init_search_points[i].y = 0;
+		if (init_search_points[i].y > img.rows)
+			init_search_points[i].y = img.rows - 1;
+	}
 	std::vector<cv::Point2f> foot_points;
 	int W = canny_mat.cols;
 	int H = canny_mat.rows;
@@ -131,14 +147,15 @@ bool redirectRect(cv::Mat& img)
 	return img_validity;
 }
 
-cv::Mat charBoxDet(const cv::Mat& img, int center_x = 280, int center_y = 360, int crop_h = 94, int crop_w = 421)
+cv::Mat charBoxDet(const cv::Mat& img, int center_x, int center_y, int crop_h, int crop_w)
 {
 	cv::Mat out;
 	cv::Mat input = img.clone();
-	int roi_x = center_x - crop_w / 2;
+	int roi_x = 0;
+	//int roi_x = center_x - crop_w / 2;
 	int roi_y = center_y - crop_h / 2;
 
-	out = cv::Mat(input, cv::Rect(roi_x, roi_y, crop_w, crop_h));
+	out = cv::Mat(input, cv::Rect(roi_x, roi_y, crop_w + (center_x - crop_w / 2), crop_h));
 	return out;
 }
 

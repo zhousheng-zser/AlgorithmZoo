@@ -71,16 +71,15 @@ namespace glasssix
 						return false;
 					}
 				};
+
 				if (implementation_ == face_service_implemention::lsh_algorithm)
 				{
-
 					if (!safe_handler([&] { searcher_ = make_shared_feature_searcher(implementation_, observer_->dimension(), lsh_directory_.string()); }))
 					{
 						return false;
 					}
 					return true;
 				}
-
 
 				if (current_data_.size() < 1)
 				{
@@ -135,34 +134,34 @@ namespace glasssix
 				return true;
 			}
 
-			void add(database_record &record) 
+			bool add(database_record &record) 
 			{
 				if (!searcher_)
 				{
-					printf("searcher_ ==0 \n");
-					return;
+					throw std::invalid_argument{ "Null searcher." };
 				}
-				searcher_->add(record);
+
+				return searcher_->add(record);
 			}
 
-			void remove(std::vector<std::string>& keys)
+			std::vector<bool> remove(std::vector<std::string>& keys)
 			{
-				if (!searcher_)
-				{
-					printf("searcher_ ==0 \n");
-					return;
-				}
-				searcher_->remove(keys);
+                if (!searcher_)
+                {
+                    throw std::invalid_argument{ "Null searcher." };
+                }
+
+				return searcher_->remove(keys);
 			}
 			
-			void update(const std::vector<std::shared_ptr<database_record>>& records) const
+			std::vector<bool> update(const std::vector<std::shared_ptr<database_record>>& records) const
 			{
-				if (!searcher_)
-				{
-					printf("searcher_ ==0 \n");
-					return;
-				}
-				searcher_->update(records);
+                if (!searcher_)
+                {
+                    throw std::invalid_argument{ "Null searcher." };
+                }
+
+				return searcher_->update(records);
 			}
 
 			std::vector<database_search_result> search(const float* feature, std::optional<float> min_similarity, std::optional<std::uint32_t> top) const
@@ -175,48 +174,19 @@ namespace glasssix
 			std::vector<std::vector<database_search_result>> search_many(const std::vector<const float*>& features, std::optional<float> min_similarity, std::optional<std::uint32_t> top) const try
 			{
 				auto dimension = observer_->dimension();
-				std::vector<std::vector<database_search_result>> result;
 
 				// We only search the result when the current state is valid.
 				if (!valid_state_)
 				{
-					return result;
+					return {};
 				}
 
 				if (face_service_implemention::lsh_algorithm != implementation_ &&( current_data_.size() < 1 || !searcher_ ))
 				{
-					return result;
+					return {};
 				}
-				result = searcher_->search_vector(features, min_similarity, top);
-
-				//auto raw_search_result = searcher_->search_vector(features, min_similarity, top);
-
-				//for (auto&& item : raw_search_result)
-				//{
-				//	std::vector<database_search_result> inner;
-
-				//	for (auto&& [index, similarity] : item)
-				//	{
-				//		if (current_data_.size() == 1)
-				//		{
-				//			index = std::min(index, 0U);
-				//		}
-				//		if (index >= current_data_.size())
-				//		{
-				//			continue;
-				//		}
-
-				//		// Retrieve the orginal data in the mapping file.
-				//		auto offset = reinterpret_cast<const std::uint8_t*>(current_data_[index].data) - database_record::feature_offset(dimension);
-				//		auto result = database_record::create(dimension, const_cast<std::uint8_t*>(offset));
-
-				//		inner.emplace_back(database_search_result{ result, similarity });
-				//	}
-
-				//	result.emplace_back(inner);
-				//}
-
-				return result;
+				
+				return searcher_->search_vector(features, min_similarity, top);
 			}
 			catch (const std::exception& ex)
 			{
@@ -267,18 +237,20 @@ namespace glasssix
 		{
 			return impl_->search_many(features, min_similarity, top);
 		}
-		void database_business_wrapper::add(database_record& record)
+
+		bool database_business_wrapper::add(database_record& record)
 		{
-			impl_->add(record);
+			return impl_->add(record);
 		}
 
-		void database_business_wrapper::remove(std::vector<std::string>& keys)
+		std::vector<bool> database_business_wrapper::remove(std::vector<std::string>& keys)
 		{
-			impl_->remove(keys);
+			return impl_->remove(keys);
 		}
-		void database_business_wrapper::update(const std::vector<std::shared_ptr<database_record>>& records) const
+
+		std::vector<bool> database_business_wrapper::update(const std::vector<std::shared_ptr<database_record>>& records) const
 		{
-			impl_->update(records);
+			return impl_->update(records);
 		}
 	}
 }

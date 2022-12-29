@@ -10,7 +10,7 @@ float cartesian_to_radian(const cv::Point2f& center, const cv::Point2f& coord, f
 
 std::vector<cv::Point2f> calcu_box_shrink_new(const cv::RotatedRect& rect, const std::vector<cv::Point2f>& box_shrink);
 
-std::vector<cv::Point2f> findFoot(const cv::Mat& img, const std::vector<cv::Point2f>& init_search_points);
+std::vector<cv::Point2f> findFoot(const cv::Mat& img, std::vector<cv::Point2f>& init_search_points);
 
 bool redirectRect(cv::Mat& img);
 

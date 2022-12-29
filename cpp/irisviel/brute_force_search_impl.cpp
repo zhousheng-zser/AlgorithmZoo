@@ -14,167 +14,173 @@
 
 namespace glasssix::irisviel
 {
-	class brute_force_search_impl::impl
-	{
-	public:
-		impl(int dimension) : dimension_{ dimension }, current_data_{}, pool_{ make_synchronized_pool_resource_workaround() }, float_allocator_{ pool_.get() }, size_t_allocator_{ pool_.get() }
-		{
-		}
+    class brute_force_search_impl::impl
+    {
+    public:
+        impl(int dimension) : dimension_{ dimension }, current_data_{}, pool_{ make_synchronized_pool_resource_workaround() }, float_allocator_{ pool_.get() }, size_t_allocator_{ pool_.get() }
+        {
+        }
 
-		int dimension() const noexcept
-		{
-			return dimension_;
-		}
+        int dimension() const noexcept
+        {
+            return dimension_;
+        }
 
-		void current_data(const std::vector<database_feature_observer::feature>& data) noexcept
-		{
-			current_data_ = &data;
-		}
+        void current_data(const std::vector<database_feature_observer::feature>& data) noexcept
+        {
+            current_data_ = &data;
+        }
 
-		std::vector<std::vector<database_search_result>> search_vector(const std::vector<const float*>& query_data, std::optional<float> min_similarity, std::optional<std::uint32_t> top_k)
-		{
-			vector2d<std::tuple<std::uint32_t, float>> raw_search_result;
+        std::vector<std::vector<database_search_result>> search_vector(const std::vector<const float*>& query_data, std::optional<float> min_similarity, std::optional<std::uint32_t> top_k)
+        {
+            vector2d<std::tuple<std::uint32_t, float>> raw_search_result;
 
-			for (auto&& item : query_data)
-			{
-				raw_search_result.emplace_back(search_single_vector(item, min_similarity, top_k));
-			}
+            for (auto&& item : query_data)
+            {
+                raw_search_result.emplace_back(search_single_vector(item, min_similarity, top_k));
+            }
 
-			std::vector<std::vector<database_search_result>> result;
-			for (auto&& item : raw_search_result)
-			{
-				std::vector<database_search_result> inner;
+            std::vector<std::vector<database_search_result>> result;
+            for (auto&& item : raw_search_result)
+            {
+                std::vector<database_search_result> inner;
 
-				for (auto&& [index, similarity] : item)
-				{
-					if (current_data_->size() == 1)
-					{
-						index = std::min(index, 0U);
-					}
-					if (index >= current_data_->size())
-					{
-						continue;
-					}
-					// Retrieve the orginal data in the mapping file.
-					auto offset = reinterpret_cast<const std::uint8_t*>((*current_data_)[index].data) - database_record::feature_offset(dimension_);
-					auto result = database_record::create(dimension_, const_cast<std::uint8_t*>(offset));
-					inner.emplace_back(database_search_result{ result, similarity });
-				}
-				result.emplace_back(inner);
-			}
+                for (auto&& [index, similarity] : item)
+                {
+                    if (current_data_->size() == 1)
+                    {
+                        index = std::min(index, 0U);
+                    }
+                    if (index >= current_data_->size())
+                    {
+                        continue;
+                    }
+                    // Retrieve the orginal data in the mapping file.
+                    auto offset = reinterpret_cast<const std::uint8_t*>((*current_data_)[index].data) - database_record::feature_offset(dimension_);
+                    auto result = database_record::create(dimension_, const_cast<std::uint8_t*>(offset));
+                    inner.emplace_back(database_search_result{ result, similarity });
+                }
+                result.emplace_back(inner);
+            }
 
-			return result;
+            return result;
 
-		}
-	private:
-		std::vector<std::tuple<std::uint32_t, float>> search_single_vector(const float* query_data, std::optional<float> min_similarity, std::optional<std::uint32_t> top_k)
-		{
-			std::vector<std::tuple<std::uint32_t, float>> result;
+        }
+    private:
+        std::vector<std::tuple<std::uint32_t, float>> search_single_vector(const float* query_data, std::optional<float> min_similarity, std::optional<std::uint32_t> top_k)
+        {
+            std::vector<std::tuple<std::uint32_t, float>> result;
 
-			if (current_data_ == nullptr)
-			{
-				return result;
-			}
+            if (current_data_ == nullptr)
+            {
+                return result;
+            }
 
-			// Allocates intermediate buffers.
-			auto total_feature_size = dimension_ * current_data_->size();
-			hide_exp::pmr::vector<float> input_buffer(total_feature_size, float_allocator_);
-			hide_exp::pmr::vector<float> output_buffer(current_data_->size(), float_allocator_);
-			hide_exp::pmr::vector<std::size_t> output_indices(current_data_->size(), size_t_allocator_);
-			auto iter = input_buffer.begin();
+            // Allocates intermediate buffers.
+            auto total_feature_size = dimension_ * current_data_->size();
+            hide_exp::pmr::vector<float> input_buffer(total_feature_size, float_allocator_);
+            hide_exp::pmr::vector<float> output_buffer(current_data_->size(), float_allocator_);
+            hide_exp::pmr::vector<std::size_t> output_indices(current_data_->size(), size_t_allocator_);
+            auto iter = input_buffer.begin();
 
-			// Filles in the indices with 0, 1, 2, ...
-			std::iota(output_indices.begin(), output_indices.end(), 0);
+            // Filles in the indices with 0, 1, 2, ...
+            std::iota(output_indices.begin(), output_indices.end(), 0);
 
-			// Copies all data into the temporary buffer.
-			for (auto&& item : *current_data_)
-			{
-				iter = std::transform(item.data, item.data + dimension_, iter, [&](float inner) { return inner / item.feature_modulo_length; });
-			}
+            // Copies all data into the temporary buffer.
+            for (auto&& item : *current_data_)
+            {
+                iter = std::transform(item.data, item.data + dimension_, iter, [&](float inner) { return inner / item.feature_modulo_length; });
+            }
 
-			// Calculates the scores of all features.
-			excalibur::juliusblas::cblas_sgemv_AnoTrans(static_cast<int>(current_data_->size()), dimension_, 1.f, input_buffer.data(), dimension_, query_data, 1, 0.f, output_buffer.data(), 1);
-			std::sort(output_indices.begin(), output_indices.end(), [&](std::size_t left, std::size_t right) { return output_buffer[left] > output_buffer[right]; });
+            // Calculates the scores of all features.
+            excalibur::juliusblas::cblas_sgemv_AnoTrans(static_cast<int>(current_data_->size()), dimension_, 1.f, input_buffer.data(), dimension_, query_data, 1, 0.f, output_buffer.data(), 1);
+            std::sort(output_indices.begin(), output_indices.end(), [&](std::size_t left, std::size_t right) { return output_buffer[left] > output_buffer[right]; });
 
-			// Creates a handler to check the similarity condition.
-			const auto check_similarity{ min_similarity ? std::function{ [&](float similarity) { return similarity > *min_similarity; } } : [](float similarity) { return true; } };
+            // Creates a handler to check the similarity condition.
+            const auto check_similarity{ min_similarity ? std::function{ [&](float similarity) { return similarity > *min_similarity; } } : [](float similarity) { return true; } };
 
-			// Calculates the cosine distances as final similarities.
-			auto real_size = top_k ? std::min<std::size_t>(current_data_->size(), *top_k) : current_data_->size();
-			auto normalized_query_data = distance_cosine::norm(query_data, dimension_);
+            // Calculates the cosine distances as final similarities.
+            auto real_size = top_k ? std::min<std::size_t>(current_data_->size(), *top_k) : current_data_->size();
+            auto normalized_query_data = distance_cosine::norm(query_data, dimension_);
 
-			result.reserve(real_size);
+            result.reserve(real_size);
 
-			for (std::size_t i = 0; i < real_size; i++)
-			{
-				std::size_t index = output_indices[i];
-				auto normalized_current_data = distance_cosine::norm((*current_data_)[index].data, dimension_);
-				auto similarity = 1.f - distance_cosine::compare((*current_data_)[index].data, normalized_current_data, query_data, normalized_query_data, dimension_);
+            for (std::size_t i = 0; i < real_size; i++)
+            {
+                std::size_t index = output_indices[i];
+                auto normalized_current_data = distance_cosine::norm((*current_data_)[index].data, dimension_);
+                auto similarity = 1.f - distance_cosine::compare((*current_data_)[index].data, normalized_current_data, query_data, normalized_query_data, dimension_);
 
-				if (!check_similarity(similarity))
-				{
-					break;
-				}
+                if (!check_similarity(similarity))
+                {
+                    break;
+                }
 
-				result.emplace_back(index, similarity);
-			}
+                result.emplace_back(index, similarity);
+            }
 
-			return result;
-		}
+            return result;
+        }
 
-		int dimension_;
-		std::shared_ptr<hide_exp::pmr::memory_resource> pool_;
-		hide_exp::pmr::polymorphic_allocator<float> float_allocator_;
-		hide_exp::pmr::polymorphic_allocator<std::size_t> size_t_allocator_;
-		const std::vector<database_feature_observer::feature>* current_data_;
-	};
+        int dimension_;
+        std::shared_ptr<hide_exp::pmr::memory_resource> pool_;
+        hide_exp::pmr::polymorphic_allocator<float> float_allocator_;
+        hide_exp::pmr::polymorphic_allocator<std::size_t> size_t_allocator_;
+        const std::vector<database_feature_observer::feature>* current_data_;
+    };
 
-	brute_force_search_impl::brute_force_search_impl(int dimension,std::string path) : impl_{ std::make_unique<impl>(dimension) }
-	{
-	}
+    brute_force_search_impl::brute_force_search_impl(int dimension, std::string path) : impl_{ std::make_unique<impl>(dimension) }
+    {
+    }
 
-	brute_force_search_impl::~brute_force_search_impl()
-	{
-	}
+    brute_force_search_impl::~brute_force_search_impl()
+    {
+    }
 
-	int brute_force_search_impl::dimension() const noexcept
-	{
-		return impl_->dimension();
-	}
+    int brute_force_search_impl::dimension() const noexcept
+    {
+        return impl_->dimension();
+    }
 
-	void brute_force_search_impl::build_cache() const
-	{
-	}
+    void brute_force_search_impl::build_cache() const
+    {
+    }
 
-	void brute_force_search_impl::save_cache(std::string_view path) const
-	{
-	}
+    void brute_force_search_impl::save_cache(std::string_view path) const
+    {
+    }
 
-	void brute_force_search_impl::load_cache(std::string_view path) const
-	{
-	}
+    void brute_force_search_impl::load_cache(std::string_view path) const
+    {
+    }
 
-	void brute_force_search_impl::current_data(const std::vector<database_feature_observer::feature>& data) noexcept
-	{
-		impl_->current_data(data);
-	}
+    void brute_force_search_impl::current_data(const std::vector<database_feature_observer::feature>& data) noexcept
+    {
+        impl_->current_data(data);
+    }
 
-	std::vector<std::vector<database_search_result>> brute_force_search_impl::search_vector(const std::vector<const float*>& query_data, std::optional<float> min_similarity, std::optional<std::uint32_t> top_k) const
-	{
-		return impl_->search_vector(query_data, min_similarity, top_k);
-	}
-	void brute_force_search_impl::add(database_record& record)
-	{
-	}
-	void brute_force_search_impl::remove(std::vector<std::string>& keys)
-	{
-	}
-	void brute_force_search_impl::update(const std::vector<std::shared_ptr<database_record>>& records)  const
-	{
-	}
+    std::vector<std::vector<database_search_result>> brute_force_search_impl::search_vector(const std::vector<const float*>& query_data, std::optional<float> min_similarity, std::optional<std::uint32_t> top_k) const
+    {
+        return impl_->search_vector(query_data, min_similarity, top_k);
+    }
 
-	namespace
-	{
-		int register_hint = (register_feature_searcher(face_service_implemention::brute_force, [](int dimension, std::string path) { return std::make_shared<brute_force_search_impl>(dimension, path); }), int{});
-	}
+    bool brute_force_search_impl::add(database_record& record)
+    {
+        return false;
+    }
+
+    std::vector<bool> brute_force_search_impl::remove(std::vector<std::string>& keys)
+    {
+        return {};
+    }
+
+    std::vector<bool> brute_force_search_impl::update(const std::vector<std::shared_ptr<database_record>>& records) const
+    {
+        return {};
+    }
+
+    namespace
+    {
+        int register_hint = (register_feature_searcher(face_service_implemention::brute_force, [](int dimension, std::string path) { return std::make_shared<brute_force_search_impl>(dimension, path); }), int{});
+    }
 }
