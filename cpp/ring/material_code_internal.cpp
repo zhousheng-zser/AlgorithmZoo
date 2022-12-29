@@ -1077,14 +1077,16 @@ namespace glasssix::ring
             if (input->order() == memory::NHWC)
                 input->convert_order();
 
-            // input_mat process and to tensor
-            cv::medianBlur(input_mat, input_mat, 5);
-            auto input_medianBlur = std::make_shared<memory::tensor<std::uint8_t>>(std::vector<int>{1, input_mat.rows, input_mat.cols, input_mat.channels()}, -1, memory::NHWC);
-            std::copy(input_mat.data, input_mat.data + input_mat.step[0] * input_mat.rows, input_medianBlur->mutable_cpu_data());
-            input_medianBlur->convert_order();
+            // input_mat process(possible) and to tensor
+            // handle
+            //cv::medianBlur(input_mat, input_mat, 5);
+
+            auto input_handle_possible = std::make_shared<memory::tensor<std::uint8_t>>(std::vector<int>{1, input_mat.rows, input_mat.cols, input_mat.channels()}, -1, memory::NHWC);
+            std::copy(input_mat.data, input_mat.data + input_mat.step[0] * input_mat.rows, input_handle_possible->mutable_cpu_data());
+            input_handle_possible->convert_order();
 
             //auto [resized_img, ratio] = resize_fixed_size(320, input, 1);//临时: 320需提出
-            auto [resized_img, ratio] = resize_fixed_size(320, input_medianBlur, 1);
+            auto [resized_img, ratio] = resize_fixed_size(320, input_handle_possible, 1);
             auto input_tensor = resized_img | memory::tensor_convert_to<float>;
             std::unordered_map<std::string, std::shared_ptr<memory::tensor<float>>> out = instance_[0]->forward(input_tensor);
 
@@ -1312,20 +1314,26 @@ namespace glasssix::ring
                 cv::Mat out_char_box;
                 float score_max = 0.f;
                 for (int i = 0; i < 4; ++i) {
-                    cv::Mat char_box = charBoxDet(cut_img, 280, 350, 94, 480);
+                    cv::Mat char_box = charBoxDet(cut_img, 290, 340, 94, 480);
                     std::vector<std::pair<int, int>> cord_list = find_segment_img(char_box);
                     std::string stringinfo;
                     std::vector<float> probs;
-                    for (auto cord: cord_list)
+                    int charX_num = 0; //invalid character "X"
+                    for (auto cord : cord_list)
                     {
                         cv::Mat small_img = char_box(cv::Range::all(), cv::Range(cord.first, cord.second));
                         auto [label, prob] = classfi_instance_->detect(small_img, *instance_[1]);
-                        stringinfo.push_back(label);
+                        if (label == 'X') {
+                            charX_num++;
+                        }
+                        else {
+                            stringinfo.push_back(label);
+                        }
                         probs.push_back(prob);
                     }
                     float probs_avg = std::accumulate(probs.begin(), probs.end(), 0.0) / probs.size();
                     // update max
-                    if (probs_avg > score_max) {
+                    if (float(charX_num) / probs.size() < 0.4 && probs_avg > score_max) {
                         out_char_box = char_box.clone();
                         out = std::make_pair<std::vector<std::string>, std::vector<std::vector<float>>>({ stringinfo }, { probs });
                         score_max = probs_avg;
