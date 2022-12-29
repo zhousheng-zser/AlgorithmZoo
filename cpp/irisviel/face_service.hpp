@@ -32,9 +32,9 @@ namespace glasssix::exposing::impl
 			virtual std::int32_t G6_ABI_CALL record_count(abi_out_t<std::uint64_t> result) noexcept = 0;
 			virtual std::int32_t G6_ABI_CALL contains_key(abi_in_t<param_string> key, abi_out_t<bool> result) noexcept = 0;
 			virtual std::int32_t G6_ABI_CALL try_get_record(abi_in_t<param_string> key, abi_out_t<irisviel::record> result) noexcept = 0;
-			virtual std::int32_t G6_ABI_CALL add_records(abi_in_t<param_vector<irisviel::record>> records) noexcept = 0;
-			virtual std::int32_t G6_ABI_CALL remove_records(abi_in_t<param_vector<param_string>> keys) noexcept = 0;
-			virtual std::int32_t G6_ABI_CALL update_records(abi_in_t<param_vector<irisviel::record>> records) noexcept = 0;
+			virtual std::int32_t G6_ABI_CALL add_records(abi_in_t<param_vector<irisviel::record>> records, abi_out_t<param_vector<bool>> result) noexcept = 0;
+			virtual std::int32_t G6_ABI_CALL remove_records(abi_in_t<param_vector<param_string>> keys, abi_out_t<param_vector<bool>> result) noexcept = 0;
+			virtual std::int32_t G6_ABI_CALL update_records(abi_in_t<param_vector<irisviel::record>> records, abi_out_t<param_vector<bool>> result) noexcept = 0;
 			virtual std::int32_t G6_ABI_CALL search(abi_in_t<param_vector<float>> feature, std::uint32_t top_count_to_retrieve, abi_out_t<param_vector<irisviel::search_result>> result) noexcept = 0;
 			virtual std::int32_t G6_ABI_CALL search(abi_in_t<param_vector<float>> feature, float min_similarity, abi_out_t<param_vector<irisviel::search_result>> result) noexcept = 0;
 			virtual std::int32_t G6_ABI_CALL search(abi_in_t<param_vector<float>> feature, float min_similarity, std::uint32_t top_count_to_retrieve, abi_out_t<param_vector<irisviel::search_result>> result) noexcept = 0;
@@ -102,17 +102,17 @@ namespace glasssix::exposing::impl
 			return abi_safe_call([&] { *result = detach_abi(this->self().try_get_record(create_from_abi<param_string>(key))); });
 		}
 
-		virtual std::int32_t G6_ABI_CALL add_records(abi_in_t<param_vector<irisviel::record>> records) noexcept override
+		virtual std::int32_t G6_ABI_CALL add_records(abi_in_t<param_vector<irisviel::record>> records, abi_out_t<param_vector<bool>> result) noexcept override
 		{
 			return abi_safe_call([&] { this->self().add_records(create_from_abi<param_vector<irisviel::record>>(records)); });
 		}
 
-		virtual std::int32_t G6_ABI_CALL remove_records(abi_in_t<param_vector<param_string>> keys) noexcept override
+		virtual std::int32_t G6_ABI_CALL remove_records(abi_in_t<param_vector<param_string>> keys, abi_out_t<param_vector<bool>> result) noexcept override
 		{
 			return abi_safe_call([&] { this->self().remove_records(create_from_abi<param_vector<param_string>>(keys)); });
 		}
 
-		virtual std::int32_t G6_ABI_CALL update_records(abi_in_t<param_vector<irisviel::record>> records) noexcept override
+		virtual std::int32_t G6_ABI_CALL update_records(abi_in_t<param_vector<irisviel::record>> records, abi_out_t<param_vector<bool>> result) noexcept override
 		{
 			return abi_safe_call([&] { this->self().update_records(create_from_abi<param_vector<irisviel::record>>(records)); });
 		}
@@ -222,19 +222,31 @@ namespace glasssix::exposing::impl
 				return (check_abi_result(this->self_abi().try_get_record(get_abi(key), put_abi(result))), result);
 			}
 
-			void add_records(const param_vector<irisviel::record>& records) const
+			exposing::param_vector<bool> add_records(const param_vector<irisviel::record>& records) const
 			{
-				check_abi_result(this->self_abi().add_records(get_abi(records)));
+				exposing::param_vector<bool> result{ nullptr };
+
+				check_abi_result(this->self_abi().add_records(get_abi(records), put_abi(result)));
+
+				return result;
 			}
 
-			void remove_records(const param_vector<param_string>& keys) const
+			exposing::param_vector<bool> remove_records(const param_vector<param_string>& keys) const
 			{
-				check_abi_result(this->self_abi().remove_records(get_abi(keys)));
+                exposing::param_vector<bool> result{ nullptr };
+
+				check_abi_result(this->self_abi().remove_records(get_abi(keys), put_abi(result)));
+
+                return result;
 			}
 
-			void update_records(const param_vector<irisviel::record>& records) const
+			exposing::param_vector<bool> update_records(const param_vector<irisviel::record>& records) const
 			{
-				check_abi_result(this->self_abi().update_records(get_abi(records)));
+                exposing::param_vector<bool> result{ nullptr };
+
+				check_abi_result(this->self_abi().update_records(get_abi(records), put_abi(result)));
+
+                return result;
 			}
 
 			param_vector<irisviel::search_result> search(const param_vector<float>& feature, std::uint32_t top_count_to_retrieve) const
