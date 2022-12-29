@@ -97,7 +97,7 @@ namespace glasssix::irisviel
             std::sort(output_indices.begin(), output_indices.end(), [&](std::size_t left, std::size_t right) { return output_buffer[left] > output_buffer[right]; });
 
             // Creates a handler to check the similarity condition.
-            const auto check_similarity{ min_similarity ? std::function{ [&](float similarity) { return similarity > *min_similarity; } } : [](float similarity) { return true; } };
+            const auto check_similarity{ min_similarity ? std::function{ [&](float similarity) { return (similarity > *min_similarity || fabs(similarity - 1) < 0.001); } } : [](float similarity) { return true; } };
 
             // Calculates the cosine distances as final similarities.
             auto real_size = top_k ? std::min<std::size_t>(current_data_->size(), *top_k) : current_data_->size();
