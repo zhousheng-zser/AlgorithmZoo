@@ -27,9 +27,9 @@ namespace glasssix
 			std::string cache_file_path() const;
 			std::vector<database_search_result> search(const float* feature, std::optional<float> min_similarity, std::optional<std::uint32_t> top) const;
 			std::vector<std::vector<database_search_result>> search_many(const std::vector<const float*>& features, std::optional<float> min_similarity, std::optional<std::uint32_t> top) const;
-			void add(database_record &record);
-			void remove(std::vector<std::string>& keys);
-			void update(const std::vector<std::shared_ptr<database_record>>& records) const;
+			bool add(database_record &record);
+			std::vector<bool> remove(std::vector<std::string>& keys);
+			std::vector<bool> update(const std::vector<std::shared_ptr<database_record>>& records) const;
 		private:
 			std::unique_ptr<impl> impl_;
 		};
