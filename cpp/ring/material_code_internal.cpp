@@ -1024,7 +1024,7 @@ namespace glasssix::ring
             }
         }
 
-        void screen_result_point(std::vector<float>& point_list) {
+        std::vector<int> screen_result_point(std::vector<float>& point_list, bool modify_point_list = true) {
             std::vector<float> first_screen_distance_list;
             std::vector<float> distance_list;
             std::vector<int> error_point_list;
@@ -1056,9 +1056,12 @@ namespace glasssix::ring
                 }
             }
 
-            for (int i = 0; i < error_point_list.size(); i++) {
-                point_list.erase(point_list.begin() + error_point_list[i] - i);
+            if (modify_point_list) {
+                for (int i = 0; i < error_point_list.size(); i++) {
+                    point_list.erase(point_list.begin() + (error_point_list[i] - i));
+                }
             }
+            return error_point_list;
         }
 
         void run_bar_2(std::vector<box_info_internal>& results, std::vector<int>& roi, int border_orient, std::map<std::string, float>& param_map, int segment_rcut = 25) {
@@ -1185,7 +1188,7 @@ namespace glasssix::ring
                     }
                     segement_result.push_back(roi_temp.cols - 1);
                     // offset segement point
-                    screen_result_point(segement_result);
+                    screen_result_point(segement_result,true);
 
                     // step 4 classifi
                     for (size_t j = 0; j < segement_result.size() - 1; j++)
@@ -1260,11 +1263,8 @@ namespace glasssix::ring
             std::shared_ptr<memory::tensor<float>> output = out["output"];
 
             std::vector<std::vector<cv::Point2f>> boxes_rect;
-            std::vector<std::vector<cv::Point2f>> boxes_rect_shrink;
             std::vector<float> scores;
-            std::vector<float> scores_shrink;
             std::vector<cv::Size> sizes;
-            std::vector<cv::Size> sizes_shrink;
             std::map<std::string, float> params = {
                 {"thresh", param_map.count("thresh") ? param_map["thresh"] : 0.3},
                 {"box_thresh",  param_map.count("box_thresh") ? param_map["box_thresh"] : 0.3},
@@ -1272,22 +1272,17 @@ namespace glasssix::ring
                 {"max_candidates", param_map.count("max_candidates") ? param_map["max_candidates"] : 1000},
                 {"unclip_ratio", param_map.count("unclip_ratio") ? param_map["unclip_ratio"] : 1.7} };
 
-            std::map<std::string, float> params_shrink = params;
-            params_shrink["unclip_ratio"] = 1.25;
-
             det_post_process_bar(output, params, boxes_rect, scores, sizes);
-            det_post_process_bar(output, params_shrink, boxes_rect_shrink, scores_shrink, sizes_shrink);
 
             for (size_t i = 0; i < boxes_rect.size(); i++)
             {
                 for (size_t j = 0; j < boxes_rect[i].size(); j++)
                 {
                         boxes_rect[i][j] *= ratio;
-                        if (boxes_rect[i][j].x <= 1 || boxes_rect[i][j].x >= input_mat.cols - 1 || boxes_rect[i][j].y <= 1 || boxes_rect[i][j].y >= input_mat.rows - 1)
+                        if (boxes_rect[i][j].x < 0 || boxes_rect[i][j].x > input_mat.cols - 1 || boxes_rect[i][j].y < 0 || boxes_rect[i][j].y > input_mat.rows - 1)
                         {
                             return;
                         }
-                        boxes_rect_shrink[i][j] *= ratio;
                 }
             }
 
@@ -1296,11 +1291,9 @@ namespace glasssix::ring
                 // optimizing img & segment
                 int max_element_idx = std::max_element(scores.begin(), scores.end()) - scores.begin();
                 std::vector<cv::Point2f> max_score_box = boxes_rect[max_element_idx];
-                std::vector<cv::Point2f> max_score_box_shrink = boxes_rect_shrink[max_element_idx];
                 cv::RotatedRect rect = cv::minAreaRect(max_score_box);
                 cv::Mat cut_img = crop_rect(input_mat, rect, 0);
-                std::vector<cv::Point2f> box_shrink_new = calcu_box_shrink_new(rect, max_score_box_shrink);
-                std::vector<cv::Point2f> foot_points = findFoot(cut_img, box_shrink_new);
+                std::vector<cv::Point2f> foot_points = findFoot(cut_img);
                 // check foot_points validity
                 for (cv::Point2f point : foot_points) {
                     if ((int)point.x * (int)point.y == 0) {
@@ -1314,7 +1307,8 @@ namespace glasssix::ring
                 cv::Mat out_char_box;
                 float score_max = 0.f;
                 for (int i = 0; i < 4; ++i) {
-                    cv::Mat char_box = charBoxDet(cut_img, 290, 340, 94, 480);
+                    cv::Mat char_box = charBoxDet(cut_img, 290, 340, 94, 580);
+                    //cv::imshow("char_box", char_box); cv::waitKey(0);
                     std::vector<std::pair<int, int>> cord_list = find_segment_img(char_box);
                     std::string stringinfo;
                     std::vector<float> probs;

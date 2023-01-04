@@ -10,7 +10,7 @@ float cartesian_to_radian(const cv::Point2f& center, const cv::Point2f& coord, f
 
 std::vector<cv::Point2f> calcu_box_shrink_new(const cv::RotatedRect& rect, const std::vector<cv::Point2f>& box_shrink);
 
-std::vector<cv::Point2f> findFoot(const cv::Mat& img, std::vector<cv::Point2f>& init_search_points);
+std::vector<cv::Point2f> findFoot(const cv::Mat& img);
 
 bool redirectRect(cv::Mat& img);
 
@@ -20,10 +20,11 @@ std::vector<std::pair<int, int>> find_segment_img(cv::Mat img);
 
 std::vector<std::pair<int, int>> cut_index(std::vector<int>& min_indexs, const std::vector<float>& ver_lis);
 
-cv::Point top_left_corner_point(cv::Mat& mat, int x, int y, int biasline);
-cv::Point top_right_corner_point(cv::Mat& mat, int x, int y, int biasline);
-cv::Point bottom_left_corner_point(cv::Mat& mat, int x, int y, int biasline);
-cv::Point bottom_right_corner_point(cv::Mat& mat, int x, int y, int biasline);
+bool is_green(const cv::Vec3b& bgr);
+std::pair<cv::Point, cv::Point> top_left_corner_point(cv::Mat& canny_mat, const cv::Mat& image, const cv::Point init_point);
+std::pair<cv::Point, cv::Point> top_right_corner_point(cv::Mat& canny_mat, const cv::Mat& image, const cv::Point init_point);
+std::pair<cv::Point, cv::Point> bottom_left_corner_point(cv::Mat& canny_mat, const cv::Mat& image, const cv::Point init_point);
+std::pair<cv::Point, cv::Point> bottom_right_corner_point(cv::Mat& canny_mat, const cv::Mat& image, const cv::Point init_point);
 
 std::pair<int, int> find_waves_by_width_amplitude(const cv::Mat& histogram_mat, int amplitude_low, int amplitude_high, int width_low, int width_high);
 

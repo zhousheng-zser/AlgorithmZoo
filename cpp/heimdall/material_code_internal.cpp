@@ -22,6 +22,7 @@
 // #include <opencv2/opencv.hpp>
 
 #include <cfloat>
+#include <numeric>
 
 #ifdef USE_CUDA
 #include <cuda_runtime_api.h>
@@ -1166,19 +1167,32 @@ namespace glasssix::heimdall
                 }
                 segement_result.push_back(roi_temp.cols - 1);
 
-                float probs_sum = 0.f;
+                std::vector<int> error_indx_list = screen_result_point(segement_result, false);
+
                 for (size_t j = 0; j < segement_result.size() - 1; j++)
                 {
                     cv::Mat small_img = roi_temp(cv::Range::all(), cv::Range((int)segement_result[j], (int)segement_result[j + 1]));
                     auto [label, prob] = classfi_instance_->detect(small_img, *instance_[3]);
-                    stringinfo.push_back(label);
+                    if (label == 'C') {
+                        stringinfo.push_back('0');
+                    }
+                    else if(label == 'B') {
+                        stringinfo.push_back('8');
+                    }
+                    else {
+                        stringinfo.push_back(label);
+                    }
                     probs.push_back(prob);
-                    probs_sum += prob;
                 }
-                if (probs_sum < probs.size() * 0.6)
-                {
-                    return;
+
+                if (!error_indx_list.empty() && error_indx_list.size() + 11 == stringinfo.length()) {
+                    for (int i = 0; i < error_indx_list.size(); i++) {
+                        probs.erase(probs.begin() + (error_indx_list[i] - i));
+                        stringinfo.erase(stringinfo.begin() + (error_indx_list[i] - i));
+                    }
                 }
+                if (std::accumulate(probs.begin(), probs.end(), 0.0) < probs.size() * 0.6) return; // assert 11 chars` average score > 0.6
+
                 out = std::make_pair<std::vector<std::string>, std::vector<std::vector<float>>>({ stringinfo }, { probs });
 
                 box_info_internal box;
@@ -1331,7 +1345,7 @@ namespace glasssix::heimdall
                     }
                     segement_result.push_back(roi_temp.cols - 1);
                     // offset segement point
-                    screen_result_point(segement_result);
+                    screen_result_point(segement_result, true);
 
                     timer_start = std::chrono::system_clock::now(); //timer
                     for (size_t j = 0; j < segement_result.size() - 1; j++)
@@ -1555,7 +1569,7 @@ namespace glasssix::heimdall
             return resize_img;
         }
 
-        void screen_result_point(std::vector<float>& point_list) {
+        std::vector<int> screen_result_point(std::vector<float>& point_list, bool modify_point_list = true) {
             std::vector<float> first_screen_distance_list;
             std::vector<float> distance_list;
             std::vector<int> error_point_list;
@@ -1587,9 +1601,12 @@ namespace glasssix::heimdall
                 }
             }
 
-            for (int i = 0; i < error_point_list.size(); i++) {
-                point_list.erase(point_list.begin() + (error_point_list[i] - i));
+            if (modify_point_list) {
+                for (int i = 0; i < error_point_list.size(); i++) {
+                    point_list.erase(point_list.begin() + (error_point_list[i] - i));
+                }
             }
+            return error_point_list;
         }
 
         void run_cool_roll_2(std::vector<box_info_internal>& results, std::vector<int>& roi, int top_five) //new cool rolled
@@ -1674,7 +1691,7 @@ namespace glasssix::heimdall
                     if(add_tail)
                         segement_result.push_back(roi_temp.cols - 1);
                     // offset segement point
-                    screen_result_point(segement_result);
+                    screen_result_point(segement_result, true);
 
                     for (size_t j = 0; j < segement_result.size() - 1; j++)
                     {
