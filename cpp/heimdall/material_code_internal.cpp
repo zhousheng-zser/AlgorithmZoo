@@ -1655,7 +1655,7 @@ namespace glasssix::heimdall
             else {
                 for (size_t i = 0; i < box_list.size(); i++)
                     for (size_t j = 0; j < box_list[i].size(); j++)
-                        box_list[i][j] *= 1/ratio_x;
+                        box_list[i][j] *= 1 / ratio_x;
             }
             // segement & classify
             if (box_list.size() > 1)
@@ -1672,24 +1672,26 @@ namespace glasssix::heimdall
                     std::vector<float> probs;
 
                     std::sort(segement_result.begin(), segement_result.end()); //avoid potential reverse order points, which casuse segment crash
-                    float left = 0.f, right = 0.f;
-                    if (segement_result[0] < 0)
-                    {
-                        left = std::ceil(std::abs(segement_result[0]));
-                        segement_result[0] = 0;
-                    }
+
+                    std::vector<float> segement_result_temp{ 0 };
                     bool add_tail = false;
-                    for (int i = segement_result.size() - 1; i > 0; i--)
-                    {
-                        if (segement_result[i] > roi_temp.cols) {
-                            segement_result.pop_back();
-                            add_tail = true;
+                    const int boundary = roi_temp.cols-2;
+                    for (int i = 0; i < segement_result.size(); ++i){
+                        int check_point = segement_result[i];
+                        if (check_point > 20) {
+                            if (check_point < boundary) {
+                                segement_result_temp.push_back(check_point);
+                            }
+                            else {
+                                add_tail = true;
+                                break;
+                            }
                         }
-                        else
-                            break;
                     }
-                    if(add_tail)
-                        segement_result.push_back(roi_temp.cols - 1);
+                    if (add_tail) {
+                        segement_result_temp.push_back(roi_temp.cols - 1);
+                    }
+                    segement_result.swap(segement_result_temp);
                     // offset segement point
                     screen_result_point(segement_result, true);
 
