@@ -162,7 +162,7 @@ namespace glasssix::damocles
 			bool finish_flag = false;
 			switch (action_cmd)
 			{
-			case 0: // еЃбл
+			case 0: // Бебл
 			{
 				float left_eye_horizontal = distance(ldmk_info[39 * 2], ldmk_info[39 * 2 + 1], ldmk_info[43 * 2], ldmk_info[43 * 2 + 1]);
 				float left_eye_vertical = distance(ldmk_info[41 * 2], ldmk_info[41 * 2 + 1], ldmk_info[45 * 2], ldmk_info[45 * 2 + 1]);
