@@ -6,6 +6,9 @@ namespace glasssix
 {
 namespace ring
 {
+
+enum class cornerType{ top_left, top_right, bottom_left, bottom_right };
+
 float cartesian_to_radian(const cv::Point2f& center, const cv::Point2f& coord, float R);
 
 std::vector<cv::Point2f> calcu_box_shrink_new(const cv::RotatedRect& rect, const std::vector<cv::Point2f>& box_shrink);
@@ -21,10 +24,7 @@ std::vector<std::pair<int, int>> find_segment_img(cv::Mat img);
 std::vector<std::pair<int, int>> cut_index(std::vector<int>& min_indexs, const std::vector<float>& ver_lis);
 
 bool is_green(const cv::Vec3b& bgr);
-std::pair<cv::Point, cv::Point> top_left_corner_point(cv::Mat& canny_mat, const cv::Mat& image, const cv::Point init_point);
-std::pair<cv::Point, cv::Point> top_right_corner_point(cv::Mat& canny_mat, const cv::Mat& image, const cv::Point init_point);
-std::pair<cv::Point, cv::Point> bottom_left_corner_point(cv::Mat& canny_mat, const cv::Mat& image, const cv::Point init_point);
-std::pair<cv::Point, cv::Point> bottom_right_corner_point(cv::Mat& canny_mat, const cv::Mat& image, const cv::Point init_point);
+std::pair<cv::Point, bool> search_corner_point(cv::Mat& canny_mat, const cv::Mat& image, const cv::Point init_point);
 
 std::pair<int, int> find_waves_by_width_amplitude(const cv::Mat& histogram_mat, int amplitude_low, int amplitude_high, int width_low, int width_high);
 

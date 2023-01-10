@@ -136,7 +136,7 @@ namespace glasssix::ring
 
         static std::string version()
         {
-            return "1.0.0";
+            return "1.0.1_2023.01.10";
         }
 
     private:
@@ -822,6 +822,9 @@ namespace glasssix::ring
                 box.cut_roi_width = cut_img.cols;
                 box.cut_roi_height = cut_img.rows;
 
+                auto messages = exposing::make_param_vector<exposing::param_string>();
+                messages.push_back(exposing::param_string(version()));
+                box.messages = messages;
                 results.push_back(box);
             }
         }
@@ -1241,6 +1244,9 @@ namespace glasssix::ring
 
             box.angle = 0;
 
+            auto messages = exposing::make_param_vector<exposing::param_string>();
+            messages.push_back(exposing::param_string(version()));
+            box.messages = messages;
             results.push_back(box);
         }
 
@@ -1308,7 +1314,6 @@ namespace glasssix::ring
                 float score_max = 0.f;
                 for (int i = 0; i < 4; ++i) {
                     cv::Mat char_box = charBoxDet(cut_img, 290, 340, 94, 580);
-                    //cv::imshow("char_box", char_box); cv::waitKey(0);
                     std::vector<std::pair<int, int>> cord_list = find_segment_img(char_box);
                     std::string stringinfo;
                     std::vector<float> probs;
@@ -1337,6 +1342,7 @@ namespace glasssix::ring
                         cv::rotate(cut_img, cut_img, cv::ROTATE_90_CLOCKWISE);
                     }
                 }
+                //cv::imshow("out_char_box", out_char_box); cv::waitKey(0);
                 // install
                 box_info_internal box;
                 auto strinfos = exposing::make_param_vector<exposing::param_string>();
@@ -1358,6 +1364,10 @@ namespace glasssix::ring
                     location.push_back(foot.y);
                 }
                 box.location = location;
+
+                auto messages = exposing::make_param_vector<exposing::param_string>();
+                messages.push_back(exposing::param_string(version()));
+                box.messages = messages;
                 results.push_back(box);
             }
         }
