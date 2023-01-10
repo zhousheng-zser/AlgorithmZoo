@@ -146,7 +146,7 @@ namespace glasssix::heimdall
 
         static std::string version()
         {
-            return "1.0.2";
+            return "1.0.2_2023.01.10";
         }
 
     private:
@@ -1212,6 +1212,7 @@ namespace glasssix::heimdall
 
                 //  message hot
                 auto messages = exposing::make_param_vector<exposing::param_string>();
+                messages.push_back(exposing::param_string(version()));
                 if (use_message_) {
                     std::string message_str = "det_boxs scores:  ";
                     for (auto scores : result.second) {
@@ -1382,6 +1383,7 @@ namespace glasssix::heimdall
 
                 //message heavy
                 auto messages = exposing::make_param_vector<exposing::param_string>();
+                messages.push_back(exposing::param_string(version()));
                 if (use_message_) {
                     messages.push_back(exposing::param_string(
                         "thsh: " + std::to_string(message_det_thresh_) +
@@ -1720,6 +1722,7 @@ namespace glasssix::heimdall
                     }
                     //message run_cool
                     auto messages = exposing::make_param_vector<exposing::param_string>();
+                    messages.push_back(exposing::param_string(version()));
                     if (use_message_) {
                         //eight points of detbox_pair
                         std::string box_message{"origin boxes for this str: "};

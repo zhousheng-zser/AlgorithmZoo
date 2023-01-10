@@ -65,32 +65,13 @@ std::vector<cv::Point2f> findFoot(const cv::Mat& img)
 
 	std::array<cv::Point, 4> init_point_list{ cv::Point{0, 0}, cv::Point{W - 1, 0}, cv::Point{W - 1, H - 1}, cv::Point{0, H - 1} };
 
-	auto [top_left_corner, top_left_corner_green] = top_left_corner_point(canny_mat, img, init_point_list[0]);
-	if (top_left_corner_green == init_point_list[0] || top_left_corner_green.x > W / 2 || top_left_corner_green.y > H / 2)
-	{
-		top_left_corner_green = top_left_corner;
+	//auto visual = img.clone();
+	for (auto point : init_point_list) {
+		auto [corner, is_corner_green] = search_corner_point(canny_mat, img, point);
+		foot_points.push_back(corner);
+		//cv::circle(visual, corner, 4, is_corner_green ? cv::Scalar(0, 255, 0): cv::Scalar(0, 0, 255), 4);
 	}
-	auto [top_right_corner, top_right_corner_green] = top_right_corner_point(canny_mat, img, init_point_list[1]);
-	if (top_right_corner_green == init_point_list[1] || top_right_corner_green.x < W / 2 || top_right_corner_green.y > H / 2)
-	{
-		top_right_corner_green = top_right_corner;
-	}
-	auto [bottom_right_corner, bottom_right_corner_green] = bottom_right_corner_point(canny_mat, img, init_point_list[2]);
-	if (bottom_right_corner_green == init_point_list[2] || bottom_right_corner_green.x < W / 2 || bottom_right_corner_green.y < H / 2)
-	{
-		bottom_right_corner_green = bottom_right_corner;
-	}
-	auto [bottom_left_corner, bottom_left_corner_green] = bottom_left_corner_point(canny_mat, img, init_point_list[3]);
-	if (bottom_left_corner_green == init_point_list[3] || bottom_left_corner_green.x > W / 2 || bottom_left_corner_green.y < H / 2)
-	{
-		bottom_left_corner_green = bottom_left_corner;
-	}
-
-	foot_points.push_back(top_left_corner_green);
-	foot_points.push_back(top_right_corner_green);
-	foot_points.push_back(bottom_right_corner_green);
-	foot_points.push_back(bottom_left_corner_green);
-
+	//cv::imshow("visual", visual); cv::waitKey(0);
 	return foot_points;
 }
 
@@ -215,7 +196,7 @@ bool is_green(const cv::Vec3b& bgr) {
 	cv::Mat3b hsv;
 	cv::Mat1b color_point_judge;
 	cv::Mat3b color_lower_hsv(cv::Vec3b(40, 20, 60)); // HSV
-	cv::Mat3b color_upper_hsv(cv::Vec3b(77, 255, 255));// HSV
+	cv::Mat3b color_upper_hsv(cv::Vec3b(77, 255, 255)); // HSV
 	cv::cvtColor(input, hsv, cv::COLOR_BGR2HSV);
 	cv::inRange(hsv, color_lower_hsv, color_upper_hsv, color_point_judge);
 	if (color_point_judge.at<uchar>(0, 0) == 255) {
@@ -226,272 +207,102 @@ bool is_green(const cv::Vec3b& bgr) {
 	}
 }
 
-std::pair<cv::Point, cv::Point> top_left_corner_point(cv::Mat& canny_mat, const cv::Mat& image, const cv::Point init_point)
-{
+cornerType quadrant_judge(const cv::Point& point, int H, int W) {
+	if (point.x * 2 < W && point.y * 2 < H)
+		return cornerType::top_left;
+	else if (point.x * 2 > W && point.y * 2 < H)
+		return cornerType::top_right;
+	else if (point.x * 2 < W && point.y * 2 > H)
+		return cornerType::bottom_left;
+	else if(point.x * 2 > W && point.y * 2 > H)
+		return cornerType::bottom_right;
+	else
+		return cornerType::top_left; // centre -> top_left
+}
+
+std::pair<cv::Point, cv::Point> search_corner_point_internal(cv::Mat& canny_mat, const cv::Mat& image, const cv::Point init_point,int i_symbol, int j_symbol) {
 	cv::Point corner = init_point;
 	cv::Point corner_green = init_point;
 	bool corner_find = false;
-
 	int i = 1, j = 0;
-	while (i < canny_mat.rows && j < canny_mat.cols)
-	{
-		j = 0;
-		while (i >= 0)
+	int search_boundary = std::min(image.rows, image.cols) - 1;
+	auto search_corner = [&](int i_symbol_lmd, int j_symbol_lmd)->bool {
+		if (canny_mat.at<uchar>(init_point.y + i, init_point.x + j) == 255)
 		{
-			if (canny_mat.at<uchar>(init_point.y + i, init_point.x + j) == 255)
-			{
-				if (!corner_find) {
-					corner = { init_point.x + j ,init_point.y + i };
-					corner_find = true;
-				}
+			if (!corner_find) {
+				corner = { init_point.x + j ,init_point.y + i };
+				corner_find = true;
+			}
 
-				if (is_green(image.at<cv::Vec3b>(init_point.y + i, init_point.x + j))) {
-					corner_green = { init_point.x + j ,init_point.y + i };
-					return { corner,corner_green };
-				}
-				else
-				{
-					--i;
-					++j;
-				}
+			if (is_green(image.at<cv::Vec3b>(init_point.y + i, init_point.x + j))) {
+				corner_green = { init_point.x + j ,init_point.y + i };
+				return true;
 			}
 			else
 			{
-				--i;
-				++j;
+				i += i_symbol_lmd;
+				j += j_symbol_lmd;
 			}
+		}
+		else
+		{
+			i += i_symbol_lmd;
+			j += j_symbol_lmd;
+		}
+		return false;
+	};
+
+	while (-i_symbol * i < search_boundary && j_symbol * j < search_boundary)
+	{
+		j = 0;
+		while (-i_symbol * i >= 0)
+		{
+			if (search_corner(i_symbol, j_symbol))
+				return { corner,corner_green };
 		}
 
 		i = 0;
-
-		while (j >= 0)
+		while (j_symbol * j >= 0)
 		{
-			if (canny_mat.at<uchar>(init_point.y + i, init_point.x + j) == 255)
-			{
-				if (!corner_find) {
-					corner = { init_point.x + j ,init_point.y + i };
-					corner_find = true;
-				}
-
-				if (is_green(image.at<cv::Vec3b>(init_point.y + i, init_point.x + j))) {
-					corner_green = { init_point.x + j ,init_point.y + i };
-					return { corner,corner_green };
-				}
-				else
-				{
-					++i;
-					--j;
-				}
-			}
-			else
-			{
-				++i;
-				--j;
-			}
+			if (search_corner(-i_symbol, -j_symbol))
+				return { corner,corner_green };
 		}
 	}
-	return { corner,corner_green };
+	return { corner, corner_green };
 }
 
-std::pair<cv::Point, cv::Point> top_right_corner_point(cv::Mat& canny_mat, const cv::Mat& image, const cv::Point init_point)
-{
-	cv::Point corner = init_point;
-	cv::Point corner_green = init_point;
-	bool corner_find = false;
+std::pair<cv::Point, bool> search_corner_point(cv::Mat& canny_mat, const cv::Mat& image, const cv::Point init_point) {
+	const int H = image.rows;
+	const int W = image.cols;
+	int i_symbol = 1;
+	int j_symbol = 1;
+	cornerType type = quadrant_judge(init_point, H, W);
 
-	int i = 1, j = 0;
-	while (i < canny_mat.rows && j > -canny_mat.cols)
+	switch (quadrant_judge(init_point, H, W))
 	{
-		j = 0;
-		while (i >= 0)
-		{
-			if (canny_mat.at<uchar>(init_point.y + i, init_point.x + j) == 255)
-			{
-				if (!corner_find) {
-					corner = { init_point.x + j ,init_point.y + i };
-					corner_find = true;
-				}
-
-				if (is_green(image.at<cv::Vec3b>(init_point.y + i, init_point.x + j))) {
-					corner_green = { init_point.x + j ,init_point.y + i };
-					return { corner,corner_green };
-				}
-				else
-				{
-					--i;
-					--j;
-				}
-			}
-			else
-			{
-				--i;
-				--j;
-			}
-		}
-
-		i = 0;
-
-		while (j <= 0)
-		{
-			if (canny_mat.at<uchar>(init_point.y + i, init_point.x + j) == 255)
-			{
-				if (!corner_find) {
-					corner = { init_point.x + j ,init_point.y + i };
-					corner_find = true;
-				}
-
-				if (is_green(image.at<cv::Vec3b>(init_point.y + i, init_point.x + j))) {
-					corner_green = { init_point.x + j ,init_point.y + i };
-					return { corner,corner_green };
-				}
-				else
-				{
-					++i;
-					++j;
-				}
-			}
-			else
-			{
-				++i;
-				++j;
-			}
-		}
+	case cornerType::top_left:
+		i_symbol = -1;
+		j_symbol = 1;
+		break;
+	case cornerType::top_right:
+		i_symbol = -1;
+		j_symbol = -1;
+		break;
+	case cornerType::bottom_left:
+		i_symbol = 1;
+		j_symbol = 1;
+		break;
+	case cornerType::bottom_right:
+		i_symbol = 1;
+		j_symbol = -1;
+		break;
 	}
-	return { corner,corner_green };
-}
 
-std::pair<cv::Point, cv::Point> bottom_left_corner_point(cv::Mat& canny_mat, const cv::Mat& image, const cv::Point init_point)
-{
-	cv::Point corner = init_point;
-	cv::Point corner_green = init_point;
-	bool corner_find = false;
-
-	int i = -1, j = 0;
-	while (i > -canny_mat.rows && j < canny_mat.cols)
-	{
-		j = 0;
-		while (i <= 0)
-		{
-			if (canny_mat.at<uchar>(init_point.y + i, init_point.x + j) == 255)
-			{
-				if (!corner_find) {
-					corner = { init_point.x + j ,init_point.y + i };
-					corner_find = true;
-				}
-
-				if (is_green(image.at<cv::Vec3b>(init_point.y + i, init_point.x + j))) {
-					corner_green = { init_point.x + j ,init_point.y + i };
-					return { corner,corner_green };
-				}
-				else
-				{
-					++i;
-					++j;
-				}
-			}
-			else
-			{
-				++i;
-				++j;
-			}
-		}
-
-		i = 0;
-
-		while (j >= 0)
-		{
-			if (canny_mat.at<uchar>(init_point.y + i, init_point.x + j) == 255)
-			{
-				if (!corner_find) {
-					corner = { init_point.x + j ,init_point.y + i };
-					corner_find = true;
-				}
-
-				if (is_green(image.at<cv::Vec3b>(init_point.y + i, init_point.x + j))) {
-					corner_green = { init_point.x + j ,init_point.y + i };
-					return { corner,corner_green };
-				}
-				else
-				{
-					--i;
-					--j;
-				}
-			}
-			else
-			{
-				--i;
-				--j;
-			}
-		}
-	}
-	return { corner,corner_green };
-}
-
-std::pair<cv::Point, cv::Point> bottom_right_corner_point(cv::Mat& canny_mat, const cv::Mat& image, const cv::Point init_point)
-{
-	cv::Point corner = init_point;
-	cv::Point corner_green = init_point;
-	bool corner_find = false;
-
-	int i = -1, j = 0;
-	while (i > -canny_mat.rows && j > -canny_mat.cols)
-	{
-		j = 0;
-		while (i <= 0)
-		{
-			if (canny_mat.at<uchar>(init_point.y + i, init_point.x + j) == 255)
-			{
-				if (!corner_find) {
-					corner = { init_point.x + j ,init_point.y + i };
-					corner_find = true;
-				}
-
-				if (is_green(image.at<cv::Vec3b>(init_point.y + i, init_point.x + j))) {
-					corner_green = { init_point.x + j ,init_point.y + i };
-					return { corner,corner_green };
-				}
-				else
-				{
-					++i;
-					--j;
-				}
-			}
-			else
-			{
-				++i;
-				--j;
-			}
-		}
-
-		i = 0;
-
-		while (j <= 0)
-		{
-			if (canny_mat.at<uchar>(init_point.y + i, init_point.x + j) == 255)
-			{
-				if (!corner_find) {
-					corner = { init_point.x + j ,init_point.y + i };
-					corner_find = true;
-				}
-
-				if (is_green(image.at<cv::Vec3b>(init_point.y + i, init_point.x + j))) {
-					corner_green = { init_point.x + j ,init_point.y + i };
-					return { corner,corner_green };
-				}
-				else
-				{
-					--i;
-					++j;
-				}
-			}
-			else
-			{
-				--i;
-				++j;
-			}
-		}
-	}
-	return { corner,corner_green };
+	auto [corner, corner_green] = search_corner_point_internal(canny_mat, image, init_point, i_symbol, j_symbol);
+	if (corner_green == init_point || quadrant_judge(corner_green, H, W) != type)
+		return { corner,false };
+	else
+		return { corner_green,true };
 }
 
 template<class T>
