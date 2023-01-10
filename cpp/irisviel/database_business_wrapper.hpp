@@ -30,6 +30,8 @@ namespace glasssix
 			bool add(database_record &record);
 			std::vector<bool> remove(std::vector<std::string>& keys);
 			std::vector<bool> update(const std::vector<std::shared_ptr<database_record>>& records) const;
+			std::uint64_t count() const;
+			bool contains(std::string_view key) const;
 		private:
 			std::unique_ptr<impl> impl_;
 		};

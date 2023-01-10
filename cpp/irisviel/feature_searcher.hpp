@@ -23,5 +23,7 @@ namespace glasssix::irisviel
 		virtual bool add(database_record &record)  = 0;
 		virtual std::vector<bool> remove(std::vector<std::string>& keys)  = 0;
 		virtual std::vector<bool> update(const std::vector<std::shared_ptr<database_record>>& records)  const = 0;
+		virtual std::uint64_t count() const =0;
+		virtual bool contains(std::string_view key) const =0;
 	};
 }

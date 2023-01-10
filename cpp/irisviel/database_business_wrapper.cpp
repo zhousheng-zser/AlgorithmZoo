@@ -164,6 +164,7 @@ namespace glasssix
 				return searcher_->update(records);
 			}
 
+
 			std::vector<database_search_result> search(const float* feature, std::optional<float> min_similarity, std::optional<std::uint32_t> top) const
 			{
 				auto result = search_many({ feature }, min_similarity, top);
@@ -192,6 +193,28 @@ namespace glasssix
 			{
 				throw std::runtime_error{ fmt::format("Searching operation failed: {}", ex.what()) };
 			}
+			
+			std::uint64_t count() const
+			{
+				if (!searcher_)
+				{
+					throw std::invalid_argument{ "Null searcher." };
+				}
+
+				return searcher_->count();
+
+			}
+			bool contains(std::string_view key) const
+			{
+				if (!searcher_)
+				{
+					throw std::invalid_argument{ "Null searcher." };
+				}
+
+				return searcher_->contains(key);
+
+			}
+
 		private:
 			bool valid_state_;
 			bool mark_for_deletion_;
@@ -251,6 +274,17 @@ namespace glasssix
 		std::vector<bool> database_business_wrapper::update(const std::vector<std::shared_ptr<database_record>>& records) const
 		{
 			return impl_->update(records);
+		}
+		
+		std::uint64_t database_business_wrapper::count() const
+		{
+			return impl_->count();
+
+		}
+		bool database_business_wrapper::contains(std::string_view key) const
+		{
+			return impl_->contains(key);
+
 		}
 	}
 }

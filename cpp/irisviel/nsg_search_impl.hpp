@@ -24,6 +24,8 @@ namespace glasssix::irisviel
 		virtual bool add(database_record &record) override;
 		virtual std::vector<bool> remove(std::vector<std::string>& keys)  override;
 		virtual std::vector<bool> update(const std::vector<std::shared_ptr<database_record>>& records)  const override;
+		virtual std::uint64_t count() const override;
+		virtual bool contains(std::string_view key) const override;
 	private:
 		class impl;
 

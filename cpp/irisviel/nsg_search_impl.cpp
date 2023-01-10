@@ -142,6 +142,14 @@ namespace glasssix::irisviel
 	{
 		return {};
 	}
+	std::uint64_t nsg_search_impl::count() const
+	{
+		return {};
+	}
+	bool nsg_search_impl::contains(std::string_view key) const
+	{
+		return {};
+	}
 
 	namespace
 	{

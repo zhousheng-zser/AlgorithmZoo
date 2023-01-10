@@ -89,16 +89,33 @@ namespace glasssix
 
             std::uint64_t record_count() const
             {
-                return std::accumulate(
-                    cache_.begin(),
-                    cache_.end(),
-                    0ULL,
-                    [&](std::uint64_t init, const std::shared_ptr<database_cache>& item) { return init + item->manager->count(); });
+                if (implementation_ == face_service_implemention::lsh_algorithm)
+                {
+                    auto& item = *cache_.begin();
+                    return item->wrapper->count();
+                }
+                else
+                {
+                    return std::accumulate(
+                        cache_.begin(),
+                        cache_.end(),
+                        0ULL,
+                        [&](std::uint64_t init, const std::shared_ptr<database_cache>& item) { return init + item->manager->count(); });
+
+                }
             }
 
             bool contains_key(std::string_view key) const
             {
-                return std::any_of(cache_.begin(), cache_.end(), [&](const std::shared_ptr<database_cache>& inner) { return inner->manager->contains(key); });
+                if (implementation_ == face_service_implemention::lsh_algorithm)
+                {
+                    auto& item = *cache_.begin();
+                    return item->wrapper->contains(key);
+                }
+                else
+                {
+                    return std::any_of(cache_.begin(), cache_.end(), [&](const std::shared_ptr<database_cache>& inner) { return inner->manager->contains(key); });
+                }
             }
 
             std::shared_ptr<database_record> try_get_record(std::string_view key) const
@@ -158,7 +175,7 @@ namespace glasssix
                     {
                         auto& item = *cache_.begin();
 
-                        result[index++] = item->wrapper->add(*record);;
+                        result[index++] = item->wrapper->add(*record);
                     }
                 }
                 else
