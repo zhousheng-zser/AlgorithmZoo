@@ -92,7 +92,7 @@ namespace glasssix
                 if (implementation_ == face_service_implemention::lsh_algorithm)
                 {
                     auto& item = *cache_.begin();
-                    return item->wrapper->count();
+                    return cache_.size() ? item->wrapper->count():0LLU ;
                 }
                 else
                 {
@@ -110,7 +110,7 @@ namespace glasssix
                 if (implementation_ == face_service_implemention::lsh_algorithm)
                 {
                     auto& item = *cache_.begin();
-                    return item->wrapper->contains(key);
+                    return cache_.size() && item->wrapper->contains(key);
                 }
                 else
                 {
@@ -173,9 +173,8 @@ namespace glasssix
                 {
                     for (auto& record : records)
                     {
-                        auto& item = *cache_.begin();
-
-                        result[index++] = item->wrapper->add(*record);
+                        auto item = find_available_database_core(record->key());
+                        result[index++] = item && item->wrapper->add(*record);
                     }
                 }
                 else
@@ -212,7 +211,8 @@ namespace glasssix
                 {
                     auto& item = *cache_.begin();
 
-                    return item->wrapper->remove(keys);
+                    std::vector<bool> result(keys.size(),true);
+                    return cache_.size()? item->wrapper->remove(keys): result;
                 }
                 else
                 {
@@ -241,8 +241,8 @@ namespace glasssix
                 if (implementation_ == face_service_implemention::lsh_algorithm)
                 {
                     auto& item = *cache_.begin();
-                    
-                    return item->wrapper->update(records);
+                    std::vector<bool> result(records.size(),false);
+                    return cache_.size() ? item->wrapper->update(records) : result;
                 }
                 else
                 {

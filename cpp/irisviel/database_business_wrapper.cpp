@@ -138,9 +138,13 @@ namespace glasssix
 			{
 				if (!searcher_)
 				{
-					throw std::invalid_argument{ "Null searcher." };
+					build(true);
+					if (!searcher_)
+					{
+						printf("Null searcher.\n");
+						throw std::invalid_argument{ "Null searcher." };
+					}
 				}
-
 				return searcher_->add(record);
 			}
 
