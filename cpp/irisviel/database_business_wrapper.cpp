@@ -169,14 +169,14 @@ namespace glasssix
 			}
 
 
-			std::vector<database_search_result> search(const float* feature, std::optional<float> min_similarity, std::optional<std::uint32_t> top) const
+			std::vector<database_search_result> search(const float* feature, std::optional<float> min_similarity, std::optional<std::uint32_t> top, bool result_has_feature) const
 			{
-				auto result = search_many({ feature }, min_similarity, top);
+				auto result = search_many({ feature }, min_similarity, top, result_has_feature);
 
 				return result.empty() ? std::vector<database_search_result>{} : result.front();
 			}
 
-			std::vector<std::vector<database_search_result>> search_many(const std::vector<const float*>& features, std::optional<float> min_similarity, std::optional<std::uint32_t> top) const try
+			std::vector<std::vector<database_search_result>> search_many(const std::vector<const float*>& features, std::optional<float> min_similarity, std::optional<std::uint32_t> top, bool result_has_feature) const try
 			{
 				auto dimension = observer_->dimension();
 
@@ -191,7 +191,7 @@ namespace glasssix
 					return {};
 				}
 				
-				return searcher_->search_vector(features, min_similarity, top);
+				return searcher_->search_vector(features, min_similarity, top, result_has_feature);
 			}
 			catch (const std::exception& ex)
 			{
@@ -255,14 +255,14 @@ namespace glasssix
 			return impl_->cache_file_path();
 		}
 
-		std::vector<database_search_result> database_business_wrapper::search(const float* feature, std::optional<float> min_similarity, std::optional<std::uint32_t> top) const
+		std::vector<database_search_result> database_business_wrapper::search(const float* feature, std::optional<float> min_similarity, std::optional<std::uint32_t> top, bool result_has_feature) const
 		{
-			return impl_->search(feature, min_similarity, top);
+			return impl_->search(feature, min_similarity, top, result_has_feature);
 		}
 
 		std::vector<std::vector<database_search_result>> database_business_wrapper::search_many(const std::vector<const float*>& features, std::optional<float> min_similarity, std::optional<std::uint32_t> top) const
 		{
-			return impl_->search_many(features, min_similarity, top);
+			return impl_->search_many(features, min_similarity, top, true);
 		}
 
 		bool database_business_wrapper::add(database_record& record)

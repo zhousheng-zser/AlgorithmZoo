@@ -153,12 +153,17 @@ namespace glasssix
 
             std::vector<database_search_result> search(const float* feature, std::uint32_t top)
             {
-                return search_internal(feature, std::nullopt, top);
+                return search_internal(feature, std::nullopt, top , true);
             }
 
             std::vector<database_search_result> search(const float* feature, float min_similarity, std::optional<std::uint32_t> top)
             {
-                return search_internal(feature, min_similarity, top);
+                return search_internal(feature, min_similarity, top, true);
+            }
+
+            std::vector<database_search_result> search_nf(const float* feature, float min_similarity, std::optional<std::uint32_t> top)
+            {
+                return search_internal(feature, min_similarity, top, false);
             }
 
             std::vector<bool> add(const std::vector<std::shared_ptr<database_record>>& records)
@@ -272,7 +277,7 @@ namespace glasssix
                 }
             }
         private:
-            std::vector<database_search_result> search_internal(const float* feature, std::optional<float> similarity, std::optional<std::uint32_t> top)
+            std::vector<database_search_result> search_internal(const float* feature, std::optional<float> similarity, std::optional<std::uint32_t> top, bool result_has_feature)
             {
                 std::scoped_lock guard{ lock_ };
                 std::vector<database_search_result> result;
@@ -280,7 +285,7 @@ namespace glasssix
 
                 for (auto& item : cache_)
                 {
-                    auto search_result = item->wrapper->search(feature, similarity, top);
+                    auto search_result = item->wrapper->search(feature, similarity, top, result_has_feature);
 
                     if (!search_result.empty())
                     {
@@ -436,6 +441,11 @@ namespace glasssix
         std::vector<database_search_result> face_service_internal::search(const float* feature, float min_similarity, std::optional<std::uint32_t> top) const
         {
             return impl_->search(feature, min_similarity, top);
+        }
+
+        std::vector<database_search_result> face_service_internal::search_nf(const float* feature, float min_similarity, std::optional<std::uint32_t> top) const
+        {
+            return impl_->search_nf(feature, min_similarity, top);
         }
 
         std::vector<bool> face_service_internal::add(const std::vector<std::shared_ptr<database_record>>& records)

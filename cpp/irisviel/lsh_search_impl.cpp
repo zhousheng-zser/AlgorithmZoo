@@ -51,12 +51,12 @@ namespace glasssix::irisviel
             current_data_ = &data;
         }
 
-        std::vector<std::vector<database_search_result>> search_vector(const std::vector<const float*>& query_data, std::optional<float> min_similarity, std::optional<std::uint32_t> top_k)
+        std::vector<std::vector<database_search_result>> search_vector(const std::vector<const float*>& query_data, std::optional<float> min_similarity, std::optional<std::uint32_t> top_k,bool result_has_feature)
         {
             std::vector<std::vector<database_search_result>> result;
             for (auto&& item : query_data)
             {
-                result.emplace_back(search_single_vector(item, min_similarity, top_k));
+                result.emplace_back(search_single_vector(item, min_similarity, top_k, result_has_feature));
             }
             return result;
         }
@@ -462,7 +462,7 @@ namespace glasssix::irisviel
             return ans;
         }
 
-        std::vector<database_search_result> LSH_searchTobucket(int dimension, int top, std::vector<float>& _feature, double similarity)
+        std::vector<database_search_result> LSH_searchTobucket(int dimension, int top, std::vector<float>& _feature, double similarity, bool result_has_feature)
         {
             nlohmann::json temp;
             std::vector<database_search_result> result;
@@ -515,15 +515,24 @@ namespace glasssix::irisviel
                 temp.clear();
                 temp = q.top();
 
-                auto temp_record = database_record::create(dimension);
 
                 std::vector<float>val;
-                for (int i = 0; i < dimension; i++)
-                    val.push_back(temp["data"]["feature"][i].get<float>());
-
-                temp_record->feature(val);
-                temp_record->key(temp["data"]["key"].get<std::string>());
-                result.emplace_back(database_search_result{ temp_record, temp["similarity"].get<float>()});
+                if (result_has_feature)
+                {
+                    auto temp_record = database_record::create(dimension);
+                    for (int i = 0; i < dimension; i++)
+                        val.push_back(temp["data"]["feature"][i].get<float>());
+                    temp_record->feature(val);
+                    temp_record->key(temp["data"]["key"].get<std::string>());
+                    result.emplace_back(database_search_result{ temp_record, temp["similarity"].get<float>()});
+                }
+                else
+                {
+                    auto temp_record = database_record::create(0);
+                    temp_record->feature(val);
+                    temp_record->key(temp["data"]["key"].get<std::string>());
+                    result.emplace_back(database_search_result{ temp_record, temp["similarity"].get<float>() });
+                }
                 q.pop();
             }
             std::reverse(result.begin(), result.end());
@@ -531,7 +540,7 @@ namespace glasssix::irisviel
         }
 
 
-        std::vector<database_search_result> search_single_vector(const float* query_data, std::optional<float> min_similarity, std::optional<std::uint32_t> top_k)
+        std::vector<database_search_result> search_single_vector(const float* query_data, std::optional<float> min_similarity, std::optional<std::uint32_t> top_k, bool result_has_feature)
         {
             std::vector<database_search_result> result;
             std::vector<float>feature_float;
@@ -540,7 +549,7 @@ namespace glasssix::irisviel
             for (int i = 0; i < dimension_; i++)
                 feature_float.push_back(query_data[i]);
 
-            result = LSH_searchTobucket(dimension_, top, feature_float, similarity);
+            result = LSH_searchTobucket(dimension_, top, feature_float, similarity, result_has_feature);
             return result;
         }
         struct node
@@ -613,9 +622,9 @@ namespace glasssix::irisviel
         impl_->current_data(data);
     }
 
-    std::vector<std::vector<database_search_result>>lsh_search_impl::search_vector(const std::vector<const float*>& query_data, std::optional<float> min_similarity, std::optional<std::uint32_t> top_k) const
+    std::vector<std::vector<database_search_result>>lsh_search_impl::search_vector(const std::vector<const float*>& query_data, std::optional<float> min_similarity, std::optional<std::uint32_t> top_k, bool result_has_feature) const
     {
-        return impl_->search_vector(query_data, min_similarity, top_k);
+        return impl_->search_vector(query_data, min_similarity, top_k, result_has_feature);
     }
 
     bool lsh_search_impl::add(database_record& record)

@@ -49,7 +49,7 @@ namespace glasssix::irisviel
 			current_data_ = &data;
 		}
 
-		std::vector<std::vector<database_search_result>> search_vector(const std::vector<const float*>& query_data, std::optional<float> min_similarity, std::optional<std::uint32_t> top_k) const
+		std::vector<std::vector<database_search_result>> search_vector(const std::vector<const float*>& query_data, std::optional<float> min_similarity, std::optional<std::uint32_t> top_k, bool result_has_feature) const
 		{
 			// This implementation does not support searching by min similarity.
 			if (!top_k)
@@ -76,9 +76,16 @@ namespace glasssix::irisviel
 					}
 					// Retrieve the orginal data in the mapping file.
 					auto offset = reinterpret_cast<const std::uint8_t*>((*current_data_)[index].data) - database_record::feature_offset(dimension_);
-					auto result = database_record::create(dimension_, const_cast<std::uint8_t*>(offset));
-
-					inner.emplace_back(database_search_result{ result, similarity });
+                    auto result_temp = database_record::create(dimension_, const_cast<std::uint8_t*>(offset));
+                    if (result_has_feature)
+                        inner.emplace_back(database_search_result{ result_temp, similarity });
+                    else
+                    {
+                        auto result = database_record::create(0);
+                        result->feature(nullptr);
+                        result->key(result_temp->key());
+						inner.emplace_back(database_search_result{ result, similarity });
+					}
 				}
 				result.emplace_back(inner);
 			}
@@ -123,9 +130,9 @@ namespace glasssix::irisviel
 		impl_->current_data(data);
 	}
 
-	std::vector<std::vector<database_search_result>>  nsg_search_impl::search_vector(const std::vector<const float*>& query_data, std::optional<float> min_similarity, std::optional<std::uint32_t> top_k) const
+	std::vector<std::vector<database_search_result>>  nsg_search_impl::search_vector(const std::vector<const float*>& query_data, std::optional<float> min_similarity, std::optional<std::uint32_t> top_k, bool result_has_feature) const
 	{
-		return impl_->search_vector(query_data, min_similarity, top_k);
+		return impl_->search_vector(query_data, min_similarity, top_k, result_has_feature);
 	}
 
 	bool nsg_search_impl::add(database_record& record)

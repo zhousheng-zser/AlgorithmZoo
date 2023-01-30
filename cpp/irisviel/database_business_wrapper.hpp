@@ -25,7 +25,7 @@ namespace glasssix
 			bool build(bool rebuild);
 			void mark_for_deletion() noexcept;
 			std::string cache_file_path() const;
-			std::vector<database_search_result> search(const float* feature, std::optional<float> min_similarity, std::optional<std::uint32_t> top) const;
+			std::vector<database_search_result> search(const float* feature, std::optional<float> min_similarity, std::optional<std::uint32_t> top, bool result_has_feature) const;
 			std::vector<std::vector<database_search_result>> search_many(const std::vector<const float*>& features, std::optional<float> min_similarity, std::optional<std::uint32_t> top) const;
 			bool add(database_record &record);
 			std::vector<bool> remove(std::vector<std::string>& keys);

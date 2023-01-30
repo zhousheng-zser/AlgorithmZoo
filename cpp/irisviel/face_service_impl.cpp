@@ -224,8 +224,16 @@ namespace glasssix::irisviel
     exposing::param_vector<search_result> face_service_impl::search(exposing::param_span<const float> feature, float min_similarity, std::uint32_t top_count_to_retrieve) const
     {
         check_dimension(feature, dimension());
-
+        
         auto internal_result = impl_->search(feature.data(), min_similarity, top_count_to_retrieve);
+
+        return create_search_result(internal_result);
+    }
+    exposing::param_vector<search_result> face_service_impl::search_nf(const exposing::param_vector<float>& feature, float min_similarity, std::uint32_t top_count_to_retrieve) const
+    {
+        check_dimension(feature, dimension());
+
+        auto internal_result = impl_->search_nf(std::vector<float>(exposing::begin(feature), exposing::end(feature)).data(), min_similarity, top_count_to_retrieve);
 
         return create_search_result(internal_result);
     }
