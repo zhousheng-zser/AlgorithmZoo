@@ -121,6 +121,9 @@ namespace glasssix
 			int c = img.channels();
 			float ratio = (float)h / 64;
 			int new_w = (int)(w / ratio);
+			if (new_w > 330 && new_w < 370) {
+				new_w = 400;
+			}
 			cv::resize(img, img, cv::Size2i{ new_w, 64 });
 			int pad_w = stride - new_w % stride;
 			if (pad_w == 8)
