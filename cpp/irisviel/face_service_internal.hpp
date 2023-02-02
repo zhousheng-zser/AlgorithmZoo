@@ -33,6 +33,7 @@ namespace glasssix
 			std::shared_ptr<database_record> try_get_record(std::string_view key) const;
 			std::vector<database_search_result> search(const float* feature, std::uint32_t top) const;
 			std::vector<database_search_result> search(const float* feature, float min_similarity, std::optional<std::uint32_t> top) const;
+			std::vector<database_search_result> search_nf(const float* feature, float min_similarity, std::optional<std::uint32_t> top) const;
             std::vector<bool> add(const std::vector<std::shared_ptr<database_record>>& records);
             std::vector<bool> remove(std::vector<std::string>& keys);
             std::vector<bool> update(const std::vector<std::shared_ptr<database_record>>& records);
