@@ -1,138 +1,13 @@
 #include "con_anneal_segment.hpp"
 #include "savitzky_golay_fliter.hpp"
 #include <algorithm>
+#include <numeric>
 #include <math.h>
 namespace glasssix
 {
 namespace ring
 {
-
-float cartesian_to_radian(const cv::Point2f& center, const cv::Point2f& coord, float R)
-{
-	float dis_x = coord.x - center.x;
-	float dis_y = coord.y - center.y;
-	if (abs(dis_x) > R)
-	{
-		dis_x = R * (dis_x / abs(dis_x));
-	}
-	if (abs(dis_y) > R)
-	{
-		dis_y = R * (dis_y / abs(dis_y));
-	}
-	float cos_theta = dis_x / R;
-	float sin_theta = -dis_y / R;
-	float theta = acos(cos_theta);
-	if (sin_theta < 0)
-	{
-		theta = -theta;
-	}
-	return theta;
-}
-
-std::vector<cv::Point2f> calcu_box_shrink_new(const cv::RotatedRect& rect, const std::vector<cv::Point2f>& box_shrink)
-{
-	std::vector<cv::Point2f> box_shrink_new;
-	cv::Point2f top_left{ rect.center.x- rect.size.width/2, rect.center.y- rect.size.height/2 };
-
-	for (auto coord : box_shrink)
-	{
-		float R = sqrtf(powf((rect.center.x - coord.x), 2) + powf((rect.center.y - coord.y), 2));
-		float rad_1 = cartesian_to_radian(rect.center, coord, R);
-		float rad_2 = rad_1 + rect.angle / 180 * 3.1415926;
-		cv::Point2f coord_2{ std::round(cos(rad_2) * R + rect.center.x) - 1, std::round(-sin(rad_2) * R + rect.center.y) - 1 }; // radian_to_cartesian
-		box_shrink_new.push_back({ coord_2.x - top_left.x, coord_2.y - top_left.y });
-	}
-	return box_shrink_new;
-}
-
-std::vector<cv::Point2f> findFoot(const cv::Mat& img)
-{
-	cv::Mat gray_mat;
-	cv::Mat gaussian_mat;
-	cv::Mat canny_mat;
-	int lowThreshold = 50;
-	int maxThreshold = 100;
-	int kernel_size = 3;
-	cv::Mat erode_kernel = getStructuringElement(0, cv::Size(3, 3));
-	cv::GaussianBlur(img, gaussian_mat, cv::Size(5, 5), 0);
-	cv::erode(gaussian_mat, gaussian_mat, erode_kernel, cv::Point(-1, -1), 2);
-	cvtColor(gaussian_mat, gray_mat, CV_BGR2GRAY);
-	cv::Canny(gray_mat, canny_mat, lowThreshold, maxThreshold, kernel_size, true);
-
-	std::vector<cv::Point2f> foot_points;
-	const int W = canny_mat.cols;
-	const int H = canny_mat.rows;
-
-	std::array<cv::Point, 4> init_point_list{ cv::Point{0, 0}, cv::Point{W - 1, 0}, cv::Point{W - 1, H - 1}, cv::Point{0, H - 1} };
-
-	//auto visual = img.clone();
-	for (auto point : init_point_list) {
-		auto [corner, is_corner_green] = search_corner_point(canny_mat, img, point);
-		foot_points.push_back(corner);
-		//cv::circle(visual, corner, 4, is_corner_green ? cv::Scalar(0, 255, 0): cv::Scalar(0, 0, 255), 4);
-	}
-	//cv::imshow("visual", visual); cv::waitKey(0);
-	return foot_points;
-}
-
-bool redirectRect(cv::Mat& img)
-{
-	bool img_validity = true;
-	cv::Mat plate_gray;
-	cv::Mat plate_binary_img;
-	cv::cvtColor(img, plate_gray, CV_BGR2GRAY);
-	cv::adaptiveThreshold(plate_gray, plate_binary_img, 255, cv::ADAPTIVE_THRESH_GAUSSIAN_C, cv::THRESH_BINARY, 333, -6);
-	plate_binary_img = cv::Mat(plate_binary_img, cv::Rect(25, 25, 590, 590));
-
-	cv::Mat histogram_vertical;
-	cv::Mat histogram_horizon;
-	cv::reduce(plate_binary_img, histogram_vertical, 1, cv::REDUCE_SUM, CV_32SC1);
-	cv::reduce(plate_binary_img, histogram_horizon, 0, cv::REDUCE_SUM, CV_32SC1);
-	auto waves_vertical = find_waves_by_width_amplitude(histogram_vertical, 146000, 200000, 60, 150);
-	auto waves_horizon = find_waves_by_width_amplitude(histogram_horizon, 146000, 200000, 60, 150);
-
-	if (waves_vertical.first != -1 && waves_horizon.first == -1)
-	{
-		if (std::min(waves_vertical.first, waves_vertical.second) > 320)
-		{
-			cv::rotate(img, img, cv::ROTATE_180);
-		}
-	}
-	else if (waves_vertical.first == -1 && waves_horizon.first != -1)
-	{
-		if (std::max(waves_horizon.first, waves_horizon.second) < 320)
-		{
-			cv::rotate(img, img, cv::ROTATE_90_CLOCKWISE);
-		}
-		else if (std::min(waves_horizon.first, waves_horizon.second) > 320)
-		{
-			cv::rotate(img, img, cv::ROTATE_90_COUNTERCLOCKWISE);
-		}
-	}
-	else
-	{
-		img_validity = false;
-	}
-
-	return img_validity;
-}
-
-cv::Mat charBoxDet(const cv::Mat& img, int center_x, int center_y, int crop_h, int crop_w)
-{
-	cv::Mat out;
-	cv::Mat input = img.clone();
-	int roi_x = 0;
-	int roi_y = center_y - crop_h / 2;
-	//{
-	//	cv::rectangle(input, cv::Rect(roi_x, roi_y, crop_w, crop_h), cv::Scalar(0, 0, 255), 6, 6, 0);
-	//	cv::imshow("char_box", input); cv::waitKey(0);
-	//}
-
-	out = cv::Mat(input, cv::Rect(roi_x, roi_y, crop_w, crop_h));
-	return out;
-}
-
-std::vector<std::pair<int, int>> find_segment_img(cv::Mat img)
+std::vector<std::pair<int, int>> find_segment_img(cv::Mat& img)
 {
 	cv::Mat plate_gray;
 	cv::Mat plate_binary_img;
@@ -157,7 +32,7 @@ std::vector<std::pair<int, int>> cut_index(std::vector<int>& min_indexs, const s
 
 	for (int i = 0; i < min_indexs.size() - 1; ++i)
 	{
-		if (ver_list[min_indexs[i]] > 15)
+		if (ver_list[min_indexs[i]] > 10)
 		{
 			del_list.push_back(i);
 		}
@@ -166,152 +41,30 @@ std::vector<std::pair<int, int>> cut_index(std::vector<int>& min_indexs, const s
 		min_indexs.erase(min_indexs.begin() + (del_list[i] - i));
 	}
 
+	std::vector<int> width_list;
+	for (auto i = 5; i < min_indexs.size() - 1; ++i) {
+		int width = min_indexs[i] - min_indexs[i - 1];
+		if (width > 25) {
+			width_list.push_back(width);
+		}
+	}
+	float valid_mean_width = width_list.empty() ? 0 : std::accumulate(width_list.begin(), width_list.end(), 0.0) / width_list.size();
+
 	int start = 0;
 	while (start < min_indexs.size() - 1)
 	{
 		for (int end = start + 1; end < min_indexs.size(); ++end)
 		{
-			if (min_indexs[end] - min_indexs[start] > 20)
+			if (min_indexs[end] - min_indexs[start] > valid_mean_width - 10 || end == min_indexs.size() - 1)
 			{
 				cord_list.push_back({ min_indexs[start], min_indexs[end] });
 				start = end;
 				break;
 			}
-			else if (end == min_indexs.size() - 1)
-			{
-				if (min_indexs[end] - min_indexs[start] > 5)
-				{
-					cord_list.push_back({ min_indexs[start], min_indexs[end] });
-				}
-				++start;
-			}
 		}
 	}
 
 	return cord_list;
-}
-
-bool is_green(const cv::Vec3b& bgr) {
-	cv::Mat3b input(bgr);
-	cv::Mat3b hsv;
-	cv::Mat1b color_point_judge;
-	cv::Mat3b color_lower_hsv(cv::Vec3b(40, 20, 60)); // HSV
-	cv::Mat3b color_upper_hsv(cv::Vec3b(77, 255, 255)); // HSV
-	cv::cvtColor(input, hsv, cv::COLOR_BGR2HSV);
-	cv::inRange(hsv, color_lower_hsv, color_upper_hsv, color_point_judge);
-	if (color_point_judge.at<uchar>(0, 0) == 255) {
-		return true;
-	}
-	else {
-		return false;
-	}
-}
-
-cornerType quadrant_judge(const cv::Point& point, int H, int W) {
-	if (point.x * 2 < W && point.y * 2 < H)
-		return cornerType::top_left;
-	else if (point.x * 2 > W && point.y * 2 < H)
-		return cornerType::top_right;
-	else if (point.x * 2 < W && point.y * 2 > H)
-		return cornerType::bottom_left;
-	else if(point.x * 2 > W && point.y * 2 > H)
-		return cornerType::bottom_right;
-	else
-		return cornerType::top_left; // centre -> top_left
-}
-
-std::pair<cv::Point, cv::Point> search_corner_point_internal(cv::Mat& canny_mat, const cv::Mat& image, const cv::Point init_point,int i_symbol, int j_symbol) {
-	cv::Point corner = init_point;
-	cv::Point corner_green = init_point;
-	bool corner_find = false;
-	int i = 1, j = 0;
-	int search_boundary = std::min(image.rows, image.cols) - 1;
-	auto search_corner = [&](int i_symbol_lmd, int j_symbol_lmd)->bool {
-		if (canny_mat.at<uchar>(init_point.y + i, init_point.x + j) == 255)
-		{
-			if (!corner_find) {
-				corner = { init_point.x + j ,init_point.y + i };
-				corner_find = true;
-			}
-
-			if (is_green(image.at<cv::Vec3b>(init_point.y + i, init_point.x + j))) {
-				corner_green = { init_point.x + j ,init_point.y + i };
-				return true;
-			}
-			else
-			{
-				i += i_symbol_lmd;
-				j += j_symbol_lmd;
-			}
-		}
-		else
-		{
-			i += i_symbol_lmd;
-			j += j_symbol_lmd;
-		}
-		return false;
-	};
-
-	while (-i_symbol * i < search_boundary && j_symbol * j < search_boundary)
-	{
-		j = 0;
-		while (-i_symbol * i >= 0)
-		{
-			if (search_corner(i_symbol, j_symbol))
-				return { corner,corner_green };
-		}
-
-		i = 0;
-		while (j_symbol * j >= 0)
-		{
-			if (search_corner(-i_symbol, -j_symbol))
-				return { corner,corner_green };
-		}
-	}
-	return { corner, corner_green };
-}
-
-std::pair<cv::Point, bool> search_corner_point(cv::Mat& canny_mat, const cv::Mat& image, const cv::Point init_point) {
-	const int H = image.rows;
-	const int W = image.cols;
-	int i_symbol = 1;
-	int j_symbol = 1;
-	cornerType type = quadrant_judge(init_point, H, W);
-
-	switch (quadrant_judge(init_point, H, W))
-	{
-	case cornerType::top_left:
-		i_symbol = -1;
-		j_symbol = 1;
-		break;
-	case cornerType::top_right:
-		i_symbol = -1;
-		j_symbol = -1;
-		break;
-	case cornerType::bottom_left:
-		i_symbol = 1;
-		j_symbol = 1;
-		break;
-	case cornerType::bottom_right:
-		i_symbol = 1;
-		j_symbol = -1;
-		break;
-	}
-
-	auto [corner, corner_green] = search_corner_point_internal(canny_mat, image, init_point, i_symbol, j_symbol);
-	if (corner_green == init_point || quadrant_judge(corner_green, H, W) != type)
-		return { corner,false };
-	else
-		return { corner_green,true };
-}
-
-template<class T>
-void visual_point(const cv::Mat& img, T pointArr)
-{
-	cv::Mat viusalmat = img.clone();
-	for (auto& point : pointArr)
-		cv::circle(viusalmat, cv::Point(point.x, point.y), 3, cv::Scalar(255, 0, 0), 3);
-	cv::imshow("visual_point", viusalmat); cv::waitKey(0);
 }
 
 std::pair<int, int> find_waves_by_width_amplitude(const cv::Mat& histogram_mat, int amplitude_low = 50000, int amplitude_high = 70000, int width_low = 50, int width_high = 100)
