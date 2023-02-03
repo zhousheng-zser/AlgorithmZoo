@@ -3,6 +3,7 @@
 #include <cstring>
 #include <cstdint>
 #include <algorithm>
+#include <array>
 
 namespace glasssix
 {
@@ -10,10 +11,10 @@ namespace glasssix
 	{
 		template<int Dimension>
 		struct basic_database_record
-		{
-			float feature[Dimension];
-			char key[33];
-			bool active;
+        {
+            std::array<float, Dimension> feature;
+            char key[33];
+            bool active;
 		};
 
 		template<int Dimension>
@@ -67,15 +68,15 @@ namespace glasssix
 				record_->key[std::size(record_->key)] = '\0';
 			}
 
-			virtual exposing::param_span<const float> feature() const noexcept override
-			{
-				return exposing::param_span<const float>{ record_->feature, std::size(record_->feature) };
-			}
+            virtual exposing::param_span<const float> feature() const noexcept override
+            {
+                return exposing::param_span<const float>{ record_->feature.data(), record_->feature.size() };
+            }
 
-			virtual void feature(exposing::param_span<const float> value) noexcept override
-			{
-				std::copy_n(value.begin(), std::min(value.size(), std::size(record_->feature)), std::begin(record_->feature));
-			}
+            virtual void feature(exposing::param_span<const float> value) noexcept override
+            {
+                std::copy_n(value.begin(), std::min(value.size(), record_->feature.size()), record_->feature.begin());
+            }
 
 			virtual std::size_t feature_offset() const noexcept override
 			{
@@ -146,12 +147,12 @@ namespace glasssix
 
 			virtual exposing::param_span<const float> feature() const noexcept override
 			{
-				return exposing::param_span<const float>{ record_.feature, std::size(record_.feature) };
+				return exposing::param_span<const float>{ record_.feature.data(), record_.feature.size() };
 			}
 
 			virtual void feature(exposing::param_span<const float> value) noexcept override
 			{
-				std::copy_n(value.begin(), std::min(value.size(), std::size(record_.feature)), std::begin(record_.feature));
+				std::copy_n(value.begin(), std::min(value.size(), record_.feature.size()), record_.feature.begin());
 			}
 
 			virtual std::size_t feature_offset() const noexcept override
@@ -201,6 +202,8 @@ namespace glasssix
 		{
 			switch (dimension)
 			{
+			case 0:
+				return std::make_shared<database_record_impl<0>>();
 			case 128:
 				return std::make_shared<database_record_impl<128>>();
 			case 256:

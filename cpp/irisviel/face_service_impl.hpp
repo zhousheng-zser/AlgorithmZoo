@@ -38,6 +38,7 @@ namespace glasssix::irisviel
 		exposing::param_vector<search_result> search(exposing::param_span<const float> feature, std::uint32_t top_count_to_retrieve) const;
 		exposing::param_vector<search_result> search(exposing::param_span<const float> feature, float min_similarity) const;
 		exposing::param_vector<search_result> search(exposing::param_span<const float> feature, float min_similarity, std::uint32_t top_count_to_retrieve) const;
+		exposing::param_vector<search_result> search_nf(const exposing::param_vector<float>& feature, float min_similarity, std::uint32_t top_count_to_retrieve) const;
 	private:
 		std::unique_ptr<face_service_internal> impl_;
 	};

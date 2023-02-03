@@ -138,9 +138,13 @@ namespace glasssix
 			{
 				if (!searcher_)
 				{
-					throw std::invalid_argument{ "Null searcher." };
+					build(true);
+					if (!searcher_)
+					{
+						printf("Null searcher.\n");
+						throw std::invalid_argument{ "Null searcher." };
+					}
 				}
-
 				return searcher_->add(record);
 			}
 
@@ -164,14 +168,15 @@ namespace glasssix
 				return searcher_->update(records);
 			}
 
-			std::vector<database_search_result> search(const float* feature, std::optional<float> min_similarity, std::optional<std::uint32_t> top) const
+
+			std::vector<database_search_result> search(const float* feature, std::optional<float> min_similarity, std::optional<std::uint32_t> top, bool result_has_feature) const
 			{
-				auto result = search_many({ feature }, min_similarity, top);
+				auto result = search_many({ feature }, min_similarity, top, result_has_feature);
 
 				return result.empty() ? std::vector<database_search_result>{} : result.front();
 			}
 
-			std::vector<std::vector<database_search_result>> search_many(const std::vector<const float*>& features, std::optional<float> min_similarity, std::optional<std::uint32_t> top) const try
+			std::vector<std::vector<database_search_result>> search_many(const std::vector<const float*>& features, std::optional<float> min_similarity, std::optional<std::uint32_t> top, bool result_has_feature) const try
 			{
 				auto dimension = observer_->dimension();
 
@@ -186,12 +191,34 @@ namespace glasssix
 					return {};
 				}
 				
-				return searcher_->search_vector(features, min_similarity, top);
+				return searcher_->search_vector(features, min_similarity, top, result_has_feature);
 			}
 			catch (const std::exception& ex)
 			{
 				throw std::runtime_error{ fmt::format("Searching operation failed: {}", ex.what()) };
 			}
+			
+			std::uint64_t count() const
+			{
+				if (!searcher_)
+				{
+					throw std::invalid_argument{ "Null searcher." };
+				}
+
+				return searcher_->count();
+
+			}
+			bool contains(std::string_view key) const
+			{
+				if (!searcher_)
+				{
+					throw std::invalid_argument{ "Null searcher." };
+				}
+
+				return searcher_->contains(key);
+
+			}
+
 		private:
 			bool valid_state_;
 			bool mark_for_deletion_;
@@ -228,14 +255,14 @@ namespace glasssix
 			return impl_->cache_file_path();
 		}
 
-		std::vector<database_search_result> database_business_wrapper::search(const float* feature, std::optional<float> min_similarity, std::optional<std::uint32_t> top) const
+		std::vector<database_search_result> database_business_wrapper::search(const float* feature, std::optional<float> min_similarity, std::optional<std::uint32_t> top, bool result_has_feature) const
 		{
-			return impl_->search(feature, min_similarity, top);
+			return impl_->search(feature, min_similarity, top, result_has_feature);
 		}
 
 		std::vector<std::vector<database_search_result>> database_business_wrapper::search_many(const std::vector<const float*>& features, std::optional<float> min_similarity, std::optional<std::uint32_t> top) const
 		{
-			return impl_->search_many(features, min_similarity, top);
+			return impl_->search_many(features, min_similarity, top, true);
 		}
 
 		bool database_business_wrapper::add(database_record& record)
@@ -251,6 +278,17 @@ namespace glasssix
 		std::vector<bool> database_business_wrapper::update(const std::vector<std::shared_ptr<database_record>>& records) const
 		{
 			return impl_->update(records);
+		}
+		
+		std::uint64_t database_business_wrapper::count() const
+		{
+			return impl_->count();
+
+		}
+		bool database_business_wrapper::contains(std::string_view key) const
+		{
+			return impl_->contains(key);
+
 		}
 	}
 }

@@ -89,16 +89,33 @@ namespace glasssix
 
             std::uint64_t record_count() const
             {
-                return std::accumulate(
-                    cache_.begin(),
-                    cache_.end(),
-                    0ULL,
-                    [&](std::uint64_t init, const std::shared_ptr<database_cache>& item) { return init + item->manager->count(); });
+                if (implementation_ == face_service_implemention::lsh_algorithm)
+                {
+                    auto& item = *cache_.begin();
+                    return cache_.size() ? item->wrapper->count():0LLU ;
+                }
+                else
+                {
+                    return std::accumulate(
+                        cache_.begin(),
+                        cache_.end(),
+                        0ULL,
+                        [&](std::uint64_t init, const std::shared_ptr<database_cache>& item) { return init + item->manager->count(); });
+
+                }
             }
 
             bool contains_key(std::string_view key) const
             {
-                return std::any_of(cache_.begin(), cache_.end(), [&](const std::shared_ptr<database_cache>& inner) { return inner->manager->contains(key); });
+                if (implementation_ == face_service_implemention::lsh_algorithm)
+                {
+                    auto& item = *cache_.begin();
+                    return cache_.size() && item->wrapper->contains(key);
+                }
+                else
+                {
+                    return std::any_of(cache_.begin(), cache_.end(), [&](const std::shared_ptr<database_cache>& inner) { return inner->manager->contains(key); });
+                }
             }
 
             std::shared_ptr<database_record> try_get_record(std::string_view key) const
@@ -136,12 +153,17 @@ namespace glasssix
 
             std::vector<database_search_result> search(const float* feature, std::uint32_t top)
             {
-                return search_internal(feature, std::nullopt, top);
+                return search_internal(feature, std::nullopt, top , true);
             }
 
             std::vector<database_search_result> search(const float* feature, float min_similarity, std::optional<std::uint32_t> top)
             {
-                return search_internal(feature, min_similarity, top);
+                return search_internal(feature, min_similarity, top, true);
+            }
+
+            std::vector<database_search_result> search_nf(const float* feature, float min_similarity, std::optional<std::uint32_t> top)
+            {
+                return search_internal(feature, min_similarity, top, false);
             }
 
             std::vector<bool> add(const std::vector<std::shared_ptr<database_record>>& records)
@@ -156,9 +178,8 @@ namespace glasssix
                 {
                     for (auto& record : records)
                     {
-                        auto& item = *cache_.begin();
-
-                        result[index++] = item->wrapper->add(*record);;
+                        auto item = find_available_database_core(record->key());
+                        result[index++] = item && item->wrapper->add(*record);
                     }
                 }
                 else
@@ -195,7 +216,8 @@ namespace glasssix
                 {
                     auto& item = *cache_.begin();
 
-                    return item->wrapper->remove(keys);
+                    std::vector<bool> result(keys.size(),true);
+                    return cache_.size()? item->wrapper->remove(keys): result;
                 }
                 else
                 {
@@ -224,8 +246,8 @@ namespace glasssix
                 if (implementation_ == face_service_implemention::lsh_algorithm)
                 {
                     auto& item = *cache_.begin();
-                    
-                    return item->wrapper->update(records);
+                    std::vector<bool> result(records.size(),false);
+                    return cache_.size() ? item->wrapper->update(records) : result;
                 }
                 else
                 {
@@ -255,7 +277,7 @@ namespace glasssix
                 }
             }
         private:
-            std::vector<database_search_result> search_internal(const float* feature, std::optional<float> similarity, std::optional<std::uint32_t> top)
+            std::vector<database_search_result> search_internal(const float* feature, std::optional<float> similarity, std::optional<std::uint32_t> top, bool result_has_feature)
             {
                 std::scoped_lock guard{ lock_ };
                 std::vector<database_search_result> result;
@@ -263,7 +285,7 @@ namespace glasssix
 
                 for (auto& item : cache_)
                 {
-                    auto search_result = item->wrapper->search(feature, similarity, top);
+                    auto search_result = item->wrapper->search(feature, similarity, top, result_has_feature);
 
                     if (!search_result.empty())
                     {
@@ -419,6 +441,11 @@ namespace glasssix
         std::vector<database_search_result> face_service_internal::search(const float* feature, float min_similarity, std::optional<std::uint32_t> top) const
         {
             return impl_->search(feature, min_similarity, top);
+        }
+
+        std::vector<database_search_result> face_service_internal::search_nf(const float* feature, float min_similarity, std::optional<std::uint32_t> top) const
+        {
+            return impl_->search_nf(feature, min_similarity, top);
         }
 
         std::vector<bool> face_service_internal::add(const std::vector<std::shared_ptr<database_record>>& records)
