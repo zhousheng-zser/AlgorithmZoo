@@ -1680,7 +1680,7 @@ namespace glasssix::heimdall
                     const int boundary = roi_temp.cols-2;
                     for (int i = 0; i < segement_result.size(); ++i){
                         int check_point = segement_result[i];
-                        if (check_point > 25) {
+                        if (check_point > 10) {
                             if (check_point < boundary) {
                                 segement_result_temp.push_back(check_point);
                             }
