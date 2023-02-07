@@ -22,10 +22,10 @@ std::vector<std::pair<int, int>> find_segment_img(cv::Mat& img)
 	//// visualize wave troughs or peaks
 	//polynomial_curve_show(savgol_order2, min_indexs);
 
-	return cut_index(min_indexs, ver_list);
+	return cut_index(min_indexs, ver_list, 15);
 }
 
-std::vector<std::pair<int, int>> cut_index(std::vector<int>& min_indexs, const std::vector<float>& ver_list)
+std::vector<std::pair<int, int>> cut_index(std::vector<int>& min_indexs, const std::vector<float>& ver_list,int seg_width)
 {
 	std::vector<std::pair<int, int>> cord_list;
 	std::vector<int> del_list;
@@ -55,7 +55,7 @@ std::vector<std::pair<int, int>> cut_index(std::vector<int>& min_indexs, const s
 	{
 		for (int end = start + 1; end < min_indexs.size(); ++end)
 		{
-			if (min_indexs[end] - min_indexs[start] > valid_mean_width - 10 || end == min_indexs.size() - 1)
+			if (min_indexs[end] - min_indexs[start] > valid_mean_width - seg_width || end == min_indexs.size() - 1)
 			{
 				cord_list.push_back({ min_indexs[start], min_indexs[end] });
 				start = end;

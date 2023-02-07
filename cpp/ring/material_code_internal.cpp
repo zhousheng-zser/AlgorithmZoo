@@ -45,11 +45,12 @@ namespace glasssix::ring
         return tensor;
     }
 
-    std::array<std::tuple<int, std::string, std::string, std::string, std::string>, 3> types =
+    std::array<std::tuple<int, std::string, std::string, std::string, std::string>, 4> types =
     {
         { {8, "bar_det_lite", "bar_segment", "bar_angle", "bar_category"},
           {9, "bar_det_box", "bar_det_orientation", "bar_segment", "bar_category"},
-          {10, "con_anneal_det", "con_anneal_det_crop", "", "con_anneal_category"} }
+          {10, "con_anneal_det", "con_anneal_det_crop", "", "con_anneal_category"},
+          {11, "zincify_det", "zincify_det_crop", "", "zincify_category"} }
     };
 
     class material_code_internal::impl
@@ -83,6 +84,13 @@ namespace glasssix::ring
                 classfi_instance_ = std::make_unique<char_classfi>(label_type::HEAVY_RAIL);
                 break;
             case 10:
+                instance_.emplace_back(std::make_unique<excalibur::pipeline<float>>(hardcode::get_model_params(std::get<1>(*factory)), std::string(model_directory) + "/" + std::get<1>(*factory) + ".racy", device));
+                instance_.emplace_back(std::make_unique<excalibur::pipeline<float>>(hardcode::get_model_params(std::get<2>(*factory)), std::string(model_directory) + "/" + std::get<2>(*factory) + ".racy", device));
+                instance_.emplace_back(std::make_unique<excalibur::pipeline<float>>(hardcode::get_model_params(std::get<4>(*factory)), std::string(model_directory) + "/" + std::get<4>(*factory) + ".racy", device));
+                segement_instance_ = std::make_unique<char_segment>(0.6, 0.25, 8, true);
+                classfi_instance_ = std::make_unique<char_classfi>(label_type::HEAVY_RAIL);
+                break;
+            case 11:
                 instance_.emplace_back(std::make_unique<excalibur::pipeline<float>>(hardcode::get_model_params(std::get<1>(*factory)), std::string(model_directory) + "/" + std::get<1>(*factory) + ".racy", device));
                 instance_.emplace_back(std::make_unique<excalibur::pipeline<float>>(hardcode::get_model_params(std::get<2>(*factory)), std::string(model_directory) + "/" + std::get<2>(*factory) + ".racy", device));
                 instance_.emplace_back(std::make_unique<excalibur::pipeline<float>>(hardcode::get_model_params(std::get<4>(*factory)), std::string(model_directory) + "/" + std::get<4>(*factory) + ".racy", device));
@@ -123,6 +131,10 @@ namespace glasssix::ring
             else if (factory_type_ == 10)
             {
                 run_con_anneal(results, roi, param_map);
+            }
+            else if (factory_type_ == 11)
+            {
+                run_zincify(results, roi, param_map);
             }
             else
                 return result;
@@ -1357,6 +1369,148 @@ namespace glasssix::ring
                     std::vector<std::pair<std::vector<std::pair<int, int>>, cv::Mat>> charCord_imgText_list{ { cord_list_unflip,imgText_unflip },{ cord_list_flip,imgText_flip } };
 
                     for (const auto& charCord_imgText: charCord_imgText_list) {
+                        std::vector<std::pair<int, int>> charCord = charCord_imgText.first;
+                        if (charCord.size() <= 9) {
+                            continue;
+                        }
+                        cv::Mat imgText = charCord_imgText.second;
+                        std::string stringinfo;
+                        std::vector<float> probs;
+                        int charX_num = 0; //invalid character "X"
+
+                        // classify
+                        for (const auto& cord : charCord)
+                        {
+                            cv::Mat small_img = imgText(cv::Range::all(), cv::Range(cord.first, cord.second));
+                            auto [label, prob] = classfi_instance_->detect(small_img, *instance_[2]);
+                            if (label == 'X') {
+                                charX_num++;
+                            }
+                            else {
+                                stringinfo.push_back(label);
+                            }
+                            probs.push_back(prob);
+                        }
+                        float probs_avg = probs.empty() ? 0 : std::accumulate(probs.begin(), probs.end(), 0.0) / probs.size();
+                        // update max
+                        if (float(charX_num) / probs.size() < 0.4 && probs_avg > score_max) {
+                            out_char_box = imgText.clone();
+                            out = std::make_pair<std::vector<std::string>, std::vector<std::vector<float>>>({ stringinfo }, { probs });
+                            score_max = probs_avg;
+                        }
+                    }
+                }
+                if (out.second.empty() || out.first.empty()) {
+                    return;
+                }
+                //cv::imshow("out_char_box", out_char_box); cv::waitKey(0);
+                // install
+                box_info_internal box;
+                auto strinfos = exposing::make_param_vector<exposing::param_string>();
+                for (int j = 0; j < out.first.size(); ++j)
+                {
+                    strinfos.push_back(exposing::param_string(out.first[j]));
+                }
+                box.strinfos = strinfos;
+
+                box.cut_roi = exposing::make_param_vector<std::uint8_t>();
+                box.cut_roi.resize(out_char_box.step[0] * cut_img.rows);
+                box.cut_roi.copy_from({ out_char_box.data, static_cast<size_t>(out_char_box.step[0] * out_char_box.rows) }, 0);
+                box.cut_roi_width = out_char_box.cols;
+                box.cut_roi_height = out_char_box.rows;
+                box.angle = 0;
+                auto location = exposing::make_param_vector<float>();
+                for (auto foot : max_score_box) {
+                    location.push_back(foot.x);
+                    location.push_back(foot.y);
+                }
+                box.location = location;
+
+                auto messages = exposing::make_param_vector<exposing::param_string>();
+                messages.push_back(exposing::param_string(version()));
+                box.messages = messages;
+                results.push_back(box);
+            }
+        }
+
+        void run_zincify(std::vector<box_info_internal>& results, std::vector<int>& roi, std::map<std::string, float>& param_map)
+        {
+            // det box infer
+            excalibur::rectangle<int> rect((int)roi[0], (int)roi[1], (int)roi[2], (int)roi[3]);
+            std::shared_ptr<memory::tensor<uint8_t>> input;
+            excalibur::safty_cut_cpu(cache_, input, &rect);
+            cv::Mat input_mat(roi[2], roi[3], CV_8UC3);
+            std::copy(input->cpu_data(), input->cpu_data() + input->count(1, 4), input_mat.data);
+
+            if (input->order() == memory::NHWC)
+                input->convert_order();
+
+            auto [resized_img, ratio] = resize_fixed_size(320, input, 1);
+
+            auto input_tensor = resized_img | memory::tensor_convert_to<float>;
+            std::unordered_map<std::string, std::shared_ptr<memory::tensor<float>>> out = instance_[0]->forward(input_tensor);
+            std::shared_ptr<memory::tensor<float>> output = out["output"];
+
+            std::vector<std::vector<cv::Point2f>> boxes_rect;
+            std::vector<float> scores;
+            std::vector<cv::Size> sizes;
+            std::map<std::string, float> params = {
+                {"thresh", param_map.count("thresh") ? param_map["thresh"] : 0.3},
+                {"box_thresh",  param_map.count("box_thresh") ? param_map["box_thresh"] : 0.3},
+                {"min_size", param_map.count("min_size") ? param_map["min_size"] : 3},
+                {"max_candidates", param_map.count("max_candidates") ? param_map["max_candidates"] : 1000},
+                {"unclip_ratio", param_map.count("unclip_ratio") ? param_map["unclip_ratio"] : 1.7} };
+
+            det_post_process_bar(output, params, boxes_rect, scores, sizes);
+
+            for (size_t i = 0; i < boxes_rect.size(); i++)
+            {
+                for (size_t j = 0; j < boxes_rect[i].size(); j++)
+                {
+                    boxes_rect[i][j] *= ratio;
+                    if (boxes_rect[i][j].x < 0 || boxes_rect[i][j].x > input_mat.cols - 1 || boxes_rect[i][j].y < 0 || boxes_rect[i][j].y > input_mat.rows - 1)
+                    {
+                        return;
+                    }
+                }
+            }
+
+            if (scores.size() == boxes_rect.size() && !boxes_rect.empty())
+            {
+                // optimizing img & segment
+                int max_element_idx = std::max_element(scores.begin(), scores.end()) - scores.begin();
+                std::vector<cv::Point2f> max_score_box = boxes_rect[max_element_idx];
+                cv::RotatedRect rect = cv::minAreaRect(max_score_box);
+                cv::Mat cut_img = crop_rect(input_mat, rect, 0);
+                std::vector<cv::Point2f> box_crop = detect_crop(cut_img);
+                if (box_crop.empty()) {
+                    return;
+                }
+                cv::RotatedRect crop_rotrect = cv::minAreaRect(box_crop);
+                // reset box_crop points order
+                std::array<cv::Point2f, 4> reset_points;
+                crop_rotrect.points(reset_points.data());
+                if (crop_rotrect.size.width > crop_rotrect.size.height) {
+                    std::rotate(reset_points.begin(), reset_points.begin() + 1, reset_points.end());
+                }
+
+                std::pair<std::vector<std::string>, std::vector<std::vector<float>>> out;
+                cv::Mat out_char_box;
+                float score_max = 0.f;
+                // Iterative perspective to deal with slanting char
+                int new_w = (94 / std::min(crop_rotrect.size.width, crop_rotrect.size.height)) * std::max(crop_rotrect.size.width, crop_rotrect.size.height); //resize to 94 * new_w
+                for (int degree = -60; degree < 61; degree += 5) {
+                    cv::Mat imgText_unflip;
+                    cv::Mat imgText_flip;
+                    std::array<cv::Point2f, 4> dst_points{ cv::Point2f(30,0),cv::Point2f(new_w + 30, 0),cv::Point2f(new_w + 30 + degree, 94),cv::Point2f(30 + degree, 94) };
+                    cv::Mat TransMat = cv::getPerspectiveTransform(reset_points, dst_points);
+                    cv::warpPerspective(cut_img, imgText_unflip, TransMat, cv::Size{ new_w + 60, 94 }, CV_INTER_CUBIC);
+                    cv::flip(imgText_unflip, imgText_flip, -1);
+                    std::vector<std::pair<int, int>> cord_list_unflip = find_segment_img(imgText_unflip);
+                    std::vector<std::pair<int, int>> cord_list_flip = find_segment_img(imgText_flip);
+                    std::vector<std::pair<std::vector<std::pair<int, int>>, cv::Mat>> charCord_imgText_list{ { cord_list_unflip,imgText_unflip },{ cord_list_flip,imgText_flip } };
+
+                    for (const auto& charCord_imgText : charCord_imgText_list) {
                         std::vector<std::pair<int, int>> charCord = charCord_imgText.first;
                         if (charCord.size() <= 9) {
                             continue;
