@@ -49,8 +49,8 @@ namespace glasssix::ring
     {
         { {8, "bar_det_lite", "bar_segment", "bar_angle", "bar_category"},
           {9, "bar_det_box", "bar_det_orientation", "bar_segment", "bar_category"},
-          {10, "con_anneal_det", "con_anneal_det_crop", "", "con_anneal_category"},
-          {11, "zincify_det", "zincify_det_crop", "", "zincify_category"} }
+          {10, "con_anneal_det", "con_anneal_det_crop", "con_anneal_seg", "con_anneal_category"},
+          {11, "zincify_det", "zincify_det_crop", "zincify_seg", "zincify_category"} }
     };
 
     class material_code_internal::impl
@@ -86,6 +86,7 @@ namespace glasssix::ring
             case 10:
                 instance_.emplace_back(std::make_unique<excalibur::pipeline<float>>(hardcode::get_model_params(std::get<1>(*factory)), std::string(model_directory) + "/" + std::get<1>(*factory) + ".racy", device));
                 instance_.emplace_back(std::make_unique<excalibur::pipeline<float>>(hardcode::get_model_params(std::get<2>(*factory)), std::string(model_directory) + "/" + std::get<2>(*factory) + ".racy", device));
+                instance_.emplace_back(std::make_unique<excalibur::pipeline<float>>(hardcode::get_model_params(std::get<3>(*factory)), std::string(model_directory) + "/" + std::get<3>(*factory) + ".racy", device));
                 instance_.emplace_back(std::make_unique<excalibur::pipeline<float>>(hardcode::get_model_params(std::get<4>(*factory)), std::string(model_directory) + "/" + std::get<4>(*factory) + ".racy", device));
                 segement_instance_ = std::make_unique<char_segment>(0.6, 0.25, 8, true);
                 classfi_instance_ = std::make_unique<char_classfi>(label_type::HEAVY_RAIL);
@@ -93,6 +94,7 @@ namespace glasssix::ring
             case 11:
                 instance_.emplace_back(std::make_unique<excalibur::pipeline<float>>(hardcode::get_model_params(std::get<1>(*factory)), std::string(model_directory) + "/" + std::get<1>(*factory) + ".racy", device));
                 instance_.emplace_back(std::make_unique<excalibur::pipeline<float>>(hardcode::get_model_params(std::get<2>(*factory)), std::string(model_directory) + "/" + std::get<2>(*factory) + ".racy", device));
+                instance_.emplace_back(std::make_unique<excalibur::pipeline<float>>(hardcode::get_model_params(std::get<3>(*factory)), std::string(model_directory) + "/" + std::get<3>(*factory) + ".racy", device));
                 instance_.emplace_back(std::make_unique<excalibur::pipeline<float>>(hardcode::get_model_params(std::get<4>(*factory)), std::string(model_directory) + "/" + std::get<4>(*factory) + ".racy", device));
                 segement_instance_ = std::make_unique<char_segment>(0.6, 0.25, 8, true);
                 classfi_instance_ = std::make_unique<char_classfi>(label_type::HEAVY_RAIL);
@@ -1291,6 +1293,22 @@ namespace glasssix::ring
             return box_rect;
         }
 
+        void segement_afterporcess(std::vector<float>& segement_result, int imgText_valid_width) {
+            std::sort(segement_result.begin(), segement_result.end()); //avoid potential reverse order points, which casuse segment crash
+
+            if (segement_result[0] < 0)
+            {
+                segement_result[0] = 0;
+            }
+
+            for (int i = segement_result.size() - 1; i > 0; i--)
+            {
+                if (segement_result[i] > imgText_valid_width - 3)
+                    segement_result.pop_back();
+            }
+            segement_result.push_back(imgText_valid_width - 1);
+        }
+
         void run_con_anneal(std::vector<box_info_internal>& results, std::vector<int>& roi, std::map<std::string, float>& param_map)
         {
             // det box infer
@@ -1357,32 +1375,35 @@ namespace glasssix::ring
                 float score_max = 0.f;
                 // Iterative perspective to deal with slanting char
                 int new_w = (94 / std::min(crop_rotrect.size.width, crop_rotrect.size.height)) * std::max(crop_rotrect.size.width, crop_rotrect.size.height); //resize to 94 * new_w
-                for (int degree = -60; degree < 61; degree += 5) {
+                for (int degree = -60; degree < 61; degree += 10) {
                     cv::Mat imgText_unflip;
                     cv::Mat imgText_flip;
                     std::array<cv::Point2f,4> dst_points{ cv::Point2f(30,0),cv::Point2f(new_w + 30, 0),cv::Point2f(new_w + 30 + degree, 94),cv::Point2f(30 + degree, 94) };
                     cv::Mat TransMat = cv::getPerspectiveTransform(reset_points, dst_points);
                     cv::warpPerspective(cut_img, imgText_unflip, TransMat, cv::Size{ new_w + 60, 94 }, CV_INTER_CUBIC);
                     cv::flip(imgText_unflip, imgText_flip, -1);
-                    std::vector<std::pair<int, int>> cord_list_unflip = find_segment_img(imgText_unflip);
-                    std::vector<std::pair<int, int>> cord_list_flip = find_segment_img(imgText_flip);
-                    std::vector<std::pair<std::vector<std::pair<int, int>>, cv::Mat>> charCord_imgText_list{ { cord_list_unflip,imgText_unflip },{ cord_list_flip,imgText_flip } };
+
+                    float ratio = (float)imgText_unflip.rows / 64;
+                    int imgText_valid_width = (int)(imgText_unflip.cols / ratio);
+                    std::vector<float> segement_result_unflip = segement_instance_->detect(imgText_unflip, true, *instance_[2]);
+                    std::vector<float> segement_result_flip = segement_instance_->detect(imgText_flip, true, *instance_[2]);
+                    segement_afterporcess(segement_result_unflip, imgText_valid_width);
+                    segement_afterporcess(segement_result_flip, imgText_valid_width);
+
+                    std::vector<std::pair<std::vector<float>, cv::Mat>> charCord_imgText_list{ { segement_result_unflip,imgText_unflip },{ segement_result_flip,imgText_flip } };
 
                     for (const auto& charCord_imgText: charCord_imgText_list) {
-                        std::vector<std::pair<int, int>> charCord = charCord_imgText.first;
-                        if (charCord.size() <= 9) {
-                            continue;
-                        }
+                        auto segement_result = charCord_imgText.first;
                         cv::Mat imgText = charCord_imgText.second;
                         std::string stringinfo;
                         std::vector<float> probs;
                         int charX_num = 0; //invalid character "X"
 
                         // classify
-                        for (const auto& cord : charCord)
+                        for (size_t j = 0; j < segement_result.size() - 1; j++)
                         {
-                            cv::Mat small_img = imgText(cv::Range::all(), cv::Range(cord.first, cord.second));
-                            auto [label, prob] = classfi_instance_->detect(small_img, *instance_[2]);
+                            cv::Mat small_img = imgText(cv::Range::all(), cv::Range((int)segement_result[j], (int)segement_result[j + 1]));
+                            auto [label, prob] = classfi_instance_->detect(small_img, *instance_[3]);
                             if (label == 'X') {
                                 charX_num++;
                             }
@@ -1403,7 +1424,6 @@ namespace glasssix::ring
                 if (out.second.empty() || out.first.empty()) {
                     return;
                 }
-                //cv::imshow("out_char_box", out_char_box); cv::waitKey(0);
                 // install
                 box_info_internal box;
                 auto strinfos = exposing::make_param_vector<exposing::param_string>();
@@ -1499,32 +1519,35 @@ namespace glasssix::ring
                 float score_max = 0.f;
                 // Iterative perspective to deal with slanting char
                 int new_w = (94 / std::min(crop_rotrect.size.width, crop_rotrect.size.height)) * std::max(crop_rotrect.size.width, crop_rotrect.size.height); //resize to 94 * new_w
-                for (int degree = -60; degree < 61; degree += 5) {
+                for (int degree = -60; degree < 61; degree += 10) {
                     cv::Mat imgText_unflip;
                     cv::Mat imgText_flip;
                     std::array<cv::Point2f, 4> dst_points{ cv::Point2f(30,0),cv::Point2f(new_w + 30, 0),cv::Point2f(new_w + 30 + degree, 94),cv::Point2f(30 + degree, 94) };
                     cv::Mat TransMat = cv::getPerspectiveTransform(reset_points, dst_points);
                     cv::warpPerspective(cut_img, imgText_unflip, TransMat, cv::Size{ new_w + 60, 94 }, CV_INTER_CUBIC);
                     cv::flip(imgText_unflip, imgText_flip, -1);
-                    std::vector<std::pair<int, int>> cord_list_unflip = find_segment_img(imgText_unflip);
-                    std::vector<std::pair<int, int>> cord_list_flip = find_segment_img(imgText_flip);
-                    std::vector<std::pair<std::vector<std::pair<int, int>>, cv::Mat>> charCord_imgText_list{ { cord_list_unflip,imgText_unflip },{ cord_list_flip,imgText_flip } };
+
+                    float ratio = (float)imgText_unflip.rows / 64;
+                    int imgText_valid_width = (int)(imgText_unflip.cols / ratio);
+                    std::vector<float> segement_result_unflip = segement_instance_->detect(imgText_unflip, true, *instance_[2]);
+                    std::vector<float> segement_result_flip = segement_instance_->detect(imgText_flip, true, *instance_[2]);
+                    segement_afterporcess(segement_result_unflip, imgText_valid_width);
+                    segement_afterporcess(segement_result_flip, imgText_valid_width);
+
+                    std::vector<std::pair<std::vector<float>, cv::Mat>> charCord_imgText_list{ { segement_result_unflip,imgText_unflip },{ segement_result_flip,imgText_flip } };
 
                     for (const auto& charCord_imgText : charCord_imgText_list) {
-                        std::vector<std::pair<int, int>> charCord = charCord_imgText.first;
-                        if (charCord.size() <= 9) {
-                            continue;
-                        }
+                        auto segement_result = charCord_imgText.first;
                         cv::Mat imgText = charCord_imgText.second;
                         std::string stringinfo;
                         std::vector<float> probs;
                         int charX_num = 0; //invalid character "X"
 
                         // classify
-                        for (const auto& cord : charCord)
+                        for (size_t j = 0; j < segement_result.size() - 1; j++)
                         {
-                            cv::Mat small_img = imgText(cv::Range::all(), cv::Range(cord.first, cord.second));
-                            auto [label, prob] = classfi_instance_->detect(small_img, *instance_[2]);
+                            cv::Mat small_img = imgText(cv::Range::all(), cv::Range((int)segement_result[j], (int)segement_result[j + 1]));
+                            auto [label, prob] = classfi_instance_->detect(small_img, *instance_[3]);
                             if (label == 'X') {
                                 charX_num++;
                             }
@@ -1545,7 +1568,6 @@ namespace glasssix::ring
                 if (out.second.empty() || out.first.empty()) {
                     return;
                 }
-                //cv::imshow("out_char_box", out_char_box); cv::waitKey(0);
                 // install
                 box_info_internal box;
                 auto strinfos = exposing::make_param_vector<exposing::param_string>();
