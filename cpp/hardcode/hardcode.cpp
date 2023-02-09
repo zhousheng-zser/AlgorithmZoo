@@ -7,6 +7,33 @@ namespace glasssix::hardcode
     {
         struct hardcode_model_params_common
         {
+            inline static const std::vector<std::string> con_anneal_seg{
+                "glsv1",
+                "22 22",
+                "Input            input                    0 1 input 0=-1 1=64 2=3 3=0,0,0 4=0.003921568627451",
+                "Convolution      Conv_0                   1 1 input 33 0=32 1=2 11=2 2=1 12=1 3=1 13=1 4=0 14=0 15=0 16=0 5=1 6=384",
+                "PReLU            PRelu_1                  1 1 33 35 0=1",
+                "Convolution      Conv_2                   1 1 35 36 0=32 1=3 11=3 2=1 12=1 3=1 13=1 4=0 14=0 15=0 16=0 5=1 6=9216",
+                "PReLU            PRelu_3                  1 1 36 38 0=1",
+                "Convolution      Conv_4                   1 1 38 39 0=32 1=3 11=3 2=1 12=1 3=2 13=2 4=0 14=0 15=0 16=0 5=1 6=9216",
+                "PReLU            PRelu_5                  1 1 39 41 0=1",
+                "Convolution      Conv_6                   1 1 41 42 0=64 1=2 11=2 2=1 12=1 3=1 13=1 4=0 14=0 15=0 16=0 5=1 6=8192",
+                "PReLU            PRelu_7                  1 1 42 44 0=1",
+                "Convolution      Conv_8                   1 1 44 45 0=64 1=3 11=3 2=1 12=1 3=2 13=2 4=0 14=0 15=0 16=0 5=1 6=36864",
+                "PReLU            PRelu_9                  1 1 45 47 0=1",
+                "Convolution      Conv_10                  1 1 47 48 0=64 1=3 11=3 2=1 12=1 3=1 13=1 4=0 14=0 15=0 16=0 5=1 6=36864",
+                "PReLU            PRelu_11                 1 1 48 50 0=1",
+                "Convolution      Conv_12                  1 1 50 51 0=64 1=2 11=2 2=1 12=1 3=2 13=2 4=0 14=0 15=0 16=0 5=1 6=16384",
+                "PReLU            PRelu_13                 1 1 51 53 0=1",
+                "Convolution      Conv_14                  1 1 53 54 0=128 1=3 11=3 2=1 12=1 3=1 13=1 4=0 14=0 15=0 16=0 5=1 6=73728",
+                "PReLU            PRelu_15                 1 1 54 56 0=1",
+                "Convolution      Conv_16                  1 1 56 57 0=256 1=3 11=3 2=1 12=1 3=1 13=1 4=0 14=0 15=0 16=0 5=1 6=294912",
+                "PReLU            PRelu_17                 1 1 57 59 0=1",
+                "Convolution      Conv_18                  1 1 59 60 0=256 1=2 11=2 2=1 12=1 3=1 13=1 4=0 14=0 15=0 16=0 5=1 6=262144",
+                "PReLU            PRelu_19                 1 1 60 62 0=1",
+                "Convolution      Conv_20                  1 1 62 output 0=3 1=1 11=1 2=1 12=1 3=1 13=1 4=0 14=0 15=0 16=0 5=1 6=768"
+            };
+
             inline static const std::vector<std::string> rolled_det_lite{
                 "glsv1",
                 "131 147",
@@ -4581,8 +4608,10 @@ namespace glasssix::hardcode
             {"cool_rolled_classify", hardcode_model_params_common::heavy_rail_category},
             {"con_anneal_det", hardcode_model_params_common::bar_det_box},
             {"con_anneal_det_crop", hardcode_model_params_common::bar_det_box},
+            {"con_anneal_seg", hardcode_model_params_common::con_anneal_seg},
             {"con_anneal_category", hardcode_model_params_common::con_anneal_category},
             {"zincify_det", hardcode_model_params_common::bar_det_box},
+            {"zincify_seg", hardcode_model_params_common::con_anneal_seg},
             {"zincify_det_crop", hardcode_model_params_common::bar_det_box},
             {"zincify_category", hardcode_model_params_common::con_anneal_category},
             {"plate_det_pnet", hardcode_model_params::plate_det_pnet},
