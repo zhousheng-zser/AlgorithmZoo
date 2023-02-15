@@ -146,7 +146,7 @@ namespace glasssix::heimdall
 
         static std::string version()
         {
-            return "1.0.3_2023.02.02";
+            return "1.0.4_2023.02.15";
         }
 
     private:
@@ -1669,34 +1669,25 @@ namespace glasssix::heimdall
                     if (result_cut.max_R[i] > 1500)
                         continue;
                     cv::Mat roi_temp = result_cut.rois[i].clone();
-                    std::vector<float> segement_result = segement_instance_->detect(roi_temp, false, *instance_[1]);
-                    std::string stringinfo;
-                    std::vector<float> probs;
 
+                    std::vector<float> segement_result = segement_instance_->detect(roi_temp, true, *instance_[1], factory_type_);
                     std::sort(segement_result.begin(), segement_result.end()); //avoid potential reverse order points, which casuse segment crash
-
-                    std::vector<float> segement_result_temp{ 0 };
-                    bool add_tail = false;
-                    const int boundary = roi_temp.cols-2;
-                    for (int i = 0; i < segement_result.size(); ++i){
-                        int check_point = segement_result[i];
-                        if (check_point > 10) {
-                            if (check_point < boundary) {
-                                segement_result_temp.push_back(check_point);
-                            }
-                            else {
-                                add_tail = true;
-                                break;
-                            }
+                    if (segement_result[0] < 0) {
+                        segement_result[0] = 0;
+                    }
+                    bool tail_add_flag = false;
+                    for (int i = segement_result.size() - 1; i > 0; i--)
+                    {
+                        if (segement_result[i] > roi_temp.cols - 3) {
+                            segement_result.pop_back();
+                            tail_add_flag = true;
                         }
                     }
-                    if (add_tail) {
-                        segement_result_temp.push_back(roi_temp.cols - 1);
-                    }
-                    segement_result.swap(segement_result_temp);
-                    // offset segement point
-                    screen_result_point(segement_result, true);
+                    if(tail_add_flag)
+                        segement_result.push_back(roi_temp.cols - 1);
 
+                    std::string stringinfo;
+                    std::vector<float> probs;
                     for (size_t j = 0; j < segement_result.size() - 1; j++)
                     {
                         cv::Mat small_img = roi_temp(cv::Range::all(), cv::Range((int)segement_result[j], (int)segement_result[j + 1]));
@@ -1750,7 +1741,6 @@ namespace glasssix::heimdall
                     box.cut_roi = exposing::make_param_vector<std::uint8_t>();
                     box.cut_roi.resize(result_cut.rois[i].step[0] * result_cut.rois[i].rows);
                     box.cut_roi.copy_from({ result_cut.rois[i].data, static_cast<size_t>(result_cut.rois[i].step[0] * result_cut.rois[i].rows) }, 0);
-
                     box.cut_roi_width = result_cut.rois[i].cols;
                     box.cut_roi_height = result_cut.rois[i].rows;
 
