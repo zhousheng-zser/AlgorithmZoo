@@ -151,7 +151,7 @@ namespace glasssix::ring
 
         static std::string version()
         {
-            return "1.0.2_2023.02.02";
+            return "1.0.3_2023.02.17";
         }
 
     private:
@@ -1285,10 +1285,10 @@ namespace glasssix::ring
                 {"max_candidates", 1000},
                 {"unclip_ratio", 1.7} };
             det_post_process_bar(output, params_crop, boxes_rect, scores, sizes);
-            if (boxes_rect.size()==1) {
-                for (auto& point : boxes_rect[0]) {
-                    box_rect.push_back(point * ratio);
-                }
+            int max_element_idx = std::max_element(scores.begin(), scores.end()) - scores.begin();
+            std::vector<cv::Point2f> best_str_box = boxes_rect[max_element_idx];
+            for (auto& point : best_str_box) {
+                box_rect.push_back(point * ratio);
             }
             return box_rect;
         }
@@ -1300,13 +1300,16 @@ namespace glasssix::ring
             {
                 segement_result[0] = 0;
             }
-
+            bool tail_add_flag = false;
             for (int i = segement_result.size() - 1; i > 0; i--)
             {
-                if (segement_result[i] > imgText_valid_width - 3)
+                if (segement_result[i] > imgText_valid_width - 3) {
                     segement_result.pop_back();
+                    tail_add_flag = true;
+                }
             }
-            segement_result.push_back(imgText_valid_width - 1);
+            if (tail_add_flag)
+                segement_result.push_back(imgText_valid_width - 1);
         }
 
         void run_con_anneal(std::vector<box_info_internal>& results, std::vector<int>& roi, std::map<std::string, float>& param_map)
@@ -1375,7 +1378,7 @@ namespace glasssix::ring
                 float score_max = 0.f;
                 // Iterative perspective to deal with slanting char
                 int new_w = (94 / std::min(crop_rotrect.size.width, crop_rotrect.size.height)) * std::max(crop_rotrect.size.width, crop_rotrect.size.height); //resize to 94 * new_w
-                for (int degree = -60; degree < 61; degree += 10) {
+                for (int degree = -90; degree < 91; degree += 10) {
                     cv::Mat imgText_unflip;
                     cv::Mat imgText_flip;
                     std::array<cv::Point2f,4> dst_points{ cv::Point2f(30,0),cv::Point2f(new_w + 30, 0),cv::Point2f(new_w + 30 + degree, 94),cv::Point2f(30 + degree, 94) };
@@ -1394,6 +1397,9 @@ namespace glasssix::ring
 
                     for (const auto& charCord_imgText: charCord_imgText_list) {
                         auto segement_result = charCord_imgText.first;
+                        if (segement_result.size() <= 10) {
+                            continue;
+                        }
                         cv::Mat imgText = charCord_imgText.second;
                         std::string stringinfo;
                         std::vector<float> probs;
@@ -1519,7 +1525,7 @@ namespace glasssix::ring
                 float score_max = 0.f;
                 // Iterative perspective to deal with slanting char
                 int new_w = (94 / std::min(crop_rotrect.size.width, crop_rotrect.size.height)) * std::max(crop_rotrect.size.width, crop_rotrect.size.height); //resize to 94 * new_w
-                for (int degree = -60; degree < 61; degree += 10) {
+                for (int degree = -90; degree < 91; degree += 10) {
                     cv::Mat imgText_unflip;
                     cv::Mat imgText_flip;
                     std::array<cv::Point2f, 4> dst_points{ cv::Point2f(30,0),cv::Point2f(new_w + 30, 0),cv::Point2f(new_w + 30 + degree, 94),cv::Point2f(30 + degree, 94) };
@@ -1538,6 +1544,9 @@ namespace glasssix::ring
 
                     for (const auto& charCord_imgText : charCord_imgText_list) {
                         auto segement_result = charCord_imgText.first;
+                        if (segement_result.size() <= 10) {
+                            continue;
+                        }
                         cv::Mat imgText = charCord_imgText.second;
                         std::string stringinfo;
                         std::vector<float> probs;
