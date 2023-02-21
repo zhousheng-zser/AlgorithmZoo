@@ -88,7 +88,7 @@ namespace glasssix::ring
                 instance_.emplace_back(std::make_unique<excalibur::pipeline<float>>(hardcode::get_model_params(std::get<2>(*factory)), std::string(model_directory) + "/" + std::get<2>(*factory) + ".racy", device));
                 instance_.emplace_back(std::make_unique<excalibur::pipeline<float>>(hardcode::get_model_params(std::get<3>(*factory)), std::string(model_directory) + "/" + std::get<3>(*factory) + ".racy", device));
                 instance_.emplace_back(std::make_unique<excalibur::pipeline<float>>(hardcode::get_model_params(std::get<4>(*factory)), std::string(model_directory) + "/" + std::get<4>(*factory) + ".racy", device));
-                segement_instance_ = std::make_unique<char_segment>(0.6, 0.25, 8, true);
+                segement_instance_ = std::make_unique<char_segment>(0.6, 0.25, 16, true);
                 classfi_instance_ = std::make_unique<char_classfi>(label_type::HEAVY_RAIL);
                 break;
             case 11:
@@ -96,7 +96,7 @@ namespace glasssix::ring
                 instance_.emplace_back(std::make_unique<excalibur::pipeline<float>>(hardcode::get_model_params(std::get<2>(*factory)), std::string(model_directory) + "/" + std::get<2>(*factory) + ".racy", device));
                 instance_.emplace_back(std::make_unique<excalibur::pipeline<float>>(hardcode::get_model_params(std::get<3>(*factory)), std::string(model_directory) + "/" + std::get<3>(*factory) + ".racy", device));
                 instance_.emplace_back(std::make_unique<excalibur::pipeline<float>>(hardcode::get_model_params(std::get<4>(*factory)), std::string(model_directory) + "/" + std::get<4>(*factory) + ".racy", device));
-                segement_instance_ = std::make_unique<char_segment>(0.6, 0.25, 8, true);
+                segement_instance_ = std::make_unique<char_segment>(0.6, 0.25, 16, true);
                 classfi_instance_ = std::make_unique<char_classfi>(label_type::HEAVY_RAIL);
                 break;
             default:
@@ -151,7 +151,7 @@ namespace glasssix::ring
 
         static std::string version()
         {
-            return "1.0.3_2023.02.17";
+            return "1.0.4_2023.02.21";
         }
 
     private:
@@ -480,6 +480,7 @@ namespace glasssix::ring
             int src_h, 
             size_t max_candidates,
             int min_size,
+            int max_size,
             float box_thresh,
             float unclip_ratio,
             std::vector<std::vector<cv::Point2f>>& boxes, 
@@ -503,7 +504,8 @@ namespace glasssix::ring
                 cv::Size size;
                 get_mini_boxes(contour, points, size);
                 float sside = std::min(size.height, size.width);
-                if (sside < min_size)
+                float lside = std::max(size.height, size.width);
+                if (sside < min_size || factory_type_ == 9 ? false : lside < max_size)
                 {
                     continue;
                 }
@@ -525,7 +527,7 @@ namespace glasssix::ring
                 points.clear();
                 get_mini_boxes(box, points, size);
                 sside = std::min(size.height, size.width);
-                if (sside < min_size + 2)
+                if (sside < min_size + 2 || factory_type_ == 9 ? false : lside < max_size + 2)
                 {
                     continue;
                 }
@@ -550,6 +552,7 @@ namespace glasssix::ring
             float thresh = params.at("thresh");
             size_t max_candidates = (size_t)params.at("max_candidates");
             int min_size = (int)params.at("min_size");
+            int max_size = (int)params.at("max_size");
             float box_thresh = params.at("box_thresh");
             float unclip_ratio = params.at("unclip_ratio");
 
@@ -565,7 +568,7 @@ namespace glasssix::ring
             {
                 mask_data[i] = (out_data[i] > thresh ? 1 : 0) * 255;//二值化
             }
-            boxes_from_bitmap_bar(out, mask, src_w, src_h, max_candidates, min_size, box_thresh, unclip_ratio, boxes, scores, sizes);
+            boxes_from_bitmap_bar(out, mask, src_w, src_h, max_candidates, min_size, min_size, box_thresh, unclip_ratio, boxes, scores, sizes);
         }
 
         std::pair<std::vector<std::string>, std::vector<std::vector<float>>> decode(std::vector<std::vector<int>>& idxs, std::vector<std::vector<float>>& probs, std::vector<std::string>& character, int border_orient, bool remove_duplicate = true)
@@ -703,6 +706,7 @@ namespace glasssix::ring
                 {"thresh", param_map.count("thresh") ? param_map["thresh"] : 0.3},
                 {"box_thresh",  param_map.count("box_thresh") ? param_map["box_thresh"] : 0.8},
                 {"min_size", param_map.count("min_size") ? param_map["min_size"] : 3},
+                {"max_size", param_map.count("max_size") ? param_map["max_size"] : 0},
                 {"max_candidates", param_map.count("max_candidates") ? param_map["max_candidates"] : 1000},
                 {"unclip_ratio", param_map.count("unclip_ratio") ? param_map["unclip_ratio"] : 1.5} };
 
@@ -1120,6 +1124,7 @@ namespace glasssix::ring
                 {"thresh", param_map.count("thresh") ? param_map["thresh"] : 0.3},
                 {"box_thresh",  param_map.count("box_thresh") ? param_map["box_thresh"] : 0.6},
                 {"min_size", param_map.count("min_size") ? param_map["min_size"] : 3},
+                {"max_size", param_map.count("max_size") ? param_map["max_size"] : 0},
                 {"max_candidates", param_map.count("max_candidates") ? param_map["max_candidates"] : 1000},
                 {"unclip_ratio", param_map.count("unclip_ratio") ? param_map["unclip_ratio"] : 1.3} };
 
@@ -1170,6 +1175,7 @@ namespace glasssix::ring
                 {"thresh", param_map.count("orient_thresh") ? param_map["orient_thresh"] : 0.3},
                 {"box_thresh",  param_map.count("orient_box_thresh") ? param_map["orient_box_thresh"] : 0.6},
                 {"min_size", param_map.count("orient_min_size") ? param_map["orient_min_size"] : 3},
+                {"max_size", param_map.count("max_size") ? param_map["max_size"] : 0},
                 {"max_candidates", param_map.count("orient_max_candidates") ? param_map["orient_max_candidates"] : 1000},
                 {"unclip_ratio", param_map.count("orient_unclip_ratio") ? param_map["orient_unclip_ratio"] : 1.35} };
 
@@ -1281,7 +1287,8 @@ namespace glasssix::ring
             std::map<std::string, float> params_crop = {
                 {"thresh", 0.3},
                 {"box_thresh", 0.3},
-                {"min_size", 3},
+                {"min_size", 2},
+                {"max_size", 60},
                 {"max_candidates", 1000},
                 {"unclip_ratio", 1.7} };
             det_post_process_bar(output, params_crop, boxes_rect, scores, sizes);
@@ -1336,7 +1343,8 @@ namespace glasssix::ring
             std::map<std::string, float> params = {
                 {"thresh", param_map.count("thresh") ? param_map["thresh"] : 0.3},
                 {"box_thresh",  param_map.count("box_thresh") ? param_map["box_thresh"] : 0.3},
-                {"min_size", param_map.count("min_size") ? param_map["min_size"] : 3},
+                {"min_size", 8},
+                {"max_size", 8},
                 {"max_candidates", param_map.count("max_candidates") ? param_map["max_candidates"] : 1000},
                 {"unclip_ratio", param_map.count("unclip_ratio") ? param_map["unclip_ratio"] : 1.7} };
 
@@ -1483,7 +1491,8 @@ namespace glasssix::ring
             std::map<std::string, float> params = {
                 {"thresh", param_map.count("thresh") ? param_map["thresh"] : 0.3},
                 {"box_thresh",  param_map.count("box_thresh") ? param_map["box_thresh"] : 0.3},
-                {"min_size", param_map.count("min_size") ? param_map["min_size"] : 3},
+                {"min_size",8},
+                {"max_size",8},
                 {"max_candidates", param_map.count("max_candidates") ? param_map["max_candidates"] : 1000},
                 {"unclip_ratio", param_map.count("unclip_ratio") ? param_map["unclip_ratio"] : 1.7} };
 
