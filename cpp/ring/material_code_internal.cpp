@@ -1292,10 +1292,12 @@ namespace glasssix::ring
                 {"max_candidates", 1000},
                 {"unclip_ratio", 1.7} };
             det_post_process_bar(output, params_crop, boxes_rect, scores, sizes);
-            int max_element_idx = std::max_element(scores.begin(), scores.end()) - scores.begin();
-            std::vector<cv::Point2f> best_str_box = boxes_rect[max_element_idx];
-            for (auto& point : best_str_box) {
-                box_rect.push_back(point * ratio);
+            if (!boxes_rect.empty()) {
+                int max_element_idx = std::max_element(scores.begin(), scores.end()) - scores.begin();
+                std::vector<cv::Point2f> best_str_box = boxes_rect[max_element_idx];
+                for (auto& point : best_str_box) {
+                    box_rect.push_back(point * ratio);
+                }
             }
             return box_rect;
         }
