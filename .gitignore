@@ -1,5 +1,7 @@
 .vs/
 build/
 build_v7/
+build_centos/
+build_ubuntu/
 .vscode
 /JSON/Schemas
