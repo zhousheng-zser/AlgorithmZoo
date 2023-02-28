@@ -20,6 +20,11 @@
           "name": "COMMON_LIBRARY_DIRS",
           "value": "E:/Research/Source/Repos/Excalibur/cmake/out/build/x64-Debug/lib",
           "type": "STRING"
+        },
+        {
+          "name": "BUILD_DEBUG_INFO",
+          "value": "False",
+          "type": "BOOL"
         }
       ]
     },
@@ -43,6 +48,39 @@
           "name": "COMMON_LIBRARY_DIRS",
           "value": "E:/Research/Source/Repos/Excalibur/cmake/out/build/x64-Release/lib",
           "type": "STRING"
+        },
+        {
+          "name": "BUILD_DEBUG_INFO",
+          "value": "False",
+          "type": "BOOL"
+        }
+      ]
+    },
+    {
+      "name": "x86-Release",
+      "generator": "Ninja",
+      "configurationType": "Release",
+      "buildRoot": "${projectDir}\\out\\build\\${name}",
+      "installRoot": "${projectDir}\\out\\install\\${name}",
+      "cmakeCommandArgs": "",
+      "buildCommandArgs": "",
+      "ctestCommandArgs": "",
+      "inheritEnvironments": [ "msvc_x86" ],
+      "variables": [
+        {
+          "name": "Boost_INCLUDE_DIRS",
+          "value": "E:/Research/Source/Repos/vcpkg/installed/x64-windows/include",
+          "type": "STRING"
+        },
+        {
+          "name": "COMMON_LIBRARY_DIRS",
+          "value": "E:/Research/Source/Repos/Excalibur/cmake/out/build/x86-Release/lib",
+          "type": "STRING"
+        },
+        {
+          "name": "BUILD_DEBUG_INFO",
+          "value": "False",
+          "type": "BOOL"
         }
       ]
     }

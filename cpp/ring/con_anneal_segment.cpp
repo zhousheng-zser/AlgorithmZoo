@@ -3,6 +3,7 @@
 #include <algorithm>
 #include <numeric>
 #include <math.h>
+#include <opencv2/imgproc/types_c.h>
 namespace glasssix
 {
 namespace ring
