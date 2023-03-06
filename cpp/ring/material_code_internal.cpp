@@ -89,7 +89,7 @@ namespace glasssix::ring
                 instance_.emplace_back(std::make_unique<excalibur::pipeline<float>>(hardcode::get_model_params(std::get<2>(*factory)), std::string(model_directory) + "/" + std::get<2>(*factory) + ".racy", device));
                 instance_.emplace_back(std::make_unique<excalibur::pipeline<float>>(hardcode::get_model_params(std::get<3>(*factory)), std::string(model_directory) + "/" + std::get<3>(*factory) + ".racy", device));
                 instance_.emplace_back(std::make_unique<excalibur::pipeline<float>>(hardcode::get_model_params(std::get<4>(*factory)), std::string(model_directory) + "/" + std::get<4>(*factory) + ".racy", device));
-                segement_instance_ = std::make_unique<char_segment>(0.6, 0.25, 16, true);
+                segement_instance_ = std::make_unique<char_segment>(0.6, 0.25, 8, true);
                 classfi_instance_ = std::make_unique<char_classfi>(label_type::HEAVY_RAIL);
                 break;
             case 11:
@@ -97,7 +97,7 @@ namespace glasssix::ring
                 instance_.emplace_back(std::make_unique<excalibur::pipeline<float>>(hardcode::get_model_params(std::get<2>(*factory)), std::string(model_directory) + "/" + std::get<2>(*factory) + ".racy", device));
                 instance_.emplace_back(std::make_unique<excalibur::pipeline<float>>(hardcode::get_model_params(std::get<3>(*factory)), std::string(model_directory) + "/" + std::get<3>(*factory) + ".racy", device));
                 instance_.emplace_back(std::make_unique<excalibur::pipeline<float>>(hardcode::get_model_params(std::get<4>(*factory)), std::string(model_directory) + "/" + std::get<4>(*factory) + ".racy", device));
-                segement_instance_ = std::make_unique<char_segment>(0.6, 0.25, 16, true);
+                segement_instance_ = std::make_unique<char_segment>(0.6, 0.25, 8, true);
                 classfi_instance_ = std::make_unique<char_classfi>(label_type::HEAVY_RAIL);
                 break;
             default:
@@ -506,7 +506,7 @@ namespace glasssix::ring
                 get_mini_boxes(contour, points, size);
                 float sside = std::min(size.height, size.width);
                 float lside = std::max(size.height, size.width);
-                if (sside < min_size || factory_type_ == 9 ? false : lside < max_size)
+                if (sside < min_size || (factory_type_ == 9 ? false : lside < max_size))
                 {
                     continue;
                 }
@@ -767,7 +767,7 @@ namespace glasssix::ring
 
                 // step 3 segment 
                 cv::Mat roi_temp = cut_img.clone();
-                std::vector<float> segement_result = segement_instance_->detect(roi_temp, true, *instance_[1]);
+                std::vector<float> segement_result = segement_instance_->detect(roi_temp, true, *instance_[1], factory_type_);
                 std::string stringinfo;
                 std::vector<float> probs;
 
@@ -1194,7 +1194,7 @@ namespace glasssix::ring
                 // step 3 segment 
                 cv::Mat roi_temp = text_img.clone();
                 cv::resize(roi_temp, roi_temp, cv::Size(0, 0), 1.3, 1, cv::INTER_LINEAR);
-                std::vector<float> segement_out = segement_instance_->detect(roi_temp, false, *instance_[2]);
+                std::vector<float> segement_out = segement_instance_->detect(roi_temp, false, *instance_[2], factory_type_);
                 cv::resize(roi_temp, roi_temp, cv::Size(0, 0), 0.76923, 1, cv::INTER_LINEAR);
                 std::string stringinfo;
                 std::vector<float> probs;
@@ -1303,23 +1303,30 @@ namespace glasssix::ring
             return box_rect;
         }
 
-        void segement_afterporcess(std::vector<float>& segement_result, int imgText_valid_width) {
-            std::sort(segement_result.begin(), segement_result.end()); //avoid potential reverse order points, which casuse segment crash
-
-            if (segement_result[0] < 0)
+        bool segement_afterporcess(std::vector<float>& segement_result, int imgText_valid_width) {
+            if (segement_result.empty())
             {
-                segement_result[0] = 0;
+                return false;
             }
-            bool tail_add_flag = false;
-            for (int i = segement_result.size() - 1; i > 0; i--)
+            else
             {
-                if (segement_result[i] > imgText_valid_width - 3) {
-                    segement_result.pop_back();
-                    tail_add_flag = true;
+                std::sort(segement_result.begin(), segement_result.end()); //avoid potential reverse order points, which casuse segment crash
+                if (segement_result[0] < 0)
+                {
+                    segement_result[0] = 0;
                 }
+                bool tail_add_flag = false;
+                for (int i = segement_result.size() - 1; i > 0; i--)
+                {
+                    if (segement_result[i] > imgText_valid_width - 3) {
+                        segement_result.pop_back();
+                        tail_add_flag = true;
+                    }
+                }
+                if (tail_add_flag)
+                    segement_result.push_back(imgText_valid_width - 1);
+                return true;
             }
-            if (tail_add_flag)
-                segement_result.push_back(imgText_valid_width - 1);
         }
 
         void run_con_anneal(std::vector<box_info_internal>& results, std::vector<int>& roi, std::map<std::string, float>& param_map)
@@ -1399,12 +1406,14 @@ namespace glasssix::ring
 
                     float ratio = (float)imgText_unflip.rows / 64;
                     int imgText_valid_width = (int)(imgText_unflip.cols / ratio);
-                    std::vector<float> segement_result_unflip = segement_instance_->detect(imgText_unflip, true, *instance_[2]);
-                    std::vector<float> segement_result_flip = segement_instance_->detect(imgText_flip, true, *instance_[2]);
-                    segement_afterporcess(segement_result_unflip, imgText_valid_width);
-                    segement_afterporcess(segement_result_flip, imgText_valid_width);
+                    std::vector<float> segement_result_unflip = segement_instance_->detect(imgText_unflip, true, *instance_[2], factory_type_);
+                    std::vector<float> segement_result_flip = segement_instance_->detect(imgText_flip, true, *instance_[2], factory_type_);
 
-                    std::vector<std::pair<std::vector<float>, cv::Mat>> charCord_imgText_list{ { segement_result_unflip,imgText_unflip },{ segement_result_flip,imgText_flip } };
+                    std::vector<std::pair<std::vector<float>, cv::Mat>> charCord_imgText_list;
+                    if (segement_afterporcess(segement_result_unflip, imgText_valid_width))
+                        charCord_imgText_list.push_back({ segement_result_unflip,imgText_unflip });
+                    if (segement_afterporcess(segement_result_flip, imgText_valid_width))
+                        charCord_imgText_list.push_back({ segement_result_flip,imgText_flip });
 
                     for (const auto& charCord_imgText: charCord_imgText_list) {
                         auto segement_result = charCord_imgText.first;
@@ -1494,8 +1503,8 @@ namespace glasssix::ring
             std::map<std::string, float> params = {
                 {"thresh", param_map.count("thresh") ? param_map["thresh"] : 0.3},
                 {"box_thresh",  param_map.count("box_thresh") ? param_map["box_thresh"] : 0.3},
-                {"min_size",8},
-                {"max_size",8},
+                {"min_size", 8},
+                {"max_size", 8},
                 {"max_candidates", param_map.count("max_candidates") ? param_map["max_candidates"] : 1000},
                 {"unclip_ratio", param_map.count("unclip_ratio") ? param_map["unclip_ratio"] : 1.7} };
 
@@ -1547,12 +1556,14 @@ namespace glasssix::ring
 
                     float ratio = (float)imgText_unflip.rows / 64;
                     int imgText_valid_width = (int)(imgText_unflip.cols / ratio);
-                    std::vector<float> segement_result_unflip = segement_instance_->detect(imgText_unflip, true, *instance_[2]);
-                    std::vector<float> segement_result_flip = segement_instance_->detect(imgText_flip, true, *instance_[2]);
-                    segement_afterporcess(segement_result_unflip, imgText_valid_width);
-                    segement_afterporcess(segement_result_flip, imgText_valid_width);
+                    std::vector<float> segement_result_unflip = segement_instance_->detect(imgText_unflip, true, *instance_[2], factory_type_);
+                    std::vector<float> segement_result_flip = segement_instance_->detect(imgText_flip, true, *instance_[2], factory_type_);
 
-                    std::vector<std::pair<std::vector<float>, cv::Mat>> charCord_imgText_list{ { segement_result_unflip,imgText_unflip },{ segement_result_flip,imgText_flip } };
+                    std::vector<std::pair<std::vector<float>, cv::Mat>> charCord_imgText_list;
+                    if (segement_afterporcess(segement_result_unflip, imgText_valid_width))
+                        charCord_imgText_list.push_back({ segement_result_unflip,imgText_unflip });
+                    if (segement_afterporcess(segement_result_flip, imgText_valid_width))
+                        charCord_imgText_list.push_back({ segement_result_flip,imgText_flip });
 
                     for (const auto& charCord_imgText : charCord_imgText_list) {
                         auto segement_result = charCord_imgText.first;

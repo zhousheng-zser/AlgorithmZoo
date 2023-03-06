@@ -19,9 +19,9 @@ namespace glasssix
 			add_segement_ = add_segement;
 		}
 
-		std::vector<float> char_segment::detect(cv::Mat& img, const bool with_blank, excalibur::pipeline<float>& segement_instance)
+		std::vector<float> char_segment::detect(cv::Mat& img, const bool with_blank, excalibur::pipeline<float>& segement_instance, int factory_type)
 		{
-			cv::Mat pre_img = pre_handel_img(img, stride_);
+			cv::Mat pre_img = pre_handel_img(img, stride_, factory_type);
 			//std::cout << "------------------- cut mat input -------------------" << std::endl;
 			//for (int i = 0; i < 10; ++i)
 			//{
@@ -118,7 +118,7 @@ namespace glasssix
 
 			return result_cordi;
 		}
-		cv::Mat char_segment::pre_handel_img(cv::Mat& img, int& stride) {
+		cv::Mat char_segment::pre_handel_img(cv::Mat& img, int& stride, int factory_type) {
 			//图像resize到高为64，宽为stride的倍数
 			int h = img.rows;
 			int w = img.cols;
@@ -126,13 +126,22 @@ namespace glasssix
 			float ratio = (float)h / 64;
 			int new_w = (int)(w / ratio);
 			cv::resize(img, img, cv::Size2i{ new_w, 64 });
-			int pad_w = stride - new_w % stride;
+			int right_extra_pad = 0;
+			if (factory_type == 10 || factory_type == 11) {
+				right_extra_pad = 16;
+			}
+			int pad_w = right_extra_pad + stride - new_w % stride;
 			if (pad_w == 8)
 			{
 				return img;
 			}
 			else {
-				cv::copyMakeBorder(img, img, 0, 0, 0, pad_w, cv::BORDER_REPLICATE);
+				if (factory_type == 10 || factory_type == 11) {
+					cv::copyMakeBorder(img, img, 0, 0, 0, pad_w, cv::BORDER_REPLICATE); //ca
+				}
+				else {
+					cv::copyMakeBorder(img, img, 0, 0, 0, pad_w, cv::BORDER_CONSTANT); //bar
+				}
 				return img;
 			}
 		}
