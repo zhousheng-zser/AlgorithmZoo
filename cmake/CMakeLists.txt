@@ -153,6 +153,7 @@ else()
 	add_subdirectory(Damocles)
 	add_subdirectory(Romancia)
 	add_subdirectory(Irisviel)
+	add_subdirectory(Genocr)
 endif()
 
 if(BUILD_UNIT_TEST)
