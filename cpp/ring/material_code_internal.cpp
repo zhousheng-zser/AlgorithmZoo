@@ -131,13 +131,11 @@ namespace glasssix::ring
             {
                 run_bar_2(results, roi, border_orient, param_map, 25);
             }
-            else if (factory_type_ == 10)
+            else if (factory_type_ == 10 || factory_type_ == 11)
             {
-                run_con_anneal(results, roi, param_map);
-            }
-            else if (factory_type_ == 11)
-            {
-                run_zincify(results, roi, param_map);
+                //run_ConAnneal_Zinc(results, roi, param_map);
+                run_ConAnneal_Zinc_ClsLocBatch(results, roi, param_map); // speed * 4.2, memory add ~0.1GB
+                //run_ConAnneal_Zinc_ClsAllBatch(results, roi, param_map); // speed * 6.7, memory add ~1.5GB
             }
             else
                 return result;
@@ -152,7 +150,7 @@ namespace glasssix::ring
 
         static std::string version()
         {
-            return "1.0.4_2023.02.21";
+            return "1.0.5_2023.03.24";
         }
 
     private:
@@ -1329,7 +1327,48 @@ namespace glasssix::ring
             }
         }
 
-        void run_con_anneal(std::vector<box_info_internal>& results, std::vector<int>& roi, std::map<std::string, float>& param_map)
+        std::vector<std::pair<std::vector<float>, cv::Mat>> iterative_degree_perspective(cv::RotatedRect& crop_rotrect, cv::Mat& cut_img) {
+            std::vector<std::pair<std::vector<float>, cv::Mat>> charCord_imgText_list;
+
+            // reset box_crop points order
+            std::array<cv::Point2f, 4> reset_points;
+            crop_rotrect.points(reset_points.data());
+            if (crop_rotrect.size.width > crop_rotrect.size.height) {
+                std::rotate(reset_points.begin(), reset_points.begin() + 1, reset_points.end());
+            }
+
+            // Iterative perspective to deal with slanting char
+            int new_w = (94 / std::min(crop_rotrect.size.width, crop_rotrect.size.height)) * std::max(crop_rotrect.size.width, crop_rotrect.size.height); //resize to 94 * new_w
+            for (int degree = -90; degree < 91; degree += 10) {
+                cv::Mat imgText_unflip;
+                cv::Mat imgText_flip;
+                std::array<cv::Point2f, 4> dst_points{ cv::Point2f(30,0),cv::Point2f(new_w + 30, 0),cv::Point2f(new_w + 30 + degree, 94),cv::Point2f(30 + degree, 94) };
+                cv::Mat TransMat = cv::getPerspectiveTransform(reset_points, dst_points);
+                cv::warpPerspective(cut_img, imgText_unflip, TransMat, cv::Size{ new_w + 60, 94 }, CV_INTER_CUBIC);
+                cv::flip(imgText_unflip, imgText_flip, -1);
+
+                float ratio = (float)imgText_unflip.rows / 64;
+                int imgText_valid_width = (int)(imgText_unflip.cols / ratio);
+
+                std::vector<float> segement_result_unflip = segement_instance_->detect(imgText_unflip, true, *instance_[2], factory_type_);
+                std::vector<float> segement_result_flip = segement_instance_->detect(imgText_flip, true, *instance_[2], factory_type_);
+
+                if (segement_afterporcess(segement_result_unflip, imgText_valid_width)) {
+                    if (segement_result_unflip.size() > 10) {
+                        charCord_imgText_list.push_back({ segement_result_unflip,imgText_unflip });
+                    }
+                }
+                if (segement_afterporcess(segement_result_flip, imgText_valid_width)) {
+                    if (segement_result_flip.size() > 10) {
+                        charCord_imgText_list.push_back({ segement_result_flip,imgText_flip });
+                    }
+                }
+            }
+
+            return charCord_imgText_list;
+        }
+
+        void run_ConAnneal_Zinc_ClsAllBatch(std::vector<box_info_internal>& results, std::vector<int>& roi, std::map<std::string, float>& param_map)
         {
             // det box infer
             excalibur::rectangle<int> rect((int)roi[0], (int)roi[1], (int)roi[2], (int)roi[3]);
@@ -1364,13 +1403,22 @@ namespace glasssix::ring
             {
                 for (size_t j = 0; j < boxes_rect[i].size(); j++)
                 {
-                        boxes_rect[i][j] *= ratio;
-                        if (boxes_rect[i][j].x < 0 || boxes_rect[i][j].x > input_mat.cols - 1 || boxes_rect[i][j].y < 0 || boxes_rect[i][j].y > input_mat.rows - 1)
-                        {
-                            return;
-                        }
+                    boxes_rect[i][j] *= ratio;
+                    if (boxes_rect[i][j].x < 0 || boxes_rect[i][j].x > input_mat.cols - 1 || boxes_rect[i][j].y < 0 || boxes_rect[i][j].y > input_mat.rows - 1)
+                    {
+                        return;
+                    }
                 }
             }
+
+#ifdef BUILD_DEBUG_INFO
+            //auto visual_mat = input_mat.clone();
+            //for (auto& box : boxes_rect)
+            //	for (auto& point : box)
+            //		cv::circle(visual_mat, cv::Point(point.x, point.y), 3, cv::Scalar(0, 0, 255), 3);
+            //cv::resize(visual_mat, visual_mat, cv::Size(visual_mat.cols * 0.3, visual_mat.rows * 0.3));
+            //cv::imshow("visual_mat", visual_mat); cv::waitKey(0);
+#endif
 
             if (scores.size() == boxes_rect.size() && !boxes_rect.empty())
             {
@@ -1384,69 +1432,53 @@ namespace glasssix::ring
                     return;
                 }
                 cv::RotatedRect crop_rotrect = cv::minAreaRect(box_crop);
-                // reset box_crop points order
-                std::array<cv::Point2f, 4> reset_points;
-                crop_rotrect.points(reset_points.data());
-                if (crop_rotrect.size.width > crop_rotrect.size.height) {
-                    std::rotate(reset_points.begin(), reset_points.begin() + 1, reset_points.end());
+
+                auto charCord_imgText_list = iterative_degree_perspective(crop_rotrect, cut_img);
+                if (charCord_imgText_list.empty()) return;
+
+                std::vector<std::vector<cv::Mat>> chars_set; // dim[imgTexts, chars]
+                for (const auto& charCord_imgText : charCord_imgText_list) {
+                    std::vector<float> segement_result = charCord_imgText.first;
+                    cv::Mat imgText = charCord_imgText.second;
+                    std::vector<cv::Mat> txt_bar_chars;
+                    for (size_t j = 0; j < segement_result.size() - 1; j++) {
+                        cv::Mat small_img = imgText(cv::Range::all(), cv::Range((int)segement_result[j], (int)segement_result[j + 1]));
+                        txt_bar_chars.push_back(small_img);
+                    }
+                    chars_set.push_back(txt_bar_chars);
                 }
 
-                std::pair<std::vector<std::string>, std::vector<std::vector<float>>> out;
-                cv::Mat out_char_box;
+                auto label_prob_Vec = classfi_instance_->detectBatch(chars_set, *instance_[3]);
+
+                // All chars statistics
                 float score_max = 0.f;
-                // Iterative perspective to deal with slanting char
-                int new_w = (94 / std::min(crop_rotrect.size.width, crop_rotrect.size.height)) * std::max(crop_rotrect.size.width, crop_rotrect.size.height); //resize to 94 * new_w
-                for (int degree = -90; degree < 91; degree += 10) {
-                    cv::Mat imgText_unflip;
-                    cv::Mat imgText_flip;
-                    std::array<cv::Point2f,4> dst_points{ cv::Point2f(30,0),cv::Point2f(new_w + 30, 0),cv::Point2f(new_w + 30 + degree, 94),cv::Point2f(30 + degree, 94) };
-                    cv::Mat TransMat = cv::getPerspectiveTransform(reset_points, dst_points);
-                    cv::warpPerspective(cut_img, imgText_unflip, TransMat, cv::Size{ new_w + 60, 94 }, CV_INTER_CUBIC);
-                    cv::flip(imgText_unflip, imgText_flip, -1);
-
-                    float ratio = (float)imgText_unflip.rows / 64;
-                    int imgText_valid_width = (int)(imgText_unflip.cols / ratio);
-                    std::vector<float> segement_result_unflip = segement_instance_->detect(imgText_unflip, true, *instance_[2], factory_type_);
-                    std::vector<float> segement_result_flip = segement_instance_->detect(imgText_flip, true, *instance_[2], factory_type_);
-
-                    std::vector<std::pair<std::vector<float>, cv::Mat>> charCord_imgText_list;
-                    if (segement_afterporcess(segement_result_unflip, imgText_valid_width))
-                        charCord_imgText_list.push_back({ segement_result_unflip,imgText_unflip });
-                    if (segement_afterporcess(segement_result_flip, imgText_valid_width))
-                        charCord_imgText_list.push_back({ segement_result_flip,imgText_flip });
-
-                    for (const auto& charCord_imgText: charCord_imgText_list) {
-                        auto segement_result = charCord_imgText.first;
-                        if (segement_result.size() <= 10) {
-                            continue;
+                cv::Mat out_char_box;
+                std::pair<std::vector<std::string>, std::vector<std::vector<float>>> out;
+                for (int idx = 0; idx < label_prob_Vec.size(); idx++)
+                {
+                    std::string stringinfo;
+                    std::vector<float> probs;
+                    int charX_num = 0; //invalid character "X"
+                    for (auto rst_elem : label_prob_Vec[idx])
+                    {
+                        auto [label, prob] = rst_elem;
+                        if (label == 'X') {
+                            charX_num++;
                         }
-                        cv::Mat imgText = charCord_imgText.second;
-                        std::string stringinfo;
-                        std::vector<float> probs;
-                        int charX_num = 0; //invalid character "X"
-
-                        // classify
-                        for (size_t j = 0; j < segement_result.size() - 1; j++)
-                        {
-                            cv::Mat small_img = imgText(cv::Range::all(), cv::Range((int)segement_result[j], (int)segement_result[j + 1]));
-                            auto [label, prob] = classfi_instance_->detect(small_img, *instance_[3]);
-                            if (label == 'X') {
-                                charX_num++;
-                            }
-                            else {
-                                stringinfo.push_back(label);
-                            }
-                            probs.push_back(prob);
+                        else {
+                            stringinfo.push_back(label);
                         }
-                        float probs_avg = probs.empty() ? 0 : std::accumulate(probs.begin(), probs.end(), 0.0) / probs.size();
-                        // update max
-                        if (float(charX_num) / probs.size() < 0.4 && probs_avg > score_max) {
-                            out_char_box = imgText.clone();
-                            out = std::make_pair<std::vector<std::string>, std::vector<std::vector<float>>>({ stringinfo }, { probs });
-                            score_max = probs_avg;
-                        }
+                        probs.push_back(prob);
+                    }
+                    float probs_avg = probs.empty() ? 0 : std::accumulate(probs.begin(), probs.end(), 0.0) / probs.size();
+                    // update max
+                    if (float(charX_num) / probs.size() < 0.4 && probs_avg > score_max) {
+                        out_char_box = charCord_imgText_list[idx].second.clone();
+                        out = std::make_pair<std::vector<std::string>, std::vector<std::vector<float>>>({ stringinfo }, { probs });
+                        score_max = probs_avg;
                     }
                 }
+
                 if (out.second.empty() || out.first.empty()) {
                     return;
                 }
@@ -1479,7 +1511,150 @@ namespace glasssix::ring
             }
         }
 
-        void run_zincify(std::vector<box_info_internal>& results, std::vector<int>& roi, std::map<std::string, float>& param_map)
+        void run_ConAnneal_Zinc_ClsLocBatch(std::vector<box_info_internal>& results, std::vector<int>& roi, std::map<std::string, float>& param_map)
+        {
+            // det box infer
+            excalibur::rectangle<int> rect((int)roi[0], (int)roi[1], (int)roi[2], (int)roi[3]);
+            std::shared_ptr<memory::tensor<uint8_t>> input;
+            excalibur::safty_cut_cpu(cache_, input, &rect);
+            cv::Mat input_mat(roi[2], roi[3], CV_8UC3);
+            std::copy(input->cpu_data(), input->cpu_data() + input->count(1, 4), input_mat.data);
+
+            if (input->order() == memory::NHWC)
+                input->convert_order();
+
+            auto [resized_img, ratio] = resize_fixed_size(320, input, 1);
+
+            auto input_tensor = resized_img | memory::tensor_convert_to<float>;
+
+            std::unordered_map<std::string, std::shared_ptr<memory::tensor<float>>> out = instance_[0]->forward(input_tensor);
+
+            std::shared_ptr<memory::tensor<float>> output = out["output"];
+
+            std::vector<std::vector<cv::Point2f>> boxes_rect;
+            std::vector<float> scores;
+            std::vector<cv::Size> sizes;
+            std::map<std::string, float> params = {
+            {"thresh", param_map.count("thresh") ? param_map["thresh"] : 0.3},
+            {"box_thresh",  param_map.count("box_thresh") ? param_map["box_thresh"] : 0.3},
+            {"min_size", 8},
+            {"max_size", 8},
+            {"max_candidates", param_map.count("max_candidates") ? param_map["max_candidates"] : 1000},
+            {"unclip_ratio", param_map.count("unclip_ratio") ? param_map["unclip_ratio"] : 1.7} };
+
+            det_post_process_bar(output, params, boxes_rect, scores, sizes);
+
+            for (size_t i = 0; i < boxes_rect.size(); i++)
+            {
+                for (size_t j = 0; j < boxes_rect[i].size(); j++)
+                {
+                    boxes_rect[i][j] *= ratio;
+                    if (boxes_rect[i][j].x < 0 || boxes_rect[i][j].x > input_mat.cols - 1 || boxes_rect[i][j].y < 0 || boxes_rect[i][j].y > input_mat.rows - 1)
+                    {
+                        return;
+                    }
+                }
+            }
+
+#ifdef BUILD_DEBUG_INFO
+            //auto visual_mat = input_mat.clone();
+            //for (auto& box : boxes_rect)
+            //	for (auto& point : box)
+            //		cv::circle(visual_mat, cv::Point(point.x, point.y), 3, cv::Scalar(0, 0, 255), 3);
+            //cv::resize(visual_mat, visual_mat, cv::Size(visual_mat.cols * 0.3, visual_mat.rows * 0.3));
+            //cv::imshow("visual_mat", visual_mat); cv::waitKey(0);
+#endif
+
+            if (scores.size() == boxes_rect.size() && !boxes_rect.empty())
+            {
+                // optimizing img & segment
+                int max_element_idx = std::max_element(scores.begin(), scores.end()) - scores.begin();
+                std::vector<cv::Point2f> max_score_box = boxes_rect[max_element_idx];
+                cv::RotatedRect rect = cv::minAreaRect(max_score_box);
+                cv::Mat cut_img = crop_rect(input_mat, rect, 0);
+                std::vector<cv::Point2f> box_crop = detect_crop(cut_img);
+                if (box_crop.empty()) {
+                    return;
+                }
+                cv::RotatedRect crop_rotrect = cv::minAreaRect(box_crop);
+
+                auto charCord_imgText_list = iterative_degree_perspective(crop_rotrect, cut_img);
+                if (charCord_imgText_list.empty()) return;
+
+                // statistics result
+                std::pair<std::vector<std::string>, std::vector<std::vector<float>>> out;
+                cv::Mat out_char_box;
+                float score_max = 0.f;
+
+                for (const auto& charCord_imgText : charCord_imgText_list) {
+                    std::vector<float> segement_result = charCord_imgText.first;
+                    cv::Mat imgText = charCord_imgText.second;
+                    std::vector<cv::Mat> txt_bars;
+                    for (size_t j = 0; j < segement_result.size() - 1; j++) {
+                        cv::Mat small_img = imgText(cv::Range::all(), cv::Range((int)segement_result[j], (int)segement_result[j + 1]));
+                        txt_bars.push_back(small_img);
+                    }
+
+                    auto label_prob_list = classfi_instance_->detectBatch(txt_bars, *instance_[3]);
+
+                    // local statistics
+                    int charX_num = 0; //invalid character "X"
+                    std::string stringinfo;
+                    std::vector<float> probs;
+
+                    for (auto elem : label_prob_list)
+                    {
+                        auto [label, prob] = elem;
+                        if (label == 'X') {
+                            charX_num++;
+                        }
+                        else {
+                            stringinfo.push_back(label);
+                        }
+                        probs.push_back(prob);
+                    }
+                    float probs_avg = probs.empty() ? 0 : std::accumulate(probs.begin(), probs.end(), 0.0) / probs.size();
+                    // update max
+                    if (float(charX_num) / probs.size() < 0.4 && probs_avg > score_max) {
+                        out_char_box = imgText.clone();
+                        out = std::make_pair<std::vector<std::string>, std::vector<std::vector<float>>>({ stringinfo }, { probs });
+                        score_max = probs_avg;
+                    }
+                }
+
+                if (out.second.empty() || out.first.empty()) {
+                    return;
+                }
+                // install
+                box_info_internal box;
+                auto strinfos = exposing::make_param_vector<exposing::param_string>();
+                for (int j = 0; j < out.first.size(); ++j)
+                {
+                    strinfos.push_back(exposing::param_string(out.first[j]));
+                }
+                box.strinfos = strinfos;
+
+                box.cut_roi = exposing::make_param_vector<std::uint8_t>();
+                box.cut_roi.resize(out_char_box.step[0] * cut_img.rows);
+                box.cut_roi.copy_from({ out_char_box.data, static_cast<size_t>(out_char_box.step[0] * out_char_box.rows) }, 0);
+                box.cut_roi_width = out_char_box.cols;
+                box.cut_roi_height = out_char_box.rows;
+                box.angle = 0;
+                auto location = exposing::make_param_vector<float>();
+                for (auto foot : max_score_box) {
+                    location.push_back(foot.x);
+                    location.push_back(foot.y);
+                }
+                box.location = location;
+
+                auto messages = exposing::make_param_vector<exposing::param_string>();
+                messages.push_back(exposing::param_string(version()));
+                box.messages = messages;
+                results.push_back(box);
+            }
+        }
+
+        void run_ConAnneal_Zinc(std::vector<box_info_internal>& results, std::vector<int>& roi, std::map<std::string, float>& param_map)
         {
             // det box infer
             excalibur::rectangle<int> rect((int)roi[0], (int)roi[1], (int)roi[2], (int)roi[3]);
