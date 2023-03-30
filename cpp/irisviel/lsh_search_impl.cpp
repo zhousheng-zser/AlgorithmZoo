@@ -66,12 +66,9 @@ namespace glasssix::irisviel
             nlohmann::json temp_feature;
             temp_feature.clear();
 
-            exposing::param_span<const float> x = record.feature();
-
-            for (int i = 0; i < dimension_; i++)
-            {
-                temp_feature["feature"][i] = x[i];
-            }
+            int i = 0;
+            for (auto y : record.feature())
+                temp_feature["feature"][i++] = y;
             std::string _key(record.key());
             temp_feature["key"] = _key;
             
@@ -114,11 +111,9 @@ namespace glasssix::irisviel
                 nlohmann::json temp_feature;
                 std::string _key(record->key());
                 temp_feature["key"] = _key;
-                exposing::param_span<const float> x = record->feature();
-                for (int i = 0; i < dimension_; i++)
-                {
-                    temp_feature["feature"][i] = x[i];
-                }
+                int i = 0;
+                for (auto y : record->feature())
+                    temp_feature["feature"][i++] = y;
                 result[index++] = LSH_addRecord(temp_feature, dimension_);
             }
 
