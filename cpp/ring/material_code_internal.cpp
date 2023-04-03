@@ -119,15 +119,14 @@ namespace glasssix::ring
             {
                 run_bar_2(results, roi, border_orient, param_map, 24);
             }
-            else if (factory_type_ == 10 || factory_type_ == 11)
+            else if (factory_type_ == 10)
             {
-                auto CZStart = std::chrono::system_clock::now();
-                //run_ConAnneal_Zinc(results, roi, param_map);
-                run_ConAnneal_Zinc_ClsLocBatch(results, roi, param_map); // speed * 4.2, memory add ~0.1GB
-                //run_ConAnneal_Zinc_ClsAllBatch(results, roi, param_map); // speed * 6.7, memory add ~1.5GB
-                std::cout << "- detect cost : " <<
-                    (double)std::chrono::duration_cast<std::chrono::milliseconds>(std::chrono::system_clock::now() - CZStart).count()
-                    << " ms" << std::endl;
+                //run_LocBatchCls_ConAnneal(results, roi, param_map);
+                run_LocBatchCls_ConAnneal_Zinc(results, roi, param_map);
+            }
+            else if (factory_type_ == 11)
+            {
+                run_LocBatchCls_ConAnneal_Zinc(results, roi, param_map);
             }
             else
                 return result;
@@ -142,7 +141,7 @@ namespace glasssix::ring
 
         static std::string version()
         {
-            return "1.0.6_2023.03.28";
+            return "1.0.7_2023.04.03";
         }
 
     private:
@@ -918,9 +917,9 @@ namespace glasssix::ring
             float MaxDistance = *std::max_element(distance_list.begin(), distance_list.end());
             float sum_distance_list = std::accumulate(distance_list.begin(), distance_list.end(), 0.0);
 
-            for (auto it : distance_list) {
-                if (it < (MaxDistance / 2)) {
-                    error_point_list.push_back(it);
+            for (int i = 0; i < distance_list.size(); i++) {
+                if (distance_list[i] < (MaxDistance / 2)) {
+                    error_point_list.push_back(i);
                 }
             }
 
@@ -1125,11 +1124,11 @@ namespace glasssix::ring
             results.push_back(box);
         }
 
-        std::vector<cv::Point2f> detect_crop(const cv::Mat& cut_img) {
+        std::vector<cv::Point2f> detect_crop(const cv::Mat& cut_img, std::map<std::string, float>& params_crop,float short_size) {
             auto input_img = std::make_shared <memory::tensor<std::uint8_t>>(std::vector<int>{1, cut_img.rows, cut_img.cols, cut_img.channels()}, -1, memory::NHWC);
             std::copy(cut_img.data, cut_img.data + cut_img.step[0] * cut_img.rows, input_img->mutable_cpu_data());
             input_img->convert_order();
-            auto [resized_img, ratio] = resize_fixed_size(320, input_img, 1);
+            auto [resized_img, ratio] = resize_fixed_size(short_size, input_img, 1);
             auto input_tensor = resized_img | memory::tensor_convert_to<float>;
             std::unordered_map<std::string, std::shared_ptr<memory::tensor<float>>> out = instance_[1]->forward(input_tensor);
             std::shared_ptr<memory::tensor<float>> output = out["output"];
@@ -1138,13 +1137,6 @@ namespace glasssix::ring
             std::vector<cv::Point2f> box_rect;
             std::vector<float> scores;
             std::vector<cv::Size> sizes;
-            std::map<std::string, float> params_crop = {
-                {"thresh", 0.3},
-                {"box_thresh", 0.3},
-                {"min_size", 2},
-                {"max_size", 60},
-                {"max_candidates", 1000},
-                {"unclip_ratio", 1.7} };
             det_post_process_bar(output, params_crop, boxes_rect, scores, sizes);
             if (!boxes_rect.empty()) {
                 int max_element_idx = std::max_element(scores.begin(), scores.end()) - scores.begin();
@@ -1223,7 +1215,51 @@ namespace glasssix::ring
             return charCord_imgText_list;
         }
 
-        void run_ConAnneal_Zinc_ClsAllBatch(std::vector<box_info_internal>& results, std::vector<int>& roi, std::map<std::string, float>& param_map)
+        bool det_point_mapping_image(std::vector<std::vector<cv::Point2f>>& boxes_rect,float ratio,const cv::Mat & input_mat) {
+            for (size_t i = 0; i < boxes_rect.size(); i++)
+            {
+                for (size_t j = 0; j < boxes_rect[i].size(); j++)
+                {
+                    boxes_rect[i][j] *= ratio;
+                    if (boxes_rect[i][j].x < 0 || boxes_rect[i][j].x > input_mat.cols - 1 || boxes_rect[i][j].y < 0 || boxes_rect[i][j].y > input_mat.rows - 1)
+                    {
+                        return true;
+                    }
+                }
+            }
+            return false;
+        }
+
+        void boxinfo_rst_install(std::vector<box_info_internal>& results, std::pair<std::vector<std::string>, std::vector<std::vector<float>>>& out,const cv::Mat &out_char_box, std::vector<cv::Point2f>& max_score_box) {
+            // install
+            box_info_internal box;
+            auto strinfos = exposing::make_param_vector<exposing::param_string>();
+            for (int j = 0; j < out.first.size(); ++j)
+            {
+                strinfos.push_back(exposing::param_string(out.first[j]));
+            }
+            box.strinfos = strinfos;
+
+            box.cut_roi = exposing::make_param_vector<std::uint8_t>();
+            box.cut_roi.resize(out_char_box.step[0] * out_char_box.rows);
+            box.cut_roi.copy_from({ out_char_box.data, static_cast<size_t>(out_char_box.step[0] * out_char_box.rows) }, 0);
+            box.cut_roi_width = out_char_box.cols;
+            box.cut_roi_height = out_char_box.rows;
+            box.angle = 0;
+            auto location = exposing::make_param_vector<float>();
+            for (auto foot : max_score_box) {
+                location.push_back(foot.x);
+                location.push_back(foot.y);
+            }
+            box.location = location;
+
+            auto messages = exposing::make_param_vector<exposing::param_string>();
+            messages.push_back(exposing::param_string(version()));
+            box.messages = messages;
+            results.push_back(box);
+        }
+
+        void run_LocBatchCls_ConAnneal(std::vector<box_info_internal>& results, std::vector<int>& roi, std::map<std::string, float>& param_map)
         {
             // det box infer
             excalibur::rectangle<int> rect((int)roi[0], (int)roi[1], (int)roi[2], (int)roi[3]);
@@ -1231,12 +1267,230 @@ namespace glasssix::ring
             excalibur::safty_cut_cpu(cache_, input, &rect);
             cv::Mat input_mat(roi[2], roi[3], CV_8UC3);
             std::copy(input->cpu_data(), input->cpu_data() + input->count(1, 4), input_mat.data);
-
             if (input->order() == memory::NHWC)
                 input->convert_order();
+            auto [resized_img, ratio] = resize_fixed_size(960, input, 1);
+            auto input_tensor = resized_img | memory::tensor_convert_to<float>;
+            std::unordered_map<std::string, std::shared_ptr<memory::tensor<float>>> out = instance_[0]->forward(input_tensor);
+            std::shared_ptr<memory::tensor<float>> output = out["output"];
 
+            std::vector<std::vector<cv::Point2f>> boxes_rect;
+            std::vector<float> scores;
+            std::vector<cv::Size> sizes;
+            std::map<std::string, float> params = {
+                {"thresh", param_map.count("thresh") ? param_map["thresh"] : 0.3},
+                {"box_thresh",  param_map.count("box_thresh") ? param_map["box_thresh"] : 0.5},
+                {"min_size", 24},
+                {"max_size", 24},
+                {"max_candidates", param_map.count("max_candidates") ? param_map["max_candidates"] : 1000},
+                {"unclip_ratio", param_map.count("unclip_ratio") ? param_map["unclip_ratio"] : 1.5} };
+
+            det_post_process_bar(output, params, boxes_rect, scores, sizes);
+            if (det_point_mapping_image(boxes_rect, ratio, input_mat)) return;
+
+#ifdef BUILD_DEBUG_INFO
+            //auto visual_mat = input_mat.clone();
+            //for (auto& box : boxes_rect)
+            //	for (auto& point : box)
+            //		cv::circle(visual_mat, cv::Point(point.x, point.y), 3, cv::Scalar(0, 0, 255), 3);
+            //cv::resize(visual_mat, visual_mat, cv::Size(visual_mat.cols * 0.3, visual_mat.rows * 0.3));
+            //cv::imshow("visual_mat", visual_mat); cv::waitKey(0);
+#endif
+            std::map<std::string, float> params_crop = {
+                {"thresh", 0.3},
+                {"box_thresh", 0.3},
+                {"min_size", 4},
+                {"max_size", 90},
+                {"max_candidates", 1000},
+                {"unclip_ratio", 0.5}
+            };
+
+            if (scores.size() == boxes_rect.size() && !boxes_rect.empty())
+            {
+                // optimizing img & segment
+                int max_element_idx = std::max_element(scores.begin(), scores.end()) - scores.begin();
+                std::vector<cv::Point2f> max_score_box = boxes_rect[max_element_idx];
+                cv::RotatedRect rect = cv::minAreaRect(max_score_box);
+                cv::Mat cut_img = crop_rect(input_mat, rect, 0);
+                std::vector<cv::Point2f> box_crop = detect_crop(cut_img, params_crop, 640);
+                if (box_crop.empty()) {
+                    return;
+                }
+                cv::RotatedRect crop_rotrect = cv::minAreaRect(box_crop);
+                auto charCord_imgText_list = iterative_degree_perspective(crop_rotrect, cut_img);
+                if (charCord_imgText_list.empty()) return;
+
+                // statistics result
+                std::pair<std::vector<std::string>, std::vector<std::vector<float>>> out;
+                cv::Mat out_char_box;
+                float score_max = 0.f;
+
+                for (const auto& charCord_imgText : charCord_imgText_list) {
+                    std::vector<float> segement_result = charCord_imgText.first;
+                    cv::Mat imgText = charCord_imgText.second;
+                    std::vector<cv::Mat> txt_bars;
+                    for (size_t j = 0; j < segement_result.size() - 1; j++) {
+                        cv::Mat small_img = imgText(cv::Range::all(), cv::Range((int)segement_result[j], (int)segement_result[j + 1]));
+                        txt_bars.push_back(small_img);
+                    }
+
+                    auto label_prob_list = classfi_instance_->detectBatch(txt_bars, *instance_[3]);
+
+                    // local statistics
+                    int charX_num = 0; //invalid character "X"
+                    std::string stringinfo;
+                    std::vector<float> probs;
+                    for (auto elem : label_prob_list)
+                    {
+                        auto [label, prob] = elem;
+                        if (label == 'X') {
+                            charX_num++;
+                        }
+                        else {
+                            stringinfo.push_back(label);
+                        }
+                        probs.push_back(prob);
+                    }
+                    float probs_avg = probs.empty() ? 0 : std::accumulate(probs.begin(), probs.end(), 0.0) / probs.size();
+
+                    // update max
+                    if (float(charX_num) / probs.size() < 0.4 && probs_avg > score_max) {
+                        out_char_box = imgText.clone();
+                        out = std::make_pair<std::vector<std::string>, std::vector<std::vector<float>>>({ stringinfo }, { probs });
+                        score_max = probs_avg;
+                    }
+                }
+
+                if (out.second.empty() || out.first.empty()) {
+                    return;
+                }
+                //pack result
+                boxinfo_rst_install(results, out, out_char_box, max_score_box);
+            }
+        }
+
+        void run_LocBatchCls_ConAnneal_Zinc(std::vector<box_info_internal>& results, std::vector<int>& roi, std::map<std::string, float>& param_map)
+        {
+            // det box infer
+            excalibur::rectangle<int> rect((int)roi[0], (int)roi[1], (int)roi[2], (int)roi[3]);
+            std::shared_ptr<memory::tensor<uint8_t>> input;
+            excalibur::safty_cut_cpu(cache_, input, &rect);
+            cv::Mat input_mat(roi[2], roi[3], CV_8UC3);
+            std::copy(input->cpu_data(), input->cpu_data() + input->count(1, 4), input_mat.data);
+            if (input->order() == memory::NHWC)
+                input->convert_order();
             auto [resized_img, ratio] = resize_fixed_size(320, input, 1);
+            auto input_tensor = resized_img | memory::tensor_convert_to<float>;
 
+            std::unordered_map<std::string, std::shared_ptr<memory::tensor<float>>> out = instance_[0]->forward(input_tensor);
+            std::shared_ptr<memory::tensor<float>> output = out["output"];
+
+            std::vector<std::vector<cv::Point2f>> boxes_rect;
+            std::vector<float> scores;
+            std::vector<cv::Size> sizes;
+            std::map<std::string, float> params = {
+            {"thresh", param_map.count("thresh") ? param_map["thresh"] : 0.3},
+            {"box_thresh",  param_map.count("box_thresh") ? param_map["box_thresh"] : 0.3},
+            {"min_size", 8},
+            {"max_size", 8},
+            {"max_candidates", param_map.count("max_candidates") ? param_map["max_candidates"] : 1000},
+            {"unclip_ratio", param_map.count("unclip_ratio") ? param_map["unclip_ratio"] : 1.7} };
+
+            det_post_process_bar(output, params, boxes_rect, scores, sizes);
+            if (det_point_mapping_image(boxes_rect, ratio, input_mat)) return;
+
+#ifdef BUILD_DEBUG_INFO
+            //auto visual_mat = input_mat.clone();
+            //for (auto& box : boxes_rect)
+            //	for (auto& point : box)
+            //		cv::circle(visual_mat, cv::Point(point.x, point.y), 3, cv::Scalar(0, 0, 255), 3);
+            //cv::resize(visual_mat, visual_mat, cv::Size(visual_mat.cols * 0.3, visual_mat.rows * 0.3));
+            //cv::imshow("visual_mat", visual_mat); cv::waitKey(0);
+#endif
+            std::map<std::string, float> params_crop = {
+                {"thresh", 0.3},
+                {"box_thresh", 0.3},
+                {"min_size", 2},
+                {"max_size", 60},
+                {"max_candidates", 1000},
+                {"unclip_ratio", 1.7}
+            };
+
+            if (scores.size() == boxes_rect.size() && !boxes_rect.empty())
+            {
+                // optimizing img & segment
+                int max_element_idx = std::max_element(scores.begin(), scores.end()) - scores.begin();
+                std::vector<cv::Point2f> max_score_box = boxes_rect[max_element_idx];
+                cv::RotatedRect rect = cv::minAreaRect(max_score_box);
+                cv::Mat cut_img = crop_rect(input_mat, rect, 0);
+                std::vector<cv::Point2f> box_crop = detect_crop(cut_img, params_crop, 320);
+                if (box_crop.empty()) {
+                    return;
+                }
+                cv::RotatedRect crop_rotrect = cv::minAreaRect(box_crop);
+                auto charCord_imgText_list = iterative_degree_perspective(crop_rotrect, cut_img);
+                if (charCord_imgText_list.empty()) return;
+
+                // statistics result
+                std::pair<std::vector<std::string>, std::vector<std::vector<float>>> out;
+                cv::Mat out_char_box;
+                float score_max = 0.f;
+
+                for (const auto& charCord_imgText : charCord_imgText_list) {
+                    std::vector<float> segement_result = charCord_imgText.first;
+                    cv::Mat imgText = charCord_imgText.second;
+                    std::vector<cv::Mat> txt_bars;
+                    for (size_t j = 0; j < segement_result.size() - 1; j++) {
+                        cv::Mat small_img = imgText(cv::Range::all(), cv::Range((int)segement_result[j], (int)segement_result[j + 1]));
+                        txt_bars.push_back(small_img);
+                    }
+
+                    auto label_prob_list = classfi_instance_->detectBatch(txt_bars, *instance_[3]);
+
+                    // local statistics
+                    int charX_num = 0; //invalid character "X"
+                    std::string stringinfo;
+                    std::vector<float> probs;
+                    for (auto elem : label_prob_list)
+                    {
+                        auto [label, prob] = elem;
+                        if (label == 'X') {
+                            charX_num++;
+                        }
+                        else {
+                            stringinfo.push_back(label);
+                        }
+                        probs.push_back(prob);
+                    }
+                    float probs_avg = probs.empty() ? 0 : std::accumulate(probs.begin(), probs.end(), 0.0) / probs.size();
+                    // update max
+                    if (float(charX_num) / probs.size() < 0.4 && probs_avg > score_max) {
+                        out_char_box = imgText.clone();
+                        out = std::make_pair<std::vector<std::string>, std::vector<std::vector<float>>>({ stringinfo }, { probs });
+                        score_max = probs_avg;
+                    }
+                }
+
+                if (out.second.empty() || out.first.empty()) {
+                    return;
+                }
+
+                //pack result
+                boxinfo_rst_install(results, out, out_char_box, max_score_box);
+            }
+        }
+
+        void run_AllBatchCls_ConAnneal_Zinc(std::vector<box_info_internal>& results, std::vector<int>& roi, std::map<std::string, float>& param_map)
+        {
+            // det box infer
+            excalibur::rectangle<int> rect((int)roi[0], (int)roi[1], (int)roi[2], (int)roi[3]);
+            std::shared_ptr<memory::tensor<uint8_t>> input;
+            excalibur::safty_cut_cpu(cache_, input, &rect);
+            cv::Mat input_mat(roi[2], roi[3], CV_8UC3);
+            std::copy(input->cpu_data(), input->cpu_data() + input->count(1, 4), input_mat.data);
+            if (input->order() == memory::NHWC)
+                input->convert_order();
+            auto [resized_img, ratio] = resize_fixed_size(320, input, 1);
             auto input_tensor = resized_img | memory::tensor_convert_to<float>;
             std::unordered_map<std::string, std::shared_ptr<memory::tensor<float>>> out = instance_[0]->forward(input_tensor);
             std::shared_ptr<memory::tensor<float>> output = out["output"];
@@ -1253,18 +1507,7 @@ namespace glasssix::ring
                 {"unclip_ratio", param_map.count("unclip_ratio") ? param_map["unclip_ratio"] : 1.7} };
 
             det_post_process_bar(output, params, boxes_rect, scores, sizes);
-
-            for (size_t i = 0; i < boxes_rect.size(); i++)
-            {
-                for (size_t j = 0; j < boxes_rect[i].size(); j++)
-                {
-                    boxes_rect[i][j] *= ratio;
-                    if (boxes_rect[i][j].x < 0 || boxes_rect[i][j].x > input_mat.cols - 1 || boxes_rect[i][j].y < 0 || boxes_rect[i][j].y > input_mat.rows - 1)
-                    {
-                        return;
-                    }
-                }
-            }
+            if (det_point_mapping_image(boxes_rect, ratio, input_mat)) return;
 
 #ifdef BUILD_DEBUG_INFO
             //auto visual_mat = input_mat.clone();
@@ -1274,6 +1517,13 @@ namespace glasssix::ring
             //cv::resize(visual_mat, visual_mat, cv::Size(visual_mat.cols * 0.3, visual_mat.rows * 0.3));
             //cv::imshow("visual_mat", visual_mat); cv::waitKey(0);
 #endif
+            std::map<std::string, float> params_crop = {
+                {"thresh", 0.3},
+                {"box_thresh", 0.3},
+                {"min_size", 2},
+                {"max_size", 60},
+                {"max_candidates", 1000},
+                {"unclip_ratio", 1.7} };
 
             if (scores.size() == boxes_rect.size() && !boxes_rect.empty())
             {
@@ -1282,7 +1532,7 @@ namespace glasssix::ring
                 std::vector<cv::Point2f> max_score_box = boxes_rect[max_element_idx];
                 cv::RotatedRect rect = cv::minAreaRect(max_score_box);
                 cv::Mat cut_img = crop_rect(input_mat, rect, 0);
-                std::vector<cv::Point2f> box_crop = detect_crop(cut_img);
+                std::vector<cv::Point2f> box_crop = detect_crop(cut_img, params_crop, 320);
                 if (box_crop.empty()) {
                     return;
                 }
@@ -1333,179 +1583,11 @@ namespace glasssix::ring
                         score_max = probs_avg;
                     }
                 }
-
                 if (out.second.empty() || out.first.empty()) {
                     return;
                 }
-                // install
-                box_info_internal box;
-                auto strinfos = exposing::make_param_vector<exposing::param_string>();
-                for (int j = 0; j < out.first.size(); ++j)
-                {
-                    strinfos.push_back(exposing::param_string(out.first[j]));
-                }
-                box.strinfos = strinfos;
-
-                box.cut_roi = exposing::make_param_vector<std::uint8_t>();
-                box.cut_roi.resize(out_char_box.step[0] * cut_img.rows);
-                box.cut_roi.copy_from({ out_char_box.data, static_cast<size_t>(out_char_box.step[0] * out_char_box.rows) }, 0);
-                box.cut_roi_width = out_char_box.cols;
-                box.cut_roi_height = out_char_box.rows;
-                box.angle = 0;
-                auto location = exposing::make_param_vector<float>();
-                for (auto foot : max_score_box) {
-                    location.push_back(foot.x);
-                    location.push_back(foot.y);
-                }
-                box.location = location;
-
-                auto messages = exposing::make_param_vector<exposing::param_string>();
-                messages.push_back(exposing::param_string(version()));
-                box.messages = messages;
-                results.push_back(box);
-            }
-        }
-
-        void run_ConAnneal_Zinc_ClsLocBatch(std::vector<box_info_internal>& results, std::vector<int>& roi, std::map<std::string, float>& param_map)
-        {
-            // det box infer
-            excalibur::rectangle<int> rect((int)roi[0], (int)roi[1], (int)roi[2], (int)roi[3]);
-            std::shared_ptr<memory::tensor<uint8_t>> input;
-            excalibur::safty_cut_cpu(cache_, input, &rect);
-            cv::Mat input_mat(roi[2], roi[3], CV_8UC3);
-            std::copy(input->cpu_data(), input->cpu_data() + input->count(1, 4), input_mat.data);
-
-            if (input->order() == memory::NHWC)
-                input->convert_order();
-
-            auto [resized_img, ratio] = resize_fixed_size(320, input, 1);
-
-            auto input_tensor = resized_img | memory::tensor_convert_to<float>;
-
-            std::unordered_map<std::string, std::shared_ptr<memory::tensor<float>>> out = instance_[0]->forward(input_tensor);
-
-            std::shared_ptr<memory::tensor<float>> output = out["output"];
-
-            std::vector<std::vector<cv::Point2f>> boxes_rect;
-            std::vector<float> scores;
-            std::vector<cv::Size> sizes;
-            std::map<std::string, float> params = {
-            {"thresh", param_map.count("thresh") ? param_map["thresh"] : 0.3},
-            {"box_thresh",  param_map.count("box_thresh") ? param_map["box_thresh"] : 0.3},
-            {"min_size", 8},
-            {"max_size", 8},
-            {"max_candidates", param_map.count("max_candidates") ? param_map["max_candidates"] : 1000},
-            {"unclip_ratio", param_map.count("unclip_ratio") ? param_map["unclip_ratio"] : 1.7} };
-
-            det_post_process_bar(output, params, boxes_rect, scores, sizes);
-
-            for (size_t i = 0; i < boxes_rect.size(); i++)
-            {
-                for (size_t j = 0; j < boxes_rect[i].size(); j++)
-                {
-                    boxes_rect[i][j] *= ratio;
-                    if (boxes_rect[i][j].x < 0 || boxes_rect[i][j].x > input_mat.cols - 1 || boxes_rect[i][j].y < 0 || boxes_rect[i][j].y > input_mat.rows - 1)
-                    {
-                        return;
-                    }
-                }
-            }
-
-#ifdef BUILD_DEBUG_INFO
-            //auto visual_mat = input_mat.clone();
-            //for (auto& box : boxes_rect)
-            //	for (auto& point : box)
-            //		cv::circle(visual_mat, cv::Point(point.x, point.y), 3, cv::Scalar(0, 0, 255), 3);
-            //cv::resize(visual_mat, visual_mat, cv::Size(visual_mat.cols * 0.3, visual_mat.rows * 0.3));
-            //cv::imshow("visual_mat", visual_mat); cv::waitKey(0);
-#endif
-
-            if (scores.size() == boxes_rect.size() && !boxes_rect.empty())
-            {
-                // optimizing img & segment
-                int max_element_idx = std::max_element(scores.begin(), scores.end()) - scores.begin();
-                std::vector<cv::Point2f> max_score_box = boxes_rect[max_element_idx];
-                cv::RotatedRect rect = cv::minAreaRect(max_score_box);
-                cv::Mat cut_img = crop_rect(input_mat, rect, 0);
-                std::vector<cv::Point2f> box_crop = detect_crop(cut_img);
-                if (box_crop.empty()) {
-                    return;
-                }
-                cv::RotatedRect crop_rotrect = cv::minAreaRect(box_crop);
-
-                auto charCord_imgText_list = iterative_degree_perspective(crop_rotrect, cut_img);
-                if (charCord_imgText_list.empty()) return;
-
-                // statistics result
-                std::pair<std::vector<std::string>, std::vector<std::vector<float>>> out;
-                cv::Mat out_char_box;
-                float score_max = 0.f;
-
-                for (const auto& charCord_imgText : charCord_imgText_list) {
-                    std::vector<float> segement_result = charCord_imgText.first;
-                    cv::Mat imgText = charCord_imgText.second;
-                    std::vector<cv::Mat> txt_bars;
-                    for (size_t j = 0; j < segement_result.size() - 1; j++) {
-                        cv::Mat small_img = imgText(cv::Range::all(), cv::Range((int)segement_result[j], (int)segement_result[j + 1]));
-                        txt_bars.push_back(small_img);
-                    }
-
-                    auto label_prob_list = classfi_instance_->detectBatch(txt_bars, *instance_[3]);
-
-                    // local statistics
-                    int charX_num = 0; //invalid character "X"
-                    std::string stringinfo;
-                    std::vector<float> probs;
-
-                    for (auto elem : label_prob_list)
-                    {
-                        auto [label, prob] = elem;
-                        if (label == 'X') {
-                            charX_num++;
-                        }
-                        else {
-                            stringinfo.push_back(label);
-                        }
-                        probs.push_back(prob);
-                    }
-                    float probs_avg = probs.empty() ? 0 : std::accumulate(probs.begin(), probs.end(), 0.0) / probs.size();
-                    // update max
-                    if (float(charX_num) / probs.size() < 0.4 && probs_avg > score_max) {
-                        out_char_box = imgText.clone();
-                        out = std::make_pair<std::vector<std::string>, std::vector<std::vector<float>>>({ stringinfo }, { probs });
-                        score_max = probs_avg;
-                    }
-                }
-
-                if (out.second.empty() || out.first.empty()) {
-                    return;
-                }
-                // install
-                box_info_internal box;
-                auto strinfos = exposing::make_param_vector<exposing::param_string>();
-                for (int j = 0; j < out.first.size(); ++j)
-                {
-                    strinfos.push_back(exposing::param_string(out.first[j]));
-                }
-                box.strinfos = strinfos;
-
-                box.cut_roi = exposing::make_param_vector<std::uint8_t>();
-                box.cut_roi.resize(out_char_box.step[0] * cut_img.rows);
-                box.cut_roi.copy_from({ out_char_box.data, static_cast<size_t>(out_char_box.step[0] * out_char_box.rows) }, 0);
-                box.cut_roi_width = out_char_box.cols;
-                box.cut_roi_height = out_char_box.rows;
-                box.angle = 0;
-                auto location = exposing::make_param_vector<float>();
-                for (auto foot : max_score_box) {
-                    location.push_back(foot.x);
-                    location.push_back(foot.y);
-                }
-                box.location = location;
-
-                auto messages = exposing::make_param_vector<exposing::param_string>();
-                messages.push_back(exposing::param_string(version()));
-                box.messages = messages;
-                results.push_back(box);
+                //pack result
+                boxinfo_rst_install(results, out, out_char_box, max_score_box);
             }
         }
 
@@ -1517,12 +1599,9 @@ namespace glasssix::ring
             excalibur::safty_cut_cpu(cache_, input, &rect);
             cv::Mat input_mat(roi[2], roi[3], CV_8UC3);
             std::copy(input->cpu_data(), input->cpu_data() + input->count(1, 4), input_mat.data);
-
             if (input->order() == memory::NHWC)
                 input->convert_order();
-
             auto [resized_img, ratio] = resize_fixed_size(320, input, 1);
-
             auto input_tensor = resized_img | memory::tensor_convert_to<float>;
             std::unordered_map<std::string, std::shared_ptr<memory::tensor<float>>> out = instance_[0]->forward(input_tensor);
             std::shared_ptr<memory::tensor<float>> output = out["output"];
@@ -1539,19 +1618,15 @@ namespace glasssix::ring
                 {"unclip_ratio", param_map.count("unclip_ratio") ? param_map["unclip_ratio"] : 1.7} };
 
             det_post_process_bar(output, params, boxes_rect, scores, sizes);
+            det_point_mapping_image(boxes_rect, ratio, input_mat);
 
-            for (size_t i = 0; i < boxes_rect.size(); i++)
-            {
-                for (size_t j = 0; j < boxes_rect[i].size(); j++)
-                {
-                    boxes_rect[i][j] *= ratio;
-                    if (boxes_rect[i][j].x < 0 || boxes_rect[i][j].x > input_mat.cols - 1 || boxes_rect[i][j].y < 0 || boxes_rect[i][j].y > input_mat.rows - 1)
-                    {
-                        return;
-                    }
-                }
-            }
-
+            std::map<std::string, float> params_crop = {
+                {"thresh", 0.3},
+                {"box_thresh", 0.3},
+                {"min_size", 2},
+                {"max_size", 60},
+                {"max_candidates", 1000},
+                {"unclip_ratio", 1.7} };
             if (scores.size() == boxes_rect.size() && !boxes_rect.empty())
             {
                 // optimizing img & segment
@@ -1559,7 +1634,7 @@ namespace glasssix::ring
                 std::vector<cv::Point2f> max_score_box = boxes_rect[max_element_idx];
                 cv::RotatedRect rect = cv::minAreaRect(max_score_box);
                 cv::Mat cut_img = crop_rect(input_mat, rect, 0);
-                std::vector<cv::Point2f> box_crop = detect_crop(cut_img);
+                std::vector<cv::Point2f> box_crop = detect_crop(cut_img, params_crop, 320);
                 if (box_crop.empty()) {
                     return;
                 }
@@ -1630,32 +1705,8 @@ namespace glasssix::ring
                 if (out.second.empty() || out.first.empty()) {
                     return;
                 }
-                // install
-                box_info_internal box;
-                auto strinfos = exposing::make_param_vector<exposing::param_string>();
-                for (int j = 0; j < out.first.size(); ++j)
-                {
-                    strinfos.push_back(exposing::param_string(out.first[j]));
-                }
-                box.strinfos = strinfos;
-
-                box.cut_roi = exposing::make_param_vector<std::uint8_t>();
-                box.cut_roi.resize(out_char_box.step[0] * cut_img.rows);
-                box.cut_roi.copy_from({ out_char_box.data, static_cast<size_t>(out_char_box.step[0] * out_char_box.rows) }, 0);
-                box.cut_roi_width = out_char_box.cols;
-                box.cut_roi_height = out_char_box.rows;
-                box.angle = 0;
-                auto location = exposing::make_param_vector<float>();
-                for (auto foot : max_score_box) {
-                    location.push_back(foot.x);
-                    location.push_back(foot.y);
-                }
-                box.location = location;
-
-                auto messages = exposing::make_param_vector<exposing::param_string>();
-                messages.push_back(exposing::param_string(version()));
-                box.messages = messages;
-                results.push_back(box);
+                //pack result
+                boxinfo_rst_install(results, out, out_char_box, max_score_box);
             }
         }
 
