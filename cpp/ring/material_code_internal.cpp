@@ -117,11 +117,11 @@ namespace glasssix::ring
 
             if (factory_type_ == 9)
             {
-                run_bar_2(results, roi, border_orient, param_map, 24); // default cls Batch infer
+                run_bar_2(results, roi, border_orient, param_map, 24);
             }
             else if (factory_type_ == 10)
             {
-                run_ConAnneal(results, roi, param_map); // default cls Batch infer
+                run_ConAnneal(results, roi, param_map);
             }
             else if (factory_type_ == 11)
             {
@@ -1185,7 +1185,7 @@ namespace glasssix::ring
 
             // Iterative perspective to deal with slanting char
             int new_w = (94 / std::min(crop_rotrect.size.width, crop_rotrect.size.height)) * std::max(crop_rotrect.size.width, crop_rotrect.size.height); //resize to 94 * new_w
-            for (int degree = -90; degree < 91; degree += 10) {
+            for (int degree = -100; degree < 101; degree += 10) {
                 cv::Mat imgText_unflip;
                 cv::Mat imgText_flip;
                 std::array<cv::Point2f, 4> dst_points{ cv::Point2f(30,0),cv::Point2f(new_w + 30, 0),cv::Point2f(new_w + 30 + degree, 94),cv::Point2f(30 + degree, 94) };
@@ -1278,11 +1278,11 @@ namespace glasssix::ring
             std::vector<cv::Size> sizes;
             std::map<std::string, float> params = {
                 {"thresh", param_map.count("thresh") ? param_map["thresh"] : 0.3},
-                {"box_thresh",  param_map.count("box_thresh") ? param_map["box_thresh"] : 0.5},
+                {"box_thresh",  param_map.count("box_thresh") ? param_map["box_thresh"] : 0.4},
                 {"min_size", 24},
                 {"max_size", 24},
                 {"max_candidates", param_map.count("max_candidates") ? param_map["max_candidates"] : 1000},
-                {"unclip_ratio", param_map.count("unclip_ratio") ? param_map["unclip_ratio"] : 1.5} };
+                {"unclip_ratio", param_map.count("unclip_ratio") ? param_map["unclip_ratio"] : 0.7} };
 
             det_post_process_bar(output, params, boxes_rect, scores, sizes);
             if (det_point_mapping_image(boxes_rect, ratio, input_mat)) return;
