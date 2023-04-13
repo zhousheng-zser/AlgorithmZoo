@@ -128,7 +128,7 @@ namespace glasssix
 			cv::resize(img, img, cv::Size2i{ new_w, 64 });
 			int right_extra_pad = 0;
 			if (factory_type == 10 || factory_type == 11) {
-				right_extra_pad = 16;
+				right_extra_pad = 24;
 			}
 			int pad_w = right_extra_pad + stride - new_w % stride;
 			if (pad_w == 8)

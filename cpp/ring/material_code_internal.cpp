@@ -140,7 +140,7 @@ namespace glasssix::ring
 
         static std::string version()
         {
-            return "1.0.8_2023.04.04";
+            return "1.0.9_2023.04.13";
         }
 
     private:
@@ -1214,6 +1214,77 @@ namespace glasssix::ring
             return charCord_imgText_list;
         }
 
+        std::vector<std::pair<std::vector<float>, cv::Mat>> iterative_degree_perspective_zinc(cv::RotatedRect& crop_rotrect, cv::Mat& cut_img, int dgr_start = -100, int dgr_end = 101, int dgr_step = 10) {
+            std::vector<std::pair<std::vector<float>, cv::Mat>> charCord_imgText_list;
+
+            std::array<cv::Point2f, 4> reset_points;
+            crop_rotrect.points(reset_points.data());
+            //reset_points
+			std::sort(reset_points.begin(), reset_points.end(), [&](cv::Point2f& Pa, cv::Point2f& Pb)->bool {return Pa.x < Pb.x; }); //按照x由小到大排序
+            int index_1 = 0;
+            int index_2 = 1;
+            int index_3 = 2;
+            int index_4 = 3;
+            if (reset_points[1].y > reset_points[0].y) {
+                index_1 = 0;
+                index_4 = 1;
+            }
+            else {
+                index_1 = 1;
+				index_4 = 0;
+            }
+            if (reset_points[3].y > reset_points[2].y) {
+                index_2 = 2;
+                index_3 = 3;
+            }
+            else {
+                index_2 = 3;
+                index_3 = 2;
+            }
+
+            std::array<cv::Point2f, 4> reset_points_rst{ reset_points[index_1],reset_points[index_2],reset_points[index_3],reset_points[index_4] };
+            auto d01x = reset_points_rst[0].x - reset_points_rst[1].x;
+            auto d01y = reset_points_rst[0].y - reset_points_rst[1].y;
+            auto d03x = reset_points_rst[0].x - reset_points_rst[3].x;
+            auto d03y = reset_points_rst[0].y - reset_points_rst[3].y;
+            float L1 = std::sqrt(d01x * d01x + d01y * d01y);
+            float L2 = std::sqrt(d03x * d03x + d03y * d03y);
+			if (L1 <= L2)
+				std::rotate(reset_points_rst.begin(), reset_points_rst.begin() + 1, reset_points_rst.end());
+
+            // Iterative perspective to deal with slanting char
+            int new_w = (94 / std::min(crop_rotrect.size.width, crop_rotrect.size.height)) * std::max(crop_rotrect.size.width, crop_rotrect.size.height); //resize to 94 * new_w
+            for (int degree = dgr_start; degree < dgr_end; degree += dgr_step) {
+                cv::Mat imgText_unflip;
+                cv::Mat imgText_flip;
+                std::array<cv::Point2f, 4> dst_points{ cv::Point2f(30,0),cv::Point2f(new_w + 30, 0),cv::Point2f(new_w + 30 + degree, 94),cv::Point2f(30 + degree, 94) };
+                cv::Mat TransMat = cv::getPerspectiveTransform(reset_points_rst, dst_points);
+                cv::warpPerspective(cut_img, imgText_unflip, TransMat, cv::Size{ new_w + 60, 94 }, CV_INTER_CUBIC);
+                cv::flip(imgText_unflip, imgText_flip, -1);
+
+                float ratio = (float)imgText_unflip.rows / 64;
+                int imgText_valid_width = (int)(imgText_unflip.cols / ratio);
+#ifdef BUILD_DEBUG_INFO
+                //cv::imshow("imgTex_iter_"+std::to_string(degree), imgText_unflip); cv::waitKey();
+#endif // BUILD_DEBUG_INFO
+                std::vector<float> segement_result_unflip = segement_instance_->detect(imgText_unflip, true, *instance_[2], factory_type_);
+                std::vector<float> segement_result_flip = segement_instance_->detect(imgText_flip, true, *instance_[2], factory_type_);
+
+                if (segement_afterporcess(segement_result_unflip, imgText_valid_width)) {
+                    if (segement_result_unflip.size() > 10) {
+                        charCord_imgText_list.push_back({ segement_result_unflip,imgText_unflip });
+                    }
+                }
+                if (segement_afterporcess(segement_result_flip, imgText_valid_width)) {
+                    if (segement_result_flip.size() > 10) {
+                        charCord_imgText_list.push_back({ segement_result_flip,imgText_flip });
+                    }
+                }
+            }
+
+            return charCord_imgText_list;
+        }
+
         bool det_point_mapping_image(std::vector<std::vector<cv::Point2f>>& boxes_rect,float ratio,const cv::Mat & input_mat) {
             for (size_t i = 0; i < boxes_rect.size(); i++)
             {
@@ -1378,7 +1449,7 @@ namespace glasssix::ring
             std::copy(input->cpu_data(), input->cpu_data() + input->count(1, 4), input_mat.data);
             if (input->order() == memory::NHWC)
                 input->convert_order();
-            auto [resized_img, ratio] = resize_fixed_size(320, input, 1);
+            auto [resized_img, ratio] = resize_fixed_size(640, input, 1);
             auto input_tensor = resized_img | memory::tensor_convert_to<float>;
 
             std::unordered_map<std::string, std::shared_ptr<memory::tensor<float>>> out = instance_[0]->forward(input_tensor);
@@ -1393,46 +1464,76 @@ namespace glasssix::ring
             {"min_size", 8},
             {"max_size", 8},
             {"max_candidates", param_map.count("max_candidates") ? param_map["max_candidates"] : 1000},
-            {"unclip_ratio", param_map.count("unclip_ratio") ? param_map["unclip_ratio"] : 1.7} };
+            {"unclip_ratio", param_map.count("unclip_ratio") ? param_map["unclip_ratio"] : 2.0} };
 
             det_post_process_bar(output, params, boxes_rect, scores, sizes);
-            if (det_point_mapping_image(boxes_rect, ratio, input_mat)) return;
+            //if (det_point_mapping_image(boxes_rect, ratio, input_mat)) return;
+            if (boxes_rect.empty()) return;
 
+            std::vector<cv::Rect> boxes_rect_target;
+            for (auto locBox : boxes_rect) {
+                cv::Point2f centerPoint{ 0,0 };
+                for (auto P : locBox) {
+                    centerPoint += (P * ratio);
+                }
+                int footPointNum = locBox.size();
+                centerPoint /= footPointNum;
+
+                const int H = input_mat.rows;
+                const int W = input_mat.cols;
+                const int tagtBoxSide = 640;
+                const int boundaryVal = tagtBoxSide / 2 + 2;
+
+                centerPoint.x = centerPoint.x < boundaryVal ? boundaryVal : centerPoint.x;
+                centerPoint.y = centerPoint.y < boundaryVal ? boundaryVal : centerPoint.y;
+                centerPoint.x = centerPoint.x > W - boundaryVal ? W - boundaryVal : centerPoint.x;
+                centerPoint.y = centerPoint.y > H - boundaryVal ? H - boundaryVal : centerPoint.y;
+
+                cv::Rect2f tag_rect{ centerPoint.x - tagtBoxSide / 2, centerPoint.y - tagtBoxSide / 2, tagtBoxSide, tagtBoxSide };
+                boxes_rect_target.push_back(tag_rect);
+            }
 #ifdef BUILD_DEBUG_INFO
-            //auto visual_mat = input_mat.clone();
+            //auto det1_visl = input_mat.clone();
             //for (auto& box : boxes_rect)
             //	for (auto& point : box)
-            //		cv::circle(visual_mat, cv::Point(point.x, point.y), 3, cv::Scalar(0, 0, 255), 3);
-            //cv::resize(visual_mat, visual_mat, cv::Size(visual_mat.cols * 0.3, visual_mat.rows * 0.3));
-            //cv::imshow("visual_mat", visual_mat); cv::waitKey(0);
-#endif
+            //		cv::circle(det1_visl, cv::Point(point.x, point.y), 3, cv::Scalar(0, 0, 255), 3);
+            //cv::resize(det1_visl, det1_visl, cv::Size(det1_visl.cols * 0.3, det1_visl.rows * 0.3));
+            //cv::imshow("det1_visl", det1_visl); cv::waitKey(0);
+#endif // BUILD_DEBUG_INFO
             std::map<std::string, float> params_crop = {
                 {"thresh", 0.3},
                 {"box_thresh", 0.3},
                 {"min_size", 2},
                 {"max_size", 60},
                 {"max_candidates", 1000},
-                {"unclip_ratio", 1.7}
+                {"unclip_ratio", 2.0}
             };
 
-            if (scores.size() == boxes_rect.size() && !boxes_rect.empty())
+            if (scores.size() == boxes_rect_target.size() && !boxes_rect_target.empty())
             {
                 // optimizing img & segment
                 int max_element_idx = std::max_element(scores.begin(), scores.end()) - scores.begin();
-                std::vector<cv::Point2f> max_score_box = boxes_rect[max_element_idx];
-                cv::RotatedRect rect = cv::minAreaRect(max_score_box);
-                cv::Mat cut_img = crop_rect(input_mat, rect, 0);
-                std::vector<cv::Point2f> box_crop = detect_crop(cut_img, params_crop, 320);
+                auto max_score_rect = boxes_rect_target[max_element_idx];
+                cv::Mat cut_img = input_mat(max_score_rect).clone();
+                std::vector<cv::Point2f> box_crop = detect_crop(cut_img, params_crop, 640);
+#ifdef BUILD_DEBUG_INFO
+                    //auto det2_visl = cut_img.clone();
+                    //for (auto& point : box_crop)
+                    //    cv::circle(det2_visl, cv::Point(point.x, point.y), 3, cv::Scalar(0, 0, 255), 3);
+                    //cv::imshow("det2 box_crop", det2_visl); cv::waitKey(0);
+#endif // BUILD_DEBUG_INFO
                 if (box_crop.empty()) {
                     return;
                 }
                 cv::RotatedRect crop_rotrect = cv::minAreaRect(box_crop);
-                auto charCord_imgText_list = iterative_degree_perspective(crop_rotrect, cut_img);
+                auto charCord_imgText_list = iterative_degree_perspective_zinc(crop_rotrect, cut_img, -40, 41, 10);
+                //auto charCord_imgText_list = iterative_degree_perspective(crop_rotrect, cut_img);
                 if (charCord_imgText_list.empty()) return;
 
                 // statistics result
                 std::pair<std::vector<std::string>, std::vector<std::vector<float>>> out;
                 cv::Mat out_char_box;
+                std::vector<float> out_probs;
                 float score_max = 0.f;
 
                 for (const auto& charCord_imgText : charCord_imgText_list) {
@@ -1447,14 +1548,14 @@ namespace glasssix::ring
                     auto label_prob_list = classfi_instance_->detectBatch(txt_bars, *instance_[3]);
 
                     // local statistics
-                    int charX_num = 0; //invalid character "X"
+                    int charXY_num = 0; //invalid character "X" "Y"
                     std::string stringinfo;
                     std::vector<float> probs;
                     for (auto elem : label_prob_list)
                     {
                         auto [label, prob] = elem;
-                        if (label == 'X') {
-                            charX_num++;
+                        if (label == 'X' || label == 'Y') {
+                            charXY_num++;
                         }
                         else {
                             stringinfo.push_back(label);
@@ -1463,18 +1564,51 @@ namespace glasssix::ring
                     }
                     float probs_avg = probs.empty() ? 0 : std::accumulate(probs.begin(), probs.end(), 0.0) / probs.size();
                     // update max
-                    if (float(charX_num) / probs.size() < 0.4 && probs_avg > score_max) {
+                    if (float(charXY_num) / probs.size() < 0.4 && probs_avg > score_max) {
                         out_char_box = imgText.clone();
+#ifdef BUILD_DEBUG_INFO
+                        //std::cout << "\n* * *\n";
+                        //for (auto& px : segement_result)
+                        //    cv::circle(out_char_box, cv::Point(px, out_char_box.rows / 2), 3, cv::Scalar(0, 0, 255), 3);
+#endif // BUILD_DEBUG_INFO
                         out = std::make_pair<std::vector<std::string>, std::vector<std::vector<float>>>({ stringinfo }, { probs });
                         score_max = probs_avg;
+                        out_probs = probs;
                     }
-                }
+#ifdef BUILD_DEBUG_INFO
+                    //{
+                    //    std::cout << stringinfo << std::endl;
+                    //    std::cout << "\tseg : ";
+                    //    for (auto loc : segement_result)
+                    //        std::cout << "  " << std::setprecision(4) << loc;
+                    //    std::cout << std::endl;
 
+                    //    std::cout << "\tavg[" << probs_avg << "]";
+                    //    for (auto s : probs)
+                    //        std::cout << "  " << std::setprecision(4) << s;
+                    //    std::cout << std::endl;
+
+                    //    for (auto& px : segement_result)
+                    //        cv::circle(imgText, cv::Point(px, out_char_box.rows / 2), 3, cv::Scalar(0, 0, 255), 3);
+                    //    cv::imshow("imgText_seg", imgText); cv::waitKey(0);
+                    //}
+#endif // BUILD_DEBUG_INFO
+                }
                 if (out.second.empty() || out.first.empty()) {
                     return;
                 }
-
+#ifdef BUILD_DEBUG_INFO
+                //std::cout << "DBG_RST: " << out.first[0] << std::endl;
+                //cv::imshow("out_char_box", out_char_box); cv::waitKey(0);
+#endif // BUILD_DEBUG_INFO
                 //pack result
+                const int rect_w = max_score_rect.width;
+                std::vector<cv::Point2f> max_score_box{
+                    max_score_rect.tl(),
+                    max_score_rect.tl() + cv::Point{rect_w,0},
+                    max_score_rect.br(),
+                    max_score_rect.br() + cv::Point{-rect_w,0},
+                };
                 boxinfo_rst_install(results, out, out_char_box, max_score_box);
             }
         }
@@ -1515,7 +1649,7 @@ namespace glasssix::ring
             //		cv::circle(visual_mat, cv::Point(point.x, point.y), 3, cv::Scalar(0, 0, 255), 3);
             //cv::resize(visual_mat, visual_mat, cv::Size(visual_mat.cols * 0.3, visual_mat.rows * 0.3));
             //cv::imshow("visual_mat", visual_mat); cv::waitKey(0);
-#endif
+#endif // BUILD_DEBUG_INFO
             std::map<std::string, float> params_crop = {
                 {"thresh", 0.3},
                 {"box_thresh", 0.3},
