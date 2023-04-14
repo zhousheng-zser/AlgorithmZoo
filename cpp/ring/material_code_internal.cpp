@@ -140,7 +140,7 @@ namespace glasssix::ring
 
         static std::string version()
         {
-            return "1.0.9_2023.04.13";
+            return "1.0.10_2023.04.14";
         }
 
     private:
@@ -1526,7 +1526,7 @@ namespace glasssix::ring
                     return;
                 }
                 cv::RotatedRect crop_rotrect = cv::minAreaRect(box_crop);
-                auto charCord_imgText_list = iterative_degree_perspective_zinc(crop_rotrect, cut_img, -40, 41, 10);
+                auto charCord_imgText_list = iterative_degree_perspective_zinc(crop_rotrect, cut_img, -90, 91, 10);
                 //auto charCord_imgText_list = iterative_degree_perspective(crop_rotrect, cut_img);
                 if (charCord_imgText_list.empty()) return;
 
@@ -1534,9 +1534,12 @@ namespace glasssix::ring
                 std::pair<std::vector<std::string>, std::vector<std::vector<float>>> out;
                 cv::Mat out_char_box;
                 std::vector<float> out_probs;
+                std::string out_origin_string;;
                 float score_max = 0.f;
 
-                for (const auto& charCord_imgText : charCord_imgText_list) {
+				//for (const auto& charCord_imgText : charCord_imgText_list) {
+				for (int imgText_idx = 0; imgText_idx < charCord_imgText_list.size(); ++imgText_idx) {
+                    auto charCord_imgText = charCord_imgText_list[imgText_idx];
                     std::vector<float> segement_result = charCord_imgText.first;
                     cv::Mat imgText = charCord_imgText.second;
                     std::vector<cv::Mat> txt_bars;
@@ -1545,53 +1548,64 @@ namespace glasssix::ring
                         txt_bars.push_back(small_img);
                     }
 
-                    auto label_prob_list = classfi_instance_->detectBatch(txt_bars, *instance_[3]);
-
-                    // local statistics
+                    auto label_prob_list = classfi_instance_->detectBatchTop2(txt_bars, *instance_[3]);
+					// local statistics
                     int charXY_num = 0; //invalid character "X" "Y"
                     std::string stringinfo;
+                    std::string origin_string;
                     std::vector<float> probs;
-                    for (auto elem : label_prob_list)
+                    for (auto elem_top2 : label_prob_list)
                     {
-                        auto [label, prob] = elem;
-                        if (label == 'X' || label == 'Y') {
+                        //auto [label, prob] = elem_top2;
+                        auto [label, prob] = elem_top2[0];
+                        auto label_inplc_Y = elem_top2[1].first; //第二置信度高的备用字符
+
+                        if (label == 'X') {
                             charXY_num++;
+                            probs.push_back(prob);
                         }
-                        else {
+                        else if (label == 'Y') {
+                            charXY_num++;
+                            stringinfo.push_back(label_inplc_Y);
+                        }
+                        else{
                             stringinfo.push_back(label);
+                            probs.push_back(prob);
                         }
-                        probs.push_back(prob);
+                        origin_string.push_back(label);
                     }
                     float probs_avg = probs.empty() ? 0 : std::accumulate(probs.begin(), probs.end(), 0.0) / probs.size();
+
                     // update max
-                    if (float(charXY_num) / probs.size() < 0.4 && probs_avg > score_max) {
+                    if (float(charXY_num) / stringinfo.size() < 0.4 && probs_avg > score_max) {
                         out_char_box = imgText.clone();
 #ifdef BUILD_DEBUG_INFO
                         //std::cout << "\n* * *\n";
                         //for (auto& px : segement_result)
                         //    cv::circle(out_char_box, cv::Point(px, out_char_box.rows / 2), 3, cv::Scalar(0, 0, 255), 3);
+                        //cv::imshow("temp best", out_char_box); cv::waitKey(0);
 #endif // BUILD_DEBUG_INFO
                         out = std::make_pair<std::vector<std::string>, std::vector<std::vector<float>>>({ stringinfo }, { probs });
                         score_max = probs_avg;
                         out_probs = probs;
+                        out_origin_string = origin_string;
                     }
 #ifdef BUILD_DEBUG_INFO
-                    //{
-                    //    std::cout << stringinfo << std::endl;
-                    //    std::cout << "\tseg : ";
-                    //    for (auto loc : segement_result)
-                    //        std::cout << "  " << std::setprecision(4) << loc;
-                    //    std::cout << std::endl;
+                    //std::cout << stringinfo<< "\t-\t" << origin_string << std::endl;
 
-                    //    std::cout << "\tavg[" << probs_avg << "]";
-                    //    for (auto s : probs)
-                    //        std::cout << "  " << std::setprecision(4) << s;
-                    //    std::cout << std::endl;
+                    //std::cout << "\tseg : ";
+                    //for (auto loc : segement_result)
+                    //    std::cout << "  " << std::setprecision(4) << loc;
+                    //std::cout << std::endl;
 
-                    //    for (auto& px : segement_result)
-                    //        cv::circle(imgText, cv::Point(px, out_char_box.rows / 2), 3, cv::Scalar(0, 0, 255), 3);
-                    //    cv::imshow("imgText_seg", imgText); cv::waitKey(0);
-                    //}
+                    //std::cout << "\tavg[" << probs_avg << "]";
+                    //for (auto s : probs)
+                    //    std::cout << "  " << std::setprecision(4) << s;
+                    //std::cout << std::endl;
+
+                    //for (auto& px : segement_result)
+                    //    cv::circle(imgText, cv::Point(px, out_char_box.rows / 2), 3, cv::Scalar(0, 0, 255), 3);
+                    //cv::imshow("imgText_seg", imgText); cv::waitKey(0);
 #endif // BUILD_DEBUG_INFO
                 }
                 if (out.second.empty() || out.first.empty()) {
@@ -1599,6 +1613,7 @@ namespace glasssix::ring
                 }
 #ifdef BUILD_DEBUG_INFO
                 //std::cout << "DBG_RST: " << out.first[0] << std::endl;
+                //std::cout << "Origin : " << out_origin_string << std::endl;
                 //cv::imshow("out_char_box", out_char_box); cv::waitKey(0);
 #endif // BUILD_DEBUG_INFO
                 //pack result
