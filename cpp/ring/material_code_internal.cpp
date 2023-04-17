@@ -1368,9 +1368,9 @@ namespace glasssix::ring
 #endif
             std::map<std::string, float> params_crop = {
                 {"thresh", 0.3},
-                {"box_thresh", 0.3},
+                {"box_thresh", 0.4},
                 {"min_size", 4},
-                {"max_size", 90},
+                {"max_size", 50},
                 {"max_candidates", 1000},
                 {"unclip_ratio", 0.5}
             };
