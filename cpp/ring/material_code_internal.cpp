@@ -1214,7 +1214,7 @@ namespace glasssix::ring
             return charCord_imgText_list;
         }
 
-        std::vector<std::pair<std::vector<float>, cv::Mat>> iterative_degree_perspective_zinc(cv::RotatedRect& crop_rotrect, cv::Mat& cut_img, int dgr_start = -100, int dgr_end = 101, int dgr_step = 10) {
+        std::vector<std::pair<std::vector<float>, cv::Mat>> iterative_degree_perspective(cv::RotatedRect& crop_rotrect, cv::Mat& cut_img, int dgr_start = -100, int dgr_end = 101, int dgr_step = 10) {
             std::vector<std::pair<std::vector<float>, cv::Mat>> charCord_imgText_list;
 
             std::array<cv::Point2f, 4> reset_points;
@@ -1383,11 +1383,17 @@ namespace glasssix::ring
                 cv::RotatedRect rect = cv::minAreaRect(max_score_box);
                 cv::Mat cut_img = crop_rect(input_mat, rect, 0);
                 std::vector<cv::Point2f> box_crop = detect_crop(cut_img, params_crop, 640);
+#ifdef BUILD_DEBUG_INFO
+                //auto det2_visl = cut_img.clone();
+                //for (auto& point : box_crop)
+                //    cv::circle(det2_visl, cv::Point(point.x, point.y), 3, cv::Scalar(0, 0, 255), 3);
+                //cv::imshow("det2 box_crop", det2_visl); cv::waitKey(0);
+#endif // BUILD_DEBUG_INFO
                 if (box_crop.empty()) {
                     return;
                 }
                 cv::RotatedRect crop_rotrect = cv::minAreaRect(box_crop);
-                auto charCord_imgText_list = iterative_degree_perspective(crop_rotrect, cut_img);
+                auto charCord_imgText_list = iterative_degree_perspective(crop_rotrect, cut_img, -100, 101, 10);
                 if (charCord_imgText_list.empty()) return;
 
                 // statistics result
@@ -1526,7 +1532,7 @@ namespace glasssix::ring
                     return;
                 }
                 cv::RotatedRect crop_rotrect = cv::minAreaRect(box_crop);
-                auto charCord_imgText_list = iterative_degree_perspective_zinc(crop_rotrect, cut_img, -90, 91, 10);
+                auto charCord_imgText_list = iterative_degree_perspective(crop_rotrect, cut_img, -90, 91, 10);
                 //auto charCord_imgText_list = iterative_degree_perspective(crop_rotrect, cut_img);
                 if (charCord_imgText_list.empty()) return;
 
@@ -1686,7 +1692,7 @@ namespace glasssix::ring
                 }
                 cv::RotatedRect crop_rotrect = cv::minAreaRect(box_crop);
 
-                auto charCord_imgText_list = iterative_degree_perspective(crop_rotrect, cut_img);
+                auto charCord_imgText_list = iterative_degree_perspective(crop_rotrect, cut_img, -100, 101, 10);
                 if (charCord_imgText_list.empty()) return;
 
                 std::vector<std::vector<cv::Mat>> chars_set; // dim[imgTexts, chars]
