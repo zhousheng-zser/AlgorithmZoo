@@ -1,165 +1,14 @@
 #include "con_anneal_segment.hpp"
 #include "savitzky_golay_fliter.hpp"
 #include <algorithm>
+#include <numeric>
 #include <math.h>
+#include <opencv2/imgproc/types_c.h>
 namespace glasssix
 {
 namespace ring
 {
-
-float cartesian_to_radian(const cv::Point2f& center, const cv::Point2f& coord, float R)
-{
-	float dis_x = coord.x - center.x;
-	float dis_y = coord.y - center.y;
-	if (abs(dis_x) > R)
-	{
-		dis_x = R * (dis_x / abs(dis_x));
-	}
-	if (abs(dis_y) > R)
-	{
-		dis_y = R * (dis_y / abs(dis_y));
-	}
-	float cos_theta = dis_x / R;
-	float sin_theta = -dis_y / R;
-	float theta = acos(cos_theta);
-	if (sin_theta < 0)
-	{
-		theta = -theta;
-	}
-	return theta;
-}
-
-std::vector<cv::Point2f> calcu_box_shrink_new(const cv::RotatedRect& rect, const std::vector<cv::Point2f>& box_shrink)
-{
-	std::vector<cv::Point2f> box_shrink_new;
-	cv::Point2f top_left{ rect.center.x- rect.size.width/2, rect.center.y- rect.size.height/2 };
-
-	for (auto coord : box_shrink)
-	{
-		float R = sqrtf(powf((rect.center.x - coord.x), 2) + powf((rect.center.y - coord.y), 2));
-		float rad_1 = cartesian_to_radian(rect.center, coord, R);
-		float rad_2 = rad_1 + rect.angle / 180 * 3.1415926;
-		cv::Point2f coord_2{ std::round(cos(rad_2) * R + rect.center.x) - 1, std::round(-sin(rad_2) * R + rect.center.y) - 1 }; // radian_to_cartesian
-		box_shrink_new.push_back({ coord_2.x - top_left.x, coord_2.y - top_left.y });
-	}
-	return box_shrink_new;
-}
-
-std::vector<cv::Point2f> findFoot(const cv::Mat& img, std::vector<cv::Point2f>& init_search_points)
-{
-	cv::Mat gray_mat;
-	cv::Mat gaussian_mat;
-	cv::Mat canny_mat;
-	int lowThreshold = 50;
-	int maxThreshold = 100;
-	int kernel_size = 3;
-	cv::Mat erode_kernel = getStructuringElement(0, cv::Size(3, 3));
-	cv::GaussianBlur(img, gaussian_mat, cv::Size(5, 5), 0);
-	cv::erode(gaussian_mat, gaussian_mat, erode_kernel, cv::Point(-1, -1), 2);
-	cvtColor(gaussian_mat, gray_mat, CV_BGR2GRAY);
-	cv::Canny(gray_mat, canny_mat, lowThreshold, maxThreshold, kernel_size, true);
-
-	// check init_search_points if over boundary
-	for (int i = 0; i < init_search_points.size(); ++i)
-	{
-		if (init_search_points[i].x < 0)
-			init_search_points[i].x = 0;
-		if (init_search_points[i].x > img.cols)
-			init_search_points[i].x = img.cols - 1;
-		if (init_search_points[i].y < 0)
-			init_search_points[i].y = 0;
-		if (init_search_points[i].y > img.rows)
-			init_search_points[i].y = img.rows - 1;
-	}
-	std::vector<cv::Point2f> foot_points;
-	int W = canny_mat.cols;
-	int H = canny_mat.rows;
-	int bias = (W + H) / 4; //bias for expanding search region. value : 0 ~ (W + H) / 4
-
-	for (int i = 0; i < init_search_points.size(); ++i)
-	{
-		if (init_search_points[i].x < W / 2)
-		{
-			if (init_search_points[i].y < H / 2)
-			{
-				foot_points.push_back(top_left_corner_point(canny_mat, init_search_points[i].x, init_search_points[i].y, bias));
-			}
-			else
-			{
-				foot_points.push_back(bottom_left_corner_point(canny_mat, init_search_points[i].x, init_search_points[i].y, bias));
-			}
-		}
-		else {
-			if (init_search_points[i].y < H / 2)
-			{
-				foot_points.push_back(top_right_corner_point(canny_mat, init_search_points[i].x, init_search_points[i].y, bias));
-
-			}
-			else
-			{
-				foot_points.push_back(bottom_right_corner_point(canny_mat, init_search_points[i].x, init_search_points[i].y, bias));
-			}
-		}
-	}
-
-	return foot_points;
-}
-
-bool redirectRect(cv::Mat& img)
-{
-	bool img_validity = true;
-	cv::Mat plate_gray;
-	cv::Mat plate_binary_img;
-	cv::cvtColor(img, plate_gray, CV_BGR2GRAY);
-	cv::adaptiveThreshold(plate_gray, plate_binary_img, 255, cv::ADAPTIVE_THRESH_GAUSSIAN_C, cv::THRESH_BINARY, 333, -6);
-	plate_binary_img = cv::Mat(plate_binary_img, cv::Rect(25, 25, 590, 590));
-
-	cv::Mat histogram_vertical;
-	cv::Mat histogram_horizon;
-	cv::reduce(plate_binary_img, histogram_vertical, 1, cv::REDUCE_SUM, CV_32SC1);
-	cv::reduce(plate_binary_img, histogram_horizon, 0, cv::REDUCE_SUM, CV_32SC1);
-	auto waves_vertical = find_waves_by_width_amplitude(histogram_vertical, 146000, 200000, 60, 150);
-	auto waves_horizon = find_waves_by_width_amplitude(histogram_horizon, 146000, 200000, 60, 150);
-
-	if (waves_vertical.first != -1 && waves_horizon.first == -1)
-	{
-		if (std::min(waves_vertical.first, waves_vertical.second) > 320)
-		{
-			cv::rotate(img, img, cv::ROTATE_180);
-		}
-	}
-	else if (waves_vertical.first == -1 && waves_horizon.first != -1)
-	{
-		if (std::max(waves_horizon.first, waves_horizon.second) < 320)
-		{
-			cv::rotate(img, img, cv::ROTATE_90_CLOCKWISE);
-		}
-		else if (std::min(waves_horizon.first, waves_horizon.second) > 320)
-		{
-			cv::rotate(img, img, cv::ROTATE_90_COUNTERCLOCKWISE);
-		}
-	}
-	else
-	{
-		img_validity = false;
-	}
-
-	return img_validity;
-}
-
-cv::Mat charBoxDet(const cv::Mat& img, int center_x, int center_y, int crop_h, int crop_w)
-{
-	cv::Mat out;
-	cv::Mat input = img.clone();
-	int roi_x = 0;
-	//int roi_x = center_x - crop_w / 2;
-	int roi_y = center_y - crop_h / 2;
-
-	out = cv::Mat(input, cv::Rect(roi_x, roi_y, crop_w + (center_x - crop_w / 2), crop_h));
-	return out;
-}
-
-std::vector<std::pair<int, int>> find_segment_img(cv::Mat img)
+std::vector<std::pair<int, int>> find_segment_img(cv::Mat& img)
 {
 	cv::Mat plate_gray;
 	cv::Mat plate_binary_img;
@@ -174,17 +23,17 @@ std::vector<std::pair<int, int>> find_segment_img(cv::Mat img)
 	//// visualize wave troughs or peaks
 	//polynomial_curve_show(savgol_order2, min_indexs);
 
-	return cut_index(min_indexs, ver_list);
+	return cut_index(min_indexs, ver_list, 15);
 }
 
-std::vector<std::pair<int, int>> cut_index(std::vector<int>& min_indexs, const std::vector<float>& ver_list)
+std::vector<std::pair<int, int>> cut_index(std::vector<int>& min_indexs, const std::vector<float>& ver_list,int seg_width)
 {
 	std::vector<std::pair<int, int>> cord_list;
 	std::vector<int> del_list;
 
 	for (int i = 0; i < min_indexs.size() - 1; ++i)
 	{
-		if (ver_list[min_indexs[i]] > 15)
+		if (ver_list[min_indexs[i]] > 10)
 		{
 			del_list.push_back(i);
 		}
@@ -193,207 +42,30 @@ std::vector<std::pair<int, int>> cut_index(std::vector<int>& min_indexs, const s
 		min_indexs.erase(min_indexs.begin() + (del_list[i] - i));
 	}
 
+	std::vector<int> width_list;
+	for (auto i = 5; i < min_indexs.size() - 1; ++i) {
+		int width = min_indexs[i] - min_indexs[i - 1];
+		if (width > 25) {
+			width_list.push_back(width);
+		}
+	}
+	float valid_mean_width = width_list.empty() ? 0 : std::accumulate(width_list.begin(), width_list.end(), 0.0) / width_list.size();
+
 	int start = 0;
 	while (start < min_indexs.size() - 1)
 	{
 		for (int end = start + 1; end < min_indexs.size(); ++end)
 		{
-			if (min_indexs[end] - min_indexs[start] > 20)
+			if (min_indexs[end] - min_indexs[start] > valid_mean_width - seg_width || end == min_indexs.size() - 1)
 			{
 				cord_list.push_back({ min_indexs[start], min_indexs[end] });
 				start = end;
 				break;
 			}
-			else if (end == min_indexs.size() - 1)
-			{
-				if (min_indexs[end] - min_indexs[start] > 5)
-				{
-					cord_list.push_back({ min_indexs[start], min_indexs[end] });
-				}
-				++start;
-			}
 		}
 	}
 
 	return cord_list;
-}
-
-
-cv::Point top_left_corner_point(cv::Mat& mat, int x, int y, int biasline)
-{
-	cv::Point point{ 0, 0 };
-	int i = 1, j = 0;
-	while (i < mat.rows / 2 + biasline && j < mat.cols / 2 + biasline)
-	{
-		j = 0;
-		while (i >= 0)
-		{
-			if (mat.at<uchar>(y + i, x + j) == 255)
-			{
-				point.x = x + j;
-				point.y = y + i;
-				return point;
-			}
-			else
-			{
-				--i;
-				++j;
-			}
-		}
-
-		i = 0;
-
-		while (j >= 0)
-		{
-			if (mat.at<uchar>(y + i, x + j) == 255)
-			{
-				point.x = x + j;
-				point.y = y + i;
-				return point;
-			}
-			else
-			{
-				++i;
-				--j;
-			}
-		}
-	}
-	return point;
-}
-
-cv::Point top_right_corner_point(cv::Mat& mat, int x, int y, int biasline)
-{
-	cv::Point point{ 0, 0 };
-	int i = 1, j = 0;
-	while (i < mat.rows / 2 + biasline && j >(-mat.cols) / 2 - biasline)
-	{
-		j = 0;
-		while (i >= 0)
-		{
-			if (mat.at<uchar>(y + i, x + j) == 255)
-			{
-				point.x = x + j;
-				point.y = y + i;
-				return point;
-			}
-			else
-			{
-				--i;
-				--j;
-			}
-		}
-
-		i = 0;
-
-		while (j <= 0)
-		{
-			if (mat.at<uchar>(y + i, x + j) == 255)
-			{
-				point.x = x + j;
-				point.y = y + i;
-				return point;
-			}
-			else
-			{
-				++i;
-				++j;
-			}
-		}
-	}
-	return point;
-}
-
-cv::Point bottom_left_corner_point(cv::Mat& mat, int x, int y, int biasline)
-{
-	cv::Point point{ 0, 0 };
-	int i = -1, j = 0;
-	while (i > -mat.rows / 2 - biasline && j < mat.cols / 2 + biasline)
-	{
-		j = 0;
-		while (i <= 0)
-		{
-			if (mat.at<uchar>(y + i, x + j) == 255)
-			{
-				point.x = x + j;
-				point.y = y + i;
-				return point;
-			}
-			else
-			{
-				++i;
-				++j;
-			}
-		}
-
-		i = 0;
-
-		while (j >= 0)
-		{
-			if (mat.at<uchar>(y + i, x + j) == 255)
-			{
-				point.x = x + j;
-				point.y = y + i;
-				return point;
-			}
-			else
-			{
-				--i;
-				--j;
-			}
-		}
-	}
-	return point;
-}
-
-cv::Point bottom_right_corner_point(cv::Mat& mat, int x, int y, int biasline)
-{
-	cv::Point point{ 0, 0 };
-	int i = -1, j = 0;
-	while (i > -mat.rows / 2 - biasline && j > -mat.cols / 2 - biasline)
-	{
-		j = 0;
-		while (i <= 0)
-		{
-			if (mat.at<uchar>(y + i, x + j) == 255)
-			{
-				point.x = x + j;
-				point.y = y + i;
-				return point;
-			}
-			else
-			{
-				++i;
-				--j;
-			}
-		}
-
-		i = 0;
-
-		while (j <= 0)
-		{
-			if (mat.at<uchar>(y + i, x + j) == 255)
-			{
-				point.x = x + j;
-				point.y = y + i;
-				return point;
-			}
-			else
-			{
-				--i;
-				++j;
-			}
-		}
-	}
-	return point;
-}
-
-template<class T>
-void visual_point(const cv::Mat& img, T pointArr)
-{
-	cv::Mat viusalmat = img.clone();
-	for (auto& point : pointArr)
-		cv::circle(viusalmat, cv::Point(point.x, point.y), 3, cv::Scalar(255, 0, 0), 3);
-	cv::imshow("visual_point", viusalmat); cv::waitKey(0);
 }
 
 std::pair<int, int> find_waves_by_width_amplitude(const cv::Mat& histogram_mat, int amplitude_low = 50000, int amplitude_high = 70000, int width_low = 50, int width_high = 100)

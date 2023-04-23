@@ -1,5 +1,4 @@
 .vs/
-build/
-build_v7/
+build*/
 .vscode
 /JSON/Schemas

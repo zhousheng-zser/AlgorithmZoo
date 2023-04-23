@@ -14,9 +14,9 @@ namespace glasssix
 		public:
 			char_segment(float iou_thres, float delet_iou_thres, int stride, bool add_segement);
 			char_segment();
-			std::vector<float> detect(cv::Mat& img, const bool with_blank, excalibur::pipeline<float>& segement_instance);
+			std::vector<float> detect(cv::Mat& img, const bool with_blank, excalibur::pipeline<float>& segement_instance, int factory_type = -1);
 		private:
-			cv::Mat pre_handel_img(cv::Mat& img, int& stride);
+			cv::Mat pre_handel_img(cv::Mat& img, int& stride, int factory_type);
 			float get_bbox_iou(cv::Point2f& point1, cv::Point2f& point2);
 			void keep_index_vector(std::vector<cv::Point2f>& trans_bbox, std::vector<int>& retain_index);
 			void keep_index_vector_pair(std::vector<std::pair<cv::Point2f, int>>& merge_bbox, std::vector<int>& retain_index);

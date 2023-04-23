@@ -19,9 +19,9 @@ namespace glasssix
 			add_segement_ = add_segement;
 		}
 
-		std::vector<float> char_segment::detect(cv::Mat& img, const bool with_blank, excalibur::pipeline<float>& segement_instance)
+		std::vector<float> char_segment::detect(cv::Mat& img, const bool with_blank, excalibur::pipeline<float>& segement_instance, int factory_type)
 		{
-			cv::Mat pre_img = pre_handel_img(img, stride_);
+			cv::Mat pre_img = pre_handel_img(img, stride_, factory_type);
 			//std::cout << "------------------- cut mat input -------------------" << std::endl;
 			//for (int i = 0; i < 10; ++i)
 			//{
@@ -38,7 +38,7 @@ namespace glasssix
 			//{
 			//	std::cout << (float)input_img.get()->cpu_data()[i] << std::endl;
 			//}
-			
+
 			auto result = segement_instance.forward(input_img | memory::tensor_convert_to<float>);
 
 
@@ -114,21 +114,27 @@ namespace glasssix
 
 			return result_cordi;
 		}
-		cv::Mat char_segment::pre_handel_img(cv::Mat& img, int& stride) {
+		cv::Mat char_segment::pre_handel_img(cv::Mat& img, int& stride, int factory_type) {
 			//图像resize到高为64，宽为stride的倍数
 			int h = img.rows;
 			int w = img.cols;
 			int c = img.channels();
 			float ratio = (float)h / 64;
 			int new_w = (int)(w / ratio);
+			if (factory_type == 0) { // 0 : hot roll
+				if (new_w > 330 && new_w < 370) {
+					new_w = 400;
+				}
+			}
 			cv::resize(img, img, cv::Size2i{ new_w, 64 });
+			int right_left_extend_w = factory_type == 1 ? 24 : 0; // 1 : cool roll
 			int pad_w = stride - new_w % stride;
 			if (pad_w == 8)
 			{
 				return img;
 			}
 			else {
-				cv::copyMakeBorder(img, img, 0, 0, 0, pad_w, cv::BORDER_CONSTANT, 0);
+				cv::copyMakeBorder(img, img, 0, 0, right_left_extend_w, right_left_extend_w + pad_w, cv::BORDER_CONSTANT, 0);
 				return img;
 			}
 		}

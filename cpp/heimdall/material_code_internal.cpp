@@ -22,6 +22,7 @@
 // #include <opencv2/opencv.hpp>
 
 #include <cfloat>
+#include <numeric>
 
 #ifdef USE_CUDA
 #include <cuda_runtime_api.h>
@@ -145,7 +146,7 @@ namespace glasssix::heimdall
 
         static std::string version()
         {
-            return "1.0.2";
+            return "1.0.4_2023.02.15";
         }
 
     private:
@@ -1166,19 +1167,32 @@ namespace glasssix::heimdall
                 }
                 segement_result.push_back(roi_temp.cols - 1);
 
-                float probs_sum = 0.f;
+                std::vector<int> error_indx_list = screen_result_point(segement_result, false);
+
                 for (size_t j = 0; j < segement_result.size() - 1; j++)
                 {
                     cv::Mat small_img = roi_temp(cv::Range::all(), cv::Range((int)segement_result[j], (int)segement_result[j + 1]));
                     auto [label, prob] = classfi_instance_->detect(small_img, *instance_[3]);
-                    stringinfo.push_back(label);
+                    if (label == 'C') {
+                        stringinfo.push_back('0');
+                    }
+                    else if(label == 'B') {
+                        stringinfo.push_back('8');
+                    }
+                    else {
+                        stringinfo.push_back(label);
+                    }
                     probs.push_back(prob);
-                    probs_sum += prob;
                 }
-                if (probs_sum < probs.size() * 0.6)
-                {
-                    return;
+
+                if (!error_indx_list.empty() && error_indx_list.size() + 11 == stringinfo.length()) {
+                    for (int i = 0; i < error_indx_list.size(); i++) {
+                        probs.erase(probs.begin() + (error_indx_list[i] - i));
+                        stringinfo.erase(stringinfo.begin() + (error_indx_list[i] - i));
+                    }
                 }
+                if (std::accumulate(probs.begin(), probs.end(), 0.0) < probs.size() * 0.6) return; // assert 11 chars` average score > 0.6
+
                 out = std::make_pair<std::vector<std::string>, std::vector<std::vector<float>>>({ stringinfo }, { probs });
 
                 box_info_internal box;
@@ -1198,6 +1212,7 @@ namespace glasssix::heimdall
 
                 //  message hot
                 auto messages = exposing::make_param_vector<exposing::param_string>();
+                messages.push_back(exposing::param_string(version()));
                 if (use_message_) {
                     std::string message_str = "det_boxs scores:  ";
                     for (auto scores : result.second) {
@@ -1331,7 +1346,7 @@ namespace glasssix::heimdall
                     }
                     segement_result.push_back(roi_temp.cols - 1);
                     // offset segement point
-                    screen_result_point(segement_result);
+                    screen_result_point(segement_result, true);
 
                     timer_start = std::chrono::system_clock::now(); //timer
                     for (size_t j = 0; j < segement_result.size() - 1; j++)
@@ -1368,6 +1383,7 @@ namespace glasssix::heimdall
 
                 //message heavy
                 auto messages = exposing::make_param_vector<exposing::param_string>();
+                messages.push_back(exposing::param_string(version()));
                 if (use_message_) {
                     messages.push_back(exposing::param_string(
                         "thsh: " + std::to_string(message_det_thresh_) +
@@ -1555,7 +1571,7 @@ namespace glasssix::heimdall
             return resize_img;
         }
 
-        void screen_result_point(std::vector<float>& point_list) {
+        std::vector<int> screen_result_point(std::vector<float>& point_list, bool modify_point_list = true) {
             std::vector<float> first_screen_distance_list;
             std::vector<float> distance_list;
             std::vector<int> error_point_list;
@@ -1587,9 +1603,12 @@ namespace glasssix::heimdall
                 }
             }
 
-            for (int i = 0; i < error_point_list.size(); i++) {
-                point_list.erase(point_list.begin() + (error_point_list[i] - i));
+            if (modify_point_list) {
+                for (int i = 0; i < error_point_list.size(); i++) {
+                    point_list.erase(point_list.begin() + (error_point_list[i] - i));
+                }
             }
+            return error_point_list;
         }
 
         void run_cool_roll_2(std::vector<box_info_internal>& results, std::vector<int>& roi, int top_five) //new cool rolled
@@ -1638,7 +1657,7 @@ namespace glasssix::heimdall
             else {
                 for (size_t i = 0; i < box_list.size(); i++)
                     for (size_t j = 0; j < box_list[i].size(); j++)
-                        box_list[i][j] *= 1/ratio_x;
+                        box_list[i][j] *= 1 / ratio_x;
             }
             // segement & classify
             if (box_list.size() > 1)
@@ -1650,32 +1669,25 @@ namespace glasssix::heimdall
                     if (result_cut.max_R[i] > 1500)
                         continue;
                     cv::Mat roi_temp = result_cut.rois[i].clone();
-                    std::vector<float> segement_result = segement_instance_->detect(roi_temp, false, *instance_[1]);
-                    std::string stringinfo;
-                    std::vector<float> probs;
 
+                    std::vector<float> segement_result = segement_instance_->detect(roi_temp, true, *instance_[1], factory_type_);
                     std::sort(segement_result.begin(), segement_result.end()); //avoid potential reverse order points, which casuse segment crash
-                    float left = 0.f, right = 0.f;
-                    if (segement_result[0] < 0)
-                    {
-                        left = std::ceil(std::abs(segement_result[0]));
+                    if (segement_result[0] < 0) {
                         segement_result[0] = 0;
                     }
-                    bool add_tail = false;
+                    bool tail_add_flag = false;
                     for (int i = segement_result.size() - 1; i > 0; i--)
                     {
-                        if (segement_result[i] > roi_temp.cols) {
+                        if (segement_result[i] > roi_temp.cols - 3) {
                             segement_result.pop_back();
-                            add_tail = true;
+                            tail_add_flag = true;
                         }
-                        else
-                            break;
                     }
-                    if(add_tail)
+                    if(tail_add_flag)
                         segement_result.push_back(roi_temp.cols - 1);
-                    // offset segement point
-                    screen_result_point(segement_result);
 
+                    std::string stringinfo;
+                    std::vector<float> probs;
                     for (size_t j = 0; j < segement_result.size() - 1; j++)
                     {
                         cv::Mat small_img = roi_temp(cv::Range::all(), cv::Range((int)segement_result[j], (int)segement_result[j + 1]));
@@ -1701,6 +1713,7 @@ namespace glasssix::heimdall
                     }
                     //message run_cool
                     auto messages = exposing::make_param_vector<exposing::param_string>();
+                    messages.push_back(exposing::param_string(version()));
                     if (use_message_) {
                         //eight points of detbox_pair
                         std::string box_message{"origin boxes for this str: "};
@@ -1728,7 +1741,6 @@ namespace glasssix::heimdall
                     box.cut_roi = exposing::make_param_vector<std::uint8_t>();
                     box.cut_roi.resize(result_cut.rois[i].step[0] * result_cut.rois[i].rows);
                     box.cut_roi.copy_from({ result_cut.rois[i].data, static_cast<size_t>(result_cut.rois[i].step[0] * result_cut.rois[i].rows) }, 0);
-
                     box.cut_roi_width = result_cut.rois[i].cols;
                     box.cut_roi_height = result_cut.rois[i].rows;
 

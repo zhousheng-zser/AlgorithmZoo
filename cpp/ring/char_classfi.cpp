@@ -39,6 +39,89 @@ namespace glasssix
 			}
 			return { label_index_[biggest_index], std::exp(detections[biggest_index]) / sum };
 		}
+
+		std::vector<std::pair<char, float>> char_classfi::detectBatch(std::vector<cv::Mat>& imgs, excalibur::pipeline<float>& classfi_instance) {
+			std::vector<std::pair<char, float>> rst;
+			for (auto& img : imgs) {
+				img = pre_handel_img(img);
+			}
+			int BatchSize = imgs.size();
+
+			int intSteps = 64 * 48 * imgs[0].channels();
+			auto inputs_img = std::make_shared<memory::tensor<std::uint8_t>>(std::vector<int>{int(imgs.size()), 64, 48, imgs[0].channels()}, -1, memory::NHWC);
+			for (int i = 0; i < BatchSize; i++) {
+				auto pre_img = imgs[i];
+				std::copy(pre_img.data, pre_img.data + pre_img.step[0] * pre_img.rows, inputs_img->mutable_cpu_data() + i * intSteps);
+			}
+			inputs_img->convert_order();
+			auto intput_tensor = inputs_img | memory::tensor_convert_to<float>;
+
+			auto result = classfi_instance.forward(intput_tensor);
+
+			int outSteps = result["output"]->count() / BatchSize;
+			for (int i = 0; i < BatchSize; i++) {
+				std::vector<float> detection(result["output"]->cpu_data() + i * outSteps, result["output"]->cpu_data() + i * outSteps + outSteps);
+				auto biggest_index = std::distance(detection.begin(), std::max_element(detection.begin(), detection.end()));
+				// softmax
+				float sum = 0.f;
+				for (int i = 0; i < detection.size(); i++)
+				{
+					sum += std::exp(detection[i]);
+				}
+				rst.push_back({ label_index_[biggest_index], std::exp(detection[biggest_index]) / sum });
+			}
+
+			return rst;
+		}
+
+		std::vector<std::vector<std::pair<char, float>>> char_classfi::detectBatch(std::vector<std::vector<cv::Mat>>& imgVec, excalibur::pipeline<float>& classfi_instance) {
+			std::vector<std::vector<std::pair<char, float>>> rsts;
+
+			std::vector<int> num_list;
+			std::vector<cv::Mat> imgs;
+			for (std::vector<cv::Mat> Txt_chars : imgVec) {
+				num_list.push_back(Txt_chars.size());
+				for(cv::Mat& img: Txt_chars)
+					imgs.push_back(pre_handel_img(img));
+			}
+			int BatchSize = imgs.size();
+
+			int inSteps = 64 * 48 * imgs[0].channels();
+			auto inputs_img = std::make_shared<memory::tensor<std::uint8_t>>(std::vector<int>{int(imgs.size()), 64, 48, imgs[0].channels()}, -1, memory::NHWC);
+			for (int i = 0; i < BatchSize; i++) {
+				auto pre_img = imgs[i];
+				std::copy(pre_img.data, pre_img.data + pre_img.step[0] * pre_img.rows, inputs_img->mutable_cpu_data() + i * inSteps);
+			}
+			inputs_img->convert_order();
+			auto intput_tensor = inputs_img | memory::tensor_convert_to<float>;
+			auto result = classfi_instance.forward(intput_tensor);
+
+			// unpack
+			int cur = 0;
+			const int oneSteps = result["output"]->count() / BatchSize; // in fact EQ 36
+			for (int txt_chars_num : num_list) {
+				std::vector<std::pair<char, float>> txt_rst;
+				for (int i = 0; i < txt_chars_num; ++i) {
+					std::vector<float> detection(
+						result["output"]->cpu_data() + (cur + i) * oneSteps,
+						result["output"]->cpu_data() + (cur + i + 1) * oneSteps
+					);
+					auto biggest_index = std::distance(detection.begin(), std::max_element(detection.begin(), detection.end()));
+					// softmax
+					float sum = 0.f;
+					for (int i = 0; i < detection.size(); i++)
+					{
+						sum += std::exp(detection[i]);
+					}
+					txt_rst.push_back({ label_index_[biggest_index], std::exp(detection[biggest_index]) / sum });
+				}
+				rsts.push_back(txt_rst);
+				cur += txt_chars_num;
+			}
+
+			return rsts;
+		}
+
 		cv::Mat char_classfi::pre_handel_img(cv::Mat& img) {
 			int H = img.rows;
 			int W = img.cols;

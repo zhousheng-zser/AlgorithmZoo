@@ -5,7 +5,7 @@ namespace glasssix
 {
 namespace ring
 {
-
+#ifdef BUILD_DEBUG_INFO
 void polynomial_curve_show(std::vector<float>& savgol_order2, std::vector<int>& min_indexs) {
 	constexpr int show_height = 300;
 	constexpr int x_stretch = 2;
@@ -26,5 +26,6 @@ void polynomial_curve_show(std::vector<float>& savgol_order2, std::vector<int>& 
 	cv::imshow("wave find", image);	//cv::waitKey(0);
 }
 
+#endif
 }
 }
