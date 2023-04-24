@@ -146,7 +146,7 @@ namespace glasssix::heimdall
 
         static std::string version()
         {
-            return "1.0.4_2023.02.15";
+            return "1.0.5_2023.04.20";
         }
 
     private:
