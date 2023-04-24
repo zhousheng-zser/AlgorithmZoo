@@ -66,9 +66,9 @@ namespace glasssix
 
                 if (implementation_ == face_service_implemention::lsh_algorithm)
                 {
-                    std::ofstream fp(lsh_directory() + "\\data.map", std::fstream::out | std::ios::app);
+                    std::ofstream fp(lsh_directory() + "/data.map", std::fstream::out | std::ios::app);
                     fp.close();  //Generate empty files for compatibility with other algorithms
-                    auto cache = create_new_database_core(lsh_directory() + "\\data.map");
+                    auto cache = create_new_database_core(lsh_directory() + "/data.map");
 
                     cache->wrapper->build(false);
                 }
