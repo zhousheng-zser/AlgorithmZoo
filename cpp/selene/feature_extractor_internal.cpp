@@ -49,10 +49,31 @@ namespace glasssix::selene
 
 			std::vector<std::vector<float>> result;
 #if defined(USE_RKNNAPI) || defined(USE_RKNN2API)
-			auto network_result = unicorn_light_.forward(bitmaps.data(), { static_cast<int>(count), 3, 128, 128 }, static_cast<rknn_tensor_format>(order));
 #ifdef USE_RKNNAPI
+			auto network_result = unicorn_light_.forward(bitmaps.data(), { static_cast<int>(count), 3, 128, 128 }, static_cast<rknn_tensor_format>(order));
 			if (auto iter = network_result.find("conv5_dw_83_84"); iter != network_result.end())
 #else
+			std::unordered_map<std::string, std::shared_ptr<memory::tensor<float>>> network_result;
+			if (order == 0)
+			{
+				std::vector<std::uint8_t> nhwc_bitmaps(count * 3 * 128 * 128);
+				for (size_t i = 0; i < count; i++)
+				{
+					std::uint8_t* b = bitmaps.data() + i * 3 * 128 * 128;
+					std::uint8_t* g = bitmaps.data() + i * 3 * 128 * 128 + 128 * 128;
+					std::uint8_t* r = bitmaps.data() + i * 3 * 128 * 128 + 2 * 128 * 128;
+					for (size_t j = 0; j < 128 * 128; j++)
+					{
+						*(nhwc_bitmaps.data() + i * 3 * 128 * 128 + j) = *(b + j);
+						*(nhwc_bitmaps.data() + i * 3 * 128 * 128 + j + 1) = *(g + j);
+						*(nhwc_bitmaps.data() + i * 3 * 128 * 128 + j + 2) = *(r + j);
+					}
+				}
+				network_result = unicorn_light_.forward(nhwc_bitmaps.data(), { static_cast<int>(count), 3, 128, 128 }, rknn_tensor_format::RKNN_TENSOR_NHWC);
+			}
+			else
+				network_result = unicorn_light_.forward(bitmaps.data(), { static_cast<int>(count), 3, 128, 128 }, rknn_tensor_format::RKNN_TENSOR_NHWC);
+
 			if (auto iter = network_result.find("conv5_dw"); iter != network_result.end())
 #endif
 #else
@@ -104,6 +125,9 @@ namespace glasssix::selene
 			}
 
 			std::copy(bitmaps.begin(), bitmaps.end(), cache_->mutable_cpu_data());
+
+			if (cache_->order() == memory::NHWC)
+				cache_->convert_order();
 		}
 
 		int model_type_;
