@@ -31,10 +31,10 @@ namespace glasssix::selene
 		std::array<std::tuple<int, std::string, std::string>, 4> types =
 		{
 			{
-				{0, "unicorn_light_universal", "unicorn_light_universal"},
-				{1, "unicorn_light_id", "unicorn_light_id"},
-				{2, "unicorn_light_universal_mask", "unicorn_light_universal_mask"},
-				{3, "simple_UnicornNet_Mask", "simple_UnicornNet_Mask"}
+				{0, "unicorn_light", "unicorn_light_universal"},
+				{1, "unicorn_light", "unicorn_light_id"},
+				{2, "unicorn_light", "unicorn_light_universal_mask"},
+				{3, "unicorn_light_union", "simple_UnicornNet_Mask"}
 			}
 		};
 	}
@@ -89,10 +89,10 @@ namespace glasssix::selene
 						*(nhwc_bitmaps.data() + i * 3 * 128 * 128 + j + 2) = *(r + j);
 					}
 				}
-				network_result = unicorn_light_.forward(nhwc_bitmaps.data(), { static_cast<int>(count), 3, 128, 128 }, rknn_tensor_format::RKNN_TENSOR_NHWC);
+				network_result = (*feature_extractor_instance_).forward(nhwc_bitmaps.data(), { static_cast<int>(count), 3, 128, 128 }, rknn_tensor_format::RKNN_TENSOR_NHWC);
 			}
 			else
-				network_result = unicorn_light_.forward(bitmaps.data(), { static_cast<int>(count), 3, 128, 128 }, rknn_tensor_format::RKNN_TENSOR_NHWC);
+				network_result = (*feature_extractor_instance_).forward(bitmaps.data(), { static_cast<int>(count), 3, 128, 128 }, rknn_tensor_format::RKNN_TENSOR_NHWC);
 
 			if (auto iter = network_result.find("conv5_dw"); iter != network_result.end())
 #endif
