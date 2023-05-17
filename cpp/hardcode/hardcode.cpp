@@ -2041,7 +2041,7 @@ namespace glasssix::hardcode
             inline static const std::vector<std::string> FASMV2{
                 "glsv1 FASMV2",
                 "111 124",
-                "Input            data             0 1 data 0=80 1=80 2=3 3=0,0,0 4=1",
+                "Input            data             0 1 data 0=80 1=80 2=3 3=0,0,0 4=0.0039215",
                 "Convolution      conv1            1 1 data conv_blob1 0=32 1=3 2=1 3=2 4=1 5=1 6=864",
                 "PReLU            prelu1           1 1 conv_blob1 prelu_blob1 0=32",
                 "ConvolutionDepthWise conv2            1 1 prelu_blob1 conv_blob2 0=32 1=3 2=1 3=1 4=1 5=1 6=288 7=32",
