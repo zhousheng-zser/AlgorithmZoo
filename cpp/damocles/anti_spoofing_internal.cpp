@@ -95,9 +95,9 @@ namespace glasssix::damocles
 
 			auto network_result = (*spoofing_detect_instance_).forward(temp, {static_cast<int>(boxes.size()), static_cast<int>(forward_input_height), static_cast<int>(forward_input_width), static_cast<int>(forward_input_channels) }, RKNN_TENSOR_NHWC);
 #ifdef USE_RKNNAPI
-			if (auto iter = network_result.find("softmax_98_99"); iter != network_result.end())
+			std::string output_name = model_type_ == 0 ? "softmax_98_99" : "Softmax_Softmax_116/out0_0";
 #else
-			if (auto iter = network_result.find("softmax"); iter != network_result.end())
+			std::string output_name = "softmax";
 #endif
 #else
 			init_cache(bitmap, channels, height, width, order);
@@ -113,8 +113,9 @@ namespace glasssix::damocles
 				ptr += forward_input_bytes;
 			}
 			auto network_result = (*spoofing_detect_instance_).forward(crop_faces | memory::tensor_convert_to<float>);
-			if (auto iter = network_result.find("softmax"); iter != network_result.end())
+			std::string output_name = "softmax";
 #endif
+				if (auto iter = network_result.find(output_name); iter != network_result.end())
 			{
 				auto iter_softmax = iter->second->cpu_data();
 
