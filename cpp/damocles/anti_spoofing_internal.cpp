@@ -30,20 +30,35 @@ namespace glasssix::damocles
 		constexpr std::size_t forward_input_height = 80;
 		constexpr std::size_t forward_input_channels = 3;
 		constexpr std::size_t forward_input_bytes = forward_input_channels * forward_input_width * forward_input_height;
+
+		std::array<std::tuple<int, std::string, std::string>, 2> types =
+		{
+			{
+				{0, "FASMV2", "FASMV2"},
+				{1, "G_MobileFaceNet", "simple_G_MobileFaceNet"}
+			}
+		};
 	}
 
 	class anti_spoofing_internal::impl
 	{
 	public:
-		impl(std::string_view FASMV2_racy_path, std::string_view land65_racy_path, int device, bool use_int8) : impl{ hardcode::get_model_params("FASMV2", use_int8), FASMV2_racy_path, hardcode::get_model_params("pfld11_landmark65_simp", use_int8), land65_racy_path, device }
+		impl(int model_type, int device) : model_type_{ model_type }, device_{ device } {}
+		impl(std::string_view models_directory, int model_type, int device) : impl{ model_type, device }
 		{
-		}
+			auto model_iter = std::find_if(types.begin(), types.end(), [model_type](const std::tuple<int, std::string, std::string>& t)
+				{ return std::get<0>(t) == model_type; });
 
-		impl(const std::vector<std::string>& FASMV2_phai, std::string_view FASMV2_racy_path,
-			const std::vector<std::string>& land65_phai, std::string_view land65_racy_path, int device)
-			: device_{ device }, fasmv2_{ FASMV2_phai, std::string{ FASMV2_racy_path }, device },
-			landmark65_{ land65_phai, std::string{ land65_racy_path }, device }
-		{
+			if (model_iter == types.end())
+				throw exposing::abi_invalid_argument("Invalid model_tpye param!");
+
+#if defined(USE_RKNNAPI) || defined(USE_RKNN2API)
+			spoofing_detect_instance_ = std::make_unique<rknnwrapper::rknn_wrapper>(hardcode::get_model_params(std::get<1>(*model_iter)), std::string(models_directory) + "/" + std::get<2>(*model_iter) + ".rknn", device);
+			landmark65_ = std::make_unique<rknnwrapper::rknn_wrapper>(hardcode::get_model_params("pfld11_landmark65_simp"), std::string(models_directory) + "/pfld11_landmark65_simp.rknn", device);
+#else
+			spoofing_detect_instance_ = std::make_unique<excalibur::pipeline<float>>(hardcode::get_model_params(std::get<1>(*model_iter)), std::string(models_directory) + "/" + std::get<2>(*model_iter) + ".racy", device);
+			landmark65_ = std::make_unique<excalibur::pipeline<float>>(hardcode::get_model_params("pfld11_landmark65_simp"), std::string(models_directory) + "/pfld11_landmark65_simp.racy", device);
+#endif
 		}
 
 		std::vector<std::vector<float>> spoofing_detect(const exposing::param_vector<longinus::face_info>& faces, exposing::param_span<std::uint8_t> bitmap, int channels, int height, int width, int order)
@@ -53,7 +68,11 @@ namespace glasssix::damocles
 				throw exposing::abi_invalid_argument("current frame is empty");
 			}
 
-			auto boxes = calculate_box(faces, width, height, 2.7f);
+			float scale = 2.7f;
+			if (model_type_ == 1)
+				scale = 4.0f;
+
+			auto boxes = calculate_box(faces, width, height, scale);
 
 			std::vector<std::vector<float>> result;
 
@@ -74,7 +93,7 @@ namespace glasssix::damocles
 				ptr += forward_input_bytes;
 			}
 
-			auto network_result = fasmv2_.forward(temp, {static_cast<int>(boxes.size()), static_cast<int>(forward_input_height), static_cast<int>(forward_input_width), static_cast<int>(forward_input_channels) }, RKNN_TENSOR_NHWC);
+			auto network_result = (*spoofing_detect_instance_).forward(temp, {static_cast<int>(boxes.size()), static_cast<int>(forward_input_height), static_cast<int>(forward_input_width), static_cast<int>(forward_input_channels) }, RKNN_TENSOR_NHWC);
 #ifdef USE_RKNNAPI
 			if (auto iter = network_result.find("softmax_98_99"); iter != network_result.end())
 #else
@@ -93,7 +112,7 @@ namespace glasssix::damocles
 				std::copy(crop_data, crop_data + forward_input_bytes, ptr);
 				ptr += forward_input_bytes;
 			}
-			auto network_result = fasmv2_.forward(crop_faces | memory::tensor_convert_to<float>);
+			auto network_result = (*spoofing_detect_instance_).forward(crop_faces | memory::tensor_convert_to<float>);
 			if (auto iter = network_result.find("softmax"); iter != network_result.end())
 #endif
 			{
@@ -128,7 +147,7 @@ namespace glasssix::damocles
 			cv::Rect2f rect(face.x(), face.y(), face.width(), face.height());
 			safty_cut(img, crop_face, rect);
 			cv::resize(crop_face, crop_face, cv::Size(112, 112));
-			auto network_result = landmark65_.forward(crop_face.data, {1, 3, 112, 112}, RKNN_TENSOR_NHWC);
+			auto network_result = (*landmark65_).forward(crop_face.data, {1, 3, 112, 112}, RKNN_TENSOR_NHWC);
 #ifdef USE_RKNNAPI
 			auto prob = network_result["Softmax_prob/out0_2"]->cpu_data();
 			auto ptr = network_result["Gemm_Gemm_114/out0_1"]->cpu_data();
@@ -144,7 +163,7 @@ namespace glasssix::damocles
 			excalibur::rectangle<float> rect(face.x(), face.y(), face.height(), face.width());
 			excalibur::safty_cut_cpu(cache_, crop_face, &rect);
 			excalibur::resize_cpu(crop_face, crop_face, 112, 112);
-			auto network_result = landmark65_.forward(crop_face | memory::tensor_convert_to<float>);
+			auto network_result = (*landmark65_).forward(crop_face | memory::tensor_convert_to<float>);
 			auto prob = network_result["prob"]->cpu_data();
 			auto ptr = network_result["218"]->cpu_data();
 			int count = network_result["218"]->count();
@@ -345,24 +364,19 @@ namespace glasssix::damocles
 		}
 #endif
 		int device_;
+		int model_type_;
 #if defined(USE_RKNNAPI) || defined(USE_RKNN2API)
-		rknnwrapper::rknn_wrapper fasmv2_;
-		rknnwrapper::rknn_wrapper landmark65_;
+		std::unique_ptr<rknnwrapper::rknn_wrapper> spoofing_detect_instance_;
+		std::unique_ptr<rknnwrapper::rknn_wrapper> landmark65_;
 #else
-		excalibur::pipeline<float> fasmv2_;
-		excalibur::pipeline<float> landmark65_;
+		std::unique_ptr<excalibur::pipeline<float>> spoofing_detect_instance_;
+		std::unique_ptr < excalibur::pipeline<float>> landmark65_;
 #endif
 
 		std::shared_ptr<memory::tensor<std::uint8_t>> cache_;
 	};
 
-	anti_spoofing_internal::anti_spoofing_internal(std::string_view FASMV2_racy_path, std::string_view land65_racy_path, int device, bool use_int8) : impl_{ std::make_unique<impl>(FASMV2_racy_path, land65_racy_path, device, use_int8) }
-	{
-	}
-
-	anti_spoofing_internal::anti_spoofing_internal(const std::vector<std::string>& FASMV2_phai, std::string_view FASMV2_racy_path, 
-		const std::vector<std::string>& land65_phai, std::string_view land65_racy_path, int device) 
-		: impl_{ std::make_unique<impl>(FASMV2_phai, FASMV2_racy_path, land65_phai, land65_racy_path, device) }
+	anti_spoofing_internal::anti_spoofing_internal(std::string_view models_directory, int model_type, int device) : impl_{ std::make_unique<impl>(models_directory, model_type, device) }
 	{
 	}
 

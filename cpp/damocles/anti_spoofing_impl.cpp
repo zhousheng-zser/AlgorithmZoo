@@ -11,21 +11,11 @@ namespace glasssix::damocles
 	{
 	}
 
-	void anti_spoofing_impl::init(const exposing::param_string& FASMV2_racy_path, const exposing::param_string& land65_racy_path, std::int32_t device, bool use_int8)
+	void anti_spoofing_impl::init(const exposing::param_string& models_directory, std::int32_t model_type, std::int32_t device)
 	{
-		impl_ = std::make_unique<anti_spoofing_internal>(exposing::to_narrow_string(FASMV2_racy_path), exposing::to_narrow_string(land65_racy_path), device, use_int8);
+		impl_ = std::make_unique<anti_spoofing_internal>(exposing::to_narrow_string(models_directory), model_type, device);
 	}
 
-	void anti_spoofing_impl::init(exposing::param_span<const exposing::param_string> FASMV2_phai, const exposing::param_string& FASMV2_racy_path,
-		exposing::param_span<const exposing::param_string> land65_phai, const exposing::param_string& land65_racy_path, std::int32_t device)
-	{
-		std::vector<std::string> FASMV2_phai_internal(FASMV2_phai.size());
-		std::vector<std::string> land65_phai_internal(land65_phai.size());
-
-		std::transform(FASMV2_phai.begin(), FASMV2_phai.end(), FASMV2_phai_internal.begin(), &exposing::to_narrow_string);
-		impl_ = std::make_unique<anti_spoofing_internal>(FASMV2_phai_internal, exposing::to_narrow_string(FASMV2_racy_path), 
-			land65_phai_internal, exposing::to_narrow_string(land65_racy_path), device);
-	}
 
 	exposing::param_string anti_spoofing_impl::version() const
 	{

@@ -17,9 +17,7 @@ namespace glasssix::damocles
 	public:
 		anti_spoofing_impl();
 		~anti_spoofing_impl();
-		void init(const exposing::param_string& FASMV2_racy_path, const exposing::param_string& land65_racy_path, std::int32_t device, bool use_int8);
-		void init(exposing::param_span<const exposing::param_string> FASMV2_phai, const exposing::param_string& FASMV2_racy_path, 
-			exposing::param_span<const exposing::param_string> land65_phai, const exposing::param_string& land65_racy_path, std::int32_t device);
+		void init(const exposing::param_string& models_directory, std::int32_t model_type, std::int32_t device);
 		exposing::param_string version() const;
 		exposing::param_vector<exposing::param_vector<float>> spoofing_detect(const exposing::param_vector<longinus::face_info>& faces, exposing::param_span<std::uint8_t> bitmap, int channels, int height, int width, int order) const;
 		bool presentation_attack_detect(int action_cmd, const longinus::face_info& face, exposing::param_span<std::uint8_t> bitmap, int channels, int height, int width, int order) const;

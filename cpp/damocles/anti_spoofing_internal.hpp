@@ -24,16 +24,7 @@ namespace glasssix::damocles
 		/// </summary>
 		/// <param name="racy_path">The model path</param>
 		/// <param name="device">The device ID; -1 for CPU or a non-negative number for a GPU core</param>
-		anti_spoofing_internal(std::string_view FASMV2_racy_path, std::string_view land65_racy_path, int device, bool use_int8);
-
-		/// <summary>
-		/// Creates an instance with a specified GPU core or the default CPU.
-		/// </summary>
-		/// <param name="phai_path">The phai</param>
-		/// <param name="racy_path">The model path</param>
-		/// <param name="device">The device ID; -1 for CPU or a non-negative number for a GPU core</param>
-		anti_spoofing_internal(const std::vector<std::string>& FASMV2_phai, std::string_view FASMV2_racy_path, 
-			const std::vector<std::string>& land65_phai, std::string_view land65_racy_path, int device);
+		anti_spoofing_internal(std::string_view models_directory, int model_type, int device);
 
 		/// <summary>
 		/// The copy constructor must be disabled in PImpl pattern.
