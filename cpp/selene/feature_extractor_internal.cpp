@@ -70,7 +70,7 @@ namespace glasssix::selene
 #if defined(USE_RKNNAPI) || defined(USE_RKNN2API)
 #ifdef USE_RKNNAPI
 			auto network_result = (*feature_extractor_instance_).forward(bitmaps.data(), { static_cast<int>(count), 3, 128, 128 }, static_cast<rknn_tensor_format>(order));
-			std::string output_name = model_type_ == 4 ? "Conv_Conv_71/out0_0" : "conv5_dw_83_84";
+			std::string output_name = model_type_ == 3 ? "Conv_Conv_71/out0_0" : "conv5_dw_83_84";
 #else
 			//rknn2 can't transform order, so manual transform is needed
 			std::unordered_map<std::string, std::shared_ptr<memory::tensor<float>>> network_result;
@@ -94,12 +94,12 @@ namespace glasssix::selene
 			else
 				network_result = (*feature_extractor_instance_).forward(bitmaps.data(), { static_cast<int>(count), 3, 128, 128 }, rknn_tensor_format::RKNN_TENSOR_NHWC);
 
-			std::string output_name = model_type_ == 4 ? "predict" : "conv5_dw";
+			std::string output_name = model_type_ == 3 ? "predict" : "conv5_dw";
 #endif
 #else
 			init_cache(bitmaps, count, order);
 			auto network_result = (*feature_extractor_instance_).forward(cache_ | memory::tensor_convert_to<float>);
-			std::string output_name = model_type_ == 4 ? "predict" : "conv5_dw";
+			std::string output_name = model_type_ == 3 ? "predict" : "conv5_dw";
 #endif
 			if (auto iter = network_result.find(output_name); iter != network_result.end())
 			{
