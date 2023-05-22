@@ -7,7 +7,11 @@ if(USE_OPENMP)
 	add_compile_options(${OpenMP_CXX_FLAGS})
 endif()
 
-find_package(OpenCV 4.7)
+if(CMAKE_SYSTEM_PROCESSOR STREQUAL "AMD64" OR CMAKE_SYSTEM_PROCESSOR STREQUAL "x86_64")
+	find_package(OpenCV 4.7)
+else()
+	find_package(OpenCV)
+endif()
 
 if(NOT OPENCV_FOUND)
 	message(WARNING "Not Found installed OpenCV, use mannual configuration.")
