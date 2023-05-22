@@ -7,3 +7,5 @@ CMakePresets.json
 
 yolov5/
 traxex/
+
+*.toolchain
