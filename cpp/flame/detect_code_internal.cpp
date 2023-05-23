@@ -157,7 +157,7 @@ namespace glasssix::flame
                 int num_grid_y = stride[n];
 
                 int ind = 0;
-                float *ptr_out=outs[n]->cpu_data();
+                const float *ptr_out=outs[n]->cpu_data();
                 for(int q = 0; q < 3; q++)
                 {
                     const float anchor_w = anchors[n][q * 2];
@@ -167,7 +167,7 @@ namespace glasssix::flame
                         for(int j = 0; j < num_grid_y; j++)
                         {
 
-                            float* pdata = ptr_out + ind *  7;
+                            const float* pdata = ptr_out + ind *  7;
 
                             float box_score = sigmoid_x(pdata[4]);
 
