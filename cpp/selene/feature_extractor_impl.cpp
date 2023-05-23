@@ -11,17 +11,9 @@ namespace glasssix::selene
 	{
 	}
 
-	void feature_extractor_impl::init(const exposing::param_string& racy_path, std::int32_t model_type, std::int32_t device, bool use_int8)
+	void feature_extractor_impl::init(const exposing::param_string& models_directory, int model_type, std::int32_t device, bool use_int8)
 	{
-		impl_ = std::make_unique<feature_extractor_internal>(exposing::to_narrow_string(racy_path), model_type, device, use_int8);
-	}
-
-	void feature_extractor_impl::init(exposing::param_span<const exposing::param_string> phai, const exposing::param_string& racy_path, std::int32_t model_type, std::int32_t device)
-	{
-		std::vector<std::string> phai_internal(phai.size());
-
-		std::transform(phai.begin(), phai.end(), phai_internal.begin(), &exposing::to_narrow_string);
-		impl_ = std::make_unique<feature_extractor_internal>(phai_internal, exposing::to_narrow_string(racy_path), model_type, device);
+		impl_ = std::make_unique<feature_extractor_internal>(exposing::to_narrow_string(models_directory), model_type, device, use_int8);
 	}
 
 	std::int32_t feature_extractor_impl::get_model_type() const

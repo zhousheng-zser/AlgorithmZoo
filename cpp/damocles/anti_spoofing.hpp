@@ -18,9 +18,7 @@ namespace glasssix::exposing::impl
 
 		struct type : abi_unknown_object
 		{
-			virtual std::int32_t G6_ABI_CALL init(abi_in_t<param_string> FASMV2_racy_path, abi_in_t<param_string> land65_racy_path, std::int32_t device, bool use_int8) noexcept = 0;
-			virtual std::int32_t G6_ABI_CALL init(abi_in_t<param_span<const param_string>> FASMV2_phai, abi_in_t<param_string> FASMV2_racy_path,
-				abi_in_t<param_span<const param_string>> land65_phai, abi_in_t<param_string> land65_racy_path, std::int32_t device) noexcept = 0;
+			virtual std::int32_t G6_ABI_CALL init(abi_in_t<param_string> models_directory, std::int32_t model_type, std::int32_t device) noexcept = 0;
 			virtual std::int32_t G6_ABI_CALL spoofing_detect(abi_in_t<param_vector<longinus::face_info>> faces, abi_in_t<param_span<std::uint8_t>> bitmap, std::int32_t channels, std::int32_t height, std::int32_t width,
 				std::int32_t order, abi_out_t<param_vector<param_vector<float>>> result) noexcept = 0;
 			virtual std::int32_t G6_ABI_CALL presentation_attack_detect(std::int32_t action_cmd, abi_in_t<longinus::face_info> face, abi_in_t<param_span<std::uint8_t>> bitmap, 
@@ -33,15 +31,9 @@ namespace glasssix::exposing::impl
 	template<typename Derived>
 	struct interface_vtable<Derived, damocles::anti_spoofing> : interface_vtable_base<Derived, damocles::anti_spoofing>
 	{
-		virtual std::int32_t G6_ABI_CALL init(abi_in_t<param_string> FASMV2_racy_path, abi_in_t<param_string> land65_racy_path, std::int32_t device, bool use_int8) noexcept override
+		virtual std::int32_t G6_ABI_CALL init(abi_in_t<param_string> models_directory, std::int32_t model_type, std::int32_t device) noexcept override
 		{
-			return abi_safe_call([&] { this->self().init(create_from_abi<param_string>(FASMV2_racy_path), create_from_abi<param_string>(land65_racy_path), device, use_int8); });
-		}
-
-		virtual std::int32_t G6_ABI_CALL init(abi_in_t<param_span<const param_string>> FASMV2_phai, abi_in_t<param_string> FASMV2_racy_path,
-			abi_in_t<param_span<const param_string>> land65_phai, abi_in_t<param_string> land65_racy_path, std::int32_t device) noexcept override
-		{
-			return abi_safe_call([&] { this->self().init(create_from_abi<param_span<const param_string>>(FASMV2_phai), create_from_abi<param_string>(FASMV2_racy_path), create_from_abi<param_span<const param_string>>(land65_phai), create_from_abi<param_string>(land65_racy_path), device); });
+			return abi_safe_call([&] { this->self().init(create_from_abi<param_string>(models_directory), model_type, device); });
 		}
 
 		virtual std::int32_t G6_ABI_CALL spoofing_detect(abi_in_t<param_vector<longinus::face_info>> faces, abi_in_t<param_span<std::uint8_t>> bitmap, std::int32_t channels, std::int32_t height, std::int32_t width,
@@ -67,14 +59,9 @@ namespace glasssix::exposing::impl
 		template<typename Derived>
 		struct type : enable_self_abi_awareness<Derived, damocles::anti_spoofing>
 		{
-			void init(const param_string& FASMV2_racy_path, const param_string& land65_racy_path, std::int32_t device, bool use_int8) const
+			void init(const param_string& models_directory, std::int32_t model_type, std::int32_t device) const
 			{
-				check_abi_result(this->self_abi().init(get_abi(FASMV2_racy_path), get_abi(land65_racy_path), get_abi(device), get_abi(use_int8)));
-			}
-
-			void init(param_span<const param_string> FASMV2_phai, const param_string& FASMV2_racy_path, param_span<const param_string> land65_phai, const param_string& land65_racy_path, std::int32_t device) const
-			{
-				check_abi_result(this->self_abi().init(get_abi(FASMV2_phai), get_abi(FASMV2_racy_path), get_abi(land65_phai), get_abi(land65_racy_path), get_abi(device)));
+				check_abi_result(this->self_abi().init(get_abi(models_directory), get_abi(model_type), get_abi(device)));
 			}
 
 			param_vector<param_vector<float>> spoofing_detect(const param_vector<longinus::face_info>& faces, param_span<std::uint8_t> bitmap, std::int32_t channels, std::int32_t height, std::int32_t width, std::int32_t order) const
