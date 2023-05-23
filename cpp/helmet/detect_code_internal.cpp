@@ -127,7 +127,7 @@ namespace glasssix::helmet
             std::vector<cv::Rect2d> bboxes;
             std::vector<float> bbox_scores;
 
-            float *data_ptr = prediction->cpu_data();
+            const float *data_ptr = prediction->cpu_data();
 
             for(int idx = 0; idx < 8400; idx++)
             {
