@@ -39,11 +39,9 @@ namespace glasssix::flame
             {
                 throw exposing::abi_invalid_argument("current frame is empty");
             }
-            // std::cout<<"detect:\n";
             CHECK_EQ(channels, 3);
             CHECK_EQ(bitmap.size(), channels * height * width);
-            // std::cout<<channels * height * width<<"input size\n";
-            std::cout<<"detect:\n";
+
             cv::Mat image(cv::Size(width, height), CV_8UC3);
             std::memcpy(image.data, bitmap.data(), sizeof (uint8_t) * channels * height * width);
 
@@ -54,11 +52,6 @@ namespace glasssix::flame
             for(const auto& it:result) {
                 results.push_back(glasssix::exposing::make_as_first<box_info_impl>(it));
             }
-            // for(const auto& item: result)
-            // {
-            //     cv::rectangle(image, cv::Point(item.x1, item.y1), cv::Point(item.x2, item.y2), cv::Scalar(0, 0, 255), 2);
-            // }
-            // cv::imwrite("flame.jpg",image);
 
             return results;
         }
@@ -82,19 +75,16 @@ namespace glasssix::flame
             float ratio_w = (float)W / (float)new_shape.width;
             float ratio_h = (float)H / (float)new_shape.height;
             float ratio = ratio_w;
- std::cout<<"letterbox begin :\n";
 
             cv::Mat resize_img;
             if(H==new_shape.height && W==new_shape.width)
             {
                 resize_img=img;
-                 std::cout<<"reisze begdsin :\n";
             }
             else
             {
                 if (ratio_w == ratio_h)
                 {
-                     std::cout<<"reisze begin :\n";
                     cv::resize(img, resize_img, cv::Size2i{ new_shape.width, new_shape.height });}
                 else if (ratio_w > ratio_h)
                 {
@@ -103,10 +93,7 @@ namespace glasssix::flame
                     int new_y = (int)(H / ratio_w);
                     int pad1 = (int)((new_shape.height - new_y) / 2);
                     int pad2 = new_shape.height - new_y - pad1;
-                     std::cout<<"reisze begin 1:\n";
-                     std::cout<<"new_:"<<new_x<<" new_y"<<new_y<<"\n";
                     cv::resize(img, resize_img, cv::Size2i{ new_x, new_y });
-                    std::cout<<"reisze begin 2:\n";
                     cv::copyMakeBorder(resize_img, resize_img, 0, pad1 + pad2, 0, 0, cv::BORDER_CONSTANT, cv::Scalar{ 114,114,114 });
                 }
                 else
@@ -116,13 +103,10 @@ namespace glasssix::flame
                     int new_x = (int)(W / ratio_h);
                     int pad1 = (int)((new_shape.width - new_x) / 2);
                     int pad2 = new_shape.width - new_x - pad1;
-    std::cout<<"reisze begin 3:\n";
                     cv::resize(img, resize_img, cv::Size2i{ new_x, new_y });
-    std::cout<<"reisze begin 3:\n";
                     cv::copyMakeBorder(resize_img, resize_img, 0, 0, 0, pad1 + pad2, cv::BORDER_CONSTANT, cv::Scalar{ 114,114,114 });
                 }
             }
-                           std::cout<<"letterbox end :\n";
 
             return { resize_img, ratio };
         }
@@ -135,87 +119,15 @@ namespace glasssix::flame
          */
      std::tuple<cv::Mat, float> preprocess(cv::Mat src, cv::Size& new_shape)
         {
-              std::cout<<"preprocess:\n";
             cv::Mat image;
             float ratio;
             std::tie(image, ratio) = letterbox(src, new_shape);
-
             cv::Mat image_blob;
-               std::cout<<"cvt begin :\n";
-
             cv::cvtColor(image, image_blob, cv::COLOR_BGR2HLS);
-
-               std::cout<<"cvt end :\n";
-   std::cout<<"preprocess end :\n";
             return {image_blob, ratio};
 
         }
-        /*
-        std::tuple<cv::Mat, float>  preprocess(cv::Mat &img, int hope_size = 640)
-        {
-              std::cout<<"preprocess\n";
-            int H = img.rows;
-            int W = img.cols;
-            float ratio_w = (float)W / (float)hope_size;
-            float ratio_h = (float)H / (float)hope_size;
-            float ratio = ratio_w;
-            //   std::cout<<"in refvest_imgprocess1\n";
-            // for (size_t i = 0; i < 10000; i+=100)
-            // {
-            //    std::cout<<(int)img.data[i]<<"\t";
-            // }
-            std::cout<<"dsd\n\n";
-            cv::Mat resize_img;
-            if(H==hope_size && W==hope_size )
-            {
-                resize_img=img;
-            }
-            else
-            {
-                if (ratio_w == ratio_h)
-                {
-                    std::cout<<"in refvest_imgprocess2\n";
-                    std::cout<<hope_size<<"\n";
-                    cv::resize(img, resize_img, cv::Size2i{ hope_size, hope_size });
-                      std::cout<<"dsd\n\n";
-                    }
-                else if (ratio_w > ratio_h) {
-                    int new_x = hope_size;
-                    int new_y = (int)(H / ratio_w);
-                    int pad1 = (int)((hope_size - new_y) / 2);
-                    int pad2 = hope_size - new_y - pad1;
-                       std::cout<<"in refvest_imgprocess3\n";
-                    cv::resize(img, resize_img, cv::Size2i{ new_x, new_y });
-       std::cout<<"in refvest_imgprocessdsd3\n";
-                    cv::copyMakeBorder(resize_img, resize_img, 0, pad1 + pad2, 0, 0, cv::BORDER_CONSTANT, cv::Scalar{ 114,114,114 });
-                }
-                else {
-                    ratio = ratio_h;
-                    int new_y = hope_size;
-                    int new_x = (int)(W / ratio_h);
-                    int pad1 = (int)((hope_size - new_x) / 2);
-                    int pad2 = hope_size - new_x - pad1;
- std::cout<<"in refvest_imgprocessdsd4\n";
-                    cv::resize(img, resize_img, cv::Size2i{ new_x, new_y });
-                     std::cout<<"in refvest_imgprocessdsd4\n";          
-                    cv::copyMakeBorder(resize_img, resize_img, 0, 0, 0, pad1 + pad2, cv::BORDER_CONSTANT, cv::Scalar{ 114,114,114 });
-                }
-            }
-            std::cout<<"dsd\n\n";
-            // for (size_t i = 0; i < 10000; i+=100)
-            // {
-            //     std::cout<<(int)resize_img.data[i]<<"\t";
-            // }
-            // std::cout<<"\n\n";
-            std::cout<<"preprocess\n";
-            cv::Mat image_blob;
-                 std::cout<<"cvtColor\n";
-            cv::cvtColor(resize_img, image_blob, cv::COLOR_BGR2HLS);
-                 std::cout<<"cvtColor end\n";
-            return { resize_img, ratio };
-        }*/
-
-
+       
 		/**
 		 * @fun sigmoid_x
 		 * @param x
@@ -245,7 +157,6 @@ namespace glasssix::flame
                 int num_grid_y = stride[n];
 
                 int ind = 0;
-                // channel
                 float *ptr_out=outs[n]->cpu_data();
                 for(int q = 0; q < 3; q++)
                 {
@@ -258,8 +169,6 @@ namespace glasssix::flame
 
                             float* pdata = ptr_out + ind *  7;
 
-                            // std::vector<float> temp(7);
-
                             float box_score = sigmoid_x(pdata[4]);
 
                             if(box_score > conf_thres)
@@ -269,7 +178,6 @@ namespace glasssix::flame
                                 float cy = (sigmoid_x(pdata[1]) * 2.f - 0.5f + i) * strides[n];  //cy
                                 float w = powf(sigmoid_x(pdata[2]) * 2.f, 2.f) * anchor_w;      //w
                                 float h = powf(sigmoid_x(pdata[3]) * 2.f, 2.f) * anchor_h;      //h
-                                // std::cout<<n<<" "<<q<<" "<<box_score<<" "<<cx<<" "<<w<<std::endl;
                                 std::vector<float> element = {cx, cy, w, h, box_score, sigmoid_x(pdata[5]), sigmoid_x(pdata[6])};
                                 result.push_back(element);
                             }
@@ -410,16 +318,10 @@ namespace glasssix::flame
             std::tie(blob, ratio) = preprocess(image,new_shape);
 
             std::vector<std::shared_ptr<memory::tensor<float>>> forwards;
- std::cout<<"forward:\n";
             auto  network_result = net_instance_.forward(blob.data, { 1, blob.rows, blob.cols,blob.channels() }, RKNN_TENSOR_NHWC);
- std::cout<<"forward end:\n";
+
             std::vector<std::string>  out_names={"417","437","output"};
-            // std::vector<int> out_size={40, 20, 80};
-            std::cout<<"result output:\n";
-            // for(int i=0;i<1000;i+=20)
-            // {
-            //     std::cout<<network_result[out_names[2]]->cpu_data()[i]<<"\n";
-            // }
+
 
             for (size_t i=0;i< 3; i++)//对输出数据做处理
             {
@@ -428,18 +330,9 @@ namespace glasssix::flame
 
 			float conf_threshold = 0.1f;
 			float iou_threshold = 0.45f;
- std::cout<<"concat2:\n";
+
 			auto result = concat2(forwards, conf_threshold);
             
-            // for(int i=0;i<result.size();i++)
-            // {
-            //      for(int j=0;j<7;j++)
-            //      {
-            //         std::cout<<result[i][j]<<"\t";
-            //      }
-            //     std::cout<<"\n";
-            // }
-
 			auto nms_result = non_max_suppression(result, conf_threshold, iou_threshold, ratio);
 
             std::vector<box_info_internal> output;

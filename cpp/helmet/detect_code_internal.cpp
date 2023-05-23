@@ -41,11 +41,7 @@ namespace glasssix::helmet
             CHECK_EQ(channels, 3);
             CHECK_EQ(bitmap.size(), channels * height * width);
 
-            // show bitmap channels and size
-             std::cout<<"bitmap size: "<<bitmap.size()<<"\n";
-             std::cout<<"bitmap channels: "<<channels<<"\n";
-             std::cout<<"bitmap height: "<<height<<"\n";
-             std::cout<<"bitmap width: "<<width<<"\n";
+
 
             cv::Mat image(cv::Size(width, height), CV_8UC3);
             std::memcpy(image.data, bitmap.data(), sizeof (uint8_t) * channels * height * width);
@@ -81,12 +77,6 @@ namespace glasssix::helmet
             float ratio_w = (float)W / (float)hope_size;
             float ratio_h = (float)H / (float)hope_size;
             float ratio = ratio_w;
-            //   std::cout<<"in refvest_imgprocess1\n";
-            // for (size_t i = 0; i < 10000; i+=100)
-            // {
-            //    std::cout<<(int)img.data[i]<<"\t";
-            // }
-            // std::cout<<"\n\n";
             cv::Mat resize_img;
             if(H==hope_size && W==hope_size )
             {
@@ -96,8 +86,7 @@ namespace glasssix::helmet
             {
                 if (ratio_w == ratio_h)
                 {
-                    // std::cout<<"in refvest_imgprocess2\n";
-                    // std::cout<<hope_size<<"\n";
+
                     cv::resize(img, resize_img, cv::Size2i{ hope_size, hope_size });}
                 else if (ratio_w > ratio_h) {
 
@@ -118,7 +107,7 @@ namespace glasssix::helmet
                     int pad2 = hope_size - new_x - pad1;
 
                     cv::resize(img, resize_img, cv::Size2i{ new_x, new_y });
-                    // std::cout<<"in refvest_imgprocess444\n";
+
                     cv::copyMakeBorder(resize_img, resize_img, 0, 0, 0, pad1 + pad2, cv::BORDER_CONSTANT, cv::Scalar{ 114,114,114 });
                 }
             }
@@ -230,16 +219,10 @@ namespace glasssix::helmet
         {
             auto old_shape = cv::Size(image.cols, image.rows);
             auto new_shape = cv::Size(640, 640);
-
-            // show detect input image size
-            std::cout << "detect input image size: " << image.cols << "x" << image.rows << std::endl;
-
+      
             cv::Mat blob;
             float ratio = 0;
-            std::tie(blob, ratio) = preprocess(image);
-
-            // show preprocess input image size
-            std::cout << "preprocess input image size: " << blob.cols << "x" << blob.rows << std::endl;
+            std::tie(blob, ratio) = preprocess(image);       
 
             auto  output = net_instance_.forward(blob.data, { 1, blob.rows, blob.cols,blob.channels() }, RKNN_TENSOR_NHWC);
 
@@ -247,7 +230,6 @@ namespace glasssix::helmet
 
             std::vector<std::array<float, 7>> detections = yolo_decoder(output["output"], conf_thres);
 
-            // bbox into box_info_internal
             std::vector<box_info_internal> result;
 
             for (const auto& bbox : detections) {

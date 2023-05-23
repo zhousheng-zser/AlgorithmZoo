@@ -51,7 +51,7 @@ namespace glasssix::refvest
             run_refvest(results, image);
             for (auto& i : results)
             {
-                // std::cout<<"size: "<<"\n";
+
                 i.x1= i.x1>0?i.x1:0;
                 i.x1= i.x1<width?i.x1:width;
 
@@ -66,13 +66,6 @@ namespace glasssix::refvest
 
                 result.push_back(exposing::make_as_first<box_info_impl>(i));
             }          
-
-            // for(const auto& item: results)
-            // {
-            //     cv::rectangle(image, cv::Point(item.x1, item.y1), cv::Point(item.x2, item.y2), cv::Scalar(0, 0, 255), 2);
-            // }
-            // cv::imwrite("safe.jpg",image);
-
             return result;
             
         }
@@ -103,48 +96,12 @@ namespace glasssix::refvest
             {
                 std::cout<<"blob empty\n";
             }
-            // std::cout<<"blob size:  "<<blob.rows<<"\n";
-            
-            // std::cout<<"blob data:\n";
-            // for (size_t i = 0; i < 10000; i+=100)
-            // {
-            //     std::cout<<blob.ptr<float>()[i]<<"\t";
-            // }
-            // std::cout<<"\n";
+          
             auto  output = net_instance_.forward(blob.data, { 1, blob.rows, blob.cols,blob.channels() }, RKNN_TENSOR_NHWC);
-
-            // decode
-            // std::cout<<"dsdsf"<<output["output"]->count()<<"\n";
-                       
-            // decode
-
-            // cv::Mat detectionMat(8400, 7, CV_32);
-
-            // std::memcpy(detectionMat.data,  output["output"]->cpu_data(),output["output"]->count()*sizeof(float));
-
-            // std::cout<<output["output"]->mutable_cpu_data()[0]<<"\n";
-           
-            //  std::cout<<"resulttest: \n";
-            //            for (size_t i = 0; i < 7; i++)
-            //            {
-            //              std::cout<<output["output"]->mutable_cpu_data()[i*7]<<"\t";
-            //            }
-            // std::cout<<"\n\nxresult: \n";
-            // for (size_t i = 0; i < 100; i++)
-            // {
-            //     std::cout<<output["output"]->mutable_cpu_data()[i]<<"\t";
-            // }
-            // std::cout<<"\n\n";
-
-            // std::cout << "Detection Mat empty: " << detectionMat.empty() << std::endl;
-            // std::cout<<"mat data:"<<detectionMat.data[0]<<"\n";
-
 
             std::vector<std::array<float, 7>> detections = refvest_yolo_decoder(output["output"]);
             std::vector<std::array<float, 7>> out = ppeople_refvest_assignment(detections);
-            // std::cout<<"out size: "<<out.size()<<"\n";
-            // std::cout<<"dsd\n";
-            // install
+
             for (const auto& bbox : out) {
                 box_info_internal box_ifo;
                 box_ifo.x1 = static_cast<int>(bbox[0] * ratio);
@@ -153,7 +110,7 @@ namespace glasssix::refvest
                 box_ifo.y2 = static_cast<int>(bbox[3] * ratio);
                 box_ifo.score = bbox[4]* bbox[5];
                 box_ifo.category = static_cast<int>(bbox[6]);
-                 //std::cout<<box_ifo.x1<<" "<<box_ifo.y1<<" "<<box_ifo.x2<<" "<<box_ifo.y2<<  " "<<box_ifo.score<<" "   <<box_ifo.category<<"\n";
+
                 result.push_back(box_ifo);
             }
 
@@ -198,10 +155,7 @@ namespace glasssix::refvest
 
             std::vector<cv::Rect2d> bboxes;
             std::vector <float> bbox_scores;
-            // std::cout<<"in refvest_yolo_decoder size:\n";
-            std::cout<<detectionMat->count()<<"\n";
             float *data_ptr=detectionMat->cpu_data();
-            // std::cout<<"here\n";
             for (int idx = 0; idx < 8400; idx++) {
                  
                 float obj_confidence = data_ptr[4];
@@ -271,14 +225,14 @@ namespace glasssix::refvest
                 }
                            data_ptr+=7;
             }
-    // std::cout<<"idx: "<<std::endl;
+
             std::vector<int> bbox_indices;
             cv::dnn::NMSBoxes(bboxes, bbox_scores, 0.5, 0.5, bbox_indices);
-    // std::cout<<"idxd: "<<std::endl;
+
             for (int i = 0; i < bbox_indices.size(); i++) {
                 detections_target_NMS.push_back(detections_target[bbox_indices[i]]);
             }
-    // std::cout<<"idxd: "<<std::endl;
+
             return detections_target_NMS;
         }
         
@@ -288,12 +242,7 @@ namespace glasssix::refvest
             float ratio_w = (float)W / (float)hope_size;
             float ratio_h = (float)H / (float)hope_size;
             float ratio = ratio_w;
-            //   std::cout<<"in refvest_imgprocess1\n";
-            // for (size_t i = 0; i < 10000; i+=100)
-            // {
-            //    std::cout<<(int)img.data[i]<<"\t";
-            // }
-            // std::cout<<"\n\n";
+
             cv::Mat resize_img;
             if(H==hope_size && W==hope_size )
             {
@@ -303,8 +252,6 @@ namespace glasssix::refvest
             {
                 if (ratio_w == ratio_h)
                     {
-                    // std::cout<<"in refvest_imgprocess2\n";
-                    // std::cout<<hope_size<<"\n";
                     cv::resize(img, resize_img, cv::Size2i{ hope_size, hope_size });}
                 else if (ratio_w > ratio_h) {
            
@@ -325,15 +272,10 @@ namespace glasssix::refvest
                     int pad2 = hope_size - new_x - pad1;
   
                     cv::resize(img, resize_img, cv::Size2i{ new_x, new_y });
-                        // std::cout<<"in refvest_imgprocess444\n";
+                      
                     cv::copyMakeBorder(resize_img, resize_img, 0, 0, 0, pad1 + pad2, cv::BORDER_CONSTANT, cv::Scalar{ 114,114,114 });
                 }
             }
-            // for (size_t i = 0; i < 10000; i+=100)
-            // {
-            //     std::cout<<(int)resize_img.data[i]<<"\t";
-            // }
-            // std::cout<<"\n\n";
 
             return { resize_img, ratio };
         }
@@ -364,7 +306,5 @@ namespace glasssix::refvest
     exposing::param_vector<refvest::box_info> classify_code_internal::detect(exposing::param_span<std::uint8_t> bitmap, int channels, int height, int width, int roi_x, int roi_y, int roi_width, int roi_height) const
     {
         return impl_->detect(bitmap, channels, height, width, roi_x, roi_y, roi_width, roi_height);
-        // std::cout<<x.size()<<"waiceng\n";
-        //  x;
     }
 }
