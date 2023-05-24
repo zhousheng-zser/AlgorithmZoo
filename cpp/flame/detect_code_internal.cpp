@@ -41,15 +41,33 @@ namespace glasssix::flame
             }
             CHECK_EQ(channels, 3);
             CHECK_EQ(bitmap.size(), channels * height * width);
-
+            
             cv::Mat image(cv::Size(width, height), CV_8UC3);
             std::memcpy(image.data, bitmap.data(), sizeof (uint8_t) * channels * height * width);
+            
+            CHECK_GE(roi_x,0);
+            CHECK_LE(roi_x,width);
 
-            auto result = run_detect(image, roi_x, roi_y, roi_width, roi_height, param_map);
+            CHECK_GE(roi_y,0);
+            CHECK_LE(roi_y,height);
+
+            CHECK_GE(roi_height,0);
+            CHECK_LE(roi_height+roi_y, height);
+
+            CHECK_GE(roi_width,0);
+            CHECK_LE(roi_width+roi_x,width);
+
+            cv::Mat cropped_image = image(cv::Range(roi_y,roi_y+roi_height), cv::Range(roi_x,roi_x+roi_width));
+
+            auto result = run_detect(cropped_image, roi_x, roi_y, roi_width, roi_height, param_map);
 
             auto results = exposing::make_param_vector<flame::box_info>();
 
-            for(const auto& it:result) {
+            for(auto& it:result) {
+                it.x1+=roi_x;
+                it.x2+=roi_x;
+                it.y1+=roi_y;
+                it.y2+=roi_y;
                 results.push_back(glasssix::exposing::make_as_first<box_info_impl>(it));
             }
 
@@ -315,9 +333,11 @@ namespace glasssix::flame
 
             cv::Mat blob;
             float ratio = 0;
-            std::tie(blob, ratio) = preprocess(image,new_shape);
 
+            std::tie(blob, ratio) = preprocess(image,new_shape);
+           
             std::vector<std::shared_ptr<memory::tensor<float>>> forwards;
+
             auto  network_result = net_instance_.forward(blob.data, { 1, blob.rows, blob.cols,blob.channels() }, RKNN_TENSOR_NHWC);
 
             std::vector<std::string>  out_names={"417","437","output"};
@@ -332,7 +352,7 @@ namespace glasssix::flame
 			float iou_threshold = 0.45f;
 
 			auto result = concat2(forwards, conf_threshold);
-            
+
 			auto nms_result = non_max_suppression(result, conf_threshold, iou_threshold, ratio);
 
             std::vector<box_info_internal> output;

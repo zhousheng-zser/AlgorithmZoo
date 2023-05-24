@@ -48,10 +48,28 @@ namespace glasssix::refvest
             std::vector<box_info_internal> results;
             auto result = exposing::make_param_vector<box_info>();
 
-            run_refvest(results, image);
+            CHECK_GE(roi_x,0);
+            CHECK_LE(roi_x,width);
+
+            CHECK_GE(roi_y,0);
+            CHECK_LE(roi_y,height);
+
+            CHECK_GE(roi_height,0);
+            CHECK_LE(roi_height+roi_y, height);
+
+            CHECK_GE(roi_width,0);
+            CHECK_LE(roi_width+roi_x,width);
+
+            cv::Mat cropped_image = image(cv::Range(roi_y,roi_y+roi_height), cv::Range(roi_x,roi_x+roi_width));
+            
+            run_refvest(results, cropped_image);
             for (auto& i : results)
             {
-
+                i.x1+=roi_x;
+                i.x2+=roi_x;
+                i.y1+=roi_y;
+                i.y2+=roi_y;
+                
                 i.x1= i.x1>0?i.x1:0;
                 i.x1= i.x1<width?i.x1:width;
 
@@ -63,6 +81,8 @@ namespace glasssix::refvest
 
                 i.y2= i.y2>0?i.y2:0;
                 i.y2= i.y2<height?i.y2:height;
+
+          
 
                 result.push_back(exposing::make_as_first<box_info_impl>(i));
             }          
