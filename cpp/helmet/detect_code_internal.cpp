@@ -46,17 +46,10 @@ namespace glasssix::helmet
             cv::Mat image(cv::Size(width, height), CV_8UC3);
             std::memcpy(image.data, bitmap.data(), sizeof (uint8_t) * channels * height * width);
 
-            CHECK_GE(roi_x,0);
-            CHECK_LE(roi_x,width);
-
-            CHECK_GE(roi_y,0);
-            CHECK_LE(roi_y,height);
-
-            CHECK_GE(roi_height,0);
-            CHECK_LE(roi_height+roi_y, height);
-
-            CHECK_GE(roi_width,0);
-            CHECK_LE(roi_width+roi_x,width);
+            if(roi_x<0 || roi_x>width || roi_y>height || roi_y<0 ||roi_height<0 || (roi_height+roi_y) >height || roi_width<0 || (roi_width+roi_x) > width)
+            {
+                  throw exposing::abi_invalid_argument("incorrect roi in helmet");
+            }
 
             cv::Mat cropped_image = image(cv::Range(roi_y,roi_y+roi_height), cv::Range(roi_x,roi_x+roi_width));
 
