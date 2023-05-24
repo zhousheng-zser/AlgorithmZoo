@@ -46,11 +46,30 @@ namespace glasssix::helmet
             cv::Mat image(cv::Size(width, height), CV_8UC3);
             std::memcpy(image.data, bitmap.data(), sizeof (uint8_t) * channels * height * width);
 
-            auto result = run_detect(image, roi_x, roi_y, roi_width, roi_height, param_map);
+            CHECK_GE(roi_x,0);
+            CHECK_LE(roi_x,width);
+
+            CHECK_GE(roi_y,0);
+            CHECK_LE(roi_y,height);
+
+            CHECK_GE(roi_height,0);
+            CHECK_LE(roi_height+roi_y, height);
+
+            CHECK_GE(roi_width,0);
+            CHECK_LE(roi_width+roi_x,width);
+
+            cv::Mat cropped_image = image(cv::Range(roi_y,roi_y+roi_height), cv::Range(roi_x,roi_x+roi_width));
+
+
+            auto result = run_detect(cropped_image, roi_x, roi_y, roi_width, roi_height, param_map);
 
             auto results = exposing::make_param_vector<helmet::box_info>();
 
-            for(const auto& it:result) {
+            for( auto& it:result) {
+                it.x1+=roi_x;
+                it.x2+=roi_x;
+                it.y1+=roi_y;
+                it.y2+=roi_y;
                 results.push_back(glasssix::exposing::make_as_first<box_info_impl>(it));
             }
 
