@@ -68,7 +68,7 @@ namespace glasssix
 		class rknn_wrapper
 		{
 		public:
-			rknn_wrapper()=delete ;
+			rknn_wrapper() = delete;
 			rknn_wrapper(uint32_t flag):ctx_(0), flag_(flag){}
 			rknn_wrapper(const std::vector<std::string>& phai, std::string racy, int device = -1, uint32_t flag = 0) :rknn_wrapper(flag)
 			{
@@ -123,14 +123,11 @@ namespace glasssix
 					
 					for(uint32_t j = 0; j < shape.size(); j++)
 					{	
-						shape[j] = output_attrs[i].dims[j];
-					}
-					for(uint32_t j = 0; j < shape.size(); j++)
-					{	
-						std::cout<<shape[j]<<"\t";
+						if(output_attrs[i].dims[j] > 0)
+							shape[j] = output_attrs[i].dims[j];
 					}
 			
-					output_tensor_shape_index_[ i ] = shape;
+					output_tensor_shape_index_[output_attrs[i].index] = shape;
 					dump_tensor_attr(&(output_attrs[i]));
 				}
 			}
@@ -198,12 +195,12 @@ namespace glasssix
 			
 					std::vector<int> temp_shape(output_tensor_shape_index_[index].size() );
 
-					for(int shape_index=0; shape_index<output_tensor_shape_index_[index].size(); shape_index++)
-					{	
-						
-						temp_shape[shape_index]=output_tensor_shape_index_[index][shape_index];
+					for (int shape_index = 0; shape_index < output_tensor_shape_index_[index].size(); shape_index++)
+					{
 
+						temp_shape[shape_index] = static_cast<int>(output_tensor_shape_index_[index][shape_index]);
 					}
+					temp_shape[0] = num;
 
 					auto output_tensor = std::make_shared<memory::tensor<float>>(temp_shape);
 
@@ -222,7 +219,6 @@ namespace glasssix
 				std::vector<std::vector<float>> temp(io_num_.n_output);
 				for (int num_i = 0; num_i < data_shape[0]; num_i++)
 				{
-
 					rknn_input inputs[1];
 					std::memset(inputs, 0, sizeof(inputs));
 					inputs[0].index = 0;
@@ -268,12 +264,11 @@ namespace glasssix
 			
 					std::vector<int> temp_shape(output_tensor_shape_index_[index].size() );
 
-					for(int shape_index=0; shape_index<output_tensor_shape_index_[index].size(); shape_index++)
-					{	
-						
-						temp_shape[shape_index]=output_tensor_shape_index_[index][shape_index];
-
+					for (int shape_index = 0; shape_index < output_tensor_shape_index_[index].size(); shape_index++)
+					{
+						temp_shape[shape_index] = output_tensor_shape_index_[index][shape_index];
 					}
+					temp_shape[0] = data_shape[0];
 
 					auto output_tensor = std::make_shared<memory::tensor<float>>(temp_shape);
 
