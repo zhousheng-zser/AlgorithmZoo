@@ -248,7 +248,7 @@ namespace glasssix::flame
 		 * @return std::pair<bboxes, confidence>
 		 * @details slice src into bboxes and confidence, which need by dnn::NMS
 		 */
-		static std::tuple<std::vector<cv::Rect2d>, std::vector<float>, std::vector<int>> computeNmsInput(std::vector<boxes_conf>& src, int max_wh)
+		static std::tuple<std::vector<cv::Rect2d>, std::vector<float>, std::vector<int>> computeNmsInput(std::vector<boxes_conf>& src, int max_wh,float ratio)
 		{
 			std::vector<cv::Rect2d> boxes;
 			std::vector<float> scores;
@@ -257,8 +257,8 @@ namespace glasssix::flame
 			{
 				int c = max_wh * it.conf;
 				cv::Rect2d temp;
-				temp.x      = static_cast<double>(it.top_x + c);
-				temp.y      = static_cast<double>(it.top_y + c);
+		        temp.x      = static_cast<double>(it.top_x )*ratio;
+				temp.y      = static_cast<double>(it.top_y )*ratio;
 				temp.width  = static_cast<double>(it.bot_x - it.top_x);
 				temp.height = static_cast<double>(it.bot_y - it.top_y);
 				boxes.push_back(temp);
@@ -276,8 +276,6 @@ namespace glasssix::flame
 		 */
 		static std::vector<std::tuple<cv::Point, cv::Point, int>> non_max_suppression(std::vector<std::vector<float>>& prediction, float conf_thres, float iou_thres, float ratio)
 		{
-			// Compute conf = obj_conf * cls_conf
-			// Box (center x, center y, width, height) to (x1, y1, x2, y2, conf, classes)
 			auto compute_box = computeNx6(prediction, conf_thres);
 
 			// Batched NMS
@@ -285,17 +283,53 @@ namespace glasssix::flame
             std::vector<cv::Rect2d> bboxes;
             std::vector<float> scores;
             std::vector<int> classes;
-
-            std::tie(bboxes, scores, classes) = computeNmsInput(compute_box, max_wh);
-
+          
+            std::tie(bboxes, scores, classes) = computeNmsInput(compute_box, max_wh,ratio);
 			// Perform non-maximum suppression to eliminate redundant overlapping boxes with
 			// lower confidences
 			std::vector<int> indices;
-			cv::dnn::NMSBoxes(bboxes, scores, conf_thres, iou_thres, indices, 1.f, 3);
+
+            std::vector<int> indices_smoke;
+            std::vector<int> indices_fire;
+
+            std::vector<cv::Rect2d> bboxes_smoke;
+            std::vector<cv::Rect2d> bboxes_fire;
+            std::vector<int> mapping_smoke;
+            std::vector<int> mapping_fire;
+            std::vector<float> scores_smoke;
+            std::vector<float> scores_fire;
+            for(int i=0;i<bboxes.size(); i++)
+            {
+                if(classes[i]==1)
+                {
+                    bboxes_smoke.push_back(bboxes[i]);
+                    mapping_smoke.push_back(i);
+                    scores_smoke.push_back(scores[i]);
+                }
+                else
+                {
+                    bboxes_fire.push_back(bboxes[i]);
+                    mapping_fire.push_back(i);
+                    scores_fire.push_back(scores[i]);
+                }
+            }
+
+            cv::dnn::NMSBoxes(bboxes_smoke, scores_smoke, conf_thres, iou_thres, indices_smoke, 1.f, 3);
+
+			cv::dnn::NMSBoxes(bboxes_fire, scores_fire, conf_thres, iou_thres, indices_fire, 1.f, 3);
+
+            for(int i=0;i<indices_smoke.size();i++)
+            {
+                indices.push_back(mapping_smoke[ indices_smoke[i] ]  );
+            }
+
+            for(int i=0;i<indices_fire.size();i++)
+            {
+                indices.push_back(mapping_fire[ indices_fire[i] ]  );
+            }
 
 			std::vector<std::tuple<cv::Point, cv::Point, int>> output;
 
-			// x < 0 return 0; x > 0 return x;
 			auto f = [](int x){if(x<0) return 0; else return x;};
 
 			for (int idx : indices)
