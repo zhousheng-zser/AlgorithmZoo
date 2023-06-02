@@ -19,6 +19,7 @@ namespace glasssix::helmet
         int y1;
         int x2;
         int y2;
+		float score;
         int category;
     };
 
