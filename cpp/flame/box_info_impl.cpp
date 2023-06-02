@@ -32,6 +32,11 @@ namespace glasssix::flame
 	{
 		return internal_.y2;
 	}
+	
+	float box_info_impl::score() const
+	{
+		return internal_.score;
+	}
 
 	int box_info_impl::category() const
 	{

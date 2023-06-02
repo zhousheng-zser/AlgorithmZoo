@@ -274,7 +274,7 @@ namespace glasssix::flame
 		 * @return std::vector(boxes, classes)
 		 * @details Non-Maximum Suppression (NMS) on inference results
 		 */
-		static std::vector<std::tuple<cv::Point, cv::Point, int>> non_max_suppression(std::vector<std::vector<float>>& prediction, float conf_thres, float iou_thres, float ratio)
+		static std::vector<std::tuple<cv::Point, cv::Point, float, int>> non_max_suppression(std::vector<std::vector<float>>& prediction, float conf_thres, float iou_thres, float ratio)
 		{
 			auto compute_box = computeNx6(prediction, conf_thres);
 
@@ -328,7 +328,7 @@ namespace glasssix::flame
                 indices.push_back(mapping_fire[ indices_fire[i] ]  );
             }
 
-			std::vector<std::tuple<cv::Point, cv::Point, int>> output;
+			std::vector<std::tuple<cv::Point, cv::Point,float, int>> output;
 
 			auto f = [](int x){if(x<0) return 0; else return x;};
 
@@ -336,7 +336,7 @@ namespace glasssix::flame
 			{
 				auto box1 = cv::Point(f(static_cast<int>(compute_box[idx].top_x * ratio)), f(static_cast<int>(compute_box[idx].top_y * ratio)));
 				auto box2 = cv::Point(f(static_cast<int>(compute_box[idx].bot_x * ratio)), f(static_cast<int>(compute_box[idx].bot_y * ratio)));
-				output.emplace_back(std::make_tuple(box1, box2, compute_box[idx].category));
+				output.emplace_back(std::make_tuple(box1, box2, compute_box[idx].conf, compute_box[idx].category));
 			}
 			
 			return output;
@@ -391,7 +391,8 @@ namespace glasssix::flame
                 temp.y1 = std::get<0>(it).y;
                 temp.x2 = std::get<1>(it).x;
                 temp.y2 = std::get<1>(it).y;
-                temp.category = std::get<2>(it);
+                temp.score = std::get<2>(it);
+				temp.category = std::get<3>(it);
                 output.push_back(temp);
             }
 

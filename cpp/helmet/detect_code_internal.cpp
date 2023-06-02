@@ -250,6 +250,7 @@ namespace glasssix::helmet
                 box_info.y1 = static_cast<int>(bbox[1] * ratio);
                 box_info.x2 = static_cast<int>(bbox[2] * ratio);
                 box_info.y2 = static_cast<int>(bbox[3] * ratio);
+				box_info.score = bbox[4] * bbox[5];
                 box_info.category = static_cast<int>(bbox[6]);
                 result.push_back(box_info);
             }

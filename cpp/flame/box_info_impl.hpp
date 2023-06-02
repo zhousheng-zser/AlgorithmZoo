@@ -19,6 +19,7 @@ namespace glasssix::flame
         int y1() const;
         int x2() const;
         int y2() const;
+		float score() const;
         int category() const;
 
     private:
