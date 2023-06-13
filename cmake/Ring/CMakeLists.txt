@@ -1,6 +1,4 @@
-﻿# add_library(ring SHARED "ring.cpp" "ring.h")
-
-cmake_minimum_required(VERSION 3.14.3)
+﻿cmake_minimum_required(VERSION 3.14.3)
 
 set(module_name ring)
 set(hardcode_dir ${CMAKE_CURRENT_SOURCE_DIR}/../../cpp/hardcode)

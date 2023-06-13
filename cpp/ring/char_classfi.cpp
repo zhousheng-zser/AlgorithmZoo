@@ -46,51 +46,35 @@ namespace glasssix
 			return { label_index_[biggest_index], std::exp(detections[biggest_index]) / sum };
 		}
 
-		std::vector<std::array<std::pair<char, float>,2>> char_classfi::detectBatchTop2(std::vector<cv::Mat>& imgs, excalibur::pipeline<float>& classfi_instance) {
-			std::vector<std::array<std::pair<char, float>, 2>> rst;
-			for (auto& img : imgs) {
-				img = pre_handel_img(img);
-			}
-			int BatchSize = imgs.size();
+		std::vector<std::pair<char, float>> char_classfi::detect_tolist(cv::Mat& img, excalibur::pipeline<float>& classfi_instance)
+		{
+			cv::Mat pre_img = pre_handel_img(img);
+			auto input_img = std::make_shared<memory::tensor<std::uint8_t>>(std::vector<int>{1, 64, 48, pre_img.channels()}, -1, memory::NHWC);
+			std::copy(pre_img.data, pre_img.data + pre_img.step[0] * pre_img.rows, input_img->mutable_cpu_data());
+			input_img->convert_order();
+			auto result = classfi_instance.forward(input_img | memory::tensor_convert_to<float>);
+			std::vector<float> detections(result["output"]->cpu_data(), result["output"]->cpu_data() + result["output"]->count());
 
-			int intSteps = 64 * 48 * imgs[0].channels();
-			auto inputs_img = std::make_shared<memory::tensor<std::uint8_t>>(std::vector<int>{int(imgs.size()), 64, 48, imgs[0].channels()}, -1, memory::NHWC);
-			for (int i = 0; i < BatchSize; i++) {
-				auto pre_img = imgs[i];
-				std::copy(pre_img.data, pre_img.data + pre_img.step[0] * pre_img.rows, inputs_img->mutable_cpu_data() + i * intSteps);
-			}
-			inputs_img->convert_order();
-			auto intput_tensor = inputs_img | memory::tensor_convert_to<float>;
-
-			auto result = classfi_instance.forward(intput_tensor);
-
-			int outSteps = result["output"]->count() / BatchSize;
-			for (int i = 0; i < BatchSize; i++) {
-				std::vector<float> detection(result["output"]->cpu_data() + i * outSteps, result["output"]->cpu_data() + i * outSteps + outSteps);
-				// softmax
-				float sum = 0.f;
-				for (int i = 0; i < detection.size(); i++)
-				{
-					sum += std::exp(detection[i]);
-				}
-
-				//find max confidence score top 2
-				std::priority_queue<std::pair<int, float>,std::vector<std::pair<int, float>>, CmpIdxScorePair> maxes_index_score;
-				for (int i = 0; i < detection.size(); i++) {
-					maxes_index_score.push({ i,detection[i] });
-				}
-				std::array<std::pair<char, float>, 2> top2_char_conf;
-				for (auto& char_conf : top2_char_conf) {
-					auto [idx,score] = maxes_index_score.top();
-					char_conf.first = label_index_[idx];
-					char_conf.second = std::exp(score) / sum;
-					maxes_index_score.pop();
-				}
-
-				rst.push_back(top2_char_conf);
+			std::vector<std::pair<int, float>> locDetections;
+			std::vector<std::pair<char, float>> chrDetections;
+			for (int i = 0; i < detections.size(); i++) {
+				locDetections.push_back({i,detections[i] });
 			}
 
-			return rst;
+			std::sort(locDetections.begin(), locDetections.end(), [&](std::pair<int, float>& Ea, std::pair<int, float>& Eb)->bool {return Ea.second > Eb.second; }); //按照score由大到小排序
+
+			// softmax
+			float sum = 0.f;
+			for (int i = 0; i < detections.size(); i++)
+			{
+				sum += std::exp(detections[i]);
+			}
+
+			for (auto loc_score : locDetections) {
+				chrDetections.push_back({ label_index_[loc_score.first],std::exp(loc_score.second) / sum });
+			}
+
+			return chrDetections;
 		}
 
 		std::vector<std::pair<char, float>> char_classfi::detectBatch(std::vector<cv::Mat>& imgs, excalibur::pipeline<float>& classfi_instance) {
