@@ -18,8 +18,8 @@ namespace glasssix
 		public:
 			char_classfi(label_type lt);
 			std::pair<char, float> detect(cv::Mat& img, excalibur::pipeline<float>& classfi_instance);
+			std::vector<std::pair<char, float>> detect_tolist(cv::Mat& img, excalibur::pipeline<float>& classfi_instance);
 			std::vector<std::pair<char, float>> detectBatch(std::vector<cv::Mat>& imgs, excalibur::pipeline<float>& classfi_instance);
-			std::vector<std::array<std::pair<char, float>, 2>> detectBatchTop2(std::vector<cv::Mat>& imgs, excalibur::pipeline<float>& classfi_instance);
 			std::vector<std::vector<std::pair<char, float>>> detectBatch(std::vector<std::vector<cv::Mat>>& imgVec, excalibur::pipeline<float>& classfi_instance);
 		private:
 			cv::Mat pre_handel_img(cv::Mat& img);
