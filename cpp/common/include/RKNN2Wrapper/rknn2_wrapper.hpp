@@ -6,6 +6,7 @@
 #include <unordered_map>
 
 #include "Primitives/tensor.hpp"
+#include "Primitives/fmt/format.h"
 #include "rknn_api.h"
 
 namespace glasssix
@@ -136,6 +137,16 @@ namespace glasssix
 					printf("rknn_destroy fail!\n");
 			}
 			
+			std::string version()
+			{
+				rknn_sdk_version version;
+				int ret = rknn_query(ctx_, RKNN_QUERY_SDK_VERSION, &version, sizeof(rknn_sdk_version));
+				if (ret < 0)
+					throw rknn_exception(ret, "rknn query sdk version failed");
+
+				return fmt::format(R"({{"api_version":"{}", "drv_version":"{}"}})", version.api_version, version.drv_version);
+			}
+
 			std::unordered_map<std::string, std::shared_ptr<memory::tensor<float>>> forward(const std::shared_ptr<memory::tensor<std::uint8_t>>& input_tensor)
 			{
 				CHECK_EQ(1, io_num_.n_input);

@@ -62,7 +62,7 @@ namespace glasssix::selene
 		/// Gets the version of the component.
 		/// </summary>
 		/// <returns>The version</returns>
-		static std::string version();
+		std::string version();
 	private:
 		std::unique_ptr<impl> impl_;
 	};

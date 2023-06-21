@@ -6,6 +6,7 @@
 #include <Excalibur/pipeline.hpp>
 #include <Primitives/pool_allocator.hpp>
 #include <Primitives/tensor_conversions.hpp>
+#include <Primitives/fmt/format.h>
 
 #ifdef USE_CUDA
 #include <cuda_runtime_api.h>
@@ -123,9 +124,17 @@ namespace glasssix::selene
 			return model_type_;
 		}
 
-		static std::string version()
+		std::string version()
 		{
-			return "1.0.0";
+			const std::string algo_module_version = "1.0.0";
+
+#if defined(USE_RKNNAPI) || defined(USE_RKNN2API)
+			//#if 0
+			std::string nn_frame_version = rknnwrapper::rknn_wrapper::version();
+#else
+			std::string nn_frame_version = excalibur::pipeline<float>::version();
+#endif
+			return fmt::format(R"({{"nn_frame_version":"{}", "algo_module_version":"{}"}})", nn_frame_version, algo_module_version);
 		}
 	private:
 		void init_cache(exposing::param_span<std::uint8_t> bitmaps, std::size_t count, int order)
@@ -183,6 +192,6 @@ namespace glasssix::selene
 
 	std::string feature_extractor_internal::version()
 	{
-		return impl::version();
+		return impl_->version();
 	}
 }
