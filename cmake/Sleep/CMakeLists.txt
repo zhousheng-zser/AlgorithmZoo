@@ -1,8 +1,8 @@
 cmake_minimum_required(VERSION 3.14.3)
-set(module_name gungnir)
+set(module_name sleep)
 set(hardcode_dir ${CMAKE_CURRENT_SOURCE_DIR}/../../cpp/hardcode)
-file(GLOB src ${CMAKE_CURRENT_SOURCE_DIR}/../../cpp/gungnir/*.cpp)
-file(GLOB header ${CMAKE_CURRENT_SOURCE_DIR}/../../cpp/gungnir/*.hpp)
+file(GLOB src ${CMAKE_CURRENT_SOURCE_DIR}/../../cpp/sleep/*.cpp)
+file(GLOB header ${CMAKE_CURRENT_SOURCE_DIR}/../../cpp/sleep/*.hpp)
 
 add_library(${module_name} SHARED ${src} ${header})
 
