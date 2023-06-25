@@ -130,9 +130,9 @@ namespace glasssix::selene
 
 #if defined(USE_RKNNAPI) || defined(USE_RKNN2API)
 			//#if 0
-			std::string nn_frame_version = rknnwrapper::rknn_wrapper::version();
+			std::string nn_frame_version = feature_extractor_instance_->version();
 #else
-			std::string nn_frame_version = excalibur::pipeline<float>::version();
+			std::string nn_frame_version = feature_extractor_instance_->version();
 #endif
 			return fmt::format(R"({{"nn_frame_version":"{}", "algo_module_version":"{}"}})", nn_frame_version, algo_module_version);
 		}
