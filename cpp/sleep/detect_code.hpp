@@ -1,30 +1,29 @@
-#ifndef __YOLO_NET_HPP__
-#define __YOLO_NET_HPP__
+#ifndef _SLEEP_DETECT_CODE_HPP_
+#define _SLEEP_DETECT_CODE_HPP_
 
-#include "hat_info.hpp"
+#include "box_info.hpp"
 #include <abi/consumer.hpp>
 
-namespace glasssix::gungnir
+namespace glasssix::sleep
 {
-    struct yolo_net;
-    struct Object;
+    struct detect_code;
 }
 
 namespace glasssix::exposing::impl
 {
     template <>
-    struct abi<gungnir::yolo_net>
+    struct abi<sleep::detect_code>
     {
         using identity_type = type_identity_interface;
 
-        static constexpr guid id{"9F91EE36-0C72-4B6A-B394-985D2E8B62F5"};
+        static constexpr guid id{ "5B4A8B2B-DB25-4317-8F7A-8664D5B3BE03" };
 
         struct type : abi_unknown_object
         {
             virtual std::int32_t G6_ABI_CALL init(
-            abi_in_t<param_string> model_directory,
-            std::int32_t device) noexcept = 0;
-        
+                abi_in_t<param_string> model_directory,
+                std::int32_t device) noexcept = 0;
+
             virtual std::int32_t G6_ABI_CALL detect(
                 abi_in_t<param_span<std::uint8_t>> bitmap,
                 std::int32_t channels,
@@ -34,14 +33,17 @@ namespace glasssix::exposing::impl
                 std::int32_t roi_y,
                 std::int32_t roi_width,
                 std::int32_t roi_height,
-                abi_out_t<param_vector<param_vector<float>>> result) noexcept = 0;
+                abi_in_t<exposing::param_hash_map<exposing::param_string, float>> param_map_abi,
+                abi_out_t<exposing::param_vector<sleep::box_info>> result) noexcept = 0;
+
             virtual std::int32_t G6_ABI_CALL version(abi_out_t<param_string> result) noexcept = 0;
         };
     };
 
     template <typename Derived>
-    struct interface_vtable<Derived, gungnir::yolo_net> : interface_vtable_base<Derived, gungnir::yolo_net>
+    struct interface_vtable<Derived, sleep::detect_code> : interface_vtable_base<Derived, sleep::detect_code>
     {
+
         virtual std::int32_t G6_ABI_CALL init(
             abi_in_t<param_string> model_directory,
             std::int32_t device) noexcept override
@@ -60,24 +62,32 @@ namespace glasssix::exposing::impl
             std::int32_t roi_y,
             std::int32_t roi_width,
             std::int32_t roi_height,
-            abi_out_t<param_vector<param_vector<float>>> result) noexcept override
+            abi_in_t<exposing::param_hash_map<exposing::param_string, float>> param_map_abi,
+            abi_out_t<exposing::param_vector<sleep::box_info>> result) noexcept override
         {
-                return abi_safe_call([&] { *result = detach_abi(this->self().detect(create_from_abi<param_span<std::uint8_t>>(bitmap), channels, height, width, roi_x, roi_y, roi_width, roi_height)); });
+            return abi_safe_call([&]
+                { *result = detach_abi(this->self().detect(create_from_abi<param_span<std::uint8_t>>(bitmap), channels, height, width, roi_x, roi_y, roi_width, roi_height,
+                   create_from_abi<exposing::param_hash_map<exposing::param_string, float>>(param_map_abi))); });
         }
 
         virtual std::int32_t G6_ABI_CALL version(abi_out_t<param_string> result) noexcept override
         {
-            return abi_safe_call([&] { *result = detach_abi(this->self().version()); });
+            return abi_safe_call(
+                [&]
+                {
+                    *result = detach_abi(this->self().version());
+                }
+                );
         }
     };
 
     template <>
-    struct abi_adapter<gungnir::yolo_net>
+    struct abi_adapter<sleep::detect_code>
     {
         template <typename Derived>
-        struct type : enable_self_abi_awareness<Derived, gungnir::yolo_net>
+        struct type : enable_self_abi_awareness<Derived, sleep::detect_code>
         {
-             void init(
+            void init(
                 const param_string& model_directory,
                 std::int32_t device) const
             {
@@ -86,7 +96,7 @@ namespace glasssix::exposing::impl
                     get_abi(device)));
             }
 
-            param_vector<gungnir::hat_info> detect(
+            exposing::param_vector<sleep::box_info> detect(
                 param_span<std::uint8_t> bitmap,
                 std::int32_t channels,
                 std::int32_t height,
@@ -94,10 +104,13 @@ namespace glasssix::exposing::impl
                 std::int32_t roi_x,
                 std::int32_t roi_y,
                 std::int32_t roi_width,
-                std::int32_t roi_height) const
+                std::int32_t roi_height,
+                const exposing::param_hash_map<exposing::param_string, float>& param_map_abi) const
             {
-                param_vector<gungnir::hat_info> result{nullptr};
-                return (check_abi_result(this->self_abi().detect(
+                exposing::param_vector<sleep::box_info> result{ nullptr };
+
+                return (check_abi_result(
+                    this->self_abi().detect(
                         get_abi(bitmap),
                         channels,
                         height,
@@ -106,6 +119,7 @@ namespace glasssix::exposing::impl
                         roi_y,
                         roi_width,
                         roi_height,
+                        get_abi(param_map_abi),
                         put_abi(result))
                 ),
                 result);
@@ -113,7 +127,7 @@ namespace glasssix::exposing::impl
 
             param_string version() const
             {
-                param_string result{nullptr};
+                param_string result{ nullptr };
 
                 return (check_abi_result(this->self_abi().version(put_abi(result))), result);
             }
@@ -121,11 +135,12 @@ namespace glasssix::exposing::impl
     };
 }
 
-namespace glasssix::gungnir
+namespace glasssix::sleep
 {
-    struct yolo_net : exposing::inherits<yolo_net>
+    struct detect_code : exposing::inherits<detect_code>
     {
         using inherits::inherits;
     };
 }
+
 #endif

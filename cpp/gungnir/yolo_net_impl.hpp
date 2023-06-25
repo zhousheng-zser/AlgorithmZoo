@@ -17,10 +17,9 @@ namespace glasssix::gungnir
     public:
         yolo_net_impl();
         ~yolo_net_impl();
-        void init(const exposing::param_string &racy_path, std::int32_t device);
-        void init(exposing::param_span<const exposing::param_string> phai, const exposing::param_string &racy_path, std::int32_t device);
-        exposing::param_string version() const;
-        exposing::param_vector<hat_info> detect(exposing::param_span<std::uint8_t> bitmap, int channels, int height, int width, int order) const;
+        void init(const exposing::param_string& model_directory, std::int32_t device);
+        exposing::param_string version() const ;
+        exposing::param_vector<hat_info> detect(exposing::param_span<std::uint8_t> bitmap, int channels, int height, int width, int roi_x, int roi_y, int roi_width, int roi_height) const;
 
     private:
         std::unique_ptr<yolo_net_internal> impl_;
