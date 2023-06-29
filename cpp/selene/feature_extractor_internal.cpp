@@ -85,9 +85,9 @@ namespace glasssix::selene
 					std::uint8_t* r = bitmaps.data() + i * 3 * 128 * 128 + 2 * 128 * 128;
 					for (size_t j = 0; j < 128 * 128; j++)
 					{
-						*(nhwc_bitmaps.data() + i * 3 * 128 * 128 + j) = *(b + j);
-						*(nhwc_bitmaps.data() + i * 3 * 128 * 128 + j + 1) = *(g + j);
-						*(nhwc_bitmaps.data() + i * 3 * 128 * 128 + j + 2) = *(r + j);
+						nhwc_bitmaps[i * 3 * 128 * 128 + j * 3] = b[j];
+						nhwc_bitmaps[i * 3 * 128 * 128 + j * 3 + 1] = g[j];
+						nhwc_bitmaps[i * 3 * 128 * 128 + j * 3 + 2] = r[j];
 					}
 				}
 				network_result = (*feature_extractor_instance_).forward(nhwc_bitmaps.data(), { static_cast<int>(count), 3, 128, 128 }, rknn_tensor_format::RKNN_TENSOR_NHWC);
