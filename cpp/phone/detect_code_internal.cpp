@@ -13,6 +13,7 @@
 
 #include <RKNN2Wrapper/rknn2_wrapper.hpp>
 
+#include <opencv2/dnn.hpp>
 #include <opencv2/core.hpp>
 #include <opencv2/imgproc.hpp>
 
@@ -248,7 +249,7 @@ namespace glasssix::phone
                  temp.width = static_cast<double>(it.x2 - it.x1);
                  temp.height = static_cast<double>(it.y2 - it.y1);
                  boxes.push_back(temp);
-                 scores.push_back(it.conf);
+                 scores.push_back(it.score);
                  category.push_back(it.category);
              }
              return std::make_tuple(boxes, scores, category);
@@ -343,9 +344,9 @@ namespace glasssix::phone
                     {"conf_thres", param_map.count("conf_thres") ? param_map["conf_thres"] : 0.5f},
                     {"iou_thres",  param_map.count("iou_thres") ? param_map["iou_thres"] : 0.5f}};
 			
-            cv::Mat image_blob;
+            cv::Mat blob;
             float ratio;
-            std::tie(image_blob, ratio) = preprocess(image);
+            std::tie(blob, ratio) = preprocess(image);
 
             std::vector<std::shared_ptr<memory::tensor<float>>> forwards;
 
@@ -367,7 +368,7 @@ namespace glasssix::phone
             auto nms_result = non_max_suppression(result, conf_threshold, iou_threshold);
 
             auto old_shape = cv::Size(image.cols, image.rows);
-            auto new_shape = cv::Size(image_blob.cols, image_blob.rows);
+            auto new_shape = cv::Size(blob.cols, blob.rows);
 
             auto scale_box = scale_coords(nms_result, new_shape, old_shape);
 
