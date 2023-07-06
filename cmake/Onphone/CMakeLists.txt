@@ -1,8 +1,8 @@
 cmake_minimum_required(VERSION 3.14.3)
-set(module_name flame)
+set(module_name onphone)
 set(hardcode_dir ${CMAKE_CURRENT_SOURCE_DIR}/../../cpp/hardcode)
-file(GLOB src ${CMAKE_CURRENT_SOURCE_DIR}/../../cpp/flame/*.cpp)
-file(GLOB header ${CMAKE_CURRENT_SOURCE_DIR}/../../cpp/flame/*.hpp)
+file(GLOB src ${CMAKE_CURRENT_SOURCE_DIR}/../../cpp/onphone/*.cpp)
+file(GLOB header ${CMAKE_CURRENT_SOURCE_DIR}/../../cpp/onphone/*.hpp)
 
 add_library(${module_name} SHARED ${src} ${header})
 

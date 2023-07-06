@@ -20,6 +20,7 @@ namespace glasssix::sleep
         int x2() const;
         int y2() const;
         int category() const;
+        float confidence() const;
 
     private:
         box_info_internal internal_{};

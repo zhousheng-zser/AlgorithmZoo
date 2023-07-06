@@ -98,6 +98,7 @@ namespace glasssix::sleep
             int x2;
             int y2;
             int category;
+            float confidence;
         };
         static bool sort_score(Bbox box1,Bbox box2) {
             return box1.score > box2.score ? true : false;
@@ -400,9 +401,6 @@ namespace glasssix::sleep
             auto bboxes_work=nms(class_work, iou_thres);
             auto bboxes_other = nms(class_other, iou_thres);
             std::vector<location_char> output;
-            //std::vector<location_char> output_metra;
-
-            //auto f = [](int x){if(x<0) return 0; else return x;};
 
             for (auto it : bboxes_work)
             {   
@@ -412,6 +410,7 @@ namespace glasssix::sleep
                 temp.y1=it.y;
                 temp.y2=it.y+it.h;
                 temp.category = it.category;
+                temp.confidence=it.score;
                 output.emplace_back(temp);
             }
 
@@ -423,6 +422,7 @@ namespace glasssix::sleep
                 temp.y1 = it.y;
                 temp.y2 = it.y + it.h;
                 temp.category = it.category;
+                temp.confidence=it.score;
                 output.emplace_back(temp);
             }
 
@@ -479,6 +479,7 @@ namespace glasssix::sleep
                 temp.y2 = it.y2;
                 // temp.category = std::get<2>(it);
                 temp.category=it.category;
+                temp.confidence=it.confidence;
                 // std::cout<< temp.category<<std::endl;
                 output.push_back(temp);
             }

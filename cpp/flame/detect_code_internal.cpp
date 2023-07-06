@@ -49,13 +49,11 @@ namespace glasssix::flame
             {
                   throw exposing::abi_invalid_argument("incorrect roi in flame");
             }
-
             cv::Mat cropped_image = image(cv::Range(roi_y,roi_y+roi_height), cv::Range(roi_x,roi_x+roi_width));
 
             auto result = run_detect(cropped_image, roi_x, roi_y, roi_width, roi_height, param_map);
 
             auto results = exposing::make_param_vector<flame::box_info>();
-
             for(auto& it:result) {
                 it.x1+=roi_x;
                 it.x2+=roi_x;
@@ -63,7 +61,6 @@ namespace glasssix::flame
                 it.y2+=roi_y;
                 results.push_back(glasssix::exposing::make_as_first<box_info_impl>(it));
             }
-
             return results;
         }
 
@@ -300,17 +297,17 @@ namespace glasssix::flame
             std::vector<float> scores_fire;
             for(int i=0;i<bboxes.size(); i++)
             {
-                if(classes[i]==1)
-                {
-                    bboxes_smoke.push_back(bboxes[i]);
-                    mapping_smoke.push_back(i);
-                    scores_smoke.push_back(scores[i]);
-                }
-                else
+                if(classes[i]==0)
                 {
                     bboxes_fire.push_back(bboxes[i]);
                     mapping_fire.push_back(i);
                     scores_fire.push_back(scores[i]);
+                }
+                else
+                {   
+                    bboxes_smoke.push_back(bboxes[i]);
+                    mapping_smoke.push_back(i);
+                    scores_smoke.push_back(scores[i]);
                 }
             }
 
@@ -362,13 +359,10 @@ namespace glasssix::flame
             float ratio = 0;
 
             std::tie(blob, ratio) = preprocess(image,new_shape);
-           
             std::vector<std::shared_ptr<memory::tensor<float>>> forwards;
-
             auto  network_result = net_instance_.forward(blob.data, { 1, blob.rows, blob.cols,blob.channels() }, RKNN_TENSOR_NHWC);
-
-            std::vector<std::string>  out_names={"417","437","output"};
-
+            // std::vector<std::string>  out_names={"417","437","output"};
+                        std::vector<std::string>  out_names={"395","407","output"};
 
             for (size_t i=0;i< 3; i++)//对输出数据做处理
             {

@@ -20,6 +20,7 @@ namespace glasssix::sleep
         int x2;
         int y2;
         int category;
+        float confidence;
     };
 
     class detect_code_internal

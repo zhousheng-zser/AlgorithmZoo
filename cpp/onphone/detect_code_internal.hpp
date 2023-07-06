@@ -1,5 +1,5 @@
-#ifndef __HELMET_DETECT_CODE_INTERNAL_HPP__
-#define __HELMET_DETECT_CODE_INTERNAL_HPP__
+#ifndef __DETECT_CODE_INTERNAL_HPP__
+#define __DETECT_CODE_INTERNAL_HPP__
 
 #include <memory>
 #include <string>
@@ -11,7 +11,7 @@
 
 #include "box_info.hpp"
 
-namespace glasssix::helmet
+namespace glasssix::onphone
 {
     struct box_info_internal
     {
@@ -20,6 +20,7 @@ namespace glasssix::helmet
         int x2;
         int y2;
         int category;
+        float confidence;
     };
 
     class detect_code_internal
@@ -41,7 +42,7 @@ namespace glasssix::helmet
 
         static std::string version();
 
-        exposing::param_vector<helmet::box_info> detect(exposing::param_span<std::uint8_t> bitmap, int channels, int height, int width, int roi_x, int roi_y, int roi_width, int roi_height, std::map<std::string, float>& param_map) const;
+        exposing::param_vector<onphone::box_info> detect(exposing::param_span<std::uint8_t> bitmap, int channels, int height, int width, int roi_x, int roi_y, int roi_width, int roi_height, std::map<std::string, float>& param_map) const;
 
     private:
         std::unique_ptr<impl> impl_;

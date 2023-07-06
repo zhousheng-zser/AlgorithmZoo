@@ -17,13 +17,14 @@ namespace glasssix::exposing::impl
 
         static constexpr guid id{ "175F88D1-BB9D-6963-D224-EDF08DFCCBEF" };
 
-        struct type : abi_unknown_object
+          struct type : abi_unknown_object
         {
             virtual std::int32_t G6_ABI_CALL x1(abi_out_t<int> result) noexcept = 0;
             virtual std::int32_t G6_ABI_CALL y1(abi_out_t<int> result) noexcept = 0;
             virtual std::int32_t G6_ABI_CALL x2(abi_out_t<int> result) noexcept = 0;
             virtual std::int32_t G6_ABI_CALL y2(abi_out_t<int> result) noexcept = 0;
 			virtual std::int32_t G6_ABI_CALL category(abi_out_t<int> result) noexcept = 0;
+            virtual std::int32_t G6_ABI_CALL confidence(abi_out_t<float> result) noexcept = 0;
         };
     };
 
@@ -58,6 +59,11 @@ namespace glasssix::exposing::impl
         {
             return abi_safe_call([&]
                                  { *result = detach_abi(this->self().category()); });
+        }
+        virtual std::int32_t G6_ABI_CALL confidence(abi_out_t<float> result) noexcept override
+        {
+            return abi_safe_call([&]
+                                 { *result = detach_abi(this->self().confidence()); });
         }
     };
 
@@ -97,6 +103,12 @@ namespace glasssix::exposing::impl
                 int result = 0;
 
                 return (check_abi_result(this->self_abi().category(put_abi(result))), result);
+            }
+            float confidence() const
+            {
+                float result = 0.f;
+
+                return (check_abi_result(this->self_abi().confidence(put_abi(result))), result);
             }
         };
     };

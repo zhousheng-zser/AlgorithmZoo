@@ -1,21 +1,21 @@
-#ifndef __HAT_INFO_HPP__
-#define __HAT_INFO_HPP__
+#ifndef __LEAVEPOST_HPP__
+#define __LEAVEPOST_HPP__
 
 #include <abi/consumer.hpp>
 
-namespace glasssix::gungnir
+namespace glasssix::leavepost
 {
-    struct hat_info;
+    struct box_info;
 }
 
 namespace glasssix::exposing::impl
 {
     template <>
-    struct abi<gungnir::hat_info>
+    struct abi<leavepost::box_info>
     {
         using identity_type = type_identity_interface;
 
-        static constexpr guid id{"{D7B27FB9-8C63-45ED-A236-AD644D3097F5}"};
+        static constexpr guid id{"85507728-84E1-47DC-BCC6-F6B842E2E84D"};
 
         struct type : abi_unknown_object
         {
@@ -23,13 +23,13 @@ namespace glasssix::exposing::impl
             virtual std::int32_t G6_ABI_CALL y(abi_out_t<float> result) noexcept = 0;
             virtual std::int32_t G6_ABI_CALL width(abi_out_t<float> result) noexcept = 0;
             virtual std::int32_t G6_ABI_CALL height(abi_out_t<float> result) noexcept = 0;
-            virtual std::int32_t G6_ABI_CALL prob(abi_out_t<float> result) noexcept = 0;
+            virtual std::int32_t G6_ABI_CALL confidence(abi_out_t<float> result) noexcept = 0;
             virtual std::int32_t G6_ABI_CALL label(abi_out_t<float> result) noexcept = 0;
         };
     };
 
     template <typename Derived>
-    struct interface_vtable<Derived, gungnir::hat_info> : interface_vtable_base<Derived, gungnir::hat_info>
+    struct interface_vtable<Derived, leavepost::box_info> : interface_vtable_base<Derived, leavepost::box_info>
     {
         virtual std::int32_t G6_ABI_CALL x(abi_out_t<float> result) noexcept override
         {
@@ -51,9 +51,9 @@ namespace glasssix::exposing::impl
             return abi_safe_call([&] { *result = detach_abi(this->self().height()); });
         }
 
-        virtual std::int32_t G6_ABI_CALL prob(abi_out_t<float> result) noexcept override
+        virtual std::int32_t G6_ABI_CALL confidence(abi_out_t<float> result) noexcept override
         {
-            return abi_safe_call([&] { *result = detach_abi(this->self().prob()); });
+            return abi_safe_call([&] { *result = detach_abi(this->self().confidence()); });
         }
 
         virtual std::int32_t G6_ABI_CALL label(abi_out_t<float> result) noexcept override
@@ -63,10 +63,10 @@ namespace glasssix::exposing::impl
     };
 
     template <>
-    struct abi_adapter<gungnir::hat_info>
+    struct abi_adapter<leavepost::box_info>
     {
         template <typename Derived>
-        struct type : enable_self_abi_awareness<Derived, gungnir::hat_info>
+        struct type : enable_self_abi_awareness<Derived, leavepost::box_info>
         {
             float x() const
             {
@@ -92,11 +92,11 @@ namespace glasssix::exposing::impl
 
                 return (check_abi_result(this->self_abi().height(put_abi(result))), result);
             }
-            float prob() const
+            float confidence() const
             {
                 float result = 0;
 
-                return (check_abi_result(this->self_abi().prob(put_abi(result))), result);
+                return (check_abi_result(this->self_abi().confidence(put_abi(result))), result);
             }
             float label() const
             {
@@ -108,9 +108,9 @@ namespace glasssix::exposing::impl
     };
 }
 
-namespace glasssix::gungnir
+namespace glasssix::leavepost
 {
-    struct hat_info : exposing::inherits<hat_info>
+    struct box_info : exposing::inherits<box_info>
     {
         using inherits::inherits;
     };
