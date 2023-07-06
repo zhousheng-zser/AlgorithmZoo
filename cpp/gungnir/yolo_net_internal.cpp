@@ -43,7 +43,7 @@ namespace glasssix::gungnir
         {
         }
 
-        impl(const std::vector<std::string> &phai, std::string_view racy_path, int device) : device_{device}, hat_simp_{phai, std::string{racy_path}+ "/" +std::string("hat_simp.racy"), device}
+        impl(const std::vector<std::string> &phai, std::string_view racy_path, int device) : device_{device}, hat_simp_{phai, std::string{racy_path}+ "/" +std::string("gungnir.racy"), device}
         {
         }
 
