@@ -1,9 +1,9 @@
-#ifndef _HELMET_BOX_INFO_HPP_
-#define _HELMET_BOX_INFO_HPP_
+#ifndef _ONPHONE_BOX_INFO_HPP_
+#define _ONPHONE_BOX_INFO_HPP_
 
 #include <abi/consumer.hpp>
 
-namespace glasssix::helmet
+namespace glasssix::onphone
 {
     struct box_info;
 }
@@ -11,11 +11,11 @@ namespace glasssix::helmet
 namespace glasssix::exposing::impl
 {
     template<>
-    struct abi<helmet::box_info>
+    struct abi<onphone::box_info>
     {
         using identity_type = type_identity_interface;
 
-        static constexpr guid id{ "F1F4F13C-E821-40C4-A088-3AF89B48C517" };
+        static constexpr guid id{ "D117F883-CCE9-D991-C559-CE01CF88DBD4" };
 
         struct type : abi_unknown_object
         {
@@ -24,11 +24,12 @@ namespace glasssix::exposing::impl
             virtual std::int32_t G6_ABI_CALL x2(abi_out_t<int> result) noexcept = 0;
             virtual std::int32_t G6_ABI_CALL y2(abi_out_t<int> result) noexcept = 0;
 			virtual std::int32_t G6_ABI_CALL category(abi_out_t<int> result) noexcept = 0;
+            virtual float G6_ABI_CALL confidence(abi_out_t<float> result) noexcept = 0;
         };
     };
 
     template <typename Derived>
-    struct interface_vtable<Derived, helmet::box_info> : interface_vtable_base<Derived, helmet::box_info>
+    struct interface_vtable<Derived, onphone::box_info> : interface_vtable_base<Derived, onphone::box_info>
     {
 
         virtual std::int32_t G6_ABI_CALL x1(abi_out_t<int> result) noexcept override
@@ -59,13 +60,19 @@ namespace glasssix::exposing::impl
             return abi_safe_call([&]
                                  { *result = detach_abi(this->self().category()); });
         }
+
+        virtual float G6_ABI_CALL confidence(abi_out_t<float> result) noexcept override
+        {
+            return abi_safe_call([&]
+                                 { *result = detach_abi(this->self().confidence()); });
+        }
     };
 
     template <>
-    struct abi_adapter<helmet::box_info>
+    struct abi_adapter<onphone::box_info>
     {
         template <typename Derived>
-        struct type : enable_self_abi_awareness<Derived, helmet::box_info>
+        struct type : enable_self_abi_awareness<Derived, onphone::box_info>
         {
 
             int x1() const
@@ -98,11 +105,17 @@ namespace glasssix::exposing::impl
 
                 return (check_abi_result(this->self_abi().category(put_abi(result))), result);
             }
+            float confidence() const
+            {
+                float result = 0.f;
+
+                return (check_abi_result(this->self_abi().confidence(put_abi(result))), result);
+            }
         };
     };
 }
 
-namespace glasssix::helmet
+namespace glasssix::onphone
 {
     struct box_info : exposing::inherits<box_info>
     {

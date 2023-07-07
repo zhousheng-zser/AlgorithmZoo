@@ -17,7 +17,7 @@
 #include <opencv2/dnn.hpp>
 
 
-namespace glasssix::smoke
+namespace glasssix::onphone
 {
     class detect_code_internal::impl
     {
@@ -29,16 +29,16 @@ namespace glasssix::smoke
         }
 
         impl(const std::vector<std::string> &phai, std::string model_directory, int device)
-                :net_detect_(phai,  model_directory + std::string("/person_sim.rknn"), device), net_category_(phai, model_directory + std::string("/smoke_sim.rknn"), device), model_directory_(model_directory)
+                :net_detect_(phai,  model_directory + std::string("/person_sim.rknn"), device), net_category_(phai, model_directory + std::string("/onphone_sim.rknn"), device), model_directory_(model_directory)
                 ,weight_Gemm_87 (new glasssix::memory::tensor<float>(2, 8192, -1, glasssix::memory::NCHW, nullptr))
         {   
            
-            get_weight (model_directory+std::string("/smoke_supplement.racy") ,8192*2,weight_Gemm_87);
+            get_weight (model_directory+std::string("/onphone_supplement.racy") ,8192*2,weight_Gemm_87);
         }
 
-        exposing::param_vector<smoke::box_info> detect(const exposing::param_span<std::uint8_t>& bitmap, int channels, int height, int width, int roi_x, int roi_y, int roi_width, int roi_height, std::map<std::string, float>& param_map)
+        exposing::param_vector<onphone::box_info> detect(const exposing::param_span<std::uint8_t>& bitmap, int channels, int height, int width, int roi_x, int roi_y, int roi_width, int roi_height, std::map<std::string, float>& param_map)
         {
-            // std::cout<<"smoke\n";
+            // std::cout<<"onphone\n";
             if (bitmap.empty())
             {
                 throw exposing::abi_invalid_argument("current frame is empty");
@@ -51,7 +51,7 @@ namespace glasssix::smoke
                  
             if(roi_x<0 || roi_x>width || roi_y>height || roi_y<0 ||roi_height<0 || (roi_height+roi_y) >height || roi_width<0 || (roi_width+roi_x) > width)
             {
-                  throw exposing::abi_invalid_argument("incorrect roi in smoke");
+                  throw exposing::abi_invalid_argument("incorrect roi in onphone");
             }
 
             // std::cout<<roi_y<<roi_height<<roi_x;
@@ -62,7 +62,7 @@ namespace glasssix::smoke
             auto cate_result=categorys(cropped_image,detect_result);
 
 
-            auto results = exposing::make_param_vector<smoke::box_info>();
+            auto results = exposing::make_param_vector<onphone::box_info>();
 
             for(auto& it:cate_result) 
             {
@@ -84,11 +84,6 @@ namespace glasssix::smoke
 
     private:
 
-        /**  @fun letterbox
-         *   @param image scaleFill
-         *   @return letterbox(image)
-         *   @details Resize and pad image while meeting stride-multiple constrain
-         */
         typedef struct Bbox 
         {
             int x;
@@ -238,17 +233,6 @@ namespace glasssix::smoke
             int category;
         };
 
-        struct label_confidence
-        {   
-            int x1;
-            int y1;
-            int x2;
-            int y2;
-            int label;
-            float confidence;
-        };
-
-       
 
         static std::vector<boxes_conf> yolo2xyxy(std::vector<std::vector<float>>& src, float conf_thres=0.f)
         {
@@ -403,7 +387,7 @@ namespace glasssix::smoke
         /**
            * @fun run_detect
            * @param image param_map
-           * @return std::vector<smoke::box_info_internal>
+           * @return std::vector<onphone::box_info_internal>
            * @details run detect (maybe in multithreading)
          */
        static void ReduceL2_mul(  std::shared_ptr<glasssix::memory::tensor<float>> input, std::shared_ptr<glasssix::memory::tensor<float>> output,float ratio=100.f)   
@@ -419,7 +403,7 @@ namespace glasssix::smoke
 
         L2=sqrt(L2);
         // L2= 48.41;
-        // std::cout<<"L2: "<<L2<<std::endl;
+        std::cout<<"L2: "<<L2<<std::endl;
         if(L2<0.00000f)
         {
             L2=0.00000000009;
@@ -675,8 +659,8 @@ namespace glasssix::smoke
             float* ptr272=operation_272->mutable_cpu_data();
             float* ptr267=operation_267->mutable_cpu_data();
             
-            // std::cout<<"ptr267: "<<ptr267[0]<<" "<<ptr267[1]<<"\n";
-            // std::cout<<"ptr272: "<<ptr272[0]<<" "<<ptr272[1]<<"\n";
+            std::cout<<"ptr267: "<<ptr267[0]<<" "<<ptr267[1]<<"\n";
+            std::cout<<"ptr272: "<<ptr272[0]<<" "<<ptr272[1]<<"\n";
             output273[0]=ptr267[0] - ptr272[0];
             output273[1]=ptr267[1] - ptr272[1];
 
@@ -737,7 +721,7 @@ namespace glasssix::smoke
 
        
 
-        std::vector<smoke::box_info_internal> categorys(cv::Mat& image,std::vector<location_char>& cate_input)
+        std::vector<onphone::box_info_internal> categorys(cv::Mat& image,std::vector<location_char>& cate_input)
         {
             std::vector<box_info_internal> l_c;
             for(auto x:cate_input)
@@ -782,7 +766,7 @@ namespace glasssix::smoke
                 result.x2=x.x2;
                 result.y2=x.y2;
                 result.category=label;
-                // std::cout<<"confidence: "<<confidence<<"\n";
+                std::cout<<"confidence: "<<confidence<<"\n";
                 result.confidence=confidence;
                 l_c.emplace_back(result);
 
@@ -859,7 +843,7 @@ namespace glasssix::smoke
         return impl::version();
     }
 
-    exposing::param_vector<smoke::box_info> detect_code_internal::detect(exposing::param_span<std::uint8_t> bitmap, int channels, int height, int width, int roi_x, int roi_y, int roi_width, int roi_height, std::map<std::string, float>& param_map) const
+    exposing::param_vector<onphone::box_info> detect_code_internal::detect(exposing::param_span<std::uint8_t> bitmap, int channels, int height, int width, int roi_x, int roi_y, int roi_width, int roi_height, std::map<std::string, float>& param_map) const
     {
         return impl_->detect(bitmap, channels, height, width, roi_x, roi_y, roi_width, roi_height, param_map);
     }

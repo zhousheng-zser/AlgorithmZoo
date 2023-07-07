@@ -2,20 +2,23 @@
 #include "hardcode.hpp"
 
 #include <algorithm>
-#include "hat_info_impl.hpp"
+#include "box_info_impl.hpp"
 #include <Excalibur/pipeline.hpp>
 #include <Primitives/pool_allocator.hpp>
 #include <Primitives/tensor_conversions.hpp>
 #include <Excalibur/operation_safty_cut.hpp>
 #include <Excalibur/operation_resize.hpp>
-
+#include <opencv2/core.hpp>
+#include <opencv2/highgui.hpp>
+#include <opencv2/imgproc.hpp>
+#include <RKNN2Wrapper/rknn2_wrapper.hpp>
 #include <cfloat>
 
 #ifdef USE_CUDA
 #include <cuda_runtime_api.h>
 #endif
 
-namespace glasssix::gungnir
+namespace glasssix::leavepost
 {
     anchor_box &operator&=(anchor_box &a, const anchor_box &b)
     {
@@ -39,15 +42,17 @@ namespace glasssix::gungnir
     class yolo_net_internal::impl
     {
     public:
-        impl(std::string_view racy_path, int device) : impl{hardcode::get_model_params("hat_simp"), racy_path, device}
+        impl(const exposing::param_string model_directory, int device = -1)
+                :impl{hardcode::get_model_params("hat_simp", false),  exposing::to_narrow_string(model_directory), device}
         {
         }
 
-        impl(const std::vector<std::string> &phai, std::string_view racy_path, int device) : device_{device}, hat_simp_{phai, std::string{racy_path}+ "/" +std::string("gungnir.racy"), device}
+        impl(const std::vector<std::string> &phai, std::string model_directory, int device)
+                :net_instance_(phai,  model_directory + std::string("/hat_simp.rknn"), device)
         {
         }
 
-        exposing::param_vector<hat_info> detect(exposing::param_span<std::uint8_t> bitmap, int channels, int height, int width, int order)
+        exposing::param_vector<leavepost::box_info> detect(const exposing::param_span<std::uint8_t>& bitmap, int channels, int height, int width, int roi_x, int roi_y, int roi_width, int roi_height)
         {
             if (bitmap.empty())
             {
@@ -55,14 +60,28 @@ namespace glasssix::gungnir
             }
             CHECK_EQ(channels, 3);
             CHECK_EQ(bitmap.size(), channels * height * width);
-            init_cache(bitmap, channels, height, width, order);
 
-            std::vector<hat_info_internal> objects;
-            detect_yolo(channels, height, width, order, objects);
+            std::vector<box_info_internal> objects;
+            cv::Mat image(cv::Size(width, height), CV_8UC3);
+            std::memcpy(image.data, bitmap.data(), sizeof (uint8_t) * channels * height * width);
+            if(roi_x<0 || roi_x>width || roi_y>height || roi_y<0 ||roi_height<0 || (roi_height+roi_y) >height || roi_width<0 || (roi_width+roi_x) > width)
+            {
+                  throw exposing::abi_invalid_argument("incorrect roi in refvest");
+            }
+            cv::Mat cropped_image = image(cv::Range(roi_y,roi_y+roi_height), cv::Range(roi_x,roi_x+roi_width));
+            detect_yolo(cropped_image, objects);
 
-            auto result = exposing::make_param_vector<hat_info>();
+            auto result = exposing::make_param_vector<box_info>();
             for (auto &i : objects)
-                result.push_back(exposing::make_as_first<hat_info_impl>(i));
+            {
+                auto x=i;
+                x.rect.x+=roi_x;
+                x.rect.y+=roi_y;
+
+                result.push_back(exposing::make_as_first<box_info_impl>(i));
+                // cv::rectangle(image, cv::Point(i.rect.x, i.rect.y), cv::Point(i.rect.x+i.rect.width, i.rect.y+i.rect.height),        cv::Scalar(0, 0, 255), 3);
+            }
+            // cv::imwrite("../detets.jpg",image);
             return result;
         }
 
@@ -71,55 +90,25 @@ namespace glasssix::gungnir
             return "1.0.0";
         }
 
-    private:
-        void init_cache(exposing::param_span<std::uint8_t> &bitmap, std::int32_t channels, std::int32_t height, std::int32_t width, std::int32_t order)
-        {
-            if (cache_ == nullptr || cache_->channels() != channels || cache_->height() != height || cache_->width() != width || cache_->order() != order)
-            {
-                std::vector<int> shape;
-                if (order == memory::NCHW)
-                    shape = {static_cast<int>(1), channels, height, width};
-                else if (order == memory::NHWC)
-                    shape = {static_cast<int>(1), height, width, channels};
-                else
-                    NOT_IMPLEMENTED;
-
-                cache_ = std::make_shared<memory::tensor<std::uint8_t>>(shape, -1, (memory::orderType)order /*, &memory::pool_allocator_default<std::uint8_t>::get()*/);
-            }
-
-            if (cache_->device() > 0)
-            {
-#ifdef USE_CUDA
-                cudaMemcpy(cache_->mutable_gpu_data(), bitmap, channels * height * width, cudaMemcpyHostToDevice);
-#else
-                NO_GPU;
-#endif
-            }
-            else
-                std::copy(bitmap.begin(), bitmap.end(), cache_->mutable_cpu_data());
-
-            if (order == memory::NHWC)
-                cache_->convert_order();
-        }
-
-        inline float intersection_area(const hat_info_internal &a, const hat_info_internal &b)
+    private:       
+        inline float intersection_area(const box_info_internal &a, const box_info_internal &b)
         {
             anchor_box inter = a.rect & b.rect;
             return inter.width * inter.height;
         }
 
-        void qsort_descent_inplace(std::vector<hat_info_internal> &faceobjects, int left, int right)
+        void qsort_descent_inplace(std::vector<box_info_internal> &faceobjects, int left, int right)
         {
             int i = left;
             int j = right;
-            float p = faceobjects[(left + right) / 2].prob;
+            float p = faceobjects[(left + right) / 2].confidence;
 
             while (i <= j)
             {
-                while (faceobjects[i].prob > p)
+                while (faceobjects[i].confidence > p)
                     i++;
 
-                while (faceobjects[j].prob < p)
+                while (faceobjects[j].confidence < p)
                     j--;
 
                 if (i <= j)
@@ -147,7 +136,7 @@ namespace glasssix::gungnir
             }
         }
 
-        void qsort_descent_inplace(std::vector<hat_info_internal> &faceobjects)
+        void qsort_descent_inplace(std::vector<box_info_internal> &faceobjects)
         {
             if (faceobjects.empty())
                 return;
@@ -155,7 +144,7 @@ namespace glasssix::gungnir
             qsort_descent_inplace(faceobjects, 0, faceobjects.size() - 1);
         }
 
-        void nms_sorted_bboxes(const std::vector<hat_info_internal> &faceobjects, std::vector<int> &picked, float nms_threshold)
+        void nms_sorted_bboxes(const std::vector<box_info_internal> &faceobjects, std::vector<int> &picked, float nms_threshold)
         {
             picked.clear();
             const int n = faceobjects.size();
@@ -169,12 +158,12 @@ namespace glasssix::gungnir
 
             for (int i = 0; i < n; i++)
             {
-                const hat_info_internal &a = faceobjects[i];
+                const box_info_internal &a = faceobjects[i];
 
                 int keep = 1;
                 for (int j = 0; j < (int)picked.size(); j++)
                 {
-                    const hat_info_internal &b = faceobjects[picked[j]];
+                    const box_info_internal &b = faceobjects[picked[j]];
 
                     // intersection over union
                     float inter_area = intersection_area(a, b);
@@ -194,22 +183,14 @@ namespace glasssix::gungnir
             return static_cast<float>(1.f / (1.f + exp(-x)));
         }
 
-        void generate_proposals(const std::vector<float> &anchors, int stride, const std::shared_ptr<memory::tensor<std::uint8_t>> &in_pad, const std::shared_ptr<memory::tensor<float>> &feat_blob, float prob_threshold, std::vector<hat_info_internal> &objects)
+        void generate_proposals(const std::vector<float> &anchors, int stride, const std::shared_ptr<memory::tensor<float>> &feat_blob, float prob_threshold, std::vector<box_info_internal> &objects)
         {
             const int num_grid = feat_blob->height();
-
             int num_grid_x;
             int num_grid_y;
-            if (in_pad->width() > in_pad->height())
-            {
-                num_grid_x = in_pad->width() / stride;
-                num_grid_y = num_grid / num_grid_x;
-            }
-            else
-            {
-                num_grid_y = in_pad->height() / stride;
-                num_grid_x = num_grid / num_grid_y;
-            }
+
+            num_grid_y = 640/ stride;
+            num_grid_x = num_grid / num_grid_y;
 
             const int num_class = feat_blob->width() - 5;
 
@@ -242,17 +223,10 @@ namespace glasssix::gungnir
                         }
 
                         float box_score = featptr[4];
-
-                        // float confidence = sigmoid(box_score) * sigmoid(class_score);
                         float confidence = sigmoid(box_score);
 
                         if (confidence >= prob_threshold)
                         {
-                            // yolov5/models/yolo.py Detect forward
-                            // y = x[i].sigmoid()
-                            // y[..., 0:2] = (y[..., 0:2] * 2. - 0.5 + self.grid[i].to(x[i].device)) * self.stride[i]  # xy
-                            // y[..., 2:4] = (y[..., 2:4] * 2) ** 2 * self.anchor_grid[i]  # wh
-
                             float dx = sigmoid(featptr[0]);
                             float dy = sigmoid(featptr[1]);
                             float dw = sigmoid(featptr[2]);
@@ -269,13 +243,13 @@ namespace glasssix::gungnir
                             float x1 = pb_cx + pb_w * 0.5f;
                             float y1 = pb_cy + pb_h * 0.5f;
 
-                            hat_info_internal obj;
+                            box_info_internal obj;
                             obj.rect.x = x0;
                             obj.rect.y = y0;
                             obj.rect.width = x1 - x0;
                             obj.rect.height = y1 - y0;
                             obj.label = class_index;
-                            obj.prob = confidence;
+                            obj.confidence = confidence;
 
                             objects.push_back(obj);
                         }
@@ -284,51 +258,46 @@ namespace glasssix::gungnir
             }
         }
 
-        int detect_yolo(int channels, int height, int width, int order, std::vector<hat_info_internal> &objects)
+        std::pair<cv::Mat, float> preprocess(cv::Mat& src,int& hpad,int& wpad ,const cv::Size& input_shape = cv::Size(640, 640) )
+        {      
+            float scale = std::min((float)input_shape.width/(float)src.cols, (float)input_shape.height/(float)src.rows);
+            cv::Mat cut_image;
+            cv::Mat mask_image(input_shape, CV_8UC3, cv::Scalar(114, 114, 114));
+            if(src.cols!=input_shape.width || src.rows!=input_shape.height )
+            {
+                cv::resize(src, cut_image, cv::Size((int)(src.cols * scale), (int)(src.rows * scale)), cv::INTER_LINEAR);
+                hpad = int((input_shape.height - cut_image.rows)  ) ; 
+                wpad = int((input_shape.width - cut_image.cols)  ) ; 
+                cv::copyMakeBorder(cut_image, mask_image,  hpad/2, input_shape.height-cut_image.rows-hpad/2, wpad/2 , input_shape.width-cut_image.cols-wpad/2, cv::BORDER_CONSTANT, cv::Scalar{ 114,114,114 });
+            }
+            else
+            {
+                mask_image=src;
+            }
+            return { mask_image,scale};
+        }
+
+
+        int detect_yolo(cv::Mat& image, std::vector<box_info_internal> &objects)
         {
             /** Before processing **/
             const int target_size = 640;
             const float prob_threshold = 0.5f;
             const float nms_threshold = 0.4f;
 
-            // letterbox pad to multiple of 32
-            int w = width;
-            int h = height;
-            float scale = 1.f;
-            if (w > h)
+            cv::Mat blob;
+            int hpad=0;
+            int wpad=0;
+            float scale = 1.f;//scale是放缩系数
+            std::tie(blob,scale) = preprocess(image,hpad,wpad);
+
+            auto  out = net_instance_.forward(blob.data, { 1, blob.rows, blob.cols,blob.channels() }, RKNN_TENSOR_NHWC);
+
+
+
+            std::vector<box_info_internal> proposals;
             {
-                scale = (float)target_size / w;
-                w = target_size;
-                h = h * scale;
-            }
-            else
-            {
-                scale = (float)target_size / h;
-                h = target_size;
-                w = w * scale;
-            }
-            // resize
-            std::shared_ptr<memory::tensor<std::uint8_t>> cache_forward;
-            excalibur::resize_cpu(cache_, cache_forward, h, w);
-
-            // pad
-            int wpad = (w + 31) / 32 * 32 - w;
-            int hpad = (h + 31) / 32 * 32 - h;
-            excalibur::make_border(cache_forward, cache_forward, hpad / 2, hpad - hpad / 2, wpad / 2, wpad - wpad / 2, excalibur::border_constant, static_cast<std::uint8_t>(114));
-
-            auto input_tensor = cache_forward | memory::tensor_convert_to<float>;
-            //float *input_tensor_data = input_tensor->mutable_cpu_data();
-            //for (int i = 0; i < input_tensor->count(); ++i)
-            //{
-            //    input_tensor_data[i] /= 255.f;
-            //}
-
-            std::unordered_map<std::string, std::shared_ptr<memory::tensor<float>>> out = hat_simp_.forward(input_tensor);
-
-            std::vector<hat_info_internal> proposals;
-            // stride 8
-            {
-               std::vector<float> anchors(6);
+                std::vector<float> anchors(6);
                 anchors[0] = 10.f;
                 anchors[1] = 13.f;
                 anchors[2] = 16.f;
@@ -336,15 +305,18 @@ namespace glasssix::gungnir
                 anchors[4] = 33.f;
                 anchors[5] = 23.f;
 
-                std::vector<hat_info_internal> objects8;
-                generate_proposals(anchors, 8, cache_forward, out["751"], prob_threshold, objects8);
+                std::vector<box_info_internal> objects8;
 
+                std::shared_ptr<memory::tensor<float>> temp_out(new memory::tensor<float>(3,6400, 8, -1, memory::NCHW, nullptr));
+                std::copy(out["751"]->mutable_cpu_data(), out["751"]->mutable_cpu_data() + 3*6400*8, temp_out->mutable_cpu_data());
+
+                generate_proposals(anchors, 8, temp_out, prob_threshold, objects8);
                 proposals.insert(proposals.end(), objects8.begin(), objects8.end());
             }
 
             // stride 16
             {
-                std::vector<float> anchors(6);
+          std::vector<float> anchors(6);
                 anchors[0] = 30.f;
                 anchors[1] = 61.f;
                 anchors[2] = 62.f;
@@ -352,15 +324,18 @@ namespace glasssix::gungnir
                 anchors[4] = 59.f;
                 anchors[5] = 119.f;
 
-                std::vector<hat_info_internal> objects16;
-                generate_proposals(anchors, 16, cache_forward, out["1060"], prob_threshold, objects16);
+                std::vector<box_info_internal> objects16;
 
+                std::shared_ptr<memory::tensor<float>> temp_out(new memory::tensor<float>(3,1600, 8, -1, memory::NCHW, nullptr));
+                std::copy(out["1060"]->mutable_cpu_data(), out["1060"]->mutable_cpu_data() + 3*1600*8, temp_out->mutable_cpu_data());
+
+                generate_proposals(anchors, 16, temp_out, prob_threshold, objects16);
                 proposals.insert(proposals.end(), objects16.begin(), objects16.end());
             }
 
             // stride 32
             {
-                std::vector<float> anchors(6);
+           std::vector<float> anchors(6);
                 anchors[0] = 116.f;
                 anchors[1] = 90.f;
                 anchors[2] = 156.f;
@@ -368,12 +343,14 @@ namespace glasssix::gungnir
                 anchors[4] = 373.f;
                 anchors[5] = 326.f;
 
-                std::vector<hat_info_internal> objects32;
-                generate_proposals(anchors, 32, cache_forward, out["1369"], prob_threshold, objects32);
+                std::vector<box_info_internal> objects32;
 
+                std::shared_ptr<memory::tensor<float>> temp_out(new memory::tensor<float>(3,400, 8, -1, memory::NCHW, nullptr));
+                std::copy(out["1369"]->mutable_cpu_data(), out["1369"]->mutable_cpu_data() + 3*400*8, temp_out->mutable_cpu_data());
+
+                generate_proposals(anchors, 32, temp_out, prob_threshold, objects32);
                 proposals.insert(proposals.end(), objects32.begin(), objects32.end());
             }
-
             // sort all proposals by score from highest to lowest
             qsort_descent_inplace(proposals);
 
@@ -395,10 +372,10 @@ namespace glasssix::gungnir
                 float y1 = (objects[i].rect.y + objects[i].rect.height - (hpad / 2)) / scale;
 
                 // clip
-                x0 = std::max(std::min(x0, (float)(width - 1)), 0.f);
-                y0 = std::max(std::min(y0, (float)(height - 1)), 0.f);
-                x1 = std::max(std::min(x1, (float)(width - 1)), 0.f);
-                y1 = std::max(std::min(y1, (float)(height - 1)), 0.f);
+                x0 = std::max(std::min(x0, (float)(image.cols - 1)), 0.f);
+                y0 = std::max(std::min(y0, (float)(image.rows - 1)), 0.f);
+                x1 = std::max(std::min(x1, (float)(image.cols - 1)), 0.f);
+                y1 = std::max(std::min(y1, (float)(image.rows - 1)), 0.f);
 
                 objects[i].rect.x = x0;
                 objects[i].rect.y = y0;
@@ -412,14 +389,13 @@ namespace glasssix::gungnir
     private:
         int device_;
         excalibur::pipeline<float> hat_simp_;
+        rknnwrapper::rknn_wrapper  net_instance_;
+        std::string model_directory_;
         std::shared_ptr<memory::tensor<std::uint8_t>> cache_;
     };
 
-    yolo_net_internal::yolo_net_internal(std::string_view racy_path, int device) : impl_{std::make_unique<impl>(racy_path, device)}
-    {
-    }
-
-    yolo_net_internal::yolo_net_internal(const std::vector<std::string> &phai, std::string_view racy_path, int device) : impl_{std::make_unique<impl>(phai, racy_path, device)}
+    yolo_net_internal::yolo_net_internal(std::string_view model_directory, int device) 
+    : impl_{ std::make_unique<impl>(model_directory, device) }
     {
     }
 
@@ -427,9 +403,9 @@ namespace glasssix::gungnir
     {
     }
 
-    exposing::param_vector<hat_info> yolo_net_internal::detect(exposing::param_span<std::uint8_t> bitmap, int channels, int height, int width, int order) const
-    {
-        return impl_->detect(bitmap, channels, height, width, order);
+    exposing::param_vector<box_info> yolo_net_internal::detect(exposing::param_span<std::uint8_t> bitmap, int channels, int height, int width, int roi_x, int roi_y, int roi_width, int roi_height) const
+    { 
+        return impl_->detect(bitmap, channels, height, width, roi_x, roi_y, roi_width, roi_height);
     }
 
     std::string yolo_net_internal::version()

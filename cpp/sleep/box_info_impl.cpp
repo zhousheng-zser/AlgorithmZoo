@@ -37,5 +37,10 @@ namespace glasssix::sleep
 	{
 		return internal_.category;
 	}
+
+	float box_info_impl::confidence() const
+	{
+		return internal_.confidence;
+	}
 	
 }
