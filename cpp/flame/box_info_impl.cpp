@@ -42,5 +42,10 @@ namespace glasssix::flame
 	{
 		return internal_.category;
 	}
+
+	exposing::param_string box_info_impl::version() const
+	{
+		return internal_.version;
+	}
 	
 }

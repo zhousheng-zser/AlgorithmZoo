@@ -64,9 +64,18 @@ namespace glasssix::flame
             return results;
         }
 
-        static std::string version()
+        std::string version()
         {
-            return "1.0.0";
+			const std::string algo_module_version = "1.0.0";
+
+#if defined(USE_RKNNAPI) || defined(USE_RKNN2API)
+			//#if 0
+			std::string nn_frame_version = net_instance_.version();
+#else
+			std::string nn_frame_version = net_instance_.version();
+#endif
+			return fmt::format(R"({{"nn_frame_version":"{}", "algo_module_version":"{}"}})", nn_frame_version, algo_module_version);
+
         }
 
     private:
@@ -410,7 +419,7 @@ namespace glasssix::flame
 
     std::string detect_code_internal::version()
     {
-        return impl::version();
+        return impl_->version();
     }
 
     exposing::param_vector<flame::box_info> detect_code_internal::detect(exposing::param_span<std::uint8_t> bitmap, int channels, int height, int width, int roi_x, int roi_y, int roi_width, int roi_height, std::map<std::string, float>& param_map) const

@@ -21,6 +21,7 @@ namespace glasssix::refvest
         int y2() const;
         float score() const;
         int category() const;
+        exposing::param_string version() const;
 
     private:
         box_info_internal internal_{};
