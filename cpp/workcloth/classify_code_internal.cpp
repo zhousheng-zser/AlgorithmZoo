@@ -29,8 +29,6 @@
 #include <cuda_runtime_api.h>
 #endif
 
-////YHC
-//#define USE_RKNN2API
 
 #ifdef USE_RKNNAPI
 //#if 0
@@ -50,7 +48,7 @@ namespace glasssix::workcloth
         {
             //Excalibur needs to distinguish between float and int8 models, rknn and rknn2 does not
 #if defined(USE_RKNNAPI) || defined(USE_RKNN2API)
-            pipline_instance_ = std::make_unique<rknnwrapper::rknn_wrapper>(hardcode::get_model_params("workcloth"), std::string(models_directory) + "/" + "workcloth" + ".rknn", device);
+            pipline_instance_ = std::make_unique<rknnwrapper::rknn_wrapper>(hardcode::get_model_params("workcloth"), std::string(model_directory) + "/" + "workcloth" + ".rknn", device);
 #else
             pipline_instance_ = std::make_unique<excalibur::pipeline<float>>(hardcode::get_model_params("workcloth"), std::string(model_directory) + "/" + "workcloth" + ".racy", device);
 #endif
@@ -103,6 +101,8 @@ namespace glasssix::workcloth
     private:
         void run_workcloth(std::vector<box_info_internal>& results, cv::Mat& image, std::map<std::string, float>& param_map)
         {
+            float W = image.cols;
+            float H = image.rows;
             float conf_threshold = param_map.count("conf_thres") ? param_map["conf_thres"] : 0.5f;
             float nms_threshold = param_map.count("iou_thres") ? param_map["iou_thres"] : 0.5f;
 
@@ -121,8 +121,16 @@ namespace glasssix::workcloth
                 float padh = float(image.cols - image.rows) / 2;
                 bbox.ymin -= padh;
                 bbox.ymax -= padh;
+                // boundary check
                 bbox.ymin = std::max(bbox.ymin, 0.f);
                 bbox.ymax = std::max(bbox.ymax, 0.f);
+                bbox.ymin = std::min(bbox.ymin, H - 1);
+                bbox.ymax = std::min(bbox.ymax, H - 1);
+
+                bbox.xmin = std::max(bbox.xmin, 0.f);
+                bbox.xmax = std::max(bbox.xmax, 0.f);
+                bbox.xmin = std::min(bbox.xmin, W - 1);
+                bbox.xmax = std::min(bbox.xmax, W - 1);
             }
 
             nms_cpu(sub_bboxes, nms_threshold);
@@ -137,9 +145,6 @@ namespace glasssix::workcloth
             }
 #endif // BUILD_DEBUG_INFO
 
-
-
-
             for (auto box : sub_bboxes) {
                 cv::Mat sub_person = image(box.get_rect());
                 int sub_w = sub_person.cols;
@@ -152,15 +157,14 @@ namespace glasssix::workcloth
 				cv::Mat sub_person_leg = sub_person(cv::Rect(0, leg_h, sub_w, leg_h));
 				auto up_bgr = cv::sum(sub_person_body) / (sub_w * body_h);
                 auto lw_bgr = cv::sum(sub_person_leg) / (sub_w * leg_h);
+
 #ifdef BUILD_DEBUG_INFO
                 std::cout << "up_bgr: " << up_bgr << "\t" << (int)up_bgr[0] << " " << (int)up_bgr[1] << " " << (int)up_bgr[2] << std::endl;
 				std::cout << "lw_bgr: " << lw_bgr << "\t" << (int)lw_bgr[0] << " " << (int)lw_bgr[1] << " " << (int)lw_bgr[2] << std::endl;
 				std::cout << std::endl;
-
                 //cv::imshow("sub_person_body", sub_person_body); cv::waitKey(0);
                 //cv::imshow("sub_person_leg", sub_person_leg); cv::waitKey(0);
                 cv::imshow("sub_person", sub_person); cv::waitKey(0);
-
 #endif // BUILD_DEBUG_INFO
 
                 box_info_internal in_box_info;
@@ -201,6 +205,11 @@ namespace glasssix::workcloth
 
             std::vector<std::shared_ptr<memory::tensor<float>>> outRst;
             for (auto& out : result) {
+#if defined(USE_RKNNAPI) || defined(USE_RKNN2API)
+                CHECK_EQ(out.second->data_shape().size(), 5);
+                std::vector<int> shape = out.second->data_shape();
+                out.second->reshape(std::vector<int>{shape[0], shape[1], shape[2]* shape[3], shape[4]});
+#endif
                 outRst.push_back(out.second);
             }
             std::sort(outRst.begin(), outRst.end(), [](const std::shared_ptr<memory::tensor<float>>& A, const std::shared_ptr<memory::tensor<float>>& B) {
