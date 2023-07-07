@@ -29,7 +29,7 @@ namespace glasssix::onphone
         }
 
         impl(const std::vector<std::string> &phai, std::string model_directory, int device)
-                :net_detect_(phai,  model_directory + std::string("/person_sim.rknn"), device), net_category_(phai, model_directory + std::string("/onphone_sim.rknn"), device), model_directory_(model_directory)
+                :net_detect_(phai,  model_directory + std::string("/human_sim.rknn"), device), net_category_(phai, model_directory + std::string("/onphone_sim.rknn"), device), model_directory_(model_directory)
                 ,weight_Gemm_87 (new glasssix::memory::tensor<float>(2, 8192, -1, glasssix::memory::NCHW, nullptr))
         {   
            
