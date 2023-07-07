@@ -69,10 +69,18 @@ namespace glasssix::sleep
             return results;
         }
 
-        static std::string version()
-        {
-            return "1.0.0";
-        }
+        std::string version()
+		{
+			const std::string algo_module_version = "1.0.0";
+
+#if defined(USE_RKNNAPI) || defined(USE_RKNN2API)
+			//#if 0
+			std::string nn_frame_version = net_instance_.version();
+#else
+			std::string nn_frame_version = net_instance_.version();
+#endif
+			return fmt::format(R"({{"nn_frame_version":"{}", "algo_module_version":"{}"}})", nn_frame_version, algo_module_version);
+		}
 
     private:
 
@@ -502,13 +510,13 @@ namespace glasssix::sleep
 
     detect_code_internal::~detect_code_internal() = default;
 
-    std::string detect_code_internal::version()
-    {
-        return impl::version();
-    }
-
     exposing::param_vector<sleep::box_info> detect_code_internal::detect(exposing::param_span<std::uint8_t> bitmap, int channels, int height, int width, int roi_x, int roi_y, int roi_width, int roi_height, std::map<std::string, float>& param_map) const
     {
         return impl_->detect(bitmap, channels, height, width, roi_x, roi_y, roi_width, roi_height, param_map);
     }
+
+    std::string detect_code_internal::version()
+	{
+		return impl_->version();
+	}
 }

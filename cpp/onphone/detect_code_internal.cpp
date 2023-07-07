@@ -33,7 +33,7 @@ namespace glasssix::onphone
                 ,weight_Gemm_87 (new glasssix::memory::tensor<float>(2, 8192, -1, glasssix::memory::NCHW, nullptr))
         {   
            
-            get_weight (model_directory+std::string("/onphone_supplement.racy") ,8192*2,weight_Gemm_87);
+            get_weight (model_directory+std::string("/onphone_supplement.racy") ,8192*2+2,weight_Gemm_87);
         }
 
         exposing::param_vector<onphone::box_info> detect(const exposing::param_span<std::uint8_t>& bitmap, int channels, int height, int width, int roi_x, int roi_y, int roi_width, int roi_height, std::map<std::string, float>& param_map)
@@ -70,17 +70,25 @@ namespace glasssix::onphone
                 it.x2+=roi_x;
                 it.y1+=roi_y;
                 it.y2+=roi_y;
-                
+                // it.confidence
                 results.push_back(glasssix::exposing::make_as_first<box_info_impl>(it));
             }
 
             return results;
         }
 
-        static std::string version()
-        {
-            return "1.0.0";
-        }
+        std::string version()
+		{
+			const std::string algo_module_version = "1.0.0";
+
+#if defined(USE_RKNNAPI) || defined(USE_RKNN2API)
+			//#if 0
+			std::string nn_frame_version = net_detect_.version();
+#else
+			std::string nn_frame_version = net_detect_.version();
+#endif
+			return fmt::format(R"({{"nn_frame_version":"{}", "algo_module_version":"{}"}})", nn_frame_version, algo_module_version);
+		}
 
     private:
 
@@ -384,12 +392,7 @@ namespace glasssix::onphone
 
             return output_num;
         }
-        /**
-           * @fun run_detect
-           * @param image param_map
-           * @return std::vector<onphone::box_info_internal>
-           * @details run detect (maybe in multithreading)
-         */
+
        static void ReduceL2_mul(  std::shared_ptr<glasssix::memory::tensor<float>> input, std::shared_ptr<glasssix::memory::tensor<float>> output,float ratio=100.f)   
     {
         float L2=0.f;
@@ -403,7 +406,7 @@ namespace glasssix::onphone
 
         L2=sqrt(L2);
         // L2= 48.41;
-        std::cout<<"L2: "<<L2<<std::endl;
+        // std::cout<<"L2: "<<L2<<std::endl;
         if(L2<0.00000f)
         {
             L2=0.00000000009;
@@ -434,42 +437,42 @@ namespace glasssix::onphone
 
         static void fully_connect(std::vector<std::shared_ptr<glasssix::memory::tensor<float>>>& bottom, 
                                         std::shared_ptr<glasssix::memory::tensor<float>> top )
-    {
-        int l,m,n;
-        l= bottom[0]->data_shape()[1];
-
-        n= bottom[1]->data_shape()[1];
-        l=1;
-        m=8192;
-        n=2;
-        CHECK_EQ(bottom[1]->count(),m*n);
-
-        // top.reset
-        float *in1_ptr=bottom[0]->mutable_cpu_data(); 
-        // for(int i=0;i<8192;i++)
-        // {
-        //     in1_ptr[i]=1.f;
-        // }
-
-        float *in2_ptr=bottom[1]->mutable_cpu_data(); 
-        float *out_ptr=top->mutable_cpu_data(); 
-        for(int i=0;i<l;i++)
         {
-             for(int j=0;j<n;j++)
-             {
-                for (size_t k = 0; k < m; k++)
-                {
-                   out_ptr[j]= out_ptr[j]+(in1_ptr[k]*in2_ptr[k]);
-                }      
-                in2_ptr+=m;
-             }
-             in1_ptr++;
-             out_ptr++;
-        }
-        out_ptr[0]+=  0.0032130361068993807;
-        out_ptr[1]+=  0.007221005391329527;
+            int l,m,n;
+            l= bottom[0]->data_shape()[1];
 
-    }
+            n= bottom[1]->data_shape()[1];
+            l=1;
+            m=8192;
+            n=2;
+            CHECK_EQ(bottom[1]->count(),m*n);
+
+            // top.reset
+            float *in1_ptr=bottom[0]->mutable_cpu_data(); 
+            // for(int i=0;i<8192;i++)
+            // {
+            //     in1_ptr[i]=1.f;
+            // }
+
+            float *in2_ptr=bottom[1]->mutable_cpu_data(); 
+            float *out_ptr=top->mutable_cpu_data(); 
+            for(int i=0;i<l;i++)
+            {
+                for(int j=0;j<n;j++)
+                {
+                    for (size_t k = 0; k < m; k++)
+                    {
+                    out_ptr[j]= out_ptr[j]+(in1_ptr[k]*in2_ptr[k]);
+                    }      
+                    in2_ptr+=m;
+                }
+                in1_ptr++;
+                out_ptr++;
+            }
+            out_ptr[0]+=bottom[1]->mutable_cpu_data()[8192*2];
+            out_ptr[1]+=bottom[1]->mutable_cpu_data()[8192*2+1];
+        }
+
         struct nonzero_pair 
         {
             int xindex;
@@ -542,7 +545,6 @@ namespace glasssix::onphone
                             r_w[1] * c_w[0] * q4 +
                             r_w[1] * c_w[1] * q3);
         
-                        // *(resizedData + index + i) = value>>16;
                         resizedData[ index + i] = float(value/65536);
                     }
                 }
@@ -659,8 +661,8 @@ namespace glasssix::onphone
             float* ptr272=operation_272->mutable_cpu_data();
             float* ptr267=operation_267->mutable_cpu_data();
             
-            std::cout<<"ptr267: "<<ptr267[0]<<" "<<ptr267[1]<<"\n";
-            std::cout<<"ptr272: "<<ptr272[0]<<" "<<ptr272[1]<<"\n";
+            // std::cout<<"ptr267: "<<ptr267[0]<<" "<<ptr267[1]<<"\n";
+            // std::cout<<"ptr272: "<<ptr272[0]<<" "<<ptr272[1]<<"\n";
             output273[0]=ptr267[0] - ptr272[0];
             output273[1]=ptr267[1] - ptr272[1];
 
@@ -766,7 +768,7 @@ namespace glasssix::onphone
                 result.x2=x.x2;
                 result.y2=x.y2;
                 result.category=label;
-                std::cout<<"confidence: "<<confidence<<"\n";
+                // std::cout<<"confidence: "<<confidence<<"\n";
                 result.confidence=confidence;
                 l_c.emplace_back(result);
 
@@ -801,7 +803,7 @@ namespace glasssix::onphone
                 forwards.push_back(network_result[out_names[i]]);
             }
 
-			float conf_threshold = 0.4f;
+			float conf_threshold = 0.35f;
 			float iou_threshold = 0.45f;
 
 			auto result = concat(forwards, conf_threshold );
@@ -822,6 +824,7 @@ namespace glasssix::onphone
         }
 
 
+
     private:
         std::shared_ptr<glasssix::memory::tensor<float>> weight_Gemm_87;
         std::string model_directory_;
@@ -838,13 +841,13 @@ namespace glasssix::onphone
 
     detect_code_internal::~detect_code_internal() = default;
 
-    std::string detect_code_internal::version()
-    {
-        return impl::version();
-    }
-
     exposing::param_vector<onphone::box_info> detect_code_internal::detect(exposing::param_span<std::uint8_t> bitmap, int channels, int height, int width, int roi_x, int roi_y, int roi_width, int roi_height, std::map<std::string, float>& param_map) const
     {
         return impl_->detect(bitmap, channels, height, width, roi_x, roi_y, roi_width, roi_height, param_map);
     }
+
+    std::string detect_code_internal::version()
+	{
+		return impl_->version();
+	}
 }

@@ -33,7 +33,7 @@ namespace glasssix::smoke
                 ,weight_Gemm_87 (new glasssix::memory::tensor<float>(2, 8192, -1, glasssix::memory::NCHW, nullptr))
         {   
            
-            get_weight (model_directory+std::string("/smoke_supplement.racy") ,8192*2,weight_Gemm_87);
+            get_weight (model_directory+std::string("/smoke_supplement.racy") ,8192*2+2,weight_Gemm_87);
         }
 
         exposing::param_vector<smoke::box_info> detect(const exposing::param_span<std::uint8_t>& bitmap, int channels, int height, int width, int roi_x, int roi_y, int roi_width, int roi_height, std::map<std::string, float>& param_map)
@@ -54,13 +54,11 @@ namespace glasssix::smoke
                   throw exposing::abi_invalid_argument("incorrect roi in smoke");
             }
 
-            // std::cout<<roi_y<<roi_height<<roi_x;
             cv::Mat cropped_image = image(cv::Range(roi_y,roi_y+roi_height), cv::Range(roi_x,roi_x+roi_width));
 
             auto detect_result = run_detect(cropped_image, roi_x, roi_y, roi_width, roi_height, param_map);
 
             auto cate_result=categorys(cropped_image,detect_result);
-
 
             auto results = exposing::make_param_vector<smoke::box_info>();
 
@@ -77,9 +75,18 @@ namespace glasssix::smoke
             return results;
         }
 
-        static std::string version()
+       
+        std::string version()
         {
-            return "1.0.0";
+        const std::string algo_module_version = "1.0.0";
+
+#if defined(USE_RKNNAPI) || defined(USE_RKNN2API)
+        //#if 0
+        std::string nn_frame_version = net_detect_.version();
+#else
+        std::string nn_frame_version = net_detect_.version();
+#endif
+        return fmt::format(R"({{"nn_frame_version":"{}", "algo_module_version":"{}"}})", nn_frame_version, algo_module_version);
         }
 
     private:
@@ -482,8 +489,8 @@ namespace glasssix::smoke
              in1_ptr++;
              out_ptr++;
         }
-        out_ptr[0]+=  0.0032130361068993807;
-        out_ptr[1]+=  0.007221005391329527;
+        out_ptr[0]+=bottom[1]->mutable_cpu_data()[8192*2];
+        out_ptr[1]+=bottom[1]->mutable_cpu_data()[8192*2+1];
 
     }
         struct nonzero_pair 
@@ -729,13 +736,8 @@ namespace glasssix::smoke
                 max=y_pred_ptr[1];
             }
             return {max_index,max};
-            // input["y_pred"]=y_pred;
-            // input["y_pred_auxred"]=y_pred_auxred;
-
 
         }
-
-       
 
         std::vector<smoke::box_info_internal> categorys(cv::Mat& image,std::vector<location_char>& cate_input)
         {
@@ -782,7 +784,6 @@ namespace glasssix::smoke
                 result.x2=x.x2;
                 result.y2=x.y2;
                 result.category=label;
-                // std::cout<<"confidence: "<<confidence<<"\n";
                 result.confidence=confidence;
                 l_c.emplace_back(result);
 
@@ -803,7 +804,6 @@ namespace glasssix::smoke
             cv::Mat blob;
             float ratio = 0;
 
-            // std::tie(blob, ratio) = preprocess(image,new_shape);
             std::tie(blob, ratio) = preprocess_detection( image, new_shape ) ;
             std::vector<std::shared_ptr<memory::tensor<float>>> forwards;
 
@@ -812,38 +812,36 @@ namespace glasssix::smoke
             std::vector<std::string>  out_names={"359","379","output"};
 
 
-            for (size_t i=0;i< 3; i++)//对输出数据做处理
+            for (size_t i=0;i< 3; i++)
             {
                 forwards.push_back(network_result[out_names[i]]);
             }
 
-			float conf_threshold = 0.4f;
+			float conf_threshold = 0.35f;
 			float iou_threshold = 0.45f;
 
 			auto result = concat(forwards, conf_threshold );
 
 			auto nms_result = non_max_suppression(result, conf_threshold, iou_threshold, 1/ratio);
-            // std::cout<<"nms_size:"<<nms_result.size()<<std::endl;
             std::vector<box_info_internal> output;
             
-            // for(auto &item:nms_result)
-            // {
-            //     std::cout<<item.x1<<" "<<item.y1<<" "<<item.x2<<" "<<item.y2<<std::endl;
-            //     //cv::rectangle(show, cv::Point(item.x1, item.y1), cv::Point(item.x2, item.y2),
-            //     //    cv::Scalar(0, 0, 255), 3);
-            // }
-
-            // std::cout<<"result_size:"<<output.size()<<std::endl;
             return nms_result;
         }
 
 
+
     private:
+#if defined(USE_RKNNAPI) || defined(USE_RKNN2API)
+
+		rknnwrapper::rknn_wrapper net_detect_;
+        rknnwrapper::rknn_wrapper net_category_;
+#else
+		std::unique_ptr<excalibur::pipeline<float>> net_detect_;
+        std::unique_ptr<excalibur::pipeline<float>> net_category_;
+#endif
         std::shared_ptr<glasssix::memory::tensor<float>> weight_Gemm_87;
         std::string model_directory_;
         int device_ ;
-        rknnwrapper::rknn_wrapper net_detect_;
-        rknnwrapper::rknn_wrapper net_category_;
 
     };
 
@@ -854,13 +852,15 @@ namespace glasssix::smoke
 
     detect_code_internal::~detect_code_internal() = default;
 
-    std::string detect_code_internal::version()
-    {
-        return impl::version();
-    }
 
     exposing::param_vector<smoke::box_info> detect_code_internal::detect(exposing::param_span<std::uint8_t> bitmap, int channels, int height, int width, int roi_x, int roi_y, int roi_width, int roi_height, std::map<std::string, float>& param_map) const
     {
         return impl_->detect(bitmap, channels, height, width, roi_x, roi_y, roi_width, roi_height, param_map);
     }
+
+    std::string detect_code_internal::version()
+	{
+		return impl_->version();
+	}
+
 }
