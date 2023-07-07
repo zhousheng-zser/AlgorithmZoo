@@ -1,5 +1,5 @@
-#ifndef _CALL_BOX_INFO_HPP_
-#define _CALL_BOX_INFO_HPP_
+#ifndef _SMOKE_BOX_INFO_HPP_
+#define _SMOKE_BOX_INFO_HPP_
 
 #include <abi/consumer.hpp>
 

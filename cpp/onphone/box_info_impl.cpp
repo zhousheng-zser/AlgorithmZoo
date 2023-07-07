@@ -1,6 +1,6 @@
 #include "box_info_impl.hpp"
 
-namespace glasssix::helmet
+namespace glasssix::onphone
 {
 	box_info_impl::box_info_impl()
 	{
@@ -37,5 +37,11 @@ namespace glasssix::helmet
 	{
 		return internal_.category;
 	}
+
+	float box_info_impl::confidence() const
+	{
+		return internal_.confidence;
+	}
+
 	
 }
