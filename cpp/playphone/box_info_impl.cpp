@@ -1,6 +1,6 @@
 #include "box_info_impl.hpp"
 
-namespace glasssix::phone
+namespace glasssix::playphone
 {
 	box_info_impl::box_info_impl()
 	{
@@ -43,4 +43,8 @@ namespace glasssix::phone
 		return internal_.category;
 	}
 	
+	exposing::param_string box_info_impl::version() const
+	{
+		return internal_.version;
+	}
 }

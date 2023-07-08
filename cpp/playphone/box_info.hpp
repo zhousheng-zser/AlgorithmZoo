@@ -1,9 +1,9 @@
-#ifndef _PHONE_BOX_INFO_HPP_
-#define _PHONE_BOX_INFO_HPP_
+#ifndef _PLAYPHONE_BOX_INFO_HPP_
+#define _PLAYPHONE_BOX_INFO_HPP_
 
 #include <abi/consumer.hpp>
 
-namespace glasssix::phone
+namespace glasssix::playphone
 {
     struct box_info;
 }
@@ -11,7 +11,7 @@ namespace glasssix::phone
 namespace glasssix::exposing::impl
 {
     template<>
-    struct abi<phone::box_info>
+    struct abi<playphone::box_info>
     {
         using identity_type = type_identity_interface;
 
@@ -25,11 +25,12 @@ namespace glasssix::exposing::impl
             virtual std::int32_t G6_ABI_CALL y2(abi_out_t<int> result) noexcept = 0;
             virtual std::int32_t G6_ABI_CALL score(abi_out_t<float> result) noexcept = 0;
 			virtual std::int32_t G6_ABI_CALL category(abi_out_t<int> result) noexcept = 0;
+            virtual std::int32_t G6_ABI_CALL version(abi_out_t<param_string> result) noexcept = 0;
         };
     };
 
     template <typename Derived>
-    struct interface_vtable<Derived, phone::box_info> : interface_vtable_base<Derived, phone::box_info>
+    struct interface_vtable<Derived, playphone::box_info> : interface_vtable_base<Derived, playphone::box_info>
     {
 
         virtual std::int32_t G6_ABI_CALL x1(abi_out_t<int> result) noexcept override
@@ -67,13 +68,18 @@ namespace glasssix::exposing::impl
             return abi_safe_call([&]
                                  { *result = detach_abi(this->self().category()); });
         }
+
+        virtual std::int32_t G6_ABI_CALL version(abi_out_t<param_string> result) noexcept override
+        {
+            return abi_safe_call([&] { *result = detach_abi(this->self().version()); });
+        }
     };
 
     template <>
-    struct abi_adapter<phone::box_info>
+    struct abi_adapter<playphone::box_info>
     {
         template <typename Derived>
-        struct type : enable_self_abi_awareness<Derived, phone::box_info>
+        struct type : enable_self_abi_awareness<Derived, playphone::box_info>
         {
 
             int x1() const
@@ -112,11 +118,17 @@ namespace glasssix::exposing::impl
 
                 return (check_abi_result(this->self_abi().category(put_abi(result))), result);
             }
+            param_string version() const
+            {
+                param_string result{ nullptr };
+
+                return (check_abi_result(this->self_abi().version(put_abi(result))), result);
+            }
         };
     };
 }
 
-namespace glasssix::phone
+namespace glasssix::playphone
 {
     struct box_info : exposing::inherits<box_info>
     {

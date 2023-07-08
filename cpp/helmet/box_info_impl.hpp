@@ -20,6 +20,7 @@ namespace glasssix::helmet
         int x2() const;
         int y2() const;
         int category() const;
+        exposing::param_string version() const;
 
     private:
         box_info_internal internal_{};

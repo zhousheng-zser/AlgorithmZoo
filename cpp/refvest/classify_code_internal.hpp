@@ -21,6 +21,7 @@ namespace glasssix::refvest
         int y2;
         float score;
         int category;
+        exposing::param_string version;
     };
 
     class classify_code_internal
@@ -40,7 +41,7 @@ namespace glasssix::refvest
         classify_code_internal(const classify_code_internal&) = delete;
         classify_code_internal& operator=(const classify_code_internal&) = delete;
 
-        static std::string version();
+        std::string version();
 
         exposing::param_vector<refvest::box_info> detect(exposing::param_span<std::uint8_t> bitmap, int channels, int height, int width, int roi_x, int roi_y, int roi_width, int roi_height) const;
 

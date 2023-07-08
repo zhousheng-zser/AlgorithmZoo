@@ -1,5 +1,5 @@
-#ifndef __PHONE_DETECT_CODE_INTERNAL_HPP__
-#define __PHONE_DETECT_CODE_INTERNAL_HPP__
+#ifndef __PLAYPHONE_DETECT_CODE_INTERNAL_HPP__
+#define __PLAYPHONE_DETECT_CODE_INTERNAL_HPP__
 
 #include <memory>
 #include <string>
@@ -11,7 +11,7 @@
 
 #include "box_info.hpp"
 
-namespace glasssix::phone
+namespace glasssix::playphone
 {
     struct box_info_internal
     {
@@ -21,6 +21,7 @@ namespace glasssix::phone
         int y2;
 		float score;
         int category;
+        exposing::param_string version;
     };
 
     class detect_code_internal
@@ -40,9 +41,9 @@ namespace glasssix::phone
         detect_code_internal(const detect_code_internal&) = delete;
         detect_code_internal& operator=(const detect_code_internal&) = delete;
 
-        static std::string version();
+        std::string version();
 
-        exposing::param_vector<phone::box_info> detect(exposing::param_span<std::uint8_t> bitmap, int channels, int height, int width, int roi_x, int roi_y, int roi_width, int roi_height, std::map<std::string, float>& param_map) const;
+        exposing::param_vector<playphone::box_info> detect(exposing::param_span<std::uint8_t> bitmap, int channels, int height, int width, int roi_x, int roi_y, int roi_width, int roi_height, std::map<std::string, float>& param_map) const;
 
     private:
         std::unique_ptr<impl> impl_;

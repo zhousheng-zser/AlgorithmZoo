@@ -17,23 +17,23 @@
 #include <opencv2/core.hpp>
 #include <opencv2/imgproc.hpp>
 
-namespace glasssix::phone
+namespace glasssix::playphone
 {
     class detect_code_internal::impl
     {
     public:
         impl(const exposing::param_string model_directory, int device = -1)
-                : impl{hardcode::get_model_params("phone", false),  exposing::to_narrow_string(model_directory), device}
+                : impl{hardcode::get_model_params("playphone", false),  exposing::to_narrow_string(model_directory), device}
         {
         }
 
         impl(const std::vector<std::string> &phai, std::string model_directory, int device)
-                :net_instance_(phai,  model_directory + std::string("/phone_sim.rknn"), device)
+                :net_instance_(phai,  model_directory + std::string("/playphone_sim.rknn"), device)
         {
 
         }
 
-        exposing::param_vector<phone::box_info> detect(const exposing::param_span<std::uint8_t>& bitmap, int channels, int height, int width, int roi_x, int roi_y, int roi_width, int roi_height, std::map<std::string, float>& param_map)
+        exposing::param_vector<playphone::box_info> detect(const exposing::param_span<std::uint8_t>& bitmap, int channels, int height, int width, int roi_x, int roi_y, int roi_width, int roi_height, std::map<std::string, float>& param_map)
         {
             if (bitmap.empty())
             {
@@ -47,14 +47,14 @@ namespace glasssix::phone
             
             if(roi_x<0 || roi_x>width || roi_y>height || roi_y<0 ||roi_height<0 || (roi_height+roi_y) >height || roi_width<0 || (roi_width+roi_x) > width)
             {
-                  throw exposing::abi_invalid_argument("incorrect roi in phone");
+                  throw exposing::abi_invalid_argument("incorrect roi in playphone");
             }
 
             cv::Mat cropped_image = image(cv::Range(roi_y,roi_y+roi_height), cv::Range(roi_x,roi_x+roi_width));
 
             auto result = run_detect(cropped_image, roi_x, roi_y, roi_width, roi_height, param_map);
 
-            auto results = exposing::make_param_vector<phone::box_info>();
+            auto results = exposing::make_param_vector<playphone::box_info>();
 
             for(auto& it:result) {
                 it.x1+=roi_x;
@@ -67,9 +67,18 @@ namespace glasssix::phone
             return results;
         }
 
-        static std::string version()
+        std::string version()
         {
-            return "1.0.0";
+			const std::string algo_module_version = "1.0.0";
+
+#if defined(USE_RKNNAPI) || defined(USE_RKNN2API)
+			//#if 0
+			std::string nn_frame_version = net_instance_.version();
+#else
+			std::string nn_frame_version = net_instance_.version();
+#endif
+			return fmt::format(R"({{"nn_frame_version":"{}", "algo_module_version":"{}"}})", nn_frame_version, algo_module_version);
+
         }
 
     private:
@@ -203,9 +212,9 @@ namespace glasssix::phone
 		 * @return [box,confidence,category]
 		 * @details concat xywh into nx6
 		 */
-         static std::vector<phone::box_info_internal> computeNx6(std::vector<std::vector<float>>& src, float conf_thres)
+         static std::vector<playphone::box_info_internal> computeNx6(std::vector<std::vector<float>>& src, float conf_thres)
          {
-             std::vector<phone::box_info_internal> res;
+             std::vector<playphone::box_info_internal> res;
              for (auto it : src)
              {
                  float top_x = it[0] - it[2] / 2;
@@ -216,7 +225,7 @@ namespace glasssix::phone
                  int maxPosition = std::max_element(it.begin() + 5, it.end()) - it.begin();
                  if (it[maxPosition] * conf > conf_thres)
                  {
-                     phone::box_info_internal temp{};
+                     playphone::box_info_internal temp{};
                      temp.x1 = top_x;
                      temp.y1 = top_y;
                      temp.x2 = bot_x;
@@ -235,7 +244,7 @@ namespace glasssix::phone
           * @return std::pair<bboxes, confidence>
           * @details slice dnn_src into bboxes and confidence, which need by dnn::NMS
           */
-         static std::tuple<std::vector<cv::Rect2d>, std::vector<float>, std::vector<int>> computeNmsInput(std::vector<phone::box_info_internal>& src, int max_wh)
+         static std::tuple<std::vector<cv::Rect2d>, std::vector<float>, std::vector<int>> computeNmsInput(std::vector<playphone::box_info_internal>& src, int max_wh)
          {
              std::vector<cv::Rect2d> boxes;
              std::vector<float> scores;
@@ -261,7 +270,7 @@ namespace glasssix::phone
          * @return std::vector(boxes, classes)
          * @details Non-Maximum Suppression (NMS) on inference results
          */
-        static std::vector<phone::box_info_internal> non_max_suppression(std::vector<std::vector<float>>& prediction, float conf_thres, float iou_thres)
+        static std::vector<playphone::box_info_internal> non_max_suppression(std::vector<std::vector<float>>& prediction, float conf_thres, float iou_thres)
         {
             // Compute conf = obj_conf * cls_conf
             // Box (center x, center y, width, height) to (x1, y1, x2, y2, conf, classes)
@@ -280,14 +289,14 @@ namespace glasssix::phone
             std::vector<int> indices;
             cv::dnn::NMSBoxes(bboxes, scores, conf_thres, iou_thres, indices);
 
-            std::vector<phone::box_info_internal> output;
+            std::vector<playphone::box_info_internal> output;
 
             // x < 0 return 0; x > 0 return x;
             auto f = [](int x) {if (x < 0) return 0; else return x; };
 
             for (int idx : indices)
             {
-                phone::box_info_internal temp{};
+                playphone::box_info_internal temp{};
                 temp.x1 = f(static_cast<int>(compute_box[idx].x1));
                 temp.y1 = f(static_cast<int>(compute_box[idx].y1));
                 temp.x2 = f(static_cast<int>(compute_box[idx].x2));
@@ -306,9 +315,9 @@ namespace glasssix::phone
          * @param coords, old_image, new_image, step
          * @return coords
          */
-        std::vector<phone::box_info_internal> scale_coords(std::vector<phone::box_info_internal>& coords, cv::Size& old_shape, cv::Size& new_shape)
+        std::vector<playphone::box_info_internal> scale_coords(std::vector<playphone::box_info_internal>& coords, cv::Size& old_shape, cv::Size& new_shape)
         {
-            std::vector<phone::box_info_internal> scale_coords_pt;
+            std::vector<playphone::box_info_internal> scale_coords_pt;
 
             auto gain = std::min((float)old_shape.width / (float)new_shape.width, (float)old_shape.height / (float)new_shape.height);
 
@@ -319,7 +328,7 @@ namespace glasssix::phone
             // scale coords on point
             for (const auto& it : coords)
             {
-                phone::box_info_internal temp{};
+                playphone::box_info_internal temp{};
                 temp.x1 = clamp((it.x1 - pad.first) / gain, 0, new_shape.width);
                 temp.y1 = clamp((it.y1 - pad.second) / gain, 0, new_shape.height);
                 temp.x2 = clamp((it.x2 - pad.first) / gain, 0, new_shape.width);
@@ -335,10 +344,10 @@ namespace glasssix::phone
         /**
            * @fun run_detect
            * @param image param_map
-           * @return std::vector<phone::box_info_internal>
+           * @return std::vector<playphone::box_info_internal>
            * @details run detect (maybe in multithreading)
         */
-        std::vector<phone::box_info_internal> run_detect(cv::Mat& image, int roi_x, int roi_y, int roi_width, int roi_height, std::map<std::string, float>& param_map)
+        std::vector<playphone::box_info_internal> run_detect(cv::Mat& image, int roi_x, int roi_y, int roi_width, int roi_height, std::map<std::string, float>& param_map)
         {
             std::map<std::string, float> params = {
                     {"conf_thres", param_map.count("conf_thres") ? param_map["conf_thres"] : 0.5f},
@@ -392,10 +401,10 @@ namespace glasssix::phone
 
     std::string detect_code_internal::version()
     {
-        return impl::version();
+        return impl_->version();
     }
 
-    exposing::param_vector<phone::box_info> detect_code_internal::detect(exposing::param_span<std::uint8_t> bitmap, int channels, int height, int width, int roi_x, int roi_y, int roi_width, int roi_height, std::map<std::string, float>& param_map) const
+    exposing::param_vector<playphone::box_info> detect_code_internal::detect(exposing::param_span<std::uint8_t> bitmap, int channels, int height, int width, int roi_x, int roi_y, int roi_width, int roi_height, std::map<std::string, float>& param_map) const
     {
         return impl_->detect(bitmap, channels, height, width, roi_x, roi_y, roi_width, roi_height, param_map);
     }
