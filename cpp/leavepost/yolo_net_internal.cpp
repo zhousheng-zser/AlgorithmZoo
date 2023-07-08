@@ -85,10 +85,15 @@ namespace glasssix::leavepost
             return result;
         }
 
-        static std::string version()
-        {
-            return "1.0.0";
-        }
+        std::string version()
+		{
+			const std::string algo_module_version = "1.0.0";
+
+			std::string nn_frame_version = net_instance_.version();
+
+			return fmt::format(R"({{"nn_frame_version":"{}", "algo_module_version":"{}"}})", nn_frame_version, algo_module_version);
+		}
+
 
     private:       
         inline float intersection_area(const box_info_internal &a, const box_info_internal &b)
@@ -385,10 +390,9 @@ namespace glasssix::leavepost
 
             return 0;
         }
-
+    
     private:
         int device_;
-        excalibur::pipeline<float> hat_simp_;
         rknnwrapper::rknn_wrapper  net_instance_;
         std::string model_directory_;
         std::shared_ptr<memory::tensor<std::uint8_t>> cache_;
@@ -408,8 +412,8 @@ namespace glasssix::leavepost
         return impl_->detect(bitmap, channels, height, width, roi_x, roi_y, roi_width, roi_height);
     }
 
-    std::string yolo_net_internal::version()
-    {
-        return impl::version();
-    }
+	std::string yolo_net_internal::version()
+	{
+		return impl_->version();
+	}
 }
