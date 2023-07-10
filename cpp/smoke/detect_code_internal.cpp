@@ -636,6 +636,18 @@ namespace glasssix::smoke
                 }
             }    
         }
+		
+		void Operator_227_232( std::unordered_map<std::string, std::shared_ptr<glasssix::memory::tensor<float>>>& inputs)
+		{
+			 std::shared_ptr<glasssix::memory::tensor<float>> operation_232 (new glasssix::memory::tensor<float>(1, 8192, -1, glasssix::memory::NCHW, nullptr));
+			float* data=operation_232->mutable_cpu_data();
+			const float* input=inputs["227"]->cpu_data();
+			for(int i=0;i<inputs["227"]->count();i++ )
+			{
+				data[i]= sqrt(fabs(input[i])+0.000001)*input[i];
+			}
+			inputs["232"]=operation_232;
+		}
 
         std::unordered_map<std::string, std::shared_ptr<glasssix::memory::tensor<float>>> Operator_completion(
                            std::unordered_map<std::string, std::shared_ptr<glasssix::memory::tensor<float>>>& data)
@@ -758,7 +770,7 @@ namespace glasssix::smoke
 
                 auto  network_result1 = net_category_.forward(cate_blob.data, 
                             { 1, cate_blob.rows, cate_blob.cols,cate_blob.channels() }, RKNN_TENSOR_NHWC);
-
+				Operator_227_232(network_result1);
                 auto net_full_result = Operator_completion(network_result1);
 
                 cv::Mat crop_images3;
@@ -766,7 +778,9 @@ namespace glasssix::smoke
                  
                 auto  network_result2 = net_category_.forward(crop_images3.data, 
                     { 1, crop_images3.rows, crop_images3.cols,crop_images3.channels() }, RKNN_TENSOR_NHWC);
-                    auto net_full_result2 = Operator_completion(network_result2);
+				Operator_227_232(network_result2);
+				auto net_full_result2 = Operator_completion(network_result2);
+				
                 std::unordered_map<std::string, std::shared_ptr<glasssix::memory::tensor<float>>> post_input;
                 post_input["y_pred_raw"]=net_full_result["output"];
                 post_input["y_pred_aux"]=net_full_result["273"];
