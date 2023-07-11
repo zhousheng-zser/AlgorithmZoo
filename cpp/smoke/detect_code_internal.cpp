@@ -55,13 +55,13 @@ namespace glasssix::smoke
             }
 
             cv::Mat cropped_image = image(cv::Range(roi_y,roi_y+roi_height), cv::Range(roi_x,roi_x+roi_width));
-
+            std::cout<<"dsd\n";
             auto detect_result = run_detect(cropped_image, roi_x, roi_y, roi_width, roi_height, param_map);
 
             auto cate_result=categorys(cropped_image,detect_result);
 
             auto results = exposing::make_param_vector<smoke::box_info>();
-
+  std::cout<<"dsd\n";
             for(auto& it:cate_result) 
             {
                 it.x1+=roi_x;
@@ -636,18 +636,6 @@ namespace glasssix::smoke
                 }
             }    
         }
-		
-		void Operator_227_232( std::unordered_map<std::string, std::shared_ptr<glasssix::memory::tensor<float>>>& inputs)
-		{
-			 std::shared_ptr<glasssix::memory::tensor<float>> operation_232 (new glasssix::memory::tensor<float>(1, 8192, -1, glasssix::memory::NCHW, nullptr));
-			float* data=operation_232->mutable_cpu_data();
-			const float* input=inputs["227"]->cpu_data();
-			for(int i=0;i<inputs["227"]->count();i++ )
-			{
-				data[i]= sqrt(fabs(input[i])+0.000001)*input[i];
-			}
-			inputs["232"]=operation_232;
-		}
 
         std::unordered_map<std::string, std::shared_ptr<glasssix::memory::tensor<float>>> Operator_completion(
                            std::unordered_map<std::string, std::shared_ptr<glasssix::memory::tensor<float>>>& data)
@@ -770,7 +758,7 @@ namespace glasssix::smoke
 
                 auto  network_result1 = net_category_.forward(cate_blob.data, 
                             { 1, cate_blob.rows, cate_blob.cols,cate_blob.channels() }, RKNN_TENSOR_NHWC);
-				Operator_227_232(network_result1);
+
                 auto net_full_result = Operator_completion(network_result1);
 
                 cv::Mat crop_images3;
@@ -778,9 +766,7 @@ namespace glasssix::smoke
                  
                 auto  network_result2 = net_category_.forward(crop_images3.data, 
                     { 1, crop_images3.rows, crop_images3.cols,crop_images3.channels() }, RKNN_TENSOR_NHWC);
-				Operator_227_232(network_result2);
-				auto net_full_result2 = Operator_completion(network_result2);
-				
+                    auto net_full_result2 = Operator_completion(network_result2);
                 std::unordered_map<std::string, std::shared_ptr<glasssix::memory::tensor<float>>> post_input;
                 post_input["y_pred_raw"]=net_full_result["output"];
                 post_input["y_pred_aux"]=net_full_result["273"];
@@ -807,10 +793,10 @@ namespace glasssix::smoke
 
         std::vector<location_char> run_detect(cv::Mat& image, int roi_x, int roi_y, int roi_width, int roi_height, std::map<std::string, float>& param_map)
         {
-            std::map<std::string, float> params = {
-                    {"conf_thres", param_map.count("conf_thres") ? param_map["conf_thres"] : 0.1f},
-                    {"iou_thres",  param_map.count("iou_thres") ? param_map["iou_thres"] : 0.45f}};
-			
+            
+            float conf_threshold= param_map.count("conf_thres") ? param_map["conf_thres"] : 0.35f;
+            float iou_threshold = param_map.count("nms_thres") ? param_map["nms_thres"] : 0.45f;      
+
 			auto old_shape = cv::Size(roi_width, roi_height);
 
 			auto new_shape = cv::Size(640,  640);
@@ -831,11 +817,10 @@ namespace glasssix::smoke
                 forwards.push_back(network_result[out_names[i]]);
             }
 
-			float conf_threshold = 0.35f;
-			float iou_threshold = 0.45f;
+			// float conf_threshold = 0.35f;
+			// float iou_threshold = 0.45f;
 
 			auto result = concat(forwards, conf_threshold );
-
 			auto nms_result = non_max_suppression(result, conf_threshold, iou_threshold, 1/ratio);
             std::vector<box_info_internal> output;
             

@@ -1,0 +1,203 @@
+I fuse_ops ...
+I fuse_ops results:
+I     convert_unsqueeze_to_reshape: remove node = ['Unsqueeze_48'], add node = ['Unsqueeze_48_2reshape']
+I     convert_unsqueeze_to_reshape: remove node = ['Unsqueeze_49'], add node = ['Unsqueeze_49_2reshape']
+I     swap_reshape_tanh: remove node = ['Reshape_55', 'Tanh_56'], add node = ['Tanh_56', 'Reshape_55']
+I     swap_reshape_tanh: remove node = ['Reshape_73', 'Tanh_74'], add node = ['Tanh_74', 'Reshape_73']
+I     squeeze_to_4d_mul: remove node = [], add node = ['Mul_68_1_squeeze0', 'Mul_68_0_squeeze1']
+I     convert_keepdims_to_1_reducesum: remove node = [], add node = ['ReduceSum_69_reshape']
+I     convert_reduce_sum_to_conv: remove node = ['ReduceSum_70'], add node = ['ReduceSum_70_2conv', 'ReduceSum_70_2conv_after']
+I     convert_div_to_mul: remove node = ['Div_72'], add node = ['Div_72_2mul']
+I     expand_to_4d_tanh: remove node = [], add node = ['Tanh_74_0_expand0', 'Tanh_74_0_expand1']
+I     convert_abs_to_leakyrelu: remove node = ['Abs_75'], add node = ['Abs_75_2leakyrelu']
+I     expand_to_4d_add: remove node = [], add node = ['Add_77_0_expand0', 'Add_77_0_expand1']
+I     expand_to_4d_sqrt: remove node = [], add node = ['Sqrt_78_0_expand0', 'Sqrt_78_0_expand1']
+I     expand_to_4d_mul: remove node = [], add node = ['Mul_79_0_expand0', 'Mul_79_1_expand0', 'Mul_79_0_expand1']
+I     squeeze_to_4d_mul: remove node = [], add node = ['Mul_50_0_squeeze0', 'Mul_50_1_squeeze0', 'Mul_50_0_squeeze1']
+I     convert_keepdims_to_1_reducesum: remove node = [], add node = ['ReduceSum_51_reshape']
+I     convert_reduce_sum_to_conv: remove node = ['ReduceSum_52'], add node = ['ReduceSum_52_2conv', 'ReduceSum_52_2conv_after']
+I     convert_div_to_mul: remove node = ['Div_54'], add node = ['Div_54_2mul']
+I     expand_to_4d_tanh: remove node = [], add node = ['Tanh_56_0_expand0', 'Tanh_56_0_expand1']
+I     convert_reduce_mean_to_avgpool: remove node = ['ReduceMean_88'], add node = ['ReduceMean_88_2avgpool']
+I     remove_parallel_reshape: remove node = ['Mul_68_1_squeeze0']
+I     broadcast_mul_expand: remove node = [], add node = ['241_exp_for_Mul_68', '216_shape4_Mul_50_exp_for_Mul_68']
+I     squeeze_to_4d_reducesum: remove node = [], add node = ['ReduceSum_69_0_squeeze0', 'ReduceSum_69_0_squeeze1']
+I     expand_to_4d_mul: remove node = [], add node = ['Div_72_2mul_0_expand0', 'Div_72_2mul_0_expand1']
+I     fuse_two_reshape: remove node = ['Tanh_74_0_expand1']
+I     expand_to_4d_leakyrelu: remove node = [], add node = ['Abs_75_2leakyrelu_0_expand0', 'Abs_75_2leakyrelu_0_expand1']
+I     fuse_two_reshape: remove node = ['Add_77_0_expand1', 'Sqrt_78_0_expand1', 'Unsqueeze_48_2reshape']
+I     broadcast_mul_expand: remove node = [], add node = ['215_shape4_Mul_50_exp_for_Mul_50', '216_shape4_Mul_50_exp_for_Mul_50']
+I     squeeze_to_4d_reducesum: remove node = [], add node = ['ReduceSum_51_0_squeeze0', 'ReduceSum_51_0_squeeze1']
+I     expand_to_4d_mul: remove node = [], add node = ['Div_54_2mul_0_expand0', 'Div_54_2mul_0_expand1']
+I     fuse_two_reshape: remove node = ['Tanh_56_0_expand1']
+I     fuse_two_reshape: remove node = ['Unsqueeze_49_2reshape', 'Mul_68_0_squeeze1']
+I     convert_reduce_sum_to_conv: remove node = ['ReduceSum_69'], add node = ['ReduceSum_69_2conv']
+I     fuse_two_reshape: remove node = ['ReduceSum_69_0_squeeze1', 'ReduceSum_70_2conv_after', 'Div_72_2mul_0_expand1']
+I     remove_parallel_reshape: remove node = ['Mul_79_0_expand0']
+I     fuse_two_reshape: remove node = ['Abs_75_2leakyrelu_0_expand1']
+I     remove_invalid_reshape: remove node = ['Sqrt_78_0_expand0', 'Mul_79_1_expand0']
+I     fuse_two_reshape: remove node = ['Mul_50_0_squeeze1']
+I     convert_reduce_sum_to_conv: remove node = ['ReduceSum_51'], add node = ['ReduceSum_51_2conv']
+I     fuse_two_reshape: remove node = ['ReduceSum_51_0_squeeze1', 'ReduceSum_52_2conv_after', 'Div_54_2mul_0_expand1']
+I     remove_invalid_reshape: remove node = ['Mul_50_1_squeeze0', 'ReduceSum_69_0_squeeze0', 'Tanh_74_0_expand0']
+I     fuse_two_reshape: remove node = ['Reshape_73']
+I     remove_invalid_reshape: remove node = ['Add_77_0_expand0', 'ReduceSum_51_0_squeeze0', 'Tanh_56_0_expand0']
+I     remove_parallel_expand: remove node = ['216_shape4_Mul_50_exp_for_Mul_68']
+I     swap_reshape_mul: remove node = ['Div_72_2mul_0_expand0', 'Div_72_2mul'], add node = ['Div_72_2mul', 'Div_72_2mul_0_expand0']
+I     swap_reshape_mul: remove node = ['Div_54_2mul_0_expand0', 'Div_54_2mul'], add node = ['Div_54_2mul', 'Div_54_2mul_0_expand0']
+I     fuse_mul_into_conv: remove node = ['Div_72_2mul']
+I     swap_reshape_tanh: remove node = ['Div_72_2mul_0_expand0', 'Tanh_74'], add node = ['Tanh_74', 'Div_72_2mul_0_expand0']
+I     fuse_mul_into_conv: remove node = ['Div_54_2mul']
+I     swap_reshape_tanh: remove node = ['Div_54_2mul_0_expand0', 'Tanh_56'], add node = ['Tanh_56', 'Div_54_2mul_0_expand0']
+I     fuse_two_reshape: remove node = ['Div_72_2mul_0_expand0', 'Div_54_2mul_0_expand0']
+I     fold_constant ...
+I     fold_constant done.
+I     fold_constant remove nodes = ['241_exp_for_Mul_68']
+I fuse_ops done.
+I
+I sparse_weight ...
+I sparse_weight done.
+I
+Analysing : 100%|█████████████████████████████████████████████████| 69/69 [00:00<00:00, 5788.72it/s]
+Quantizating 1/7: 100%|█████████████████████████████████████████████| 69/69 [00:10<00:00,  6.81it/s]
+Quantizating 2/7: 100%|█████████████████████████████████████████████| 69/69 [00:06<00:00, 11.39it/s]
+Quantizating 3/7: 100%|█████████████████████████████████████████████| 69/69 [00:05<00:00, 11.82it/s]
+Quantizating 4/7: 100%|█████████████████████████████████████████████| 69/69 [00:06<00:00, 10.70it/s]
+Quantizating 5/7: 100%|█████████████████████████████████████████████| 69/69 [00:05<00:00, 11.51it/s]
+Quantizating 6/7: 100%|█████████████████████████████████████████████| 69/69 [00:06<00:00, 10.89it/s]
+Quantizating 7/7: 100%|████████████████████████████████████████████| 69/69 [00:00<00:00, 151.17it/s]
+I
+I quant_optimizer ...
+I quant_optimizer results:
+I     adjust_tanh_sigmoid: ['Tanh_56', 'Tanh_74']
+I     adjust_relu: ['Relu_47', 'Relu_45', 'Relu_42', 'Relu_40', 'Relu_36', 'Relu_34', 'Relu_31', 'Relu_29', 'Relu_25', 'Relu_23', 'Relu_20', 'Relu_18', 'Relu_14', 'Relu_12', 'Relu_9', 'Relu_7', 'Relu_4', 'Relu_1']
+I quant_optimizer done.
+I
+done
+Please modify ssd_mobilenet_v2.quantization.cfg!
+==================================================================================================
+Modify Method: Fill the customized_quantize_layers with the output name & dtype of the custom layer.
+
+For example:
+    custom_quantize_layers:
+        FeatureExtractor/MobilenetV2/expanded_conv/depthwise/BatchNorm/batchnorm/add_1:0: float16
+        FeatureExtractor/MobilenetV2/expanded_conv/depthwise/Relu6:0: float16
+Or:
+    custom_quantize_layers: {
+        FeatureExtractor/MobilenetV2/expanded_conv/depthwise/BatchNorm/batchnorm/add_1:0: float16,
+        FeatureExtractor/MobilenetV2/expanded_conv/depthwise/Relu6:0: float16,
+    }
+==================================================================================================
+root@DESKTOP-822UT01:~/rknn_toolkit2_file/onnx/call_cmoke# ls
+3.jpg                      dataset.txt                 read_pic.py               smoke_sim0710.onnx               smoke_son.onnx
+6263.jpg                   datasetsmoke.txt            resize.py                 smoke_sim4.onnx                  smoke_son.rknn
+call_sim.onnx              dir_write.py                safe_production.jpg       smoke_sim5.onnx                  smoke_son0703.onnx
+call_sim.rknn              image                       smoke.onnx                smoke_sim703.onnx                smoke_son215.onnx
+call_sim0706.onnx          images.zip                  smoke_call_classify.onnx  smoke_sim_half.rknn              smoke_son215.rknn
+call_sim07071.onnx         images.zip:Zone.Identifier  smoke_call_detect.onnx    smoke_sim_int8.rknn              smoke_son217.onnx
+call_sim0710.onnx          imagesmoke                  smoke_half.rknn           smoke_sim_testhalf.rknn          smoke_son217.rknn
+call_sim07102.onnx         onphone_sim.onnx            smoke_int.rknn            smoke_sim_testint8.rknn          smoke_son218.onnx
+call_sim_half.rknn         onphone_sim.rknn            smoke_int2.rknn           smoke_simm07102.onnx             smoke_son218.rknn
+call_sim_int8.rknn         person_sim.onnx             smoke_res.onnx            smoke_simmtest.data              smoke_son_half.rknn
+check0_base_optimize.onnx  person_sim.rknn             smoke_res.rknn            smoke_simmtest.model             step1.py
+check2_correct_ops.onnx    person_sim_half.rknn        smoke_sim.onnx            smoke_simmtest.onnx              test.py
+check3_fuse_ops.onnx       person_sim_int8.rknn        smoke_sim.rknn            smoke_simmtest.quantization.cfg
+root@DESKTOP-822UT01:~/rknn_toolkit2_file/onnx/call_cmoke# vim smoke_simmtest.quantization.cfg
+root@DESKTOP-822UT01:~/rknn_toolkit2_file/onnx/call_cmoke# vi step1.py
+root@DESKTOP-822UT01:~/rknn_toolkit2_file/onnx/call_cmoke# vi step1.py
+root@DESKTOP-822UT01:~/rknn_toolkit2_file/onnx/call_cmoke# python3 step1.py
+W __init__: rknn-toolkit2 version: 1.5.1b17+7ca6b722
+--> Config model
+done
+done
+--> Loading model
+Loading : 100%|███████████████████████████████████████████████████| 52/52 [00:00<00:00, 3380.77it/s]
+--> Loading model
+done
+--> hybrid_quantization_step1
+I base_optimize ...
+I base_optimize done.
+I
+I fold_constant ...
+I fold_constant done.
+I
+I correct_ops ...
+I correct_ops done.
+I
+I fuse_ops ...
+I fuse_ops results:
+I     convert_unsqueeze_to_reshape: remove node = ['Unsqueeze_48'], add node = ['Unsqueeze_48_2reshape']
+I     convert_unsqueeze_to_reshape: remove node = ['Unsqueeze_49'], add node = ['Unsqueeze_49_2reshape']
+I     swap_reshape_tanh: remove node = ['Reshape_55', 'Tanh_56'], add node = ['Tanh_56', 'Reshape_55']
+I     fuse_mul_into_gemm: remove node = ['Mul_86']
+I     swap_reshape_tanh: remove node = ['Reshape_73', 'Tanh_74'], add node = ['Tanh_74', 'Reshape_73']
+I     fuse_mul_into_gemm: remove node = ['Mul_90']
+I     squeeze_to_4d_mul: remove node = [], add node = ['Mul_68_1_squeeze0', 'Mul_68_0_squeeze1']
+I     convert_keepdims_to_1_reducesum: remove node = [], add node = ['ReduceSum_69_reshape']
+I     convert_reduce_sum_to_conv: remove node = ['ReduceSum_70'], add node = ['ReduceSum_70_2conv', 'ReduceSum_70_2conv_after']
+I     convert_div_to_mul: remove node = ['Div_72'], add node = ['Div_72_2mul']
+I     expand_to_4d_tanh: remove node = [], add node = ['Tanh_74_0_expand0', 'Tanh_74_0_expand1']
+I     convert_abs_to_leakyrelu: remove node = ['Abs_75'], add node = ['Abs_75_2leakyrelu']
+I     expand_to_4d_add: remove node = [], add node = ['Add_77_0_expand0', 'Add_77_0_expand1']
+I     expand_to_4d_sqrt: remove node = [], add node = ['Sqrt_78_0_expand0', 'Sqrt_78_0_expand1']
+I     expand_to_4d_mul: remove node = [], add node = ['Mul_79_0_expand0', 'Mul_79_1_expand0', 'Mul_79_0_expand1']
+I     expand_to_4d_clip: remove node = [], add node = ['Clip_81_0_expand0', 'Clip_81_0_expand1']
+I     expand_to_4d_expand: remove node = [], add node = ['Expand_83_0_expand0', 'Expand_83_0_expand1']
+I     expand_to_4d_div: remove node = [], add node = ['Div_84_0_expand0', 'Div_84_1_expand0', 'Div_84_0_expand1']
+I     convert_gemm_by_conv: remove node = ['Gemm_91'], add node = ['Gemm_91_2conv_reshape1', 'Gemm_91_2conv', 'Gemm_91_2conv_reshape2']
+I     squeeze_to_4d_mul: remove node = [], add node = ['Mul_50_0_squeeze0', 'Mul_50_1_squeeze0', 'Mul_50_0_squeeze1']
+I     convert_keepdims_to_1_reducesum: remove node = [], add node = ['ReduceSum_51_reshape']
+I     convert_reduce_sum_to_conv: remove node = ['ReduceSum_52'], add node = ['ReduceSum_52_2conv', 'ReduceSum_52_2conv_after']
+I     convert_div_to_mul: remove node = ['Div_54'], add node = ['Div_54_2mul']
+I     expand_to_4d_tanh: remove node = [], add node = ['Tanh_56_0_expand0', 'Tanh_56_0_expand1']
+I     convert_abs_to_leakyrelu: remove node = ['Abs_57'], add node = ['Abs_57_2leakyrelu']
+I     expand_to_4d_add: remove node = [], add node = ['Add_59_0_expand0', 'Add_59_0_expand1']
+I     expand_to_4d_sqrt: remove node = [], add node = ['Sqrt_60_0_expand0', 'Sqrt_60_0_expand1']
+I     expand_to_4d_mul: remove node = [], add node = ['Mul_61_0_expand0', 'Mul_61_1_expand0', 'Mul_61_0_expand1']
+I     expand_to_4d_clip: remove node = [], add node = ['Clip_63_0_expand0', 'Clip_63_0_expand1']
+I     expand_to_4d_expand: remove node = [], add node = ['Expand_65_0_expand0', 'Expand_65_0_expand1']
+I     expand_to_4d_div: remove node = [], add node = ['Div_66_0_expand0', 'Div_66_1_expand0', 'Div_66_0_expand1']
+I     convert_gemm_by_conv: remove node = ['Gemm_87'], add node = ['Gemm_87_2conv_reshape1', 'Gemm_87_2conv', 'Gemm_87_2conv_reshape2']
+I     expand_to_4d_sub: remove node = [], add node = ['Sub_92_0_expand0', 'Sub_92_1_expand0', 'Sub_92_0_expand1']
+I     convert_reduce_mean_to_avgpool: remove node = ['ReduceMean_88'], add node = ['ReduceMean_88_2avgpool']
+I     remove_parallel_reshape: remove node = ['Mul_68_1_squeeze0']
+I     broadcast_mul_expand: remove node = [], add node = ['241_exp_for_Mul_68', '216_shape4_Mul_50_exp_for_Mul_68']
+I     squeeze_to_4d_reducesum: remove node = [], add node = ['ReduceSum_69_0_squeeze0', 'ReduceSum_69_0_squeeze1']
+I     expand_to_4d_mul: remove node = [], add node = ['Div_72_2mul_0_expand0', 'Div_72_2mul_0_expand1']
+I     fuse_two_reshape: remove node = ['Tanh_74_0_expand1']
+I     expand_to_4d_leakyrelu: remove node = [], add node = ['Abs_75_2leakyrelu_0_expand0', 'Abs_75_2leakyrelu_0_expand1']
+I     fuse_two_reshape: remove node = ['Add_77_0_expand1', 'Sqrt_78_0_expand1', 'Clip_81_0_expand1', 'Expand_83_0_expand1', 'Div_84_0_expand1', 'Gemm_91_2conv_reshape2', 'Unsqueeze_48_2reshape']
+I     broadcast_mul_expand: remove node = [], add node = ['215_shape4_Mul_50_exp_for_Mul_50', '216_shape4_Mul_50_exp_for_Mul_50']
+I     squeeze_to_4d_reducesum: remove node = [], add node = ['ReduceSum_51_0_squeeze0', 'ReduceSum_51_0_squeeze1']
+I     expand_to_4d_mul: remove node = [], add node = ['Div_54_2mul_0_expand0', 'Div_54_2mul_0_expand1']
+I     fuse_two_reshape: remove node = ['Tanh_56_0_expand1']
+I     expand_to_4d_leakyrelu: remove node = [], add node = ['Abs_57_2leakyrelu_0_expand0', 'Abs_57_2leakyrelu_0_expand1']
+I     fuse_two_reshape: remove node = ['Add_59_0_expand1', 'Sqrt_60_0_expand1', 'Clip_63_0_expand1', 'Expand_65_0_expand1']
+I     fuse_two_reshape: remove node = ['Unsqueeze_49_2reshape', 'Mul_68_0_squeeze1']
+I     convert_reduce_sum_to_conv: remove node = ['ReduceSum_69'], add node = ['ReduceSum_69_2conv']
+I     fuse_two_reshape: remove node = ['ReduceSum_69_0_squeeze1', 'ReduceSum_70_2conv_after', 'Div_72_2mul_0_expand1']
+I     remove_parallel_reshape: remove node = ['Mul_79_0_expand0']
+I     fuse_two_reshape: remove node = ['Abs_75_2leakyrelu_0_expand1']
+I     remove_invalid_reshape: remove node = ['Sqrt_78_0_expand0', 'Mul_79_1_expand0', 'Expand_83_0_expand0', 'Div_84_1_expand0', 'Gemm_91_2conv_reshape1', 'Sub_92_1_expand0']
+I     fuse_two_reshape: remove node = ['Mul_50_0_squeeze1']
+I     convert_reduce_sum_to_conv: remove node = ['ReduceSum_51'], add node = ['ReduceSum_51_2conv']
+I     fuse_two_reshape: remove node = ['ReduceSum_51_0_squeeze1', 'ReduceSum_52_2conv_after', 'Div_54_2mul_0_expand1']
+I     remove_parallel_reshape: remove node = ['Mul_61_0_expand0']
+I     fuse_two_reshape: remove node = ['Abs_57_2leakyrelu_0_expand1']
+I     remove_invalid_reshape: remove node = ['Sqrt_60_0_expand0', 'Mul_61_1_expand0', 'Expand_65_0_expand0', 'Div_66_1_expand0']
+I     remove_invalid_reshape: remove node = ['Mul_50_1_squeeze0', 'ReduceSum_69_0_squeeze0', 'Tanh_74_0_expand0']
+I     fuse_two_reshape: remove node = ['Reshape_73']
+I     remove_invalid_reshape: remove node = ['Add_77_0_expand0', 'ReduceSum_51_0_squeeze0', 'Tanh_56_0_expand0']
+I     fuse_two_reshape: remove node = ['Reshape_55']
+I     remove_invalid_reshape: remove node = ['Add_59_0_expand0']
+I     remove_parallel_expand: remove node = ['216_shape4_Mul_50_exp_for_Mul_68']
+I     swap_reshape_mul: remove node = ['Div_72_2mul_0_expand0', 'Div_72_2mul'], add node = ['Div_72_2mul', 'Div_72_2mul_0_expand0']
+I     swap_reshape_mul: remove node = ['Div_54_2mul_0_expand0', 'Div_54_2mul'], add node = ['Div_54_2mul', 'Div_54_2mul_0_expand0']
+I     fuse_mul_into_conv: remove node = ['Div_72_2mul']
+I     swap_reshape_tanh: remove node = ['Div_72_2mul_0_expand0', 'Tanh_74'], add node = ['Tanh_74', 'Div_72_2mul_0_expand0']
+I     fuse_mul_into_conv: remove node = ['Div_54_2mul']
+I     swap_reshape_tanh: remove node = ['Div_54_2mul_0_expand0', 'Tanh_56'], add node = ['Tanh_56', 'Div_54_2mul_0_expand0']
+I     fuse_two_reshape: remove node = ['Div_72_2mul_0_expand0', 'Div_54_2mul_0_expand0']
+I     fold_constant ...
+I     fold_constant done.
+I     fold_constant remove nodes = ['241_exp_for_Mul_68']

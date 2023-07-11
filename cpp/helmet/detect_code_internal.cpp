@@ -140,7 +140,7 @@ namespace glasssix::helmet
          * @fun yolo_decode
          * @param prediction, anchors, num_classes, input_shape, image_shape
          */
-        std::vector<std::array<float, 7>> yolo_decoder(std::shared_ptr<memory::tensor<float>>& prediction, float conf_thres)
+        std::vector<std::array<float, 7>> yolo_decoder(std::shared_ptr<memory::tensor<float>>& prediction, float conf_thres,float nms_thres)
         {
             std::vector<std::array<float, 7>> detections_target;
             std::vector<std::array<float, 7>> detections_target_NMS;
@@ -218,10 +218,10 @@ namespace glasssix::helmet
                 }
                 data_ptr+=7;
             }
-
             // NMS
             std::vector<int> bbox_indices;
-            cv::dnn::NMSBoxes(bboxes, bbox_scores, 0.5, 0.5, bbox_indices);
+            cv::dnn::NMSBoxes(bboxes, bbox_scores, 0.5,nms_thres, bbox_indices);
+            
 
             for (int i = 0; i < bbox_indices.size(); i++) {
                 detections_target_NMS.push_back(detections_target[bbox_indices[i]]);
@@ -247,9 +247,12 @@ namespace glasssix::helmet
 
             auto  output = net_instance_.forward(blob.data, { 1, blob.rows, blob.cols,blob.channels() }, RKNN_TENSOR_NHWC);
 
-            float conf_thres = 0.3f;
+            float conf_thres= param_map.count("conf_thres") ? param_map["conf_thres"] : 0.3f;
+            float iou_threshold = param_map.count("nms_thres") ? param_map["nms_thres"] : 0.5f;      
 
-            std::vector<std::array<float, 7>> detections = yolo_decoder(output["output"], conf_thres);
+            // float conf_thres = 0.3f;
+
+            std::vector<std::array<float, 7>> detections = yolo_decoder(output["output"], conf_thres, iou_threshold);
 
             std::vector<box_info_internal> result;
 
@@ -259,6 +262,7 @@ namespace glasssix::helmet
                 box_info.y1 = static_cast<int>(bbox[1] * ratio);
                 box_info.x2 = static_cast<int>(bbox[2] * ratio);
                 box_info.y2 = static_cast<int>(bbox[3] * ratio);
+                box_info.score = static_cast<float>(bbox[5]*bbox[4]);
                 box_info.category = static_cast<int>(bbox[6]);
                 result.push_back(box_info);
             }

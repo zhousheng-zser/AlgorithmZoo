@@ -3,6 +3,7 @@
 
 #include <memory>
 #include <string>
+#include <map>
 #include <vector>
 #include <cstddef>
 #include <cstdint>
@@ -46,7 +47,7 @@ namespace glasssix::leavepost
 		virtual ~yolo_net_internal();
 		yolo_net_internal& operator=(const yolo_net_internal&) = delete;
 
-		exposing::param_vector<box_info> detect(exposing::param_span<std::uint8_t> bitmap, int channels, int height, int width, int roi_x, int roi_y, int roi_width, int roi_height) const;
+		exposing::param_vector<box_info> detect(exposing::param_span<std::uint8_t> bitmap, int channels, int height, int width, int roi_x, int roi_y, int roi_width, int roi_height, std::map<std::string, float>& param_map) const;
 
 		/// <summary>
 		/// Gets the version of the component.
