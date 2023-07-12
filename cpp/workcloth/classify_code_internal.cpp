@@ -104,7 +104,7 @@ namespace glasssix::workcloth
             float W = image.cols;
             float H = image.rows;
             float conf_threshold = param_map.count("conf_thres") ? param_map["conf_thres"] : 0.5f;
-            float nms_threshold = param_map.count("iou_thres") ? param_map["iou_thres"] : 0.5f;
+            float nms_threshold = param_map.count("nms_thres") ? param_map["nms_thres"] : 0.5f;
 
             auto det_mat = workcloth_imgprocess(image, 640, 640);
             // cvt BGR2RGB

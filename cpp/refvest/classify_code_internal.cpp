@@ -33,7 +33,7 @@ namespace glasssix::refvest
 
         }
 
-        exposing::param_vector<refvest::box_info> detect(const exposing::param_span<std::uint8_t>& bitmap, int channels, int height, int width, int roi_x, int roi_y, int roi_width, int roi_height)
+        exposing::param_vector<refvest::box_info> detect(const exposing::param_span<std::uint8_t>& bitmap, int channels, int height, int width, int roi_x, int roi_y, int roi_width, int roi_height, std::map<std::string, float>& param_map)
         {
             if (bitmap.empty())
             {
@@ -55,7 +55,7 @@ namespace glasssix::refvest
 
             cv::Mat cropped_image = image(cv::Range(roi_y,roi_y+roi_height), cv::Range(roi_x,roi_x+roi_width));
             
-            run_refvest(results, cropped_image);
+            run_refvest(results, cropped_image,param_map);
             for (auto& i : results)
             {
                 i.x1+=roi_x;
@@ -99,7 +99,7 @@ namespace glasssix::refvest
 
     private:
 
-        void run_refvest(std::vector<box_info_internal>& result, cv::Mat& image)
+        void run_refvest(std::vector<box_info_internal>& result, cv::Mat& image, std::map<std::string, float>& param_map)
         {
             auto [det_mat ,ratio]= refvest_imgprocess(image, 640);
             if(det_mat.empty())
@@ -120,8 +120,10 @@ namespace glasssix::refvest
             }
           
             auto  output = net_instance_.forward(blob.data, { 1, blob.rows, blob.cols,blob.channels() }, RKNN_TENSOR_NHWC);
+            float conf_thres= param_map.count("conf_thres") ? param_map["conf_thres"] : 0.3f;
+            float iou_threshold = param_map.count("nms_thres") ? param_map["nms_thres"] : 0.5f;   
 
-            std::vector<std::array<float, 7>> detections = refvest_yolo_decoder(output["output"]);
+            std::vector<std::array<float, 7>> detections = refvest_yolo_decoder(output["output"],conf_thres,iou_threshold);
             std::vector<std::array<float, 7>> out = ppeople_refvest_assignment(detections);
 
             for (const auto& bbox : out) {
@@ -170,7 +172,7 @@ namespace glasssix::refvest
             return detections_people;
         }
 
-      std::vector<std::array<float, 7>> refvest_yolo_decoder(std::shared_ptr<memory::tensor<float>>& detectionMat, int type = 0)
+      std::vector<std::array<float, 7>> refvest_yolo_decoder(std::shared_ptr<memory::tensor<float>>& detectionMat, float conf_thres,float iou_thres, int type = 0)
         {
             std::vector<std::array<float, 7>> detections_target;
             std::vector<std::array<float, 7>> detections_target_NMS;
@@ -187,7 +189,7 @@ namespace glasssix::refvest
                 float class_conf = data_ptr[5 + int(class_pred)];
 
 
-                if (obj_confidence * class_conf > 0.5f)
+                if (obj_confidence * class_conf > conf_thres)
                 {
                     if (idx > 8000) {
                         const int grid = 20;
@@ -249,7 +251,7 @@ namespace glasssix::refvest
             }
 
             std::vector<int> bbox_indices;
-            cv::dnn::NMSBoxes(bboxes, bbox_scores, 0.5, 0.5, bbox_indices);
+            cv::dnn::NMSBoxes(bboxes, bbox_scores, 0.5, iou_thres, bbox_indices);
 
             for (int i = 0; i < bbox_indices.size(); i++) {
                 detections_target_NMS.push_back(detections_target[bbox_indices[i]]);
@@ -325,8 +327,8 @@ namespace glasssix::refvest
         return impl_->version();
     }
 
-    exposing::param_vector<refvest::box_info> classify_code_internal::detect(exposing::param_span<std::uint8_t> bitmap, int channels, int height, int width, int roi_x, int roi_y, int roi_width, int roi_height) const
+    exposing::param_vector<refvest::box_info> classify_code_internal::detect(exposing::param_span<std::uint8_t> bitmap, int channels, int height, int width, int roi_x, int roi_y, int roi_width, int roi_height, std::map<std::string, float>& param_map) const
     {
-        return impl_->detect(bitmap, channels, height, width, roi_x, roi_y, roi_width, roi_height);
+        return impl_->detect(bitmap, channels, height, width, roi_x, roi_y, roi_width, roi_height, param_map);
     }
 }

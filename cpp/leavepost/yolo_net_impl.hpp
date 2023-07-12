@@ -19,8 +19,9 @@ namespace glasssix::leavepost
         ~yolo_net_impl();
         void init(const exposing::param_string& model_directory, std::int32_t device);
         exposing::param_string version() const ;
-        exposing::param_vector<box_info> detect(exposing::param_span<std::uint8_t> bitmap, int channels, int height, int width, int roi_x, int roi_y, int roi_width, int roi_height) const;
-
+        exposing::param_vector<box_info>  detect(exposing::param_span<std::uint8_t> bitmap, int channels, int height, int width, int roi_x, int roi_y,
+         int roi_width, int roi_height,const exposing::param_hash_map<exposing::param_string, float>& param_map_abi) const;
+   
     private:
         std::unique_ptr<yolo_net_internal> impl_;
     };

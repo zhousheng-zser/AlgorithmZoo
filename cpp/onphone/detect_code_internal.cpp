@@ -778,9 +778,8 @@ namespace glasssix::onphone
 
         std::vector<location_char> run_detect(cv::Mat& image, int roi_x, int roi_y, int roi_width, int roi_height, std::map<std::string, float>& param_map)
         {
-            std::map<std::string, float> params = {
-                    {"conf_thres", param_map.count("conf_thres") ? param_map["conf_thres"] : 0.1f},
-                    {"iou_thres",  param_map.count("iou_thres") ? param_map["iou_thres"] : 0.45f}};
+            float conf_threshold= param_map.count("conf_thres") ? param_map["conf_thres"] : 0.35f;
+            float iou_threshold = param_map.count("nms_thres") ? param_map["nms_thres"] : 0.45f;      
 			
 			auto old_shape = cv::Size(roi_width, roi_height);
 
@@ -803,8 +802,8 @@ namespace glasssix::onphone
                 forwards.push_back(network_result[out_names[i]]);
             }
 
-			float conf_threshold = 0.35f;
-			float iou_threshold = 0.45f;
+			// float conf_threshold = 0.35f;
+			// float iou_threshold = 0.45f;
 
 			auto result = concat(forwards, conf_threshold );
 

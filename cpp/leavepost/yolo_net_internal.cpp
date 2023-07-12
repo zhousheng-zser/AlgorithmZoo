@@ -52,7 +52,7 @@ namespace glasssix::leavepost
         {
         }
 
-        exposing::param_vector<leavepost::box_info> detect(const exposing::param_span<std::uint8_t>& bitmap, int channels, int height, int width, int roi_x, int roi_y, int roi_width, int roi_height)
+        exposing::param_vector<leavepost::box_info> detect(const exposing::param_span<std::uint8_t>& bitmap, int channels, int height, int width, int roi_x, int roi_y, int roi_width, int roi_height, std::map<std::string, float>& param_map)
         {
             if (bitmap.empty())
             {
@@ -69,7 +69,7 @@ namespace glasssix::leavepost
                   throw exposing::abi_invalid_argument("incorrect roi in refvest");
             }
             cv::Mat cropped_image = image(cv::Range(roi_y,roi_y+roi_height), cv::Range(roi_x,roi_x+roi_width));
-            detect_yolo(cropped_image, objects);
+            detect_yolo(cropped_image, objects,param_map);
 
             auto result = exposing::make_param_vector<box_info>();
             for (auto &i : objects)
@@ -283,13 +283,15 @@ namespace glasssix::leavepost
         }
 
 
-        int detect_yolo(cv::Mat& image, std::vector<box_info_internal> &objects)
+        int detect_yolo(cv::Mat& image, std::vector<box_info_internal> &objects, std::map<std::string, float>& param_map)
         {
             /** Before processing **/
             const int target_size = 640;
-            const float prob_threshold = 0.5f;
-            const float nms_threshold = 0.4f;
+            // const float prob_threshold = 0.5f;
+            // const float nms_threshold = 0.4f;
 
+            float prob_threshold= param_map.count("conf_thres") ? param_map["conf_thres"] : 0.5f;
+            float nms_threshold = param_map.count("nms_thres") ? param_map["nms_thres"] : 0.4f;      
             cv::Mat blob;
             int hpad=0;
             int wpad=0;
@@ -407,9 +409,9 @@ namespace glasssix::leavepost
     {
     }
 
-    exposing::param_vector<box_info> yolo_net_internal::detect(exposing::param_span<std::uint8_t> bitmap, int channels, int height, int width, int roi_x, int roi_y, int roi_width, int roi_height) const
-    { 
-        return impl_->detect(bitmap, channels, height, width, roi_x, roi_y, roi_width, roi_height);
+    exposing::param_vector<leavepost::box_info> yolo_net_internal::detect(exposing::param_span<std::uint8_t> bitmap, int channels, int height, int width, int roi_x, int roi_y, int roi_width, int roi_height, std::map<std::string, float>& param_map) const
+    {
+          return impl_->detect(bitmap, channels, height, width, roi_x, roi_y, roi_width, roi_height, param_map);
     }
 
 	std::string yolo_net_internal::version()
