@@ -22,11 +22,18 @@ namespace glasssix::leavepost
 		return exposing::to_param_string(impl_->version());
 	}
 
-	exposing::param_vector<box_info> yolo_net_impl::detect(exposing::param_span<std::uint8_t> bitmap, int channels, int height, int width, int roi_x, int roi_y, int roi_width, int roi_height) const
+	exposing::param_vector<box_info> yolo_net_impl::detect(exposing::param_span<std::uint8_t> bitmap, int channels, int height, int width, int roi_x, int roi_y,
+         int roi_width, int roi_height,const exposing::param_hash_map<exposing::param_string, float>& param_map_abi) const
 	{
 		if (!impl_)
 			throw exposing::abi_invalid_operation(u8"leavepost internal object not initialized");
 
-		return impl_->detect(bitmap, channels, height, width, roi_x, roi_y, roi_width, roi_height);
+		std::map<std::string, float> param_map;
+
+		for (auto it : param_map_abi) {
+			param_map.insert(std::make_pair(it.key(), it.value()));
+		}
+
+		return impl_->detect(std::move(bitmap), channels, height, width, roi_x, roi_y, roi_width, roi_height, param_map);
 	}
 }

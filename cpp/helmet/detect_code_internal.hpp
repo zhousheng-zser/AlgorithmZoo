@@ -20,6 +20,7 @@ namespace glasssix::helmet
         int x2;
         int y2;
         int category;
+        float score;
         exposing::param_string version;
     };
 
