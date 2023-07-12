@@ -165,9 +165,9 @@ namespace glasssix::playphone
         static std::vector<std::vector<float>> concat(std::vector<std::shared_ptr<memory::tensor<float>>>& outs, float conf_thres)
         {
 
-            const float anchors[3][6] = { {30,61, 62,45, 59,119},{116,90, 156,198, 373,326},{10,13, 16,30, 33,23}};
-            const int stride[3] = { 40, 20, 80};
-            const float strides[3] = { 16.0, 32.0, 8.0};
+            const float anchors[3][6] = { {116,90, 156,198, 373,326},{30,61, 62,45, 59,119},{10,13, 16,30, 33,23}};
+            const int stride[3] = {  20,40,80};
+            const float strides[3] = { 32.0, 16.0, 8.0};
             std::vector<std::vector<float>> result;
             for(int n = 0; n < 3; n++)
             {
