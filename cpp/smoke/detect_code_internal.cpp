@@ -55,13 +55,13 @@ namespace glasssix::smoke
             }
 
             cv::Mat cropped_image = image(cv::Range(roi_y,roi_y+roi_height), cv::Range(roi_x,roi_x+roi_width));
-            std::cout<<"dsd\n";
+            // std::cout<<"dsd\n";
             auto detect_result = run_detect(cropped_image, roi_x, roi_y, roi_width, roi_height, param_map);
 
             auto cate_result=categorys(cropped_image,detect_result);
 
             auto results = exposing::make_param_vector<smoke::box_info>();
-  std::cout<<"dsd\n";
+//   std::cout<<"dsd\n";
             for(auto& it:cate_result) 
             {
                 it.x1+=roi_x;
