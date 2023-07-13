@@ -730,6 +730,10 @@ namespace glasssix::onphone
             {   
                 cv::Mat cate_blob;
                 float ratio=1.f;
+                x.x1=x.x1<0?0:x.x1;
+                x.y1=x.y1<0?0:x.y1;
+                x.y2=x.y2>image.rows?image.rows:x.y2;
+                x.x2=x.x2>image.cols?image.cols:x.x2;
                 cv::Mat cropped_image = image(cv::Range(x.y1, x.y2), cv::Range(x.x1, x.x2));
                 std::tie(cate_blob, ratio) =preprocess_categroy(cropped_image);
 

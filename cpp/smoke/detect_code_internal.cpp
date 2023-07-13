@@ -38,7 +38,6 @@ namespace glasssix::smoke
 
         exposing::param_vector<smoke::box_info> detect(const exposing::param_span<std::uint8_t>& bitmap, int channels, int height, int width, int roi_x, int roi_y, int roi_width, int roi_height, std::map<std::string, float>& param_map)
         {
-            // std::cout<<"smoke\n";
             if (bitmap.empty())
             {
                 throw exposing::abi_invalid_argument("current frame is empty");
@@ -55,13 +54,13 @@ namespace glasssix::smoke
             }
 
             cv::Mat cropped_image = image(cv::Range(roi_y,roi_y+roi_height), cv::Range(roi_x,roi_x+roi_width));
-            // std::cout<<"dsd\n";
+
             auto detect_result = run_detect(cropped_image, roi_x, roi_y, roi_width, roi_height, param_map);
 
             auto cate_result=categorys(cropped_image,detect_result);
 
             auto results = exposing::make_param_vector<smoke::box_info>();
-//   std::cout<<"dsd\n";
+
             for(auto& it:cate_result) 
             {
                 it.x1+=roi_x;
@@ -746,6 +745,10 @@ namespace glasssix::smoke
             {   
                 cv::Mat cate_blob;
                 float ratio=1.f;
+                x.x1=x.x1<0?0:x.x1;
+                x.y1=x.y1<0?0:x.y1;
+                x.y2=x.y2>image.rows?image.rows:x.y2;
+                x.x2=x.x2>image.cols?image.cols:x.x2;
                 cv::Mat cropped_image = image(cv::Range(x.y1, x.y2), cv::Range(x.x1, x.x2));
                 std::tie(cate_blob, ratio) =preprocess_categroy(cropped_image);
 
