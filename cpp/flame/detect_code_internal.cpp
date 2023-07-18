@@ -85,47 +85,33 @@ namespace glasssix::flame
          *   @return letterbox(image)
          *   @details Resize and pad image while meeting stride-multiple constrain
          */
-        static std::pair<cv::Mat, float> letterbox(cv::Mat& img, cv::Size new_shape)
+        static cv::Mat letterbox(cv::Mat& img)
         {
             int H = img.rows;
             int W = img.cols;
-            float ratio_w = (float)W / (float)new_shape.width;
-            float ratio_h = (float)H / (float)new_shape.height;
-            float ratio = ratio_w;
-
+            float ratio_w = (float)W / (float)640;
+            float ratio_h = (float)H / (float)640;
             cv::Mat resize_img;
-            if(H==new_shape.height && W==new_shape.width)
-            {
-                resize_img=img;
+            if (ratio_w == ratio_h)
+                cv::resize(img, resize_img, cv::Size2i{ 640, 640 });
+            else if (ratio_w > ratio_h) {
+                int new_x = 640;
+                int new_y = (int)(H / ratio_w);
+                int pad1 = (int)((640 - new_y) / 2);
+                int pad2 = 640 - new_y - pad1;
+                cv::resize(img, resize_img, cv::Size2i{ new_x, new_y });
+                cv::copyMakeBorder(resize_img, resize_img, pad1, pad2, 0, 0, cv::BORDER_CONSTANT, cv::Scalar{ 114,114,114 });
             }
-            else
-            {
-                if (ratio_w == ratio_h)
-                {
-                    cv::resize(img, resize_img, cv::Size2i{ new_shape.width, new_shape.height });}
-                else if (ratio_w > ratio_h)
-                {
-
-                    int new_x = new_shape.width;
-                    int new_y = (int)(H / ratio_w);
-                    int pad1 = (int)((new_shape.height - new_y) / 2);
-                    int pad2 = new_shape.height - new_y - pad1;
-                    cv::resize(img, resize_img, cv::Size2i{ new_x, new_y });
-                    cv::copyMakeBorder(resize_img, resize_img, 0, pad1 + pad2, 0, 0, cv::BORDER_CONSTANT, cv::Scalar{ 114,114,114 });
-                }
-                else
-                {
-                    ratio = ratio_h;
-                    int new_y = new_shape.height;
-                    int new_x = (int)(W / ratio_h);
-                    int pad1 = (int)((new_shape.width - new_x) / 2);
-                    int pad2 = new_shape.width - new_x - pad1;
-                    cv::resize(img, resize_img, cv::Size2i{ new_x, new_y });
-                    cv::copyMakeBorder(resize_img, resize_img, 0, 0, 0, pad1 + pad2, cv::BORDER_CONSTANT, cv::Scalar{ 114,114,114 });
-                }
+            else {
+                int new_y = 640;
+                int new_x = (int)(W / ratio_h);
+                int pad1 = (int)((640 - new_x) / 2);
+                int pad2 = 640 - new_x - pad1;
+                cv::resize(img, resize_img, cv::Size2i{ new_x, new_y });
+                cv::copyMakeBorder(resize_img, resize_img, 0, 0, pad1, pad2, cv::BORDER_CONSTANT, cv::Scalar{ 127,127,127 });
             }
+            return resize_img;
 
-            return { resize_img, ratio };
         }
 
         /**
@@ -134,15 +120,16 @@ namespace glasssix::flame
          * @return tensor(preprocess(image))
          * @details image preprocess and make tensor from images
          */
-     std::tuple<cv::Mat, float> preprocess(cv::Mat src, cv::Size& new_shape)
+        std::tuple<cv::Mat, float> preprocess(cv::Mat src, cv::Size& new_shape)
         {
             cv::Mat image;
-            float ratio;
-            std::tie(image, ratio) = letterbox(src, new_shape);
+            float ratio = new_shape.width / src.cols;
+            image = letterbox(src);
+
             cv::Mat image_blob;
             cv::cvtColor(image, image_blob, cv::COLOR_BGR2HLS);
-            return {image_blob, ratio};
 
+            return std::make_tuple(image_blob, ratio);
         }
        
 		/**
@@ -161,7 +148,7 @@ namespace glasssix::flame
 		 * @return source
 		 * @details concat 3 into 1
 		 */
-        static std::vector<std::vector<float>> concat2(std::vector<std::shared_ptr<memory::tensor<float>>>& outs, float conf_thres)
+        static std::vector<std::vector<float>> concat(std::vector<std::shared_ptr<memory::tensor<float>>>& outs, float conf_thres)
         {
 
             const float anchors[3][6] = { {30,61, 62,45, 59,119},{116,90, 156,198, 373,326},{10,13, 16,30, 33,23}};
@@ -254,25 +241,25 @@ namespace glasssix::flame
 		 * @return std::pair<bboxes, confidence>
 		 * @details slice src into bboxes and confidence, which need by dnn::NMS
 		 */
-		static std::tuple<std::vector<cv::Rect2d>, std::vector<float>, std::vector<int>> computeNmsInput(std::vector<boxes_conf>& src, int max_wh,float ratio)
-		{
-			std::vector<cv::Rect2d> boxes;
-			std::vector<float> scores;
+        static std::tuple<std::vector<cv::Rect2d>, std::vector<float>, std::vector<int>> computeNmsInput(std::vector<boxes_conf>& src, int max_wh)
+        {
+            std::vector<cv::Rect2d> boxes;
+            std::vector<float> scores;
             std::vector<int> category;
-			for(auto const &it: src)
-			{
-				int c = max_wh * it.conf;
-				cv::Rect2d temp;
-		        temp.x      = static_cast<double>(it.top_x )*ratio;
-				temp.y      = static_cast<double>(it.top_y )*ratio;
-				temp.width  = static_cast<double>(it.bot_x - it.top_x);
-				temp.height = static_cast<double>(it.bot_y - it.top_y);
-				boxes.push_back(temp);
-				scores.push_back(it.conf);
+            for(auto const &it: src)
+            {
+                cv::Rect2d temp;
+                temp.x      = static_cast<double>(it.top_x + max_wh);
+                temp.y      = static_cast<double>(it.top_y + max_wh);
+                temp.width  = static_cast<double>(it.bot_x - it.top_x);
+                temp.height = static_cast<double>(it.bot_y - it.top_y);
+                boxes.push_back(temp);
+                scores.push_back(it.conf);
                 category.push_back(it.category);
-			}
-			return std::make_tuple(boxes, scores, category);
-		}
+            }
+            return std::make_tuple(boxes, scores, category);
+        }
+
 
 		/**
 		 * @fun non_max_suppression
@@ -280,7 +267,7 @@ namespace glasssix::flame
 		 * @return std::vector(boxes, classes)
 		 * @details Non-Maximum Suppression (NMS) on inference results
 		 */
-		static std::vector<std::tuple<cv::Point, cv::Point, float, int>> non_max_suppression(std::vector<std::vector<float>>& prediction, float conf_thres, float iou_thres, float ratio)
+		static std::vector<std::tuple<cv::Point2f, cv::Point2f, float, int>> non_max_suppression(std::vector<std::vector<float>>& prediction, float conf_thres, float iou_thres)
 		{
 			auto compute_box = computeNx6(prediction, conf_thres);
 
@@ -290,7 +277,7 @@ namespace glasssix::flame
             std::vector<float> scores;
             std::vector<int> classes;
           
-            std::tie(bboxes, scores, classes) = computeNmsInput(compute_box, max_wh,ratio);
+            std::tie(bboxes, scores, classes) = computeNmsInput(compute_box, max_wh);
 			// Perform non-maximum suppression to eliminate redundant overlapping boxes with
 			// lower confidences
 			std::vector<int> indices;
@@ -304,9 +291,10 @@ namespace glasssix::flame
             std::vector<int> mapping_fire;
             std::vector<float> scores_smoke;
             std::vector<float> scores_fire;
+
             for(int i=0;i<bboxes.size(); i++)
             {
-                if(classes[i]==0)
+                if(classes[i] == 1)
                 {
                     bboxes_fire.push_back(bboxes[i]);
                     mapping_fire.push_back(i);
@@ -334,19 +322,65 @@ namespace glasssix::flame
                 indices.push_back(mapping_fire[ indices_fire[i] ]  );
             }
 
-			std::vector<std::tuple<cv::Point, cv::Point,float, int>> output;
-
-			auto f = [](int x){if(x<0) return 0; else return x;};
+			std::vector<std::tuple<cv::Point2f, cv::Point2f, float, int>> output;
 
 			for (int idx : indices)
 			{
-				auto box1 = cv::Point(f(static_cast<int>(compute_box[idx].top_x * ratio)), f(static_cast<int>(compute_box[idx].top_y * ratio)));
-				auto box2 = cv::Point(f(static_cast<int>(compute_box[idx].bot_x * ratio)), f(static_cast<int>(compute_box[idx].bot_y * ratio)));
+				auto box1 = cv::Point2f(compute_box[idx].top_x, compute_box[idx].top_y);
+				auto box2 = cv::Point2f(compute_box[idx].bot_x, compute_box[idx].bot_y);
 				output.emplace_back(std::make_tuple(box1, box2, compute_box[idx].conf, compute_box[idx].category));
 			}
 			
 			return output;
 		}
+
+        struct bbox
+        {
+            float x1;
+            float y1;
+            float x2;
+            float y2;
+        };
+
+        // scale_coords: 将坐标从原始尺寸转换为缩放尺寸
+        // @param coords: 原始坐标
+        // @param input_shape: 原始尺寸
+        // @param output_shape: 缩放尺寸
+        // @return: 缩放后的坐标
+
+        std::vector<bbox> scale_coords(std::vector<bbox>& coords, cv::Size& input_shape, cv::Size& output_shape)
+        {
+            std::vector<bbox> scale_coords_pt;
+
+            auto clamp = [](int x, int min, int max) {if (x < min) return min; else if (x > max) return max; else return x; };
+
+            // gain
+            float gain = std::min(input_shape.width / (float)output_shape.width, input_shape.height / (float)output_shape.height);
+
+            // pad
+            float pad_w = (input_shape.width - output_shape.width * gain) / 2.0;
+            float pad_h = (input_shape.height - output_shape.height * gain) / 2.0;
+
+            // x padding
+            // y padding
+            for(auto& it : coords)
+            {
+                float x1 = (it.x1 - pad_w) / gain;
+                float y1 = (it.y1 - pad_h) / gain;
+                float x2 = (it.x2 - pad_w) / gain;
+                float y2 = (it.y2 - pad_h) / gain;
+
+                clamp(x1, 0, output_shape.width);
+                clamp(y1, 0, output_shape.height);
+                clamp(x2, 0, output_shape.width);
+                clamp(y2, 0, output_shape.height);
+
+                bbox temp{x1, y1, x2, y2};
+                scale_coords_pt.push_back(temp);
+            }
+
+            return scale_coords_pt;
+        }
 
         /**
            * @fun run_detect
@@ -357,9 +391,8 @@ namespace glasssix::flame
         std::vector<flame::box_info_internal> run_detect(cv::Mat& image, int roi_x, int roi_y, int roi_width, int roi_height, std::map<std::string, float>& param_map)
         {
 
-
-             float conf_threshold= param_map.count("conf_thres") ? param_map["conf_thres"] : 0.1f;
-             float iou_threshold = param_map.count("nms_thres") ? param_map["nms_thres"] : 0.45f;      
+            float conf_threshold= param_map.count("conf_thres") ? param_map["conf_thres"] : 0.2f;
+            float iou_threshold = param_map.count("nms_thres") ? param_map["nms_thres"] : 0.5f;      
 			
 			auto old_shape = cv::Size(roi_width, roi_height);
 
@@ -369,33 +402,49 @@ namespace glasssix::flame
             float ratio = 0;
 
             std::tie(blob, ratio) = preprocess(image,new_shape);
+
             std::vector<std::shared_ptr<memory::tensor<float>>> forwards;
             auto  network_result = net_instance_.forward(blob.data, { 1, blob.rows, blob.cols,blob.channels() }, RKNN_TENSOR_NHWC);
-            // std::vector<std::string>  out_names={"417","437","output"};
-                        std::vector<std::string>  out_names={"395","407","output"};
+            
+            std::vector<std::string>  out_name ={"395","407","output"};
 
             for (size_t i=0;i< 3; i++)//对输出数据做处理
             {
-                forwards.push_back(network_result[out_names[i]]);
+                forwards.push_back(network_result[out_name[i]]);
             }
 
+            auto result = concat(forwards, conf_threshold);
 
+			auto nms_result = non_max_suppression(result, conf_threshold, iou_threshold);
 
-			auto result = concat2(forwards, conf_threshold);
-
-			auto nms_result = non_max_suppression(result, conf_threshold, iou_threshold, ratio);
-
-            std::vector<box_info_internal> output;
-
+            // scale_coords
+            auto input_shape = cv::Size(640,640);
+            auto output_shape = old_shape;
+            std::vector<bbox> scale_box;
             for(auto const &it: nms_result)
             {
+                float x1 = std::get<0>(it).x;
+                float y1 = std::get<0>(it).y;
+                float x2 = std::get<1>(it).x;
+                float y2 = std::get<1>(it).y;
+                bbox temp{x1, y1, x2, y2};
+                scale_box.emplace_back(temp);
+            }
+
+            auto scale_result = scale_coords(scale_box, input_shape, output_shape);
+
+            // 
+            std::vector<box_info_internal> output;
+
+            for(int i = 0; i < nms_result.size(); i++)
+            {
                 box_info_internal temp;
-                temp.x1 = std::get<0>(it).x;
-                temp.y1 = std::get<0>(it).y;
-                temp.x2 = std::get<1>(it).x;
-                temp.y2 = std::get<1>(it).y;
-                temp.score = std::get<2>(it);
-				temp.category = std::get<3>(it);
+                temp.x1 = scale_result[i].x1;
+                temp.y1 = scale_result[i].y1;
+                temp.x2 = scale_result[i].x2;
+                temp.y2 = scale_result[i].y2;
+                temp.score = std::get<2>(nms_result[i]);
+				temp.category = std::get<3>(nms_result[i]);
                 output.push_back(temp);
             }
 
