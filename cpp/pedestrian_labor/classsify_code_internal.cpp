@@ -363,7 +363,7 @@ namespace glasssix::pedestrian_labor
         {
             std::map<std::string, float> params = {
                     {"conf_thres", param_map.count("conf_thres") ? param_map["conf_thres"] : 0.65f},
-                    {"iou_thres",  param_map.count("iou_thres") ? param_map["iou_thres"] : 0.45f}};
+                    {"nms_thres",  param_map.count("nms_thres") ? param_map["nms_thres"] : 0.45f}};
 			
             cv::Mat blob;
             float ratio;
@@ -382,7 +382,7 @@ namespace glasssix::pedestrian_labor
             }
 
 			float conf_threshold = param_map["conf_thres"];
-			float iou_threshold  = param_map["iou_thres"];
+			float iou_threshold  = param_map["nms_thres"];
 
 			auto result = concat(forwards, conf_threshold);
 

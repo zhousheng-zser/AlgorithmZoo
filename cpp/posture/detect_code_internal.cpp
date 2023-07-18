@@ -79,9 +79,9 @@ namespace glasssix::posture
 
 
 
+			float conf_threshold= param_map.count("conf_thres") ? param_map["conf_thres"] : 0.1f;
+            float iou_threshold = param_map.count("nms_thres") ? param_map["nms_thres"] : 0.5f;      
 
-            float conf_threshold = 0.1f;
-            float iou_threshold = 0.5f;
 
             std::vector<pt>     pt_location;
             std::vector<keypt> key_location;
