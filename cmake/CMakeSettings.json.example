@@ -17,26 +17,6 @@
           "type": "STRING"
         },
         {
-          "name": "COMMON_LIBRARY_DIRS",
-          "value": "E:/Research/Source/Repos/Excalibur/cmake/out/build/x64-Debug/lib",
-          "type": "STRING"
-        },
-        {
-          "name": "BUILD_DEBUG_INFO",
-          "value": "False",
-          "type": "BOOL"
-        },
-        {
-          "name": "BUILD_MATIERIAL_OCR_SDK",
-          "value": "True",
-          "type": "BOOL"
-        },
-        {
-          "name": "BUILD_FACE_SDK",
-          "value": "True",
-          "type": "BOOL"
-        },
-        {
           "name": "BUILD_UNCLASSIFIED_SDK",
           "value": "True",
           "type": "BOOL"
