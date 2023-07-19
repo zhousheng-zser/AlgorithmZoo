@@ -28,7 +28,7 @@ option(BUILD_DEBUG_INFO "Build debug info." OFF)
 #option(HAVE_AVX "Control CPU AVX options when using gcc or clang" OFF)
 #option(HAVE_AVX2 "Control CPU AVX2 options when using gcc or clang" OFF)
 
-set(COMMON_LIBRARY_DIRS F:\\aa\\Excalibur\\cmake\\out\\build\\x64-Debug\\lib)
+
 set(RKNNAPI_VERSION NONE CACHE STRING "Choose RKNNAPI_VERSION instead of Excalibur")
 set_property(CACHE RKNNAPI_VERSION PROPERTY STRINGS NONE 1 2)
 
