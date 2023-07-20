@@ -84,7 +84,6 @@ namespace glasssix::helmet
         }
 
     private:
-
         /**
          * @fun preprocess
          * @param src, new_shape
@@ -231,6 +230,45 @@ namespace glasssix::helmet
         }
 
         /**
+         * @fun scale_coords
+         * @param coords: 原始坐标
+         * @param input_shape: 输入坐标-640x640
+         * @param output_shape: 原始坐标
+         * @return: 缩放后的坐标
+         */
+        std::array<float, 7> scale_coords(const std::array<float, 7>& coords, cv::Size& input_shape, cv::Size& output_shape)
+        {
+
+            auto clamp = [](int x, int min, int max) {if (x < min) return min; else if (x > max) return max; else return x; };
+
+            // gain
+            float gain = std::min(input_shape.width / (float)output_shape.width, input_shape.height / (float)output_shape.height);
+
+            // pad
+            float pad_w = (input_shape.width - output_shape.width * gain) / 2.0;
+            float pad_h = (input_shape.height - output_shape.height * gain) / 2.0;
+
+            // x padding
+            // y padding
+
+            float x1 = (coords[0] - pad_w) / gain;
+            float y1 = (coords[1] - pad_h) / gain;
+            float x2 = (coords[2] - pad_w) / gain;
+            float y2 = (coords[3] - pad_h) / gain;
+
+
+            clamp(x1, 0, output_shape.width);
+            clamp(y1, 0, output_shape.height);
+            clamp(x2, 0, output_shape.width);
+            clamp(y2, 0, output_shape.height);
+
+            std::array<float, 7> scale_pt = { x1, y1, x2, y2, coords[4], coords[5], coords[6] };
+
+            return scale_pt;
+        }
+
+
+        /**
            * @fun run_detect
            * @param image param_map
            * @return std::vector<helmet::box_info_internal>
@@ -257,13 +295,16 @@ namespace glasssix::helmet
             std::vector<box_info_internal> result;
 
             for (const auto& bbox : detections) {
+
+                auto scale_coords_pt = scale_coords(bbox, new_shape, old_shape);
+
                 box_info_internal box_info;
-                box_info.x1 = static_cast<int>(bbox[0] * ratio);
-                box_info.y1 = static_cast<int>(bbox[1] * ratio);
-                box_info.x2 = static_cast<int>(bbox[2] * ratio);
-                box_info.y2 = static_cast<int>(bbox[3] * ratio);
-                box_info.score = static_cast<float>(bbox[5]*bbox[4]);
-                box_info.category = static_cast<int>(bbox[6]);
+                box_info.x1 = static_cast<int>(scale_coords_pt[0] );
+                box_info.y1 = static_cast<int>(scale_coords_pt[1] );
+                box_info.x2 = static_cast<int>(scale_coords_pt[2] );
+                box_info.y2 = static_cast<int>(scale_coords_pt[3] );
+                box_info.score = static_cast<float>(scale_coords_pt[5]* scale_coords_pt[4]);
+                box_info.category = static_cast<int>(scale_coords_pt[6]);
                 result.push_back(box_info);
             }
 
