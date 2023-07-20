@@ -37,7 +37,7 @@
           "type": "BOOL"
         },
         {
-          "name": "BUILD_UNCLASSIFIED_SDK",
+          "name": "BUILD_GENERAL_CV_SDK",
           "value": "True",
           "type": "BOOL"
         }
@@ -80,7 +80,7 @@
           "type": "BOOL"
         },
         {
-          "name": "BUILD_UNCLASSIFIED_SDK",
+          "name": "BUILD_GENERAL_CV_SDK",
           "value": "True",
           "type": "BOOL"
         }
@@ -123,7 +123,7 @@
           "type": "BOOL"
         },
         {
-          "name": "BUILD_UNCLASSIFIED_SDK",
+          "name": "BUILD_GENERAL_CV_SDK",
           "value": "True",
           "type": "BOOL"
         }
