@@ -290,7 +290,7 @@ namespace glasssix::leavepost
             // const float prob_threshold = 0.5f;
             // const float nms_threshold = 0.4f;
 
-            float prob_threshold= param_map.count("conf_thres") ? param_map["conf_thres"] : 0.5f;
+            float prob_threshold= param_map.count("conf_thres") ? param_map["conf_thres"] : 0.52f;
             float nms_threshold = param_map.count("nms_thres") ? param_map["nms_thres"] : 0.4f;      
             cv::Mat blob;
             int hpad=0;

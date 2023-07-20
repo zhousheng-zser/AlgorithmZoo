@@ -28,6 +28,7 @@ option(BUILD_DEBUG_INFO "Build debug info." OFF)
 #option(HAVE_AVX "Control CPU AVX options when using gcc or clang" OFF)
 #option(HAVE_AVX2 "Control CPU AVX2 options when using gcc or clang" OFF)
 
+
 set(RKNNAPI_VERSION NONE CACHE STRING "Choose RKNNAPI_VERSION instead of Excalibur")
 set_property(CACHE RKNNAPI_VERSION PROPERTY STRINGS NONE 1 2)
 
@@ -154,9 +155,10 @@ if(BUILD_SAFE_PRODUCTION_SDK)
 	add_subdirectory(PlayPhone)
 	add_subdirectory(Workcloth)
 	add_subdirectory(Pedestrian_labor)
-	#add_subdirectory(Posture)
+	
 endif()
 if(BUILD_UNCLASSIFIED_SDK)
+	add_subdirectory(Posture)
 	add_subdirectory(Gungnir)
 	add_subdirectory(Mjollner)
 	add_subdirectory(Valklyrs)

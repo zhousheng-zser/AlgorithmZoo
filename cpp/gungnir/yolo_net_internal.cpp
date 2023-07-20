@@ -43,7 +43,7 @@ namespace glasssix::gungnir
         {
         }
 
-        impl(const std::vector<std::string> &phai, std::string_view racy_path, int device) : device_{device}, hat_simp_{phai, std::string{racy_path}+ "/" +std::string("gungnir.racy"), device}
+        impl(const std::vector<std::string> &phai, std::string_view racy_path, int device) : device_{device}, hat_simp_{phai, std::string{racy_path}, device}
         {
         }
 
@@ -61,6 +61,7 @@ namespace glasssix::gungnir
             detect_yolo(channels, height, width, order, objects);
 
             auto result = exposing::make_param_vector<hat_info>();
+            std::cout << "objects.size() " << objects.size() << "\n";
             for (auto &i : objects)
                 result.push_back(exposing::make_as_first<hat_info_impl>(i));
             return result;
@@ -288,7 +289,7 @@ namespace glasssix::gungnir
         {
             /** Before processing **/
             const int target_size = 640;
-            const float prob_threshold = 0.5f;
+            const float prob_threshold = 0.4f;
             const float nms_threshold = 0.4f;
 
             // letterbox pad to multiple of 32
@@ -312,8 +313,10 @@ namespace glasssix::gungnir
             excalibur::resize_cpu(cache_, cache_forward, h, w);
 
             // pad
-            int wpad = (w + 31) / 32 * 32 - w;
-            int hpad = (h + 31) / 32 * 32 - h;
+            //std::cout << w << " " << h;
+            int wpad = 640 - w;
+            int hpad = 640 - h;
+            std::cout << wpad << " " << hpad;
             excalibur::make_border(cache_forward, cache_forward, hpad / 2, hpad - hpad / 2, wpad / 2, wpad - wpad / 2, excalibur::border_constant, static_cast<std::uint8_t>(114));
 
             auto input_tensor = cache_forward | memory::tensor_convert_to<float>;
@@ -322,7 +325,7 @@ namespace glasssix::gungnir
             //{
             //    input_tensor_data[i] /= 255.f;
             //}
-
+            //std::cout << input_tensor->count()<<"\n";
             std::unordered_map<std::string, std::shared_ptr<memory::tensor<float>>> out = hat_simp_.forward(input_tensor);
 
             std::vector<hat_info_internal> proposals;
