@@ -116,7 +116,7 @@ namespace glasssix::helmet
                     int pad2 = hope_size - new_y - pad1;
                     cv::resize(img, resize_img, cv::Size2i{ new_x, new_y });
 
-                    cv::copyMakeBorder(resize_img, resize_img, 0, pad1 + pad2, 0, 0, cv::BORDER_CONSTANT, cv::Scalar{ 114,114,114 });
+                    cv::copyMakeBorder(resize_img, resize_img, pad1, pad2, 0, 0, cv::BORDER_CONSTANT, cv::Scalar{ 114,114,114 });
                 }
                 else {
 
@@ -128,7 +128,7 @@ namespace glasssix::helmet
 
                     cv::resize(img, resize_img, cv::Size2i{ new_x, new_y });
 
-                    cv::copyMakeBorder(resize_img, resize_img, 0, 0, 0, pad1 + pad2, cv::BORDER_CONSTANT, cv::Scalar{ 114,114,114 });
+                    cv::copyMakeBorder(resize_img, resize_img, 0, 0, pad1, pad2, cv::BORDER_CONSTANT, cv::Scalar{ 114,114,114 });
                 }
             }
 
@@ -231,10 +231,10 @@ namespace glasssix::helmet
 
         /**
          * @fun scale_coords
-         * @param coords: Ô­Ê¼×ø±ê
-         * @param input_shape: ÊäÈë×ø±ê-640x640
-         * @param output_shape: Ô­Ê¼×ø±ê
-         * @return: Ëõ·ÅºóµÄ×ø±ê
+         * @param coords: Ô­Ê¼ï¿½ï¿½ï¿½ï¿½
+         * @param input_shape: ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½-640x640
+         * @param output_shape: Ô­Ê¼ï¿½ï¿½ï¿½ï¿½
+         * @return: ï¿½ï¿½ï¿½Åºï¿½ï¿½ï¿½ï¿½ï¿½ï¿½
          */
         std::array<float, 7> scale_coords(const std::array<float, 7>& coords, cv::Size& input_shape, cv::Size& output_shape)
         {
