@@ -1140,6 +1140,7 @@ namespace glasssix::heimdall
                 bool inverse = false;
                 std::vector<float> res_vec = angel_infer(cut_img, *instance_[2]);
                 // 0: The character direction is inverse  1: The character direction is positive
+                if (res_vec.empty()) return;
                 if (res_vec[0] == 0)
                 {
                     cv::flip(cut_img, cut_img, -1);
@@ -1154,6 +1155,7 @@ namespace glasssix::heimdall
                 std::vector<float> probs;
 
                 float left = 0.f, right = 0.f;
+                if (segement_result.empty()) return;
                 if (segement_result[0] < 0)
                 {
                     left = std::ceil(std::abs(segement_result[0]));
@@ -1312,6 +1314,7 @@ namespace glasssix::heimdall
                 std::vector<float> res_vec = angel_infer_short(cut_img, *instance_[2]);
                 //std::vector<float> res_vec = angel_infer(cut_img, *instance_[2]); //infer 32 * 320
                 // 0: The character direction is inverse  1: The character direction is positive
+                if (res_vec.empty()) return;
                 if (res_vec[0] == 0)
                 {
                     cv::flip(cut_img, cut_img, -1);
@@ -1327,6 +1330,7 @@ namespace glasssix::heimdall
                 std::vector<float> probs;
 
                 float left = 0.f, right = 0.f;
+                if (segement_result.empty()) return;
                 if (segement_result[0] < 0)
                 {
                     left = std::ceil(std::abs(segement_result[0]));
