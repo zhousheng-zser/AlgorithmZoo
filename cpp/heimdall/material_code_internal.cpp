@@ -124,12 +124,12 @@ namespace glasssix::heimdall
                 run_hot_roll(results, roi, top_five);
             else if (factory_type_ == 3 || factory_type_ == 6 || factory_type_ == 7)
                 run_cool_roll(results, roi, top_five);
-            else if (factory_type_ == 4 || factory_type_ == 5)// 5 new heavy
-                run_heavy_rail(results, roi, top_five);
+            else if (factory_type_ == 5)
+                run_heavy_rail(results, roi, top_five);  // 5 new heavy
             else if (factory_type_ == 0)
-                run_hot_roll_2(results, roi, top_five);       // new hot
+                run_hot_roll_2(results, roi, top_five);  // new hot
             else if (factory_type_ == 1)
-                run_cool_roll_2(results, roi, top_five);      // new cool
+                run_cool_roll_2(results, roi, top_five); // new cool
             else if (factory_type_ == 8)
             {
                 run_bar(results, roi, top_five);
@@ -146,7 +146,7 @@ namespace glasssix::heimdall
 
         static std::string version()
         {
-            return "1.0.5_2023.04.20";
+            return "1.0.6_2023.07.24";
         }
 
     private:
@@ -1259,13 +1259,6 @@ namespace glasssix::heimdall
 
         void run_heavy_rail(std::vector<box_info_internal>& results, std::vector<int>& roi, int top_five)
         {
-            auto heavy_start = std::chrono::system_clock::now();
-            std::vector<int> angle_timer;
-            std::vector<int> segment_timer;
-            std::vector<int> class_timer;
-            std::chrono::time_point<std::chrono::system_clock> timer_start;
-            std::chrono::time_point<std::chrono::system_clock> timer_end;
-
             excalibur::rectangle<int> rect((int)roi[0], (int)roi[1], (int)roi[2], (int)roi[3]);
             std::shared_ptr<memory::tensor<uint8_t>> input;
             // image preprocessing
@@ -1277,9 +1270,7 @@ namespace glasssix::heimdall
             auto [resized_img, ratio] = resize_fixed_size(640, input);
 
             // ocr detect
-            timer_start = std::chrono::system_clock::now(); //timer
             std::pair<std::vector<std::vector<cv::Point2f>>, std::vector<float>> result = det_combine_best(resized_img, *instance_[0]);
-            int det_inference = std::chrono::duration_cast<std::chrono::milliseconds>(std::chrono::system_clock::now() - timer_start).count(); //timer
 
             std::vector<std::vector<cv::Point2f>> box_list = result.first;
             for (size_t i = 0; i < box_list.size(); i++)
@@ -1290,7 +1281,6 @@ namespace glasssix::heimdall
                 }
             }
 
-            auto other_infr_start = std::chrono::system_clock::now(); //timer
             for (size_t i = 0; i < box_list.size(); ++i)
             {
                 bool rotate = false;
@@ -1310,10 +1300,8 @@ namespace glasssix::heimdall
                     rotate = true;
                 }
                 bool inverse = false;
-                timer_start = std::chrono::system_clock::now(); //timer
                 std::vector<float> res_vec = angel_infer_short(cut_img, *instance_[2]);
                 //std::vector<float> res_vec = angel_infer(cut_img, *instance_[2]); //infer 32 * 320
-                angle_timer.push_back(std::chrono::duration_cast<std::chrono::milliseconds>(std::chrono::system_clock::now() - timer_start).count()); //timer
                 // 0: The character direction is inverse  1: The character direction is positive
                 if (res_vec[0] == 0)
                 {
@@ -1325,9 +1313,7 @@ namespace glasssix::heimdall
                 if (factory_type_ == 5)
                 {
                     cv::Mat roi_temp = cut_img.clone();
-                    timer_start = std::chrono::system_clock::now(); //timer
                     std::vector<float> segement_result = segement_instance_->detect(roi_temp, true, *instance_[1]);
-                    segment_timer.push_back(std::chrono::duration_cast<std::chrono::milliseconds>(std::chrono::system_clock::now() - timer_start).count()); //timer
 
                     std::string stringinfo;
                     std::vector<float> probs;
@@ -1348,7 +1334,6 @@ namespace glasssix::heimdall
                     // offset segement point
                     screen_result_point(segement_result, true);
 
-                    timer_start = std::chrono::system_clock::now(); //timer
                     for (size_t j = 0; j < segement_result.size() - 1; j++)
                     {
                         cv::Mat small_img = roi_temp(cv::Range::all(), cv::Range((int)segement_result[j], (int)segement_result[j + 1]));
@@ -1356,7 +1341,6 @@ namespace glasssix::heimdall
                         stringinfo.push_back(label);
                         probs.push_back(prob);
                     }
-                    class_timer.push_back(std::chrono::duration_cast<std::chrono::milliseconds>(std::chrono::system_clock::now() - timer_start).count()); //timer
 
                     out = std::make_pair<std::vector<std::string>, std::vector<std::vector<float>>>({ stringinfo }, { probs });
                 }
@@ -1388,25 +1372,12 @@ namespace glasssix::heimdall
                     messages.push_back(exposing::param_string(
                         "thsh: " + std::to_string(message_det_thresh_) +
                         "  bx_thsh: " + std::to_string(message_box_thresh_)));
-
-                    messages.push_back(exposing::param_string(
-                        "infer: [" + std::to_string(angle_timer.size()) + "]agl " + std::to_string(angle_timer[i]) + " ms  " +
-                        "[" + std::to_string(segment_timer.size()) + "]seg " + std::to_string(segment_timer[i]) + " ms  " +
-                        "[" + std::to_string(class_timer.size()) + "]cls " + std::to_string(class_timer[i]) + " ms "));
-
                     if (i == box_list.size() - 1) {
                         std::string message_str = "det_bxs score: ";
                         for (auto scores : result.second) {
                             message_str.append(std::to_string(scores) + " ");
                         }
                         messages.push_back(exposing::param_string(message_str));
-                        timer_end = std::chrono::system_clock::now();
-                        int other_inference = std::chrono::duration_cast<std::chrono::milliseconds>(timer_end - other_infr_start).count();
-                        int heavy_inference = std::chrono::duration_cast<std::chrono::milliseconds>(timer_end - heavy_start).count();
-                        messages.push_back(exposing::param_string(
-                            "infer: det " + std::to_string(det_inference) +
-                            "ms othr " + std::to_string(other_inference) +
-                            "ms all " + std::to_string(heavy_inference) + "ms "));
                     }
                     else {
                         messages.push_back(exposing::param_string("det_score: " + std::to_string(result.second[i])));
