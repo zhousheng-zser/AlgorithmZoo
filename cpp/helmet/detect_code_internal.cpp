@@ -231,10 +231,10 @@ namespace glasssix::helmet
 
         /**
          * @fun scale_coords
-         * @param coords: ԭʼ����
-         * @param input_shape: ��������-640x640
-         * @param output_shape: ԭʼ����
-         * @return: ���ź������
+         * @param coords: coordinates under 640x640
+         * @param input_shape: in yolo detect = 640x640
+         * @param output_shape: default image size
+         * @return: coordinates under default image 
          */
         std::array<float, 7> scale_coords(const std::array<float, 7>& coords, cv::Size& input_shape, cv::Size& output_shape)
         {
