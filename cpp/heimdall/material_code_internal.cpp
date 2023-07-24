@@ -1267,17 +1267,26 @@ namespace glasssix::heimdall
             std::copy(input->cpu_data(), input->cpu_data() + input->count(1, 4), input_mat.data);
             if (input->order() == memory::NHWC)
                 input->convert_order();
-            auto [resized_img, ratio] = resize_fixed_size(640, input);
+            //auto [resized_img, ratio] = resize_fixed_size(640, input);
+
+            // adapted resize
+            float det_ratio = param_map_.count("heavy_det_resize") ? param_map_["heavy_det_resize"] : 1.0f;
+            int resized_w = int(input->width() * det_ratio);
+            int resized_h = int(input->height() * det_ratio);
+            excalibur::resize_cpu(input, input, resized_h, resized_w);
+            int aligned_w = ((resized_w + 31) >> 5) << 5;
+            int aligned_h = ((resized_h + 31) >> 5) << 5;
+            excalibur::make_border(input, input, 0, aligned_h - resized_h, 0, aligned_w - resized_w);
 
             // ocr detect
-            std::pair<std::vector<std::vector<cv::Point2f>>, std::vector<float>> result = det_combine_best(resized_img, *instance_[0]);
+            std::pair<std::vector<std::vector<cv::Point2f>>, std::vector<float>> result = det_combine_best(input, *instance_[0]);
 
             std::vector<std::vector<cv::Point2f>> box_list = result.first;
             for (size_t i = 0; i < box_list.size(); i++)
             {
                 for (size_t j = 0; j < box_list[i].size(); j++)
                 {
-                    box_list[i][j] *= ratio;
+                    box_list[i][j] *= det_ratio;
                 }
             }
 
@@ -1310,45 +1319,38 @@ namespace glasssix::heimdall
                 }
 
                 std::pair<std::vector<std::string>, std::vector<std::vector<float>>> out;
-                if (factory_type_ == 5)
+
+                cv::Mat roi_temp = cut_img.clone();
+                std::vector<float> segement_result = segement_instance_->detect(roi_temp, true, *instance_[1]);
+
+                std::string stringinfo;
+                std::vector<float> probs;
+
+                float left = 0.f, right = 0.f;
+                if (segement_result[0] < 0)
                 {
-                    cv::Mat roi_temp = cut_img.clone();
-                    std::vector<float> segement_result = segement_instance_->detect(roi_temp, true, *instance_[1]);
-
-                    std::string stringinfo;
-                    std::vector<float> probs;
-
-                    float left = 0.f, right = 0.f;
-                    if (segement_result[0] < 0)
-                    {
-                        left = std::ceil(std::abs(segement_result[0]));
-                        segement_result[0] = 0;
-                    }
-
-                    for (int i = segement_result.size() - 1; i > 0; i--)
-                    {
-						if (segement_result[i] > roi_temp.cols - (param_map_.count("segment_rcut") ? param_map_["segment_rcut"] : 25))
-							segement_result.pop_back();
-                    }
-                    segement_result.push_back(roi_temp.cols - 1);
-                    // offset segement point
-                    screen_result_point(segement_result, true);
-
-                    for (size_t j = 0; j < segement_result.size() - 1; j++)
-                    {
-                        cv::Mat small_img = roi_temp(cv::Range::all(), cv::Range((int)segement_result[j], (int)segement_result[j + 1]));
-                        auto [label, prob] = classfi_instance_->detect(small_img, *instance_[3]);
-                        stringinfo.push_back(label);
-                        probs.push_back(prob);
-                    }
-
-                    out = std::make_pair<std::vector<std::string>, std::vector<std::vector<float>>>({ stringinfo }, { probs });
+                    left = std::ceil(std::abs(segement_result[0]));
+                    segement_result[0] = 0;
                 }
-                else
+
+                for (int i = segement_result.size() - 1; i > 0; i--)
                 {
-                    // run identify network
-                    out = rec_combine_best(cut_img, top_five, *instance_[1]);
+                    if (segement_result[i] > roi_temp.cols - (param_map_.count("segment_rcut") ? param_map_["segment_rcut"] : 25))
+                        segement_result.pop_back();
                 }
+                segement_result.push_back(roi_temp.cols - 1);
+                // offset segement point
+                screen_result_point(segement_result, true);
+
+                for (size_t j = 0; j < segement_result.size() - 1; j++)
+                {
+                    cv::Mat small_img = roi_temp(cv::Range::all(), cv::Range((int)segement_result[j], (int)segement_result[j + 1]));
+                    auto [label, prob] = classfi_instance_->detect(small_img, *instance_[3]);
+                    stringinfo.push_back(label);
+                    probs.push_back(prob);
+                }
+
+                out = std::make_pair<std::vector<std::string>, std::vector<std::vector<float>>>({ stringinfo }, { probs });
 
                 box_info_internal box;
                 auto location = exposing::make_param_vector<float>();
