@@ -116,7 +116,7 @@ namespace glasssix::helmet
                     int pad2 = hope_size - new_y - pad1;
                     cv::resize(img, resize_img, cv::Size2i{ new_x, new_y });
 
-                    cv::copyMakeBorder(resize_img, resize_img, 0, pad1 + pad2, 0, 0, cv::BORDER_CONSTANT, cv::Scalar{ 114,114,114 });
+                    cv::copyMakeBorder(resize_img, resize_img, pad1, pad2, 0, 0, cv::BORDER_CONSTANT, cv::Scalar{ 114,114,114 });
                 }
                 else {
 
@@ -128,7 +128,7 @@ namespace glasssix::helmet
 
                     cv::resize(img, resize_img, cv::Size2i{ new_x, new_y });
 
-                    cv::copyMakeBorder(resize_img, resize_img, 0, 0, 0, pad1 + pad2, cv::BORDER_CONSTANT, cv::Scalar{ 114,114,114 });
+                    cv::copyMakeBorder(resize_img, resize_img, 0, 0, pad1, pad2, cv::BORDER_CONSTANT, cv::Scalar{ 114,114,114 });
                 }
             }
 
@@ -231,10 +231,10 @@ namespace glasssix::helmet
 
         /**
          * @fun scale_coords
-         * @param coords: 原始坐标
-         * @param input_shape: 输入坐标-640x640
-         * @param output_shape: 原始坐标
-         * @return: 缩放后的坐标
+         * @param coords: coordinates under 640x640
+         * @param input_shape: in yolo detect = 640x640
+         * @param output_shape: default image size
+         * @return: coordinates under default image 
          */
         std::array<float, 7> scale_coords(const std::array<float, 7>& coords, cv::Size& input_shape, cv::Size& output_shape)
         {
