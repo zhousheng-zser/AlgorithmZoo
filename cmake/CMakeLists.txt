@@ -164,6 +164,7 @@ if(BUILD_GENERAL_CV_SDK)
 	add_subdirectory(Valklyrs)
 	add_subdirectory(Genocr)
 	add_subdirectory(Posture)
+	add_subdirectory(Needledash)
 	#add_subdirectory(Plate)
 endif()
 
