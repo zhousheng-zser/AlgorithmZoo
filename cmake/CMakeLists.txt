@@ -165,6 +165,7 @@ if(BUILD_GENERAL_CV_SDK)
 	add_subdirectory(Genocr)
 	add_subdirectory(Posture)
 	add_subdirectory(Needledash)
+	add_subdirectory(Brionac)
 	#add_subdirectory(Plate)
 endif()
 
