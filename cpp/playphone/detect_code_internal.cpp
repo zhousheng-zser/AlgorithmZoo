@@ -121,7 +121,7 @@ namespace glasssix::playphone
                     int pad1 = (int)((new_shape.height - new_y) / 2);
                     int pad2 = new_shape.height - new_y - pad1;
                     cv::resize(img, resize_img, cv::Size2i{ new_x, new_y });
-                    cv::copyMakeBorder(resize_img, resize_img, 0, pad1 + pad2, 0, 0, cv::BORDER_CONSTANT,
+                    cv::copyMakeBorder(resize_img, resize_img, pad1, pad2, 0, 0, cv::BORDER_CONSTANT,
                         cv::Scalar{ 114, 114, 114 });
                 }
                 else {
@@ -131,7 +131,7 @@ namespace glasssix::playphone
                     int pad1 = (int)((new_shape.width - new_x) / 2);
                     int pad2 = new_shape.width - new_x - pad1;
                     cv::resize(img, resize_img, cv::Size2i{ new_x, new_y });
-                    cv::copyMakeBorder(resize_img, resize_img, 0, 0, 0, pad1 + pad2, cv::BORDER_CONSTANT,
+                    cv::copyMakeBorder(resize_img, resize_img, 0, 0, pad1, pad2, cv::BORDER_CONSTANT,
                         cv::Scalar{ 114, 114, 114 });
                 }
             }
@@ -315,24 +315,34 @@ namespace glasssix::playphone
          * @param coords, old_image, new_image, step
          * @return coords
          */
-        std::vector<playphone::box_info_internal> scale_coords(std::vector<playphone::box_info_internal>& coords, cv::Size& old_shape, cv::Size& new_shape)
+        std::vector<playphone::box_info_internal> scale_coords(std::vector<playphone::box_info_internal>& coords, cv::Size& input_shape, cv::Size& output_shape)
         {
             std::vector<playphone::box_info_internal> scale_coords_pt;
 
-            auto gain = std::min((float)old_shape.width / (float)new_shape.width, (float)old_shape.height / (float)new_shape.height);
-
-            auto pad = std::make_pair((old_shape.width - new_shape.width * gain) / 2, (old_shape.height - new_shape.height * gain) / 2);
-
             auto clamp = [](int x, int min, int max) {if (x < min) return min; else if (x > max) return max; else return x; };
+
+            // gain
+            float gain = std::min(input_shape.width / (float)output_shape.width, input_shape.height / (float)output_shape.height);
+
+            // pad
+            float pad_w = (input_shape.width - output_shape.width * gain) / 2.0;
+            float pad_h = (input_shape.height - output_shape.height * gain) / 2.0;
 
             // scale coords on point
             for (const auto& it : coords)
             {
                 playphone::box_info_internal temp{};
-                temp.x1 = clamp((it.x1 - pad.first) / gain, 0, new_shape.width);
-                temp.y1 = clamp((it.y1 - pad.second) / gain, 0, new_shape.height);
-                temp.x2 = clamp((it.x2 - pad.first) / gain, 0, new_shape.width);
-                temp.y2 = clamp((it.y2 - pad.second) / gain, 0, new_shape.height);
+
+                temp.x1 = (it.x1 - pad_w) / gain;
+                temp.y1 = (it.y1 - pad_h) / gain;
+                temp.x2 = (it.x2 - pad_w) / gain;
+                temp.y2 = (it.y2 - pad_h) / gain;
+
+                clamp(temp.x1, 0, output_shape.width);
+                clamp(temp.y1, 0, output_shape.height);
+                clamp(temp.x2, 0, output_shape.width);
+                clamp(temp.y2, 0, output_shape.height);
+
                 temp.score = it.score;
                 temp.category = it.category;
                 scale_coords_pt.push_back(temp);
@@ -350,7 +360,7 @@ namespace glasssix::playphone
         std::vector<playphone::box_info_internal> run_detect(cv::Mat& image, int roi_x, int roi_y, int roi_width, int roi_height, std::map<std::string, float>& param_map)
         {
             std::map<std::string, float> params = {
-                    {"conf_thres", param_map.count("conf_thres") ? param_map["conf_thres"] : 0.5f},
+                    {"conf_thres", param_map.count("conf_thres") ? param_map["conf_thres"] : 0.4f},
                     {"iou_thres",  param_map.count("iou_thres") ? param_map["iou_thres"] : 0.5f}};
 			
             cv::Mat blob;
@@ -376,10 +386,10 @@ namespace glasssix::playphone
 
             auto nms_result = non_max_suppression(result, conf_threshold, iou_threshold);
 
-            auto old_shape = cv::Size(image.cols, image.rows);
-            auto new_shape = cv::Size(blob.cols, blob.rows);
+            auto input_shape  = cv::Size(image.cols, image.rows);
+            auto output_shape = cv::Size(blob.cols, blob.rows);
 
-            auto scale_box = scale_coords(nms_result, new_shape, old_shape);
+            auto scale_box = scale_coords(nms_result, input_shape, output_shape);
 
             return scale_box;
         }

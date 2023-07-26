@@ -53,9 +53,10 @@ namespace glasssix::refvest
                   throw exposing::abi_invalid_argument("incorrect roi in refvest");
             }
 
-            cv::Mat cropped_image = image(cv::Range(roi_y,roi_y+roi_height), cv::Range(roi_x,roi_x+roi_width));
+            cv::Mat cropped_image = image(cv::Range(roi_y,roi_y+roi_height), cv::Range(roi_x,roi_x+roi_width)).clone();
             
             run_refvest(results, cropped_image,param_map);
+			
             for (auto& i : results)
             {
                 i.x1+=roi_x;
@@ -98,42 +99,63 @@ namespace glasssix::refvest
         }
 
     private:
+	
+		std::array<float, 7> scale_coords(const std::array<float, 7>& coords, cv::Size& input_shape, cv::Size& output_shape)
+		{	
+			auto clamp = [](int x, int min, int max) {if (x < min) return min; else if (x > max) return max; else return x; };
+
+			// gain
+			float gain = std::min(input_shape.width / (float)output_shape.width, input_shape.height / (float)output_shape.height);
+
+			// pad
+			float pad_w = (input_shape.width - output_shape.width * gain) / 2.0;
+			float pad_h = (input_shape.height - output_shape.height * gain) / 2.0;
+
+			// x padding
+			// y padding
+
+			float x1 = (coords[0] - pad_w) / gain;
+			float y1 = (coords[1] - pad_h) / gain;
+			float x2 = (coords[2] - pad_w) / gain;
+			float y2 = (coords[3] - pad_h) / gain;
+
+			clamp(x1, 0, output_shape.width);
+			clamp(y1, 0, output_shape.height);
+			clamp(x2, 0, output_shape.width);
+			clamp(y2, 0, output_shape.height);
+
+			std::array<float, 7> temp = {x1, y1, x2, y2, coords[4], coords[5], coords[6]};
+
+			return temp;
+		}
 
         void run_refvest(std::vector<box_info_internal>& result, cv::Mat& image, std::map<std::string, float>& param_map)
         {
-            auto [det_mat ,ratio]= refvest_imgprocess(image, 640);
-            if(det_mat.empty())
-            {
-                std::cout<<"det_mat empty\n";
-            }
+			auto input_shape = cv::Size(640,  640);
 
-
-            //cv::Mat blob = cv::dnn::blobFromImage(det_mat);
-            cv::Mat blob= det_mat;
-
-            std::chrono::time_point<std::chrono::system_clock> timer_start;
-
-            std::vector<cv::Mat> forwards;
-            if(blob.empty())
-            {
-                std::cout<<"blob empty\n";
-            }
+			auto output_shape = cv::Size(image.cols, image.rows);
+			
+			float conf_thres= param_map.count("conf_thres") ? param_map["conf_thres"] : 0.3f;
+            float iou_threshold = param_map.count("nms_thres") ? param_map["nms_thres"] : 0.5f;   
+			
+            auto [blob ,ratio]= refvest_imgprocess(image, 640);
           
             auto  output = net_instance_.forward(blob.data, { 1, blob.rows, blob.cols,blob.channels() }, RKNN_TENSOR_NHWC);
-            float conf_thres= param_map.count("conf_thres") ? param_map["conf_thres"] : 0.3f;
-            float iou_threshold = param_map.count("nms_thres") ? param_map["nms_thres"] : 0.5f;   
 
             std::vector<std::array<float, 7>> detections = refvest_yolo_decoder(output["output"],conf_thres,iou_threshold);
             std::vector<std::array<float, 7>> out = ppeople_refvest_assignment(detections);
 
             for (const auto& bbox : out) {
                 box_info_internal box_ifo;
-                box_ifo.x1 = static_cast<int>(bbox[0] * ratio);
-                box_ifo.y1 = static_cast<int>(bbox[1] * ratio);
-                box_ifo.x2 = static_cast<int>(bbox[2] * ratio);
-                box_ifo.y2 = static_cast<int>(bbox[3] * ratio);
-                box_ifo.score = bbox[4]* bbox[5];
-                box_ifo.category = static_cast<int>(bbox[6]);
+				
+				auto scale_pt = scale_coords(bbox, input_shape, output_shape);
+                
+				box_ifo.x1 = static_cast<int>(scale_pt[0]);
+                box_ifo.y1 = static_cast<int>(scale_pt[1]);
+                box_ifo.x2 = static_cast<int>(scale_pt[2]);
+                box_ifo.y2 = static_cast<int>(scale_pt[3]);
+                box_ifo.score = scale_pt[4]* scale_pt[5];
+                box_ifo.category = static_cast<int>(scale_pt[6]);
 
                 result.push_back(box_ifo);
             }
@@ -285,7 +307,7 @@ namespace glasssix::refvest
                     int pad2 = hope_size - new_y - pad1;
                     cv::resize(img, resize_img, cv::Size2i{ new_x, new_y });
             
-                    cv::copyMakeBorder(resize_img, resize_img, 0, pad1 + pad2, 0, 0, cv::BORDER_CONSTANT, cv::Scalar{ 114,114,114 });
+                    cv::copyMakeBorder(resize_img, resize_img, pad1, pad2, 0, 0, cv::BORDER_CONSTANT, cv::Scalar{ 114,114,114 });
                 }
                 else {
      
@@ -297,7 +319,7 @@ namespace glasssix::refvest
   
                     cv::resize(img, resize_img, cv::Size2i{ new_x, new_y });
                       
-                    cv::copyMakeBorder(resize_img, resize_img, 0, 0, 0, pad1 + pad2, cv::BORDER_CONSTANT, cv::Scalar{ 114,114,114 });
+                    cv::copyMakeBorder(resize_img, resize_img, 0, 0, pad1, pad2, cv::BORDER_CONSTANT, cv::Scalar{ 114,114,114 });
                 }
             }
 
