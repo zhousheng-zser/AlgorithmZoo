@@ -1,6 +1,6 @@
-﻿cmake_minimum_required(VERSION 3.14.3)
+cmake_minimum_required(VERSION 3.14.3)
 set(module_name brionac)
-set(hardcode_dir ${CMAKE_CURRENT_SOURCE_DIR}/../../cpp/hardcode)
+
 file(GLOB src ${CMAKE_CURRENT_SOURCE_DIR}/../../cpp/brionac/*.cpp)
 file(GLOB header ${CMAKE_CURRENT_SOURCE_DIR}/../../cpp/brionac/*.hpp)
 
@@ -16,8 +16,7 @@ if(NOT OPENCV_FOUND)
 endif()
 target_link_libraries(${module_name} PRIVATE ${OpenCV_LIBS})
 
-target_include_directories(${module_name} PRIVATE ${COMMON_INCLUDE_DIRS} ${hardcode_dir})
-target_link_libraries(${module_name} PRIVATE ${COMMON_LIBRARIES} hardcode)
+target_include_directories(${module_name} PRIVATE ${COMMON_INCLUDE_DIRS} )
+target_link_libraries(${module_name} PRIVATE ${COMMON_LIBRARIES} )
 
-add_dependencies(${module_name} hardcode)
 
