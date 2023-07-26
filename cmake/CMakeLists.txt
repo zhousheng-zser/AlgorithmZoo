@@ -173,5 +173,5 @@ endif()
 
 if(BUILD_MODULE_FRAME_GEN AND (CMAKE_CXX_COMPILER_ID STREQUAL "MSVC"))
 	add_subdirectory(Noah)
-	#add_subdirectory(noahcode)
+	#add_subdirectory(Noahcode)
 endif()
