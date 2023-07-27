@@ -41,7 +41,7 @@ namespace glasssix::valklyrs
     class yolov5s_net_internal::impl
     {
     public:
-        impl(std::string_view yolov5s_racy_path, std::string_view vehicle_racy_path, std::string_view person_racy_path, int device) : impl{hardcode::get_model_params("yolov5s"), yolov5s_racy_path, hardcode::get_model_params("vehicle_attri"), vehicle_racy_path, hardcode::get_model_params("person_attri"), person_racy_path, device}
+        impl(std::string_view yolov5s_racy_path, std::string_view vehicle_racy_path, std::string_view person_racy_path, int device) : impl{get_model_params("yolov5s"), yolov5s_racy_path, get_model_params("vehicle_attri"), vehicle_racy_path, get_model_params("person_attri"), person_racy_path, device}
         {
         }
 
