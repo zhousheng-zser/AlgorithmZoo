@@ -1,5 +1,5 @@
 #include "face_alignment_internal.hpp"
-#include "../hardcode/hardcode.hpp"
+#include "hardcode.hpp"
 #ifdef USE_RKNNAPI
 //#if 0
 #include "../../common/include/RKNNWrapper/rknn_wrapper.hpp"
@@ -34,7 +34,7 @@ namespace glasssix::romancia
 		impl() = delete;
 
 		impl(const exposing::param_string& blur_racy_path, std::int32_t device) : device_{ device },
-			blur_instance_{ hardcode::get_model_params("blur_detection_best"), std::string{blur_racy_path}, device }
+			blur_instance_{ get_model_params("blur_detection_best"), std::string{blur_racy_path}, device }
 		{
 
 		}

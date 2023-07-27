@@ -13,8 +13,7 @@ if(CMAKE_CXX_COMPILER_ID STREQUAL "MSVC")
 endif()
 
 target_include_directories(${module_name} PRIVATE ${COMMON_INCLUDE_DIRS})
-target_link_libraries(${module_name} PRIVATE ${COMMON_LIBRARIES} hardcode)
-add_dependencies(${module_name} hardcode)
+target_link_libraries(${module_name} PRIVATE ${COMMON_LIBRARIES})
 
 target_include_directories(${module_name} PRIVATE ${OpenCV_INCLUDE_DIRS})
 if(NOT OPENCV_FOUND)
