@@ -2,7 +2,7 @@
 #include <cmath>
 #include <tuple>
 
-#include "../hardcode/hardcode.hpp"
+#include "hardcode.hpp"
 #include "ocr_code_internal.hpp"
 #include "box_info_impl.hpp"
 
@@ -38,7 +38,7 @@ namespace glasssix::needledash
         impl(std::string_view model_directory, int device)
                 : model_directory_{ std::string(model_directory) }, device_{ device }
         {
-            meter_sim_instance_ = std::make_unique<excalibur::pipeline<float>>(hardcode::get_model_params("meter_sim", false), std::string(model_directory) + "/" + "meter_sim" + ".racy", device);
+            meter_sim_instance_ = std::make_unique<excalibur::pipeline<float>>(get_model_params("meter_sim", false), std::string(model_directory) + "/" + "meter_sim" + ".racy", device);
         }
 
         exposing::param_vector<needledash::box_info> detect(const exposing::param_span<std::uint8_t>& bitmap, int channels, int height, int width, int type, int x, int y, int roi_width, int roi_height, std::map<std::string, float>& param_map)
