@@ -54,7 +54,7 @@ namespace glasssix::selene
 
 			//Excalibur needs to distinguish between float and int8 models, rknn and rknn2 does not
 #if defined(USE_RKNNAPI) || defined(USE_RKNN2API)
-			feature_extractor_instance_ = std::make_unique<rknnwrapper::rknn_wrapper>(hardcode::get_model_params(std::get<1>(*model_iter), use_int8), std::string(models_directory) + "/" + std::get<2>(*model_iter) + ".rknn", device);
+			feature_extractor_instance_ = std::make_unique<rknnwrapper::rknn_wrapper>(get_model_params(std::get<1>(*model_iter), use_int8), std::string(models_directory) + "/" + std::get<2>(*model_iter) + ".rknn", device);
 #else
 			feature_extractor_instance_ = std::make_unique<excalibur::pipeline<float>>(get_model_params(std::get<1>(*model_iter), use_int8), std::string(models_directory) + "/" + std::get<2>(*model_iter) + (use_int8 ? "_int8.racy" : ".racy"), device);
 #endif
