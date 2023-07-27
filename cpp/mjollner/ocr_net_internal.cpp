@@ -24,7 +24,7 @@ namespace glasssix::mjollner
     class ocr_net_internal::impl
     {
     public:
-        impl(std::string_view det_racy_path, std::string_view rec_racy_path, std::string_view alphabet_path, int device) : impl{hardcode::get_model_params("det_ocr"), det_racy_path, hardcode::get_model_params("rec_ocr"), rec_racy_path, alphabet_path, device}
+        impl(std::string_view det_racy_path, std::string_view rec_racy_path, std::string_view alphabet_path, int device) : impl{get_model_params("det_ocr"), det_racy_path, get_model_params("rec_ocr"), rec_racy_path, alphabet_path, device}
         {
         }
 
