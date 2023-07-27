@@ -10,7 +10,7 @@
 #include <opencv2/core.hpp>
 #include <opencv2/imgproc.hpp>
 #include <opencv2/dnn.hpp>
-#include "../hardcode/hardcode.hpp"
+#include "hardcode.hpp"
 #include "Excalibur/pipeline.hpp"
 #include "Excalibur/operation_make_border.hpp"
 #include "Excalibur/operation_safty_cut.hpp"
@@ -30,7 +30,7 @@ namespace glasssix::posture
         impl(std::string_view model_directory, int device)
             : model_directory_{ std::string(model_directory) }, device_{ device }
         {
-           net_instance_ = std::make_unique<glasssix::excalibur::pipeline<float>>(hardcode::get_model_params("posture", false),
+           net_instance_ = std::make_unique<glasssix::excalibur::pipeline<float>>(get_model_params("posture", false),
            std::string(model_directory) + "/" +"Trespass_kpt_sim.racy", device);      
         }
 
