@@ -39,7 +39,7 @@ namespace glasssix::gungnir
     class yolo_net_internal::impl
     {
     public:
-        impl(std::string_view racy_path, int device) : impl{hardcode::get_model_params("hat_simp"), racy_path, device}
+        impl(std::string_view racy_path, int device) : impl{get_model_params("hat_simp"), racy_path, device}
         {
         }
 
