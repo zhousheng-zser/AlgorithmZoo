@@ -386,8 +386,8 @@ namespace glasssix::playphone
 
             auto nms_result = non_max_suppression(result, conf_threshold, iou_threshold);
 
-            auto input_shape  = cv::Size(image.cols, image.rows);
-            auto output_shape = cv::Size(blob.cols, blob.rows);
+            auto input_shape  = cv::Size(blob.cols, blob.rows);
+            auto output_shape = cv::Size(image.cols, image.rows);
 
             auto scale_box = scale_coords(nms_result, input_shape, output_shape);
 

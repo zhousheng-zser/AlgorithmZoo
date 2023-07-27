@@ -57,7 +57,7 @@ namespace glasssix::needledash
             cv::Mat roi_image;
             cv::Rect roi(x, y, roi_width, roi_height);
             image(roi).copyTo(roi_image);
-			
+
             auto result = run_detect(roi_image, type, param_map);
 
             needledash::box_info_internal result_internal;
@@ -358,19 +358,12 @@ namespace glasssix::needledash
          * @param type      type of gage
          * @return result: 表盘指针与起点或者终点形成的角，占起点和终点形成的角的百分比
          */
-        std::string calculation(std::vector<cv::Point2f>& boxes, int type, std::pair<int,int>& singal_gage, std::pair<int, int>& double_gage)
+        std::string calculation(std::vector<cv::Point2f>& boxes, std::pair<int,int>& cover)
         {
             float zero = 0;
             // cover judge
             std::pair<int, int> cover_limit;
-            if (type == 1)
-            {
-                cover_limit = singal_gage;
-            }
-            else if (type == 2)
-            {
-                cover_limit = double_gage;
-            }
+            cover_limit = cover;
 
             std::vector<cv::Point2f> contour = { boxes[0], boxes[1], boxes[2] };
 
@@ -378,14 +371,7 @@ namespace glasssix::needledash
 
             if (area <= cover_limit.first || area >= cover_limit.second)
             {
-                if (type == 1)
-                {
-                    return "999";
-                }
-                else if (type == 2)
-                {
-                    return "999-999";
-                }
+                return "999";
             }
 
             float Xs = boxes[0].x;
@@ -406,8 +392,7 @@ namespace glasssix::needledash
             // judge point at start point
             if (d1 < 10)
             {  
-                if (type == 1) return inner_round(zero);
-                else if (type == 2) return std::to_string(0) + "-" + inner_round(zero);
+                return inner_round(zero);
             }
 
             // find distance between p and e
@@ -442,45 +427,15 @@ namespace glasssix::needledash
 
                     float B = acos(cosB);
 
-                    if (type == 1)
-                    {
-                        //指针处于左边
-                        float result;
-                        float angle_ratio = A / (2 * PI - B);
-                        if (angle_ratio <= (float)13.5 / (float)261)
-                            result = angle_ratio / ((float)13.5 / (float)261) * 0.1;
-                        else
-                            result = ((angle_ratio - ((float)13.5 / (float)261)) / ((float)247.5 / (float)261)) * 1.5 + 0.1;
-                        return inner_round(result);
-                    }
-                    else if (type == 2)
-                    {
-                        float result_outer;
-                        float result_inner;
-                        // 计算外圈指针所指刻度占表盘长度比例
-                        float angle_ratio_outer = A / (2 * PI - B);
-                        // 根据情况分别计算在特殊刻度内外的指针示数 双圈仪表外圈范围0-450
-                        if (angle_ratio_outer <= ((float)25 / (float)257))
-                            result_outer = angle_ratio_outer / ((float)25 / (float)257) * 50;
-                        else
-                            result_outer = ((angle_ratio_outer - ((float)25 / (float)257)) / (1 - ((float)25 / (float)257))) * 400 + 50;
-
-                        // 计算内圈指针所指刻度占表盘长度比例
-                        float angle_ratio_inner = angle_ratio_outer / ((float)259.419 / (float)263.5);
-                        // 根据情况分别计算在特殊刻度内外的指针示数 双圈仪表内圈范围0-3
-                        if (angle_ratio_inner <= ((float)38 / (float)254))
-                            result_inner = angle_ratio_inner / ((float)38 / (float)254) * 0.5;
-                        else
-                            result_inner = (angle_ratio_inner - ((float)38 / (float)254)) / (1 - (float)38 / (float)254) * 2.5 + 0.5;
-
-                        return outter_round(result_outer) + "-" + inner_round(result_inner);
-                    }
+                    float result;
+                    float angle_ratio = A / (2 * PI - B);
+                    result = angle_ratio * (100 - 0) + 0;
+                    return inner_round(result);
 
                 }
                 else if (Y1p <= Yp)
                 {
-                    if (type == 1) return inner_round(zero);
-                    else if (type == 2) return std::to_string(0) + "-" + inner_round(zero);
+                    return inner_round(zero);
                 }
             }
             else if (d1 > d2)
@@ -509,42 +464,15 @@ namespace glasssix::needledash
 
                     float B = acos(cosB);
 
-                    if (type == 1)
-                    {
-                        float result;
-                        float angle_ratio = (2 * PI - A - B) / (2 * PI - B);
-                        result = (angle_ratio - ((float)0.8 / (float)15.8)) / ((float)15 / (float)15.8) * 1.5 + 0.1;
-                        return inner_round(result);
-                    }
-                    else if (type == 2)
-                    {
-                        float result_outer;
-                        float result_inner;
-
-                        // 计算外圈指针所指刻度占表盘长度比例  双圈仪表外圈范围0-450
-                        float angle_ratio_outer = (2 * PI - A - B) / (2 * PI - B);
-                        result_outer = (angle_ratio_outer - ((float)25 / (float)257)) / (1 - (float)25 / (float)257) * 400 + 50;
-
-                        // 计算内圈指针所指刻度占表盘长度比例 双圈仪表内圈范围0-3
-                        if (angle_ratio_outer <= (float)259.419 / (float)263.5)
-                        {
-                            //  指针在内圈范围内
-                            float angle_ratio_inner = angle_ratio_outer / (float)259.419 / (float)263.5;
-                            result_inner = (angle_ratio_inner - ((float)38 / (float)254)) / (1 - ((float)38 / (float)254)) * 2.5 + 0.5;
-                        }
-                        else
-                        {
-                            result_inner = 3.0f;
-                        }
-
-                        return outter_round(result_outer) + "-" + inner_round(result_inner);
-                    }
+                    float result;
+                    float angle_ratio = (2 * PI - A - B) / (2 * PI - B);
+                    result = angle_ratio * (100 - 0) + 0;
+                    return inner_round(result);
 
                 }
                 else if (Y2p <= Yp)
                 {
-                    if (type == 1) return inner_round(zero);
-                    else if (type == 2) return std::to_string(0) + "-" + inner_round(zero);
+                    return inner_round(zero);
                 }
             }
         }
@@ -558,10 +486,11 @@ namespace glasssix::needledash
         std::string run_detect(cv::Mat& image, int type, std::map<std::string, float>& param_map)
         {
             std::map<std::string, float> params = {
-                    {"inner_min", param_map.count("inner_min") ? param_map["inner_min"] : 294000},
-                    {"inner_max", param_map.count("inner_max") ? param_map["inner_max"] : 310000},
-                    {"outer_min", param_map.count("outer_min") ? param_map["outer_min"] : 25500},
-                    {"outer_max", param_map.count("outer_max") ? param_map["outer_max"] : 27500}};
+                    {"cover_min", param_map.count("cover_min") ? param_map["cover_min"] : 45000},
+                    {"cover_max", param_map.count("cover_max") ? param_map["cover_max"] : 55000}};
+
+            if (type != 3)
+                return "999";
 
             // preprocess
             cv::Mat blob;
@@ -569,13 +498,10 @@ namespace glasssix::needledash
             std::tie(blob, ratio) = preprocess(image);
 
             // cover min & cover max
-            int inner_min = static_cast<int>(params["inner_min"] / (ratio * ratio));
-            int inner_max = static_cast<int>(params["inner_max"] / (ratio * ratio));
-            int outer_min = static_cast<int>(params["outer_min"] / (ratio * ratio));
-            int outer_max = static_cast<int>(params["outer_max"] / (ratio * ratio));
+            int cover_min = static_cast<int>(params["cover_min"] / (ratio * ratio));
+            int cover_max = static_cast<int>(params["cover_max"] / (ratio * ratio));
 
-            auto singal_gage = std::make_pair(inner_min, inner_max);
-            auto double_gage = std::make_pair(outer_min, outer_max);
+            auto cover = std::make_pair(cover_min, cover_max);
 
             std::shared_ptr<glasssix::memory::tensor<uint8_t>> input_tensor_blob(new glasssix::memory::tensor<uint8_t>(std::vector<int>{1, blob.rows, blob.cols, 3}, -1, glasssix::memory::NHWC));
             // mat convert into tensor
@@ -597,7 +523,7 @@ namespace glasssix::needledash
             }
 
             float conf_threshold = 0.6f;
-            float iou_threshold = 0.3f;
+            float iou_threshold = 0.6f;
 
             std::vector<pt> pt_location;
             std::vector<keypt> key_location;
@@ -616,7 +542,7 @@ namespace glasssix::needledash
                 key_point.emplace_back(cv::Point2f(it.x, it.y));
             }
 
-            std::string meter_result = calculation(key_point, type, singal_gage, double_gage);
+            std::string meter_result = calculation(key_point, cover);
 
             return meter_result;
         }
