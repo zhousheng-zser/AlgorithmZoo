@@ -5,7 +5,7 @@
 #include <tuple>
 #include <wchar.h>
 
-#include "../hardcode/hardcode.hpp"
+#include "hardcode.hpp"
 #include "ocr_code_internal.hpp"
 #include "box_info_impl.hpp"
 
@@ -64,10 +64,10 @@ namespace glasssix::plate
         impl(std::string_view model_directory, int device)
             : model_directory_{ std::string(model_directory) }, device_{ device }
         {
-            pnet_instance_ = std::make_unique<excalibur::pipeline<float>>(hardcode::get_model_params("plate_det_pnet", false), std::string(model_directory)        + "/" + "pnet_Weights_sim" + ".racy", device);
-            onet_instance_ = std::make_unique<excalibur::pipeline<float>>(hardcode::get_model_params("plate_det_onet", false), std::string(model_directory)        + "/" + "onet_Weights_sim" + ".racy", device);   
-            resnet_chinese_instance_ = std::make_unique<excalibur::pipeline<float>>(hardcode::get_model_params("plate_det_chinese", false), std::string(model_directory)  + "/" + "res32_chinese_sim" + ".racy", device);
-            resnet_char_instance_ = std::make_unique<excalibur::pipeline<float>>(hardcode::get_model_params("plate_det_char", false),    std::string(model_directory)     + "/" + "res20_char_sim"    + ".racy", device);
+            pnet_instance_ = std::make_unique<excalibur::pipeline<float>>(get_model_params("plate_det_pnet", false), std::string(model_directory)        + "/" + "pnet_Weights_sim" + ".racy", device);
+            onet_instance_ = std::make_unique<excalibur::pipeline<float>>(get_model_params("plate_det_onet", false), std::string(model_directory)        + "/" + "onet_Weights_sim" + ".racy", device);   
+            resnet_chinese_instance_ = std::make_unique<excalibur::pipeline<float>>(get_model_params("plate_det_chinese", false), std::string(model_directory)  + "/" + "res32_chinese_sim" + ".racy", device);
+            resnet_char_instance_ = std::make_unique<excalibur::pipeline<float>>(get_model_params("plate_det_char", false),    std::string(model_directory)     + "/" + "res20_char_sim"    + ".racy", device);
         }
 
         exposing::param_vector<plate::box_info> detect(exposing::param_span<std::uint8_t> bitmap, int channels, int height, int width, int order,

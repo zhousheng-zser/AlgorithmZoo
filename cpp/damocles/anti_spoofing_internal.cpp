@@ -56,8 +56,8 @@ namespace glasssix::damocles
 			spoofing_detect_instance_ = std::make_unique<rknnwrapper::rknn_wrapper>(hardcode::get_model_params(std::get<1>(*model_iter)), std::string(models_directory) + "/" + std::get<2>(*model_iter) + ".rknn", device);
 			landmark65_ = std::make_unique<rknnwrapper::rknn_wrapper>(hardcode::get_model_params("pfld11_landmark65_simp"), std::string(models_directory) + "/pfld11_landmark65_simp.rknn", device);
 #else
-			spoofing_detect_instance_ = std::make_unique<excalibur::pipeline<float>>(hardcode::get_model_params(std::get<1>(*model_iter)), std::string(models_directory) + "/" + std::get<2>(*model_iter) + ".racy", device);
-			landmark65_ = std::make_unique<excalibur::pipeline<float>>(hardcode::get_model_params("pfld11_landmark65_simp"), std::string(models_directory) + "/pfld11_landmark65_simp.racy", device);
+			spoofing_detect_instance_ = std::make_unique<excalibur::pipeline<float>>(get_model_params(std::get<1>(*model_iter)), std::string(models_directory) + "/" + std::get<2>(*model_iter) + ".racy", device);
+			landmark65_ = std::make_unique<excalibur::pipeline<float>>(get_model_params("pfld11_landmark65_simp"), std::string(models_directory) + "/pfld11_landmark65_simp.racy", device);
 #endif
 		}
 
