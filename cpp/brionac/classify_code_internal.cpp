@@ -40,7 +40,6 @@ namespace glasssix::brionac
         exposing::param_vector<brionac::box_info> detect(const exposing::param_span<std::uint8_t>& bitmap, int channels, int height, int width,
             int roi_x, int roi_y, int roi_width, int roi_height, std::map<std::string, float>& param_map)
         {   
-            std::cout << "in\n";
             std::map<std::string, float> params = {
             {"confidence", param_map.count("confidence") ? param_map["confidence"] : 0.5f},
             {"iou_threshold", param_map.count("iou_threshold") ? param_map["iou_threshold"] : 0.3f},
@@ -59,7 +58,6 @@ namespace glasssix::brionac
             }
             CHECK_EQ(channels, 3);
             CHECK_EQ(bitmap.size(), channels * height * width);
-            std::cout << "1\n";
             cv::Mat image(cv::Size(width, height), CV_8UC3);
 
             std::memcpy(image.data, bitmap.data(), sizeof (uint8_t) * channels * height * width);
@@ -81,14 +79,8 @@ namespace glasssix::brionac
             std::tie(blob, resize_ratio) = preprocess_detection(cropped_image,new_shape);
  
             auto nms_result= phase_detect(blob, resize_ratio, params);//检测输入的是crop,resize 并cvtcolor的值
-            //std::cout << "nms_result2: "<< nms_result.size();
             auto fin_result = postprocess_of_cate(nms_result);
 
-            for (size_t i = 0; i < fin_result.size(); i++)
-            {
-                //std::cout << number_char_dict[fin_result[i].category]<<"";
-            }
-            std::cout << "3\n";
             std::string return_result_string;
             for(auto& x :fin_result)
             {
@@ -104,11 +96,6 @@ namespace glasssix::brionac
             detect_info.y2=0;
             detect_info.strinfos=glasssix::exposing::param_string(return_result_string);
 
-            // if(nms_result.size()<=0 ||is_cover)
-            // // if(nms_result.size()<=0 )
-            // {
-            //     return_result_string="999";             
-            // }
             detect_info.strinfos=glasssix::exposing::param_string(return_result_string);
             results.push_back(glasssix::exposing::make_as_first<box_info_impl>(detect_info));
 
