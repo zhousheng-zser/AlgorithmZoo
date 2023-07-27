@@ -28,6 +28,7 @@ namespace noah {
 	enum class BasicAType
 	{
 		AT_VOID,
+		AT_BOOL,
 		AT_INT32,
 		AT_UINT32,
 		AT_INT8,
@@ -58,6 +59,8 @@ namespace noah {
 	static std::map<std::string, BasicAType> STRING_MAP_AT{
 		{"VOID",BasicAType::AT_VOID},
 		{"void",BasicAType::AT_VOID},
+		{"BOOL",BasicAType::AT_BOOL},
+		{"bool",BasicAType::AT_BOOL},
 
 		{"INT",BasicAType::AT_INT32},
 		{"int",BasicAType::AT_INT32},
@@ -93,6 +96,7 @@ namespace noah {
 	static std::map<BasicAType, std::string> AT_MAP_STRING{
 		// map self
 		{BasicAType::AT_VOID,"void"},
+		{BasicAType::AT_BOOL,"bool"},
 		{BasicAType::AT_INT32,"std::int32_t"},
 		{BasicAType::AT_UINT32,"std::uint32_t"},
 		{BasicAType::AT_UINT8,"std::uint8_t"},

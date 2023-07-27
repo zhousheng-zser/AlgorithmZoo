@@ -6,11 +6,6 @@
 #include "box_info_impl.hpp"
 #include <Excalibur/pipeline.hpp>
 #include <Primitives/tensor_conversions.hpp>
-//#include <Primitives/pool_allocator.hpp>
-//#include <Excalibur/operation_safty_cut.hpp>
-//#include "Excalibur/operation_make_border.hpp"
-//#include "Excalibur/operation_resize.hpp"
-//#include "Excalibur/operation_rgb2gray.hpp"
 #include "logger.hpp"
 
 #include <opencv2/opencv.hpp>
@@ -48,9 +43,9 @@ namespace glasssix::workcloth
         {
             //Excalibur needs to distinguish between float and int8 models, rknn and rknn2 does not
 #if defined(USE_RKNNAPI) || defined(USE_RKNN2API)
-            pipline_instance_ = std::make_unique<rknnwrapper::rknn_wrapper>(hardcode::get_model_params("workcloth"), std::string(model_directory) + "/" + "workcloth" + ".rknn", device);
+            pipline_instance_ = std::make_unique<rknnwrapper::rknn_wrapper>(get_model_params("workcloth"), std::string(model_directory) + "/" + "workcloth" + ".rknn", device);
 #else
-            pipline_instance_ = std::make_unique<excalibur::pipeline<float>>(hardcode::get_model_params("workcloth"), std::string(model_directory) + "/" + "workcloth" + ".racy", device);
+            pipline_instance_ = std::make_unique<excalibur::pipeline<float>>(get_model_params("workcloth"), std::string(model_directory) + "/" + "workcloth" + ".racy", device);
 #endif
         }
 

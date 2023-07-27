@@ -279,6 +279,7 @@ namespace glasssix::leavepost
             {
                 mask_image=src;
             }
+			cv::cvtColor(mask_image, mask_image, cv::COLOR_BGR2RGB);
             return { mask_image,scale};
         }
 

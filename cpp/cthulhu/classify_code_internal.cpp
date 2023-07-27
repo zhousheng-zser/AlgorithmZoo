@@ -136,15 +136,15 @@ namespace glasssix::cthulhu
                 for (auto& bbox : sub_bboxes)
                     cv::rectangle(visul_mat, bbox.get_rect(), bbox.cid ? cv::Scalar{ 0,0,255 } : cv::Scalar{ 0, 255, 0 }, 5);
                 cv::resize(visul_mat, visul_mat, cv::Size{}, 0.3, 0.3);
-                //cv::imshow("run_boxes", visul_mat); cv::waitKey(0);
+                cv::imshow("run_boxes", visul_mat); cv::waitKey(0);
             }
 #endif // BUILD_DEBUG_INFO
 
 
             for (auto box : sub_bboxes) {
 #ifdef BUILD_DEBUG_INFO
-                cv::Mat sub_person = image(box.get_rect());
-                cv::imshow("sub_person", sub_person); cv::waitKey(0);
+                //cv::Mat sub_person = image(box.get_rect());
+                //cv::imshow("sub_person", sub_person); cv::waitKey(0);
 #endif // BUILD_DEBUG_INFO
 
                 box_info_internal in_box_info;

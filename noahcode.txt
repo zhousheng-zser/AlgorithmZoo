@@ -1,0 +1,26 @@
+// noahcode.txt
+// AlgorithmZoo组件ABI框架生成描述文件模板，搭配noah.exe使用能快速搭建新工程
+
+ABICLASS box_info
+{
+    INT x1()
+    INT x2()
+    INT y1()
+    INT y2()
+    LIST<STR> strinfo()
+    LIST<INT> points()
+    FLOAT score()
+    INT category()
+}
+
+
+EXP_ABICLASS classify_code
+{
+    VOID init(STR model_directory, INT device)
+
+    // noah_demo::box_info 整体视作一种类型，而非作用域+某种类型(noahIR不支持)
+    // 非基本类型或ABI容器(Primitives中对STL部分容器实现的ABI版本)、自定义复杂类型(含辅助ABI类类型)，请自行确认作用域
+    LIST<noahcode::box_info> detect(SPAN<UINT8> bitmap, INT channels, INT height, INT width, BOOL gray, MAP<STR,FLOAT> param_map_abi)
+
+    //STR VERSION()
+}
