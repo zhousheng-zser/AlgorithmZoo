@@ -31,7 +31,7 @@ namespace glasssix::cassius
     class feature_extractor_internal::impl
     {
     public:
-        impl(std::int32_t model_type, std::string_view racy_path, int device, bool use_int8) : impl{hardcode::get_model_params(model_type ? "unicorn_res101" : "unicorn", use_int8), racy_path, device}
+        impl(std::int32_t model_type, std::string_view racy_path, int device, bool use_int8) : impl{get_model_params(model_type ? "unicorn_res101" : "unicorn", use_int8), racy_path, device}
         {
         }
 
