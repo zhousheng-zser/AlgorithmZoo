@@ -42,7 +42,7 @@ namespace glasssix::needledash
         static std::string version();
 
         exposing::param_vector<needledash::box_info> detect(exposing::param_span<std::uint8_t> bitmap, int channels, int height, int width, int type,
-            int x, int y, int roi_width, int roi_height, std::map<std::string, float>& param_map) const;
+            int roi_x, int roi_y, int roi_width, int roi_height, std::map<std::string, float>& param_map) const;
 
     private:
         std::unique_ptr<impl> impl_;

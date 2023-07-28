@@ -41,7 +41,7 @@ namespace glasssix::needledash
             meter_sim_instance_ = std::make_unique<excalibur::pipeline<float>>(get_model_params("meter_sim", false), std::string(model_directory) + "/" + "meter_sim" + ".racy", device);
         }
 
-        exposing::param_vector<needledash::box_info> detect(const exposing::param_span<std::uint8_t>& bitmap, int channels, int height, int width, int type, int x, int y, int roi_width, int roi_height, std::map<std::string, float>& param_map)
+        exposing::param_vector<needledash::box_info> detect(const exposing::param_span<std::uint8_t>& bitmap, int channels, int height, int width, int type, int roi_x, int roi_y, int roi_width, int roi_height, std::map<std::string, float>& param_map)
         {
             if (bitmap.empty())
             {
@@ -55,7 +55,7 @@ namespace glasssix::needledash
 
             // cut roi image to detect
             cv::Mat roi_image;
-            cv::Rect roi(x, y, roi_width, roi_height);
+            cv::Rect roi(roi_x, roi_y, roi_width, roi_height);
             image(roi).copyTo(roi_image);
 
             auto result = run_detect(roi_image, type, param_map);
@@ -619,9 +619,9 @@ namespace glasssix::needledash
     }
 
     exposing::param_vector<needledash::box_info> ocr_code_internal::detect(exposing::param_span<std::uint8_t> bitmap, int channels, int height, int width, int type,
-                                                                      int x, int y, int roi_width, int roi_height, std::map<std::string, float>& param_map) const
+                                                                      int roi_x, int roi_y, int roi_width, int roi_height, std::map<std::string, float>& param_map) const
     {
-        return impl_->detect(bitmap, channels, height, width, type, x, y, roi_width, roi_height, param_map);
+        return impl_->detect(bitmap, channels, height, width, type, roi_x, roi_y, roi_width, roi_height, param_map);
     }
 
 }
