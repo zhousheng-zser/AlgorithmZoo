@@ -15,6 +15,10 @@ namespace glasssix::needledash
 {
     struct box_info_internal
     {
+        float x1;
+        float y1;
+        float x2;
+        float y2;
         exposing::param_string strinfo;
     };
 

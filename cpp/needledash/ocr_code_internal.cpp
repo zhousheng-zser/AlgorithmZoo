@@ -62,7 +62,12 @@ namespace glasssix::needledash
 
             needledash::box_info_internal result_internal;
 
-            result_internal.strinfo = glasssix::exposing::param_string(result);
+            result_internal.x1 = std::get<1>(result).x;
+            result_internal.y1 = std::get<1>(result).y;
+            result_internal.x2 = std::get<2>(result).x;
+            result_internal.y2 = std::get<2>(result).y;
+
+            result_internal.strinfo = glasssix::exposing::param_string(std::get<0>(result));
 
             auto results = exposing::make_param_vector<needledash::box_info>();
 
@@ -165,6 +170,21 @@ namespace glasssix::needledash
         }
 
         /**
+         * @brief findmax
+         */
+        int findMax(float num1, float num2, float num3) {
+            if (num1 >= num2 && num1 >= num3) {
+                return 0;
+            }
+            else if (num2 >= num1 && num2 >= num3) {
+                return 1;
+            }
+            else {
+                return 2;
+            }
+        }
+
+        /**
          * @brief concat
          * @param outs      : excalibur inference output
          * @param conf_thres
@@ -198,7 +218,7 @@ namespace glasssix::needledash
                     {
                         for (int j = 0; j < num_grid_y; j++)
                         {
-                            const float* pdata = ptr_out + ind * 22;
+                            const float* pdata = ptr_out + ind * 23;
 
                             float box_score = sigmoid_x(pdata[4]);
 
@@ -211,16 +231,16 @@ namespace glasssix::needledash
                                 pt_temp.h = powf(sigmoid_x(pdata[3]) * 2.f, 2.f) * anchor_h;      //h
                                 pt_temp.score = sigmoid_x(pdata[4]);
 
-                                pt_temp.category = class_pred(sigmoid_x(pdata[5]), sigmoid_x(pdata[6]));
+                                pt_temp.category = findMax(sigmoid_x(pdata[5]), sigmoid_x(pdata[6]), sigmoid_x(pdata[7]));
 
                                 pt_location.push_back(pt_temp);
 
                                 //key-points
                                 for (int group = 0; group < 5; ++group) {
                                     keypt ky_temp{};
-                                    ky_temp.x = (pdata[7 + group * 3] * 2.f - 0.5f + j) * stride[n]; //point x
-                                    ky_temp.y = (pdata[8 + group * 3] * 2.f - 0.5f + i) * stride[n]; //point y
-                                    ky_temp.score = sigmoid_x(pdata[9 + group * 3]); //point score
+                                    ky_temp.x = (pdata[8 + group * 3] * 2.f - 0.5f + j) * stride[n]; //point x
+                                    ky_temp.y = (pdata[9 + group * 3] * 2.f - 0.5f + i) * stride[n]; //point y
+                                    ky_temp.score = sigmoid_x(pdata[10 + group * 3]); //point score
 
                                     key_location.push_back(ky_temp);
                                 }
@@ -478,19 +498,46 @@ namespace glasssix::needledash
         }
 
         /**
+        * @fun scale_coords
+        */
+        cv::Point2f scale_coords(const cv::Point2f& pt, cv::Size& input_shape, cv::Size& output_shape)
+        {
+            auto clamp = [](int x, int min, int max) {if (x < min) return min; else if (x > max) return max; else return x; };
+            // gain
+            float gain = std::min(input_shape.width / (float)output_shape.width, input_shape.height / (float)output_shape.height);
+
+            // pad
+            float pad_w = (input_shape.width - output_shape.width * gain) / 2.0;
+            float pad_h = (input_shape.height - output_shape.height * gain) / 2.0;
+
+            float x1 = (pt.x - pad_w) / gain;
+            float y1 = (pt.y - pad_h) / gain;
+
+            clamp(x1, 0, output_shape.width);
+            clamp(y1, 0, output_shape.height);
+
+            cv::Point2f scale_pt = cv::Point2f(x1, y1);
+
+            return scale_pt;
+        }
+
+        /**
            * @fun run_detect
            * @param image param_map
            * @return std::vector<needledash::box_info_internal>
            * @details run detect (maybe in multithreading)
         */
-        std::string run_detect(cv::Mat& image, int type, std::map<std::string, float>& param_map)
+        std::tuple<std::string, cv::Point2f, cv::Point2f> run_detect(cv::Mat& image, int type, std::map<std::string, float>& param_map)
         {
             std::map<std::string, float> params = {
-                    {"cover_min", param_map.count("cover_min") ? param_map["cover_min"] : 45000},
-                    {"cover_max", param_map.count("cover_max") ? param_map["cover_max"] : 55000}};
+                    {"cover_min", param_map.count("cover_min") ? param_map["cover_min"] : 0},
+                    {"cover_max", param_map.count("cover_max") ? param_map["cover_max"] : 100000}};
 
             if (type != 3)
-                return "999";
+                return {"999", cv::Point2f(0,0),  cv::Point2f(0,0)};
+
+            cv::Size input_Size = cv::Size(640, 640);
+            cv::Size output_Size = cv::Size(image.cols, image.rows);
 
             // preprocess
             cv::Mat blob;
@@ -522,8 +569,8 @@ namespace glasssix::needledash
                 forwards.push_back(network_result[out_names[i]]);
             }
 
-            float conf_threshold = 0.6f;
-            float iou_threshold = 0.6f;
+            float conf_threshold = 0.25f;
+            float iou_threshold = 0.5f;
 
             std::vector<pt> pt_location;
             std::vector<keypt> key_location;
@@ -544,7 +591,10 @@ namespace glasssix::needledash
 
             std::string meter_result = calculation(key_point, cover);
 
-            return meter_result;
+            auto center_pt = scale_coords(key_point[3], input_Size, output_Size);
+            auto point_pt = scale_coords(key_point[4], input_Size, output_Size);
+
+            return { meter_result, center_pt, point_pt };
         }
 
 
