@@ -41,8 +41,8 @@ namespace glasssix::brionac
             int roi_x, int roi_y, int roi_width, int roi_height, std::map<std::string, float>& param_map)
         {
             std::map<std::string, float> params = {
-            {"confidence", param_map.count("confidence") ? param_map["confidence"] : 0.5f},
-            {"iou_threshold", param_map.count("iou_threshold") ? param_map["iou_threshold"] : 0.3f},
+            {"confidence", param_map.count("conf_thres") ? param_map["conf_thres"] : 0.3f},
+            {"iou_threshold", param_map.count("iou_thres") ? param_map["iou_thres"] : 0.3f},
             {"hlow", param_map.count("hlow") ? param_map["hlow"] : 78.f},
             {"slow", param_map.count("slow") ? param_map["slow"] : 43.f},
             {"vlow", param_map.count("vlow") ? param_map["vlow"] : 46.f},
