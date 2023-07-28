@@ -20,7 +20,7 @@
 #include "Excalibur/operation_rgb2gray.hpp"
 #include "Excalibur/operation_rotate.hpp"
 #include "Primitives/tensor_conversions.hpp"
-#include "brionac_phai.hpp"
+#include "hardcode.hpp"
 
 #include <abi/param_vector.hpp>
 #include <utility>
@@ -34,15 +34,15 @@ namespace glasssix::brionac
             : model_directory_{ std::string(model_directory) }, device_{ device }
         {
 
-            dash_detect = std::make_unique<excalibur::pipeline<float>>(brionac_phai, std::string(model_directory) + "\\" +"brionac.racy", device);
+            dash_detect = std::make_unique<excalibur::pipeline<float>>(get_model_params(std::string("brionac"), false), std::string(model_directory) + "\\" + "brionac.racy", device);
         }
 
         exposing::param_vector<brionac::box_info> detect(const exposing::param_span<std::uint8_t>& bitmap, int channels, int height, int width,
             int roi_x, int roi_y, int roi_width, int roi_height, std::map<std::string, float>& param_map)
-        {   
+        {
             std::map<std::string, float> params = {
-            {"confidence", param_map.count("confidence") ? param_map["confidence"] : 0.5f},
-            {"iou_threshold", param_map.count("iou_threshold") ? param_map["iou_threshold"] : 0.3f},
+            {"confidence", param_map.count("conf_thres") ? param_map["conf_thres"] : 0.3f},
+            {"iou_threshold", param_map.count("iou_thres") ? param_map["iou_thres"] : 0.3f},
             {"hlow", param_map.count("hlow") ? param_map["hlow"] : 78.f},
             {"slow", param_map.count("slow") ? param_map["slow"] : 43.f},
             {"vlow", param_map.count("vlow") ? param_map["vlow"] : 46.f},
@@ -82,18 +82,24 @@ namespace glasssix::brionac
             auto fin_result = postprocess_of_cate(nms_result);
 
             std::string return_result_string;
+         
             for(auto& x :fin_result)
             {
                 return_result_string+= number_char_dict[x.category];
+
             }
 
             auto results = exposing::make_param_vector<brionac::box_info>();
 
             brionac::box_info_internal detect_info;
-            detect_info.x1=0;
-            detect_info.y1=0;
-            detect_info.x2=0;
-            detect_info.y2=0;
+            if (fin_result.size()) 
+            {
+                detect_info.x1 = fin_result[0].x1;
+                detect_info.y1 = fin_result[0].y1;
+                detect_info.x2 = fin_result[fin_result.size() - 1].x2;
+                detect_info.y2 = fin_result[fin_result.size() - 1].y2;   
+            }
+      
             detect_info.strinfos=glasssix::exposing::param_string(return_result_string);
 
             detect_info.strinfos=glasssix::exposing::param_string(return_result_string);
@@ -163,16 +169,6 @@ namespace glasssix::brionac
         int category;
         };
 
-        // struct box_info_internal
-        // {
-        //     int x1;
-        //     int y1;
-        //     int x2;
-        //     int y2;
-        //     int category;
-        // };
-
-
         static bool sort_loca(location_char& l_c1, location_char& l_c2) {
         return (l_c1.x1 + l_c1.x2) < (l_c2.x1 + l_c2.x2);
         }
@@ -183,16 +179,15 @@ namespace glasssix::brionac
 
 
 
-        std::vector<symbol_category> postprocess_of_cate(std::vector<location_char>& time_info)
+        std::vector<location_char> postprocess_of_cate(std::vector<location_char>& time_info)
         {
-            std::vector<symbol_category> result;
+            std::vector<location_char> result;
             std::sort(time_info.begin(), time_info.end(), sort_loca);
 
             for (int i = 0; i < time_info.size(); i++)
             {
-                symbol_category temp;
-                temp.symbol = time_info[i].symbol;
-                temp.category = time_info[i].category;
+                location_char temp;
+                temp = time_info[i];
                 result.emplace_back(temp);
             }
             return result;
@@ -466,8 +461,6 @@ namespace glasssix::brionac
         auto nms_result = non_max_suppression(blob,result, conf_threshold, iou_threshold, 1 / ratio);
         return nms_result;
     }
-
-
 
     private:
         std::string model_directory_;

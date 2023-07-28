@@ -53,8 +53,8 @@ namespace glasssix::damocles
 				throw exposing::abi_invalid_argument("Invalid model_tpye param!");
 
 #if defined(USE_RKNNAPI) || defined(USE_RKNN2API)
-			spoofing_detect_instance_ = std::make_unique<rknnwrapper::rknn_wrapper>(hardcode::get_model_params(std::get<1>(*model_iter)), std::string(models_directory) + "/" + std::get<2>(*model_iter) + ".rknn", device);
-			landmark65_ = std::make_unique<rknnwrapper::rknn_wrapper>(hardcode::get_model_params("pfld11_landmark65_simp"), std::string(models_directory) + "/pfld11_landmark65_simp.rknn", device);
+			spoofing_detect_instance_ = std::make_unique<rknnwrapper::rknn_wrapper>(get_model_params(std::get<1>(*model_iter)), std::string(models_directory) + "/" + std::get<2>(*model_iter) + ".rknn", device);
+			landmark65_ = std::make_unique<rknnwrapper::rknn_wrapper>(get_model_params("pfld11_landmark65_simp"), std::string(models_directory) + "/pfld11_landmark65_simp.rknn", device);
 #else
 			spoofing_detect_instance_ = std::make_unique<excalibur::pipeline<float>>(get_model_params(std::get<1>(*model_iter)), std::string(models_directory) + "/" + std::get<2>(*model_iter) + ".racy", device);
 			landmark65_ = std::make_unique<excalibur::pipeline<float>>(get_model_params("pfld11_landmark65_simp"), std::string(models_directory) + "/pfld11_landmark65_simp.racy", device);
@@ -69,8 +69,8 @@ namespace glasssix::damocles
 			}
 
 			float scale = 2.7f;
-			if (model_type_ == 1)
-				scale = 4.0f;
+			//if (model_type_ == 1)
+			//	scale = 4.0f;
 
 			auto boxes = calculate_box(faces, width, height, scale);
 
