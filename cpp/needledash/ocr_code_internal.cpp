@@ -192,11 +192,12 @@ namespace glasssix::needledash
          */
         std::pair<std::vector<pt>, std::vector<keypt>> concat(std::vector<std::shared_ptr<glasssix::memory::tensor<float>>>& outs, float conf_thres)
         {
-            const float anchors[4][6] = { {10,13, 16,30, 33,23 },
-                                          {30,61, 62,45, 59,119},
-                                          {116,90, 156,198, 373,326}};
+            const float anchors[4][6] = { {19,27,    44,40,    38,94},
+                                          {96,68,    86,152,   180,137},
+                                          {140,301,  303,264,  238,542},
+                                          {436,615,  739,380,  925,792} };
 										  
-            const float stride[3] = {8.0, 16.0, 32.0};
+            const float stride[4] = {8.0, 16.0, 32.0};
 
             std::vector<pt> pt_location;
             std::vector<keypt> key_location;
@@ -313,9 +314,9 @@ namespace glasssix::needledash
 
                 pt_nms.push_back(pt_temp);
 
-                for (int i = 0; i < 5; ++i)
+                for (int j = 0; j < 5; j++)
                 {
-                    key_nms.push_back(key_location[it * 5 + i]);
+                    key_nms.push_back(key_location[it * 5 + j]);
                 }
             }
 
@@ -382,17 +383,19 @@ namespace glasssix::needledash
         {
             float zero = 0;
             // cover judge
-            std::pair<int, int> cover_limit;
-            cover_limit = cover;
+            //std::pair<int, int> cover_limit;
+            //cover_limit = cover;
 
-            std::vector<cv::Point2f> contour = { boxes[0], boxes[1], boxes[2] };
+            //std::vector<cv::Point2f> contour = { boxes[0], boxes[1], boxes[2] };
 
-            auto area = cv::contourArea(contour);
+            //auto area = cv::contourArea(contour);
 
-            if (area <= cover_limit.first || area >= cover_limit.second)
-            {
-                return "999";
-            }
+            //if (area <= cover_limit.first || area >= cover_limit.second)
+            //{
+            //    return "999";
+            //}
+            std::cout << "LOG: 0 \n";
+            std::cout << "boxes size:"<< boxes.size() <<"\n";
 
             float Xs = boxes[0].x;
             float Ys = boxes[0].y;
@@ -406,6 +409,7 @@ namespace glasssix::needledash
             float Xp = boxes[4].x;
             float Yp = boxes[4].y;
 
+            std::cout << "LOG: 1 \n";
             // find distance between p and s
             float d1 = std::sqrt((Xp - Xs) * (Xp - Xs) + (Yp - Ys) * (Yp - Ys));
 
@@ -418,6 +422,7 @@ namespace glasssix::needledash
             // find distance between p and e
             float d2 = std::sqrt((Xp - Xe) * (Xp - Xe) + (Yp - Ye) * (Yp - Ye));
 
+            std::cout << "LOG: 2 \n";
 
             if (d1 <= d2)
             {
@@ -446,6 +451,8 @@ namespace glasssix::needledash
                     float cosB = (b * b + e * e - d * d) / (2 * b * e);
 
                     float B = acos(cosB);
+
+                    std::cout << "LOG: 3 \n";
 
                     float result;
                     float angle_ratio = A / (2 * PI - B);
@@ -483,6 +490,8 @@ namespace glasssix::needledash
                     float cosB = (d * d + b * b - e * e) / (2 * d * b);
 
                     float B = acos(cosB);
+
+                    std::cout << "LOG: 3 \n";
 
                     float result;
                     float angle_ratio = (2 * PI - A - B) / (2 * PI - B);
@@ -530,7 +539,7 @@ namespace glasssix::needledash
         std::tuple<std::string, cv::Point2f, cv::Point2f> run_detect(cv::Mat& image, int type, std::map<std::string, float>& param_map)
         {
             std::map<std::string, float> params = {
-                    {"cover_min", param_map.count("cover_min") ? param_map["cover_min"] : 0},
+                    {"cover_min", param_map.count("cover_min") ? param_map["cover_min"] : 1},
                     {"cover_max", param_map.count("cover_max") ? param_map["cover_max"] : 100000}};
 
             if (type != 3)
@@ -562,25 +571,29 @@ namespace glasssix::needledash
 
             auto  network_result = meter_sim_instance_->forward(input_tensor);
 
-            std::vector<std::string>  out_names = { "475","528","581"};
+            std::vector<std::string>  out_names = { "754","807","860","913" };
 
             for (size_t i = 0; i < out_names.size(); i++)//对输出数据做处理
             {
                 forwards.push_back(network_result[out_names[i]]);
             }
 
-            float conf_threshold = 0.25f;
+            float conf_threshold = 0.5f;
             float iou_threshold = 0.5f;
 
             std::vector<pt> pt_location;
             std::vector<keypt> key_location;
-            
+
             std::tie(pt_location, key_location) = concat(forwards, conf_threshold);
+
+            std::cout << "Concat: detect size:" << pt_location.size() << "\n";
 
             // non_max_suppression
             std::vector<point> pt_nms;
             std::vector<keypt> key_nms;
             std::tie(pt_nms, key_nms) = non_max_suppression(pt_location, key_location, conf_threshold, iou_threshold);
+
+            std::cout << "non_max_suppression pt_nms size:" << pt_nms.size() << "\n";
 
             // turn keypt into Point2f
             std::vector<cv::Point2f> key_point;
