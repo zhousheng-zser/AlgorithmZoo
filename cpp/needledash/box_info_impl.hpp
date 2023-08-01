@@ -14,7 +14,10 @@ namespace glasssix::needledash
         box_info_impl();
         box_info_impl(const box_info_internal& internal);
         ~box_info_impl();
-
+        int x1() const;
+        int y1() const;
+        int x2() const;
+        int y2() const;
         exposing::param_string strinfo() const;
 
     private:

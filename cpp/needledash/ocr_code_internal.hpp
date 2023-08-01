@@ -15,6 +15,10 @@ namespace glasssix::needledash
 {
     struct box_info_internal
     {
+        float x1;
+        float y1;
+        float x2;
+        float y2;
         exposing::param_string strinfo;
     };
 
@@ -38,7 +42,7 @@ namespace glasssix::needledash
         static std::string version();
 
         exposing::param_vector<needledash::box_info> detect(exposing::param_span<std::uint8_t> bitmap, int channels, int height, int width, int type,
-            int x, int y, int roi_width, int roi_height, std::map<std::string, float>& param_map) const;
+            int roi_x, int roi_y, int roi_width, int roi_height, std::map<std::string, float>& param_map) const;
 
     private:
         std::unique_ptr<impl> impl_;
