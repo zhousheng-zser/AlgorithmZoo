@@ -1,9 +1,9 @@
-#ifndef _CTHULHU_BOX_INFO_HPP_
-#define _CTHULHU_BOX_INFO_HPP_
+#ifndef _PEDESTRIAN_BOX_INFO_HPP_
+#define _PEDESTRIAN_BOX_INFO_HPP_
 
 #include <abi/consumer.hpp>
 
-namespace glasssix::cthulhu
+namespace glasssix::pedestrian
 {
     struct box_info;
 }
@@ -11,7 +11,7 @@ namespace glasssix::cthulhu
 namespace glasssix::exposing::impl
 {
     template<>
-    struct abi<cthulhu::box_info>
+    struct abi<pedestrian::box_info>
     {
         using identity_type = type_identity_interface;
 
@@ -29,7 +29,7 @@ namespace glasssix::exposing::impl
     };
 
     template <typename Derived>
-    struct interface_vtable<Derived, cthulhu::box_info> : interface_vtable_base<Derived, cthulhu::box_info>
+    struct interface_vtable<Derived, pedestrian::box_info> : interface_vtable_base<Derived, pedestrian::box_info>
     {
 
         virtual std::int32_t G6_ABI_CALL x1(abi_out_t<int> result) noexcept override
@@ -70,10 +70,10 @@ namespace glasssix::exposing::impl
     };
 
     template <>
-    struct abi_adapter<cthulhu::box_info>
+    struct abi_adapter<pedestrian::box_info>
     {
         template <typename Derived>
-        struct type : enable_self_abi_awareness<Derived, cthulhu::box_info>
+        struct type : enable_self_abi_awareness<Derived, pedestrian::box_info>
         {
 
             int x1() const
@@ -117,7 +117,7 @@ namespace glasssix::exposing::impl
     };
 }
 
-namespace glasssix::cthulhu
+namespace glasssix::pedestrian
 {
     struct box_info : exposing::inherits<box_info>
     {

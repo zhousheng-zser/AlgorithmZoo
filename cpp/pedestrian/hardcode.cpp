@@ -1,7 +1,7 @@
 #include "hardcode.hpp"
 #include <unordered_map>
 
-namespace glasssix::cthulhu
+namespace glasssix::pedestrian
 {
     namespace
     {
@@ -9,7 +9,7 @@ namespace glasssix::cthulhu
         struct hardcode_model_params
         {
 
-            inline static const std::vector<std::string> cthulhu_det{
+            inline static const std::vector<std::string> pedestrian_det{
                 "glsv1",
                 "434 570",
                 //"Input            images                   0 1 images 0=640 1=640 2=3 3=0,0,0 4=1",
@@ -451,7 +451,7 @@ namespace glasssix::cthulhu
         };
 
         const std::unordered_map<std::string, std::vector<std::string>> hardcode_map{
-            {"cthulhu", hardcode_model_params::cthulhu_det},
+            {"pedestrian", hardcode_model_params::pedestrian_det},
         };
     }
 
