@@ -3,7 +3,7 @@
 #include <vector>
 #include <string>
 
-namespace glasssix::cthulhu
+namespace glasssix::pedestrian
 {
 	std::vector<std::string> get_model_params(std::string_view name, bool use_int8 = false);
 }

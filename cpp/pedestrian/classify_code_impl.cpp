@@ -4,7 +4,7 @@
 #include <map>
 #include <utility>
 
-namespace glasssix::cthulhu
+namespace glasssix::pedestrian
 {
 	classify_code_impl::classify_code_impl() = default;
 
@@ -21,11 +21,11 @@ namespace glasssix::cthulhu
 		return exposing::to_param_string(impl_->version());
 	}
 
-	exposing::param_vector<cthulhu::box_info> classify_code_impl::detect(exposing::param_span<std::uint8_t> bitmap, int channels, int height, int width, int roi_x, int roi_y, int roi_width, int roi_height,
+	exposing::param_vector<pedestrian::box_info> classify_code_impl::detect(exposing::param_span<std::uint8_t> bitmap, int channels, int height, int width, int roi_x, int roi_y, int roi_width, int roi_height,
 		const exposing::param_hash_map<exposing::param_string, float>& param_map_abi) const
 	{
 		if (!impl_)
-			throw exposing::abi_invalid_operation(u8"cthulhu internal object not initialized");
+			throw exposing::abi_invalid_operation(u8"pedestrian internal object not initialized");
 
 		std::map<std::string, float> param_map;
 

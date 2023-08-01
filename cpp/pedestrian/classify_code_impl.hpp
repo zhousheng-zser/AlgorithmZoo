@@ -6,13 +6,13 @@
 #include <memory>
 #include <abi/consumer.hpp>
 
-namespace glasssix::cthulhu
+namespace glasssix::pedestrian
 {
-    inline constexpr exposing::utf8_string_view cthulhu_classify_code_qualified_name{ u8"g6.cthulhu.classify_code" };
+    inline constexpr exposing::utf8_string_view pedestrian_classify_code_qualified_name{ u8"g6.pedestrian.classify_code" };
 
     class classify_code_internal;
 
-    class classify_code_impl : public exposing::implements<classify_code_impl, classify_code>, public exposing::make_external_qualified_name<cthulhu_classify_code_qualified_name>
+    class classify_code_impl : public exposing::implements<classify_code_impl, classify_code>, public exposing::make_external_qualified_name<pedestrian_classify_code_qualified_name>
     {
     public:
         classify_code_impl();
@@ -22,7 +22,7 @@ namespace glasssix::cthulhu
 
         exposing::param_string version() const;
 
-        exposing::param_vector<cthulhu::box_info> detect(exposing::param_span<std::uint8_t> bitmap, int channels, int height, int width, int roi_x, int roi_y, int roi_width, int roi_height,
+        exposing::param_vector<pedestrian::box_info> detect(exposing::param_span<std::uint8_t> bitmap, int channels, int height, int width, int roi_x, int roi_y, int roi_width, int roi_height,
             const exposing::param_hash_map<exposing::param_string, float>& param_map_abi) const;
 
     private:

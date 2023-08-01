@@ -15,7 +15,6 @@
 #include <opencv2/highgui/highgui.hpp>
 #endif // BUILD_DEBUG_INFO
 
-
 #include <abi/param_vector.hpp>
 #include <Primitives/fmt/format.h>
 #include <utility>
@@ -33,7 +32,7 @@
 #endif
 
 
-namespace glasssix::cthulhu
+namespace glasssix::pedestrian
 {
     class classify_code_internal::impl
     {
@@ -43,13 +42,13 @@ namespace glasssix::cthulhu
         {
             //Excalibur needs to distinguish between float and int8 models, rknn and rknn2 does not
 #if defined(USE_RKNNAPI) || defined(USE_RKNN2API)
-            pipline_instance_ = std::make_unique<rknnwrapper::rknn_wrapper>(get_model_params("cthulhu"), std::string(model_directory) + "/" + "cthulhu" + ".rknn", device);
+            pipline_instance_ = std::make_unique<rknnwrapper::rknn_wrapper>(get_model_params("pedestrian"), std::string(model_directory) + "/" + "pedestrian" + ".rknn", device);
 #else
-            pipline_instance_ = std::make_unique<excalibur::pipeline<float>>(get_model_params("cthulhu"), std::string(model_directory) + "/" + "cthulhu" + ".racy", device);
+            pipline_instance_ = std::make_unique<excalibur::pipeline<float>>(get_model_params("pedestrian"), std::string(model_directory) + "/" + "pedestrian" + ".racy", device);
 #endif
         }
 
-        exposing::param_vector<cthulhu::box_info> detect(const exposing::param_span<std::uint8_t>& bitmap, int channels, int height, int width, int roi_x, int roi_y, int roi_width, int roi_height, std::map<std::string, float>& param_map)
+        exposing::param_vector<pedestrian::box_info> detect(const exposing::param_span<std::uint8_t>& bitmap, int channels, int height, int width, int roi_x, int roi_y, int roi_width, int roi_height, std::map<std::string, float>& param_map)
         {
             if (bitmap.empty())
             {
@@ -70,7 +69,7 @@ namespace glasssix::cthulhu
             std::vector<box_info_internal> results;
             auto result = exposing::make_param_vector<box_info>();
 
-            run_cthulhu(results, cropped_image, param_map);
+            run_pedestrian(results, cropped_image, param_map);
 
             for (auto& i : results)
             {
@@ -94,14 +93,14 @@ namespace glasssix::cthulhu
         }
 
     private:
-        void run_cthulhu(std::vector<box_info_internal>& results, cv::Mat& image, std::map<std::string, float>& param_map)
+        void run_pedestrian(std::vector<box_info_internal>& results, cv::Mat& image, std::map<std::string, float>& param_map)
         {
             float W = image.cols;
             float H = image.rows;
             float conf_threshold = param_map.count("conf_thres") ? param_map["conf_thres"] : 0.5f;
             float nms_threshold = param_map.count("nms_thres") ? param_map["nms_thres"] : 0.5f;
 
-            auto det_mat = cthulhu_imgprocess(image, 640, 640);
+            auto det_mat = pedestrian_imgprocess(image, 640, 640);
             // cvt BGR2RGB
             cv::cvtColor(det_mat, det_mat, cv::COLOR_BGR2RGB);
 
@@ -303,7 +302,7 @@ namespace glasssix::cthulhu
             std::sort(bboxes.begin(), bboxes.end(), [&](Bbox b1, Bbox b2) {return b1.score > b2.score; });
         }
 
-        cv::Mat cthulhu_imgprocess(cv::Mat& img, int hope_w = 384, int hope_h = 640) {
+        cv::Mat pedestrian_imgprocess(cv::Mat& img, int hope_w = 384, int hope_h = 640) {
             int H = img.rows;
             int W = img.cols;
             float ratio_w = (float)W / (float)hope_w;
@@ -358,7 +357,7 @@ namespace glasssix::cthulhu
         return impl_->version();
     }
 
-    exposing::param_vector<cthulhu::box_info> classify_code_internal::detect(exposing::param_span<std::uint8_t> bitmap, int channels, int height, int width, int roi_x, int roi_y, int roi_width, int roi_height, std::map<std::string, float>& param_map) const
+    exposing::param_vector<pedestrian::box_info> classify_code_internal::detect(exposing::param_span<std::uint8_t> bitmap, int channels, int height, int width, int roi_x, int roi_y, int roi_width, int roi_height, std::map<std::string, float>& param_map) const
     {
         return impl_->detect(bitmap, channels, height, width, roi_x, roi_y, roi_width, roi_height, param_map);
     }

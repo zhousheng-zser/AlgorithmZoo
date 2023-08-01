@@ -11,7 +11,7 @@
 #include <opencv2/opencv.hpp>
 #include "box_info.hpp"
 
-namespace glasssix::cthulhu
+namespace glasssix::pedestrian
 {
     struct box_info_internal
     {
@@ -97,7 +97,7 @@ namespace glasssix::cthulhu
 
         std::string version();
 
-        exposing::param_vector<cthulhu::box_info> detect(exposing::param_span<std::uint8_t> bitmap, int channels, int height, int width, int roi_x, int roi_y, int roi_width, int roi_height, std::map<std::string, float>& param_map) const;
+        exposing::param_vector<pedestrian::box_info> detect(exposing::param_span<std::uint8_t> bitmap, int channels, int height, int width, int roi_x, int roi_y, int roi_width, int roi_height, std::map<std::string, float>& param_map) const;
 
     private:
         std::unique_ptr<impl> impl_;

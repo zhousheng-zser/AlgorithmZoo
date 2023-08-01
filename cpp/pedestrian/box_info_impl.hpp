@@ -4,11 +4,11 @@
 #include "box_info.hpp"
 #include "classify_code_internal.hpp"
 
-namespace glasssix::cthulhu
+namespace glasssix::pedestrian
 {
-    inline constexpr exposing::utf8_string_view cthulhu_box_info_qualified_name{ u8"g6.cthulhu.boxInfo" };
+    inline constexpr exposing::utf8_string_view pedestrian_box_info_qualified_name{ u8"g6.pedestrian.boxInfo" };
 
-    class box_info_impl : public exposing::implements<box_info_impl, box_info>, public exposing::make_external_qualified_name<cthulhu_box_info_qualified_name>
+    class box_info_impl : public exposing::implements<box_info_impl, box_info>, public exposing::make_external_qualified_name<pedestrian_box_info_qualified_name>
     {
     public:
         box_info_impl();
