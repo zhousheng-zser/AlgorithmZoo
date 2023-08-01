@@ -25,7 +25,7 @@ namespace glasssix::needledash
 	}
 
 	exposing::param_vector<needledash::box_info> ocr_code_impl::detect(exposing::param_span<std::uint8_t> bitmap, int channels, int height, int width, int type,
-		int x, int y, int roi_width, int roi_height, const exposing::param_hash_map<exposing::param_string, float>& param_map_abi) const
+		int roi_x, int roi_y, int roi_width, int roi_height, const exposing::param_hash_map<exposing::param_string, float>& param_map_abi) const
 	{
 		if (!impl_)
 			throw exposing::abi_invalid_operation(u8"needledash internal object not initialized");
@@ -36,7 +36,7 @@ namespace glasssix::needledash
 			param_map.insert(std::make_pair(it.key(), it.value()));
 		}
 
-		return impl_->detect(bitmap, channels, height, width, type, x, y, roi_width, roi_height, param_map);
+		return impl_->detect(bitmap, channels, height, width, type, roi_x, roi_y, roi_width, roi_height, param_map);
 	}
 
 }

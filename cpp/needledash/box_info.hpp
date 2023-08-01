@@ -19,20 +19,45 @@ namespace glasssix::exposing::impl
 
         struct type : abi_unknown_object
         {
+            virtual std::int32_t G6_ABI_CALL x1(abi_out_t<int> result) noexcept = 0;
+            virtual std::int32_t G6_ABI_CALL y1(abi_out_t<int> result) noexcept = 0;
+            virtual std::int32_t G6_ABI_CALL x2(abi_out_t<int> result) noexcept = 0;
+            virtual std::int32_t G6_ABI_CALL y2(abi_out_t<int> result) noexcept = 0;
             virtual std::int32_t G6_ABI_CALL strinfo(abi_out_t<exposing::param_string> result) noexcept = 0;
-
         };
     };
 
     template <typename Derived>
     struct interface_vtable<Derived, needledash::box_info> : interface_vtable_base<Derived, needledash::box_info>
     {
+        virtual std::int32_t G6_ABI_CALL x1(abi_out_t<int> result) noexcept override
+        {
+            return abi_safe_call([&]
+                { *result = detach_abi(this->self().x1()); });
+        }
+
+        virtual std::int32_t G6_ABI_CALL y1(abi_out_t<int> result) noexcept override
+        {
+            return abi_safe_call([&]
+                { *result = detach_abi(this->self().y1()); });
+        }
+
+        virtual std::int32_t G6_ABI_CALL x2(abi_out_t<int> result) noexcept override
+        {
+            return abi_safe_call([&]
+                { *result = detach_abi(this->self().x2()); });
+        }
+
+        virtual std::int32_t G6_ABI_CALL y2(abi_out_t<int> result) noexcept override
+        {
+            return abi_safe_call([&]
+                { *result = detach_abi(this->self().y2()); });
+        }
         virtual std::int32_t G6_ABI_CALL strinfo(abi_out_t<exposing::param_string> result) noexcept override
         {
             return abi_safe_call([&]
                 { *result = detach_abi(this->self().strinfo()); });
         }
-
     };
 
     template <>
@@ -41,12 +66,38 @@ namespace glasssix::exposing::impl
         template <typename Derived>
         struct type : enable_self_abi_awareness<Derived, needledash::box_info>
         {
+            int x1() const
+            {
+                int result = 0;
+
+                return (check_abi_result(this->self_abi().x1(put_abi(result))), result);
+            }
+            int y1() const
+            {
+                int result = 0;
+
+                return (check_abi_result(this->self_abi().y1(put_abi(result))), result);
+            }
+            int x2() const
+            {
+                int result = 0;
+
+                return (check_abi_result(this->self_abi().x2(put_abi(result))), result);
+            }
+            int y2() const
+            {
+                int result = 0;
+
+                return (check_abi_result(this->self_abi().y2(put_abi(result))), result);
+            }
+
             param_string strinfo() const
             {
                 param_string result;
 
                 return (check_abi_result(this->self_abi().strinfo(put_abi(result))), result);
             }
+			
         };
     };
 }
