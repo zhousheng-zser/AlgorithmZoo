@@ -69,8 +69,8 @@ namespace glasssix::damocles
 			}
 
 			float scale = 2.7f;
-			//if (model_type_ == 1)
-			//	scale = 4.0f;
+			if (model_type_ == 1)
+				scale = 4.0f;
 
 			auto boxes = calculate_box(faces, width, height, scale);
 
