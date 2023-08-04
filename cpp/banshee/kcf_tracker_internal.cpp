@@ -1,5 +1,4 @@
 #include "kcf_tracker_internal.hpp"
-#include "hardcode.hpp"
 #include "kcf_tracker_impl.hpp"
 #include "track_info_impl.hpp"
 #include "kcftracker.hpp"
