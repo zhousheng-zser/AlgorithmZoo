@@ -43,7 +43,7 @@ namespace glasssix::leavepost
     {
     public:
         impl(const exposing::param_string model_directory, int device = -1)
-                :impl{hardcode::get_model_params("hat_simp", false),  exposing::to_narrow_string(model_directory), device}
+                :impl{get_model_params("hat_simp", false),  exposing::to_narrow_string(model_directory), device}
         {
         }
 
