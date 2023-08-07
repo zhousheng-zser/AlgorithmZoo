@@ -1,6 +1,6 @@
 #include "box_info_impl.hpp"
 
-namespace glasssix::cthulhu
+namespace glasssix::pedestrian
 {
 	box_info_impl::box_info_impl()
 	{

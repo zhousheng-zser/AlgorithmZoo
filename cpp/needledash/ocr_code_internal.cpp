@@ -2,7 +2,7 @@
 #include <cmath>
 #include <tuple>
 
-#include "../hardcode/hardcode.hpp"
+#include "hardcode.hpp"
 #include "ocr_code_internal.hpp"
 #include "box_info_impl.hpp"
 
@@ -38,10 +38,10 @@ namespace glasssix::needledash
         impl(std::string_view model_directory, int device)
                 : model_directory_{ std::string(model_directory) }, device_{ device }
         {
-            meter_sim_instance_ = std::make_unique<excalibur::pipeline<float>>(hardcode::get_model_params("meter_sim", false), std::string(model_directory) + "/" + "meter_sim" + ".racy", device);
+            meter_sim_instance_ = std::make_unique<excalibur::pipeline<float>>(get_model_params("meter_sim", false), std::string(model_directory) + "/" + "meter_sim" + ".racy", device);
         }
 
-        exposing::param_vector<needledash::box_info> detect(const exposing::param_span<std::uint8_t>& bitmap, int channels, int height, int width, int type, int x, int y, int roi_width, int roi_height, std::map<std::string, float>& param_map)
+        exposing::param_vector<needledash::box_info> detect(const exposing::param_span<std::uint8_t>& bitmap, int channels, int height, int width, int type, int roi_x, int roi_y, int roi_width, int roi_height, std::map<std::string, float>& param_map)
         {
             if (bitmap.empty())
             {
@@ -55,14 +55,19 @@ namespace glasssix::needledash
 
             // cut roi image to detect
             cv::Mat roi_image;
-            cv::Rect roi(x, y, roi_width, roi_height);
+            cv::Rect roi(roi_x, roi_y, roi_width, roi_height);
             image(roi).copyTo(roi_image);
 
             auto result = run_detect(roi_image, type, param_map);
 
             needledash::box_info_internal result_internal;
 
-            result_internal.strinfo = glasssix::exposing::param_string(result);
+            result_internal.x1 = std::get<1>(result).x;
+            result_internal.y1 = std::get<1>(result).y;
+            result_internal.x2 = std::get<2>(result).x;
+            result_internal.y2 = std::get<2>(result).y;
+
+            result_internal.strinfo = glasssix::exposing::param_string(std::get<0>(result));
 
             auto results = exposing::make_param_vector<needledash::box_info>();
 
@@ -165,6 +170,21 @@ namespace glasssix::needledash
         }
 
         /**
+         * @brief findmax
+         */
+        int findMax(float num1, float num2, float num3) {
+            if (num1 >= num2 && num1 >= num3) {
+                return 0;
+            }
+            else if (num2 >= num1 && num2 >= num3) {
+                return 1;
+            }
+            else {
+                return 2;
+            }
+        }
+
+        /**
          * @brief concat
          * @param outs      : excalibur inference output
          * @param conf_thres
@@ -172,11 +192,12 @@ namespace glasssix::needledash
          */
         std::pair<std::vector<pt>, std::vector<keypt>> concat(std::vector<std::shared_ptr<glasssix::memory::tensor<float>>>& outs, float conf_thres)
         {
-            const float anchors[4][6] = { {10,13, 16,30, 33,23 },
-                                          {30,61, 62,45, 59,119},
-                                          {116,90, 156,198, 373,326}};
+            const float anchors[4][6] = { {19,27,    44,40,    38,94},
+                                          {96,68,    86,152,   180,137},
+                                          {140,301,  303,264,  238,542},
+                                          {436,615,  739,380,  925,792} };
 										  
-            const float stride[3] = {8.0, 16.0, 32.0};
+            const float stride[4] = {8.0, 16.0, 32.0};
 
             std::vector<pt> pt_location;
             std::vector<keypt> key_location;
@@ -198,7 +219,7 @@ namespace glasssix::needledash
                     {
                         for (int j = 0; j < num_grid_y; j++)
                         {
-                            const float* pdata = ptr_out + ind * 22;
+                            const float* pdata = ptr_out + ind * 23;
 
                             float box_score = sigmoid_x(pdata[4]);
 
@@ -211,16 +232,16 @@ namespace glasssix::needledash
                                 pt_temp.h = powf(sigmoid_x(pdata[3]) * 2.f, 2.f) * anchor_h;      //h
                                 pt_temp.score = sigmoid_x(pdata[4]);
 
-                                pt_temp.category = class_pred(sigmoid_x(pdata[5]), sigmoid_x(pdata[6]));
+                                pt_temp.category = findMax(sigmoid_x(pdata[5]), sigmoid_x(pdata[6]), sigmoid_x(pdata[7]));
 
                                 pt_location.push_back(pt_temp);
 
                                 //key-points
                                 for (int group = 0; group < 5; ++group) {
                                     keypt ky_temp{};
-                                    ky_temp.x = (pdata[7 + group * 3] * 2.f - 0.5f + j) * stride[n]; //point x
-                                    ky_temp.y = (pdata[8 + group * 3] * 2.f - 0.5f + i) * stride[n]; //point y
-                                    ky_temp.score = sigmoid_x(pdata[9 + group * 3]); //point score
+                                    ky_temp.x = (pdata[8 + group * 3] * 2.f - 0.5f + j) * stride[n]; //point x
+                                    ky_temp.y = (pdata[9 + group * 3] * 2.f - 0.5f + i) * stride[n]; //point y
+                                    ky_temp.score = sigmoid_x(pdata[10 + group * 3]); //point score
 
                                     key_location.push_back(ky_temp);
                                 }
@@ -293,9 +314,9 @@ namespace glasssix::needledash
 
                 pt_nms.push_back(pt_temp);
 
-                for (int i = 0; i < 5; ++i)
+                for (int j = 0; j < 5; j++)
                 {
-                    key_nms.push_back(key_location[it * 5 + i]);
+                    key_nms.push_back(key_location[it * 5 + j]);
                 }
             }
 
@@ -362,17 +383,19 @@ namespace glasssix::needledash
         {
             float zero = 0;
             // cover judge
-            std::pair<int, int> cover_limit;
-            cover_limit = cover;
+            //std::pair<int, int> cover_limit;
+            //cover_limit = cover;
 
-            std::vector<cv::Point2f> contour = { boxes[0], boxes[1], boxes[2] };
+            //std::vector<cv::Point2f> contour = { boxes[0], boxes[1], boxes[2] };
 
-            auto area = cv::contourArea(contour);
+            //auto area = cv::contourArea(contour);
 
-            if (area <= cover_limit.first || area >= cover_limit.second)
-            {
-                return "999";
-            }
+            //if (area <= cover_limit.first || area >= cover_limit.second)
+            //{
+            //    return "999";
+            //}
+            std::cout << "LOG: 0 \n";
+            std::cout << "boxes size:"<< boxes.size() <<"\n";
 
             float Xs = boxes[0].x;
             float Ys = boxes[0].y;
@@ -386,6 +409,7 @@ namespace glasssix::needledash
             float Xp = boxes[4].x;
             float Yp = boxes[4].y;
 
+            std::cout << "LOG: 1 \n";
             // find distance between p and s
             float d1 = std::sqrt((Xp - Xs) * (Xp - Xs) + (Yp - Ys) * (Yp - Ys));
 
@@ -398,6 +422,7 @@ namespace glasssix::needledash
             // find distance between p and e
             float d2 = std::sqrt((Xp - Xe) * (Xp - Xe) + (Yp - Ye) * (Yp - Ye));
 
+            std::cout << "LOG: 2 \n";
 
             if (d1 <= d2)
             {
@@ -426,6 +451,8 @@ namespace glasssix::needledash
                     float cosB = (b * b + e * e - d * d) / (2 * b * e);
 
                     float B = acos(cosB);
+
+                    std::cout << "LOG: 3 \n";
 
                     float result;
                     float angle_ratio = A / (2 * PI - B);
@@ -464,6 +491,8 @@ namespace glasssix::needledash
 
                     float B = acos(cosB);
 
+                    std::cout << "LOG: 3 \n";
+
                     float result;
                     float angle_ratio = (2 * PI - A - B) / (2 * PI - B);
                     result = angle_ratio * (100 - 0) + 0;
@@ -478,19 +507,46 @@ namespace glasssix::needledash
         }
 
         /**
+        * @fun scale_coords
+        */
+        cv::Point2f scale_coords(const cv::Point2f& pt, cv::Size& input_shape, cv::Size& output_shape)
+        {
+            auto clamp = [](int x, int min, int max) {if (x < min) return min; else if (x > max) return max; else return x; };
+            // gain
+            float gain = std::min(input_shape.width / (float)output_shape.width, input_shape.height / (float)output_shape.height);
+
+            // pad
+            float pad_w = (input_shape.width - output_shape.width * gain) / 2.0;
+            float pad_h = (input_shape.height - output_shape.height * gain) / 2.0;
+
+            float x1 = (pt.x - pad_w) / gain;
+            float y1 = (pt.y - pad_h) / gain;
+
+            clamp(x1, 0, output_shape.width);
+            clamp(y1, 0, output_shape.height);
+
+            cv::Point2f scale_pt = cv::Point2f(x1, y1);
+
+            return scale_pt;
+        }
+
+        /**
            * @fun run_detect
            * @param image param_map
            * @return std::vector<needledash::box_info_internal>
            * @details run detect (maybe in multithreading)
         */
-        std::string run_detect(cv::Mat& image, int type, std::map<std::string, float>& param_map)
+        std::tuple<std::string, cv::Point2f, cv::Point2f> run_detect(cv::Mat& image, int type, std::map<std::string, float>& param_map)
         {
             std::map<std::string, float> params = {
-                    {"cover_min", param_map.count("cover_min") ? param_map["cover_min"] : 45000},
-                    {"cover_max", param_map.count("cover_max") ? param_map["cover_max"] : 55000}};
+                    {"cover_min", param_map.count("cover_min") ? param_map["cover_min"] : 1},
+                    {"cover_max", param_map.count("cover_max") ? param_map["cover_max"] : 100000}};
 
             if (type != 3)
-                return "999";
+                return {"999", cv::Point2f(0,0),  cv::Point2f(0,0)};
+
+            cv::Size input_Size = cv::Size(640, 640);
+            cv::Size output_Size = cv::Size(image.cols, image.rows);
 
             // preprocess
             cv::Mat blob;
@@ -515,25 +571,29 @@ namespace glasssix::needledash
 
             auto  network_result = meter_sim_instance_->forward(input_tensor);
 
-            std::vector<std::string>  out_names = { "475","528","581"};
+            std::vector<std::string>  out_names = { "754","807","860","913" };
 
             for (size_t i = 0; i < out_names.size(); i++)//对输出数据做处理
             {
                 forwards.push_back(network_result[out_names[i]]);
             }
 
-            float conf_threshold = 0.6f;
-            float iou_threshold = 0.6f;
+            float conf_threshold = 0.5f;
+            float iou_threshold = 0.5f;
 
             std::vector<pt> pt_location;
             std::vector<keypt> key_location;
-            
+
             std::tie(pt_location, key_location) = concat(forwards, conf_threshold);
+
+            std::cout << "Concat: detect size:" << pt_location.size() << "\n";
 
             // non_max_suppression
             std::vector<point> pt_nms;
             std::vector<keypt> key_nms;
             std::tie(pt_nms, key_nms) = non_max_suppression(pt_location, key_location, conf_threshold, iou_threshold);
+
+            std::cout << "non_max_suppression pt_nms size:" << pt_nms.size() << "\n";
 
             // turn keypt into Point2f
             std::vector<cv::Point2f> key_point;
@@ -544,7 +604,10 @@ namespace glasssix::needledash
 
             std::string meter_result = calculation(key_point, cover);
 
-            return meter_result;
+            auto center_pt = scale_coords(key_point[3], input_Size, output_Size);
+            auto point_pt = scale_coords(key_point[4], input_Size, output_Size);
+
+            return { meter_result, center_pt, point_pt };
         }
 
 
@@ -569,9 +632,9 @@ namespace glasssix::needledash
     }
 
     exposing::param_vector<needledash::box_info> ocr_code_internal::detect(exposing::param_span<std::uint8_t> bitmap, int channels, int height, int width, int type,
-                                                                      int x, int y, int roi_width, int roi_height, std::map<std::string, float>& param_map) const
+                                                                      int roi_x, int roi_y, int roi_width, int roi_height, std::map<std::string, float>& param_map) const
     {
-        return impl_->detect(bitmap, channels, height, width, type, x, y, roi_width, roi_height, param_map);
+        return impl_->detect(bitmap, channels, height, width, type, roi_x, roi_y, roi_width, roi_height, param_map);
     }
 
 }

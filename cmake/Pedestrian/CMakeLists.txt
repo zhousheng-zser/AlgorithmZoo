@@ -1,7 +1,7 @@
 cmake_minimum_required(VERSION 3.14.3)
-set(module_name banshee)
-file(GLOB src ${CMAKE_CURRENT_SOURCE_DIR}/../../cpp/banshee/*.cpp)
-file(GLOB header ${CMAKE_CURRENT_SOURCE_DIR}/../../cpp/banshee/*.hpp)
+set(module_name pedestrian)
+file(GLOB src ${CMAKE_CURRENT_SOURCE_DIR}/../../cpp/pedestrian/*.cpp)
+file(GLOB header ${CMAKE_CURRENT_SOURCE_DIR}/../../cpp/pedestrian/*.hpp)
 
 add_library(${module_name} SHARED ${src} ${header})
 

@@ -10,7 +10,7 @@
 #include <opencv2/core.hpp>
 #include <opencv2/imgproc.hpp>
 #include <opencv2/dnn.hpp>
-#include "../hardcode/hardcode.hpp"
+#include "hardcode.hpp"
 #include "Excalibur/pipeline.hpp"
 #include "Excalibur/operation_make_border.hpp"
 #include "Excalibur/operation_safty_cut.hpp"
@@ -19,9 +19,6 @@
 #include "Excalibur/operation_rotate.hpp"
 #include "Primitives/tensor_conversions.hpp"
 
-#if defined(USE_RKNNAPI) || defined(USE_RKNN2API)
-    #include <RKNN2Wrapper/rknn2_wrapper.hpp>
-#endif
 #include <abi/param_vector.hpp>
 #include <utility>
 
@@ -33,30 +30,9 @@ namespace glasssix::posture
         impl(std::string_view model_directory, int device)
             : model_directory_{ std::string(model_directory) }, device_{ device }
         {
-
-#if defined(USE_RKNNAPI) || defined(USE_RKNN2API)
-            net_instance_ = std::make_unique<rknnwrapper::rknn_wrapper>(hardcode::get_model_params("posture", false),
-           std::string(model_directory) + "/" +"Trespass_kpt_sim.rknn", device);      
-#else
-           net_instance_ = std::make_unique<glasssix::excalibur::pipeline<float>>(hardcode::get_model_params("posture", false),
+           net_instance_ = std::make_unique<glasssix::excalibur::pipeline<float>>(get_model_params("posture", false),
            std::string(model_directory) + "/" +"Trespass_kpt_sim.racy", device);      
-#endif
-
         }
-
-std::string version()
-        {
-			const std::string algo_module_version = "1.0.0";
-
-#if defined(USE_RKNNAPI) || defined(USE_RKNN2API)
-			std::string nn_frame_version = net_instance_->version();
-#else
-			std::string nn_frame_version = net_instance_->version();
-#endif
-			return fmt::format(R"({{"nn_frame_version":"{}", "algo_module_version":"{}"}})", nn_frame_version, algo_module_version);
-
-        }
-
 
         exposing::param_vector<posture::box_info> detect(const exposing::param_span<std::uint8_t>& bitmap, int channels, int height, int width,
             int roi_x, int roi_y, int roi_width, int roi_height, std::map<std::string, float>& param_map)
@@ -83,10 +59,6 @@ std::string version()
             std::tie(blob, ratio) = preprocess(cropped_image);
     
 
-#if defined(USE_RKNNAPI) || defined(USE_RKNN2API)
-			//#if 0
-			auto  network_result = net_instance_->forward(blob.data, { 1, blob.rows, blob.cols,blob.channels() }, RKNN_TENSOR_NHWC);
-#else
             std::shared_ptr<glasssix::memory::tensor<uint8_t>> input_tensor_blob(new glasssix::memory::tensor<uint8_t>(std::vector<int>{1, blob.rows, blob.cols, 3}, -1, glasssix::memory::NHWC));
             // mat convert into tensor
             std::copy(blob.data, blob.data + blob.step[0] * blob.rows, input_tensor_blob->mutable_cpu_data());
@@ -95,12 +67,6 @@ std::string version()
             input_tensor_blob->convert_order();
             auto input_tensor = input_tensor_blob | glasssix::memory::tensor_convert_to<float>;
 			auto  network_result = net_instance_->forward(input_tensor);
-#endif
-
-          
-
-
-
 
             
             std::vector<std::shared_ptr<memory::tensor<float>>> forwards;
@@ -169,7 +135,17 @@ std::string version()
     
         }
 
-    
+
+        std::string version()
+        {
+            const std::string algo_module_version = "1.0.0";
+
+
+            std::string nn_frame_version = net_instance_->version();
+
+            return fmt::format(R"({{"nn_frame_version":"{}", "algo_module_version":"{}"}})", nn_frame_version, algo_module_version);
+        }
+
     private:
 
 
@@ -358,7 +334,8 @@ std::string version()
                     cv::resize(img, resize_img, cv::Size2i{ new_x, new_y });
                     cv::copyMakeBorder(resize_img, resize_img, 0, pad2+pad1, 0, 0, cv::BORDER_CONSTANT,
                         cv::Scalar{ 114, 114, 114 });
-
+        /*           cv::copyMakeBorder(resize_img, resize_img, pad1,  pad2, 0, 0, cv::BORDER_CONSTANT,
+                        cv::Scalar{ 114, 114, 114 });*/
                 }
                 else {
                     ratio = ratio_h;
@@ -370,6 +347,8 @@ std::string version()
                     cv::copyMakeBorder(resize_img, resize_img, 0, 0, 0,  pad2+ pad1, cv::BORDER_CONSTANT,
                         cv::Scalar{ 114, 114, 114 });
 
+            /*       cv::copyMakeBorder(resize_img, resize_img, 0, 0, pad1, pad2, cv::BORDER_CONSTANT,
+                        cv::Scalar{ 114, 114, 114 });*/
                 }
             }
 
@@ -432,14 +411,8 @@ std::string version()
 
     private:
         std::string model_directory_;
-        int device_; 
-
-#if defined(USE_RKNNAPI) || defined(USE_RKNN2API)
-       std::unique_ptr < rknnwrapper::rknn_wrapper> net_instance_;    
-#else
-       std::unique_ptr < glasssix::excalibur::pipeline<float>> net_instance_;  
-#endif
-
+        int device_;
+        std::unique_ptr < glasssix::excalibur::pipeline<float>> net_instance_;
     };
 
     detect_code_internal::detect_code_internal(std::string_view model_directory, int device)
