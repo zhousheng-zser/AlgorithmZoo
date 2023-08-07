@@ -75,9 +75,11 @@ namespace glasssix::brionac
             //bool is_cover=brionac_cover_judge(cropped_image, cover_thres1, params);
 
             auto new_shape = cv::Size(640,  640);
-            std::tie(blob, resize_ratio) = preprocess_detection(cropped_image,new_shape);
+            int pad_w = 0;
+            int pad_h = 0;
+            std::tie(blob, resize_ratio) = preprocess_detection(cropped_image, pad_w, pad_h,new_shape);
  
-            auto nms_result= phase_detect(blob, resize_ratio, params);//检测输入的是crop,resize 并cvtcolor的值
+            auto nms_result= phase_detect(blob, resize_ratio, params, pad_w, pad_h);//检测输入的是crop,resize 并cvtcolor的值
             auto fin_result = postprocess_of_cate(nms_result);
 
             std::string return_result_string;
@@ -231,24 +233,27 @@ namespace glasssix::brionac
         }
 
 
-        std::pair<cv::Mat, float> preprocess_detection(cv::Mat src, const cv::Size& input_shape = cv::Size(640, 640))
+        std::pair<cv::Mat, float> preprocess_detection(cv::Mat& src,int& pad_w,int& pad_h, const cv::Size& input_shape = cv::Size(640, 640))
         {
-        float scale = std::min((float)input_shape.width / (float)src.cols, (float)input_shape.height / (float)src.rows);
-        cv::Mat cut_image;
-        cv::Mat mask_image(input_shape, CV_8UC3, cv::Scalar(114, 114, 114));
+            float scale = std::min((float)input_shape.width / (float)src.cols, (float)input_shape.height / (float)src.rows);
+            cv::Mat cut_image;
+            cv::Mat mask_image(input_shape, CV_8UC3, cv::Scalar(114, 114, 114));
 
-        if (src.rows != input_shape.height || src.cols != input_shape.width)
-        {
-            cv::resize(src, cut_image, cv::Size((int)(src.cols * scale), (int)(src.rows * scale)), cv::INTER_LINEAR);
-            cv::copyMakeBorder(cut_image, mask_image, 0, input_shape.height - cut_image.rows, 0, input_shape.width - cut_image.cols, cv::BORDER_CONSTANT, cv::Scalar{ 114, 114, 114 });
-        }
-        else
-        {
-            src.copyTo(mask_image);
-        }
-        cv::cvtColor(mask_image, mask_image, cv::COLOR_BGR2RGB);
+            if (src.rows != input_shape.height || src.cols != input_shape.width)
+            {
+                cv::resize(src, cut_image, cv::Size((int)(src.cols * scale), (int)(src.rows * scale)), cv::INTER_LINEAR);
+                pad_h = input_shape.height - cut_image.rows;
+                pad_w = input_shape.width - cut_image.cols;
+                cv::copyMakeBorder(cut_image, mask_image, pad_h / 2, input_shape.height - cut_image.rows - pad_h / 2, pad_w / 2, input_shape.width - cut_image.cols - pad_w / 2, cv::BORDER_CONSTANT, cv::Scalar{ 114, 114, 114 });
+                //cv::copyMakeBorder(cut_image, mask_image, 0, input_shape.height - cut_image.rows, 0, input_shape.width - cut_image.cols, cv::BORDER_CONSTANT, cv::Scalar{ 114, 114, 114 });
+            }
+            else
+            {
+                src.copyTo(mask_image);
+            }
+            cv::cvtColor(mask_image, mask_image, cv::COLOR_BGR2RGB);
 
-        return { mask_image,scale };
+            return { mask_image,scale };
         }
 
 
@@ -286,7 +291,7 @@ namespace glasssix::brionac
 
 
 
-        static std::vector<Bbox> computeNmsInput(std::vector<boxes_conf>& src, int max_wh, float ratio)
+        static std::vector<Bbox> computeNmsInput(std::vector<boxes_conf>& src, int max_wh, float ratio,int pad_w,int pad_h)
         {
             std::vector<Bbox> boxes;
             std::vector<float> scores;
@@ -295,8 +300,8 @@ namespace glasssix::brionac
             {
                 int c = max_wh * it.conf;
                 Bbox temp;
-                temp.x = static_cast<double>(it.top_x) * ratio;
-                temp.y = static_cast<double>(it.top_y) * ratio;
+                temp.x = static_cast<double>(it.top_x - pad_w/2) * ratio;
+                temp.y = static_cast<double>(it.top_y - pad_h/2) * ratio ;
                 temp.w = static_cast<double>(it.bot_x - it.top_x) * ratio;
                 temp.h = static_cast<double>(it.bot_y - it.top_y) * ratio;
                 temp.score = it.conf;
@@ -343,7 +348,7 @@ namespace glasssix::brionac
         }
 
 
-        static std::vector<location_char> non_max_suppression(cv:: Mat& blob, std::vector<std::vector<float>>& prediction, float conf_thres, float iou_thres, float ratio)
+        static std::vector<location_char> non_max_suppression(cv:: Mat& blob, std::vector<std::vector<float>>& prediction, float conf_thres, float iou_thres, float ratio,int pad_w,int pad_h)
         {
             // std::cout<<"nms inpu size "<<prediction.size()<<std::endl;
 
@@ -355,7 +360,7 @@ namespace glasssix::brionac
             std::vector<float> scores;
             std::vector<int> classes;
 
-            boxes = computeNmsInput(compute_box, max_wh, ratio);
+            boxes = computeNmsInput(compute_box, max_wh, ratio, pad_w, pad_h);
 
             std::vector<Bbox> class_num;
             std::vector<Bbox> class_metra;
@@ -436,7 +441,7 @@ namespace glasssix::brionac
             return result;
         }
 
-    std::vector<location_char> phase_detect(cv::Mat& blob,float ratio, std::map<std::string, float>& param)
+    std::vector<location_char> phase_detect(cv::Mat& blob,float ratio, std::map<std::string, float>& param,int pad_w,int pad_h)
     {
         std::shared_ptr<memory::tensor<uint8_t>> input(new memory::tensor<uint8_t>(3, blob.rows, blob.cols, -1, memory::NHWC, nullptr));//注意一般图片应该是NHWC  后面需要调整顺序 
     
@@ -447,8 +452,8 @@ namespace glasssix::brionac
         std::vector<std::shared_ptr<memory::tensor<float>>> Phase1_Results;
         auto result_detect =(*dash_detect).forward(input_tensor);    
 
-        float conf_threshold =0.5;
-        float iou_threshold = 0.4;
+        float conf_threshold = param.count("confidence") ? param["confidence"] : 0.3f;
+        float iou_threshold = param.count("iou_threshold") ? param["iou_threshold"] : 0.3f;
 
         Phase1_Results.push_back(result_detect["292"]);//480
         Phase1_Results.push_back(result_detect["304"]);
@@ -457,7 +462,7 @@ namespace glasssix::brionac
         auto result = concat(Phase1_Results, conf_threshold);
 
         
-        auto nms_result = non_max_suppression(blob,result, conf_threshold, iou_threshold, 1 / ratio);
+        auto nms_result = non_max_suppression(blob,result, conf_threshold, iou_threshold, 1 / ratio, pad_w, pad_h);
         return nms_result;
     }
 
