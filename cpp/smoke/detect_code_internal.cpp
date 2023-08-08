@@ -15,7 +15,7 @@
 #include <opencv2/core.hpp>
 #include <opencv2/imgproc.hpp>
 #include <opencv2/dnn.hpp>
-
+#include "hardcode.hpp"
 
 namespace glasssix::smoke
 {
@@ -23,17 +23,16 @@ namespace glasssix::smoke
     {
     public:
         impl(const exposing::param_string model_directory, int device = -1)
-                : impl{hardcode::get_model_params("flame", false),  exposing::to_narrow_string(model_directory), device} 
+                : impl{get_model_params("flame", false),  exposing::to_narrow_string(model_directory), device} 
         {
 
         }
 
         impl(const std::vector<std::string> &phai, std::string model_directory, int device)
                 :net_detect_(phai,  model_directory + std::string("/person_sim.rknn"), device), net_category_(phai, model_directory + std::string("/smoke_sim.rknn"), device), model_directory_(model_directory)
-                ,weight_Gemm_87 (new glasssix::memory::tensor<float>(2, 8192, -1, glasssix::memory::NCHW, nullptr))
         {   
            
-            get_weight (model_directory+std::string("/smoke_supplement.racy") ,8192*2+2,weight_Gemm_87);
+
         }
 
         exposing::param_vector<smoke::box_info> detect(const exposing::param_span<std::uint8_t>& bitmap, int channels, int height, int width, int roi_x, int roi_y, int roi_width, int roi_height, std::map<std::string, float>& param_map)
@@ -56,7 +55,6 @@ namespace glasssix::smoke
             cv::Mat cropped_image = image(cv::Range(roi_y,roi_y+roi_height), cv::Range(roi_x,roi_x+roi_width));
 
             auto detect_result = run_detect(cropped_image, roi_x, roi_y, roi_width, roi_height, param_map);
-
             auto cate_result=categorys(cropped_image,detect_result);
 
             auto results = exposing::make_param_vector<smoke::box_info>();
@@ -144,7 +142,7 @@ namespace glasssix::smoke
             return {mask_image, scale};
         }
 
-        std::tuple<cv::Mat, float> preprocess_detection(cv::Mat src,  cv::Size input_shape = cv::Size(640, 640) )
+        std::tuple<cv::Mat, float> preprocess_detection(cv::Mat src,int& pad_h,int& pad_w,  cv::Size input_shape = cv::Size(640, 640) )
         {
             float scale = std::min((float)input_shape.width/(float)src.cols, (float)input_shape.height/(float)src.rows);
             cv::Mat cut_image;
@@ -153,10 +151,10 @@ namespace glasssix::smoke
             {      
                 cv::resize(src, cut_image, cv::Size((int)(src.cols * scale), (int)(src.rows * scale)), cv::INTER_LINEAR);
 
-                int pad_h = int((input_shape.height - cut_image.rows) /2 ) ; 
-                int pad_w = int((input_shape.width - cut_image.cols) /2 ) ; 
+                pad_h = int((input_shape.height - cut_image.rows) /2 ) ; 
+                pad_w = int((input_shape.width - cut_image.cols) /2 ) ; 
 
-                cv::copyMakeBorder(cut_image, mask_image, 0, input_shape.height-cut_image.rows, 0 , input_shape.width-cut_image.cols, cv::BORDER_CONSTANT, cv::Scalar{ 114,114,114 });
+                cv::copyMakeBorder(cut_image, mask_image, pad_h, input_shape.height-cut_image.rows-pad_h, pad_w, input_shape.width-cut_image.cols-pad_w, cv::BORDER_CONSTANT, cv::Scalar{ 114,114,114 });
         
             }
             else 
@@ -167,8 +165,7 @@ namespace glasssix::smoke
             unsigned char * data=mask_image.ptr<uchar>();
             return {mask_image,scale};
         }
-
-       
+    
 		/**
 		 * @fun sigmoid_x
 		 * @param x
@@ -209,18 +206,28 @@ namespace glasssix::smoke
                     for(int j = 0; j < num_grid_y; j++)
                     {
                         // float* pdata = (float*)outs[n].data + ind *  outs[n].size[4];
-                         const float* pdata = ptr_out + ind *  6;
+                         const float* pdata = ptr_out + ind *  85;
                         float box_score = sigmoid_x(pdata[4]);
-                        // if(box_score > 0.f)
-                        // {
+                        if(box_score > 0.35f)
+                        {
                             float cx = (sigmoid_x(pdata[0]) * 2.f - 0.5f + j) * stride[n];  //cx
                             float cy = (sigmoid_x(pdata[1]) * 2.f - 0.5f + i) * stride[n];  //cy
                             float w = powf(sigmoid_x(pdata[2]) * 2.f, 2.f) * anchor_w;      //w
                             float h = powf(sigmoid_x(pdata[3]) * 2.f, 2.f) * anchor_h;      //h
 
-                            std::vector<float> element = {cx, cy, w, h, box_score, sigmoid_x(pdata[5])};
+                            std::vector<float> element(85); 
+                            element[0]=cx;
+                            element[1]=cy;
+                            element[2]=w;
+                            element[3]=h;
+                            element[4]=box_score;
+                            for(int i=5; i<85;i++ )
+                            {
+                                element[i]=sigmoid_x(pdata[i] );
+                            }
+  
                             result.push_back(element);
-                        // }
+                        }
                         ind++;
                     }
                 }
@@ -328,7 +335,7 @@ namespace glasssix::smoke
 		 * @return std::pair<bboxes, confidence>
 		 * @details slice src into bboxes and confidence, which need by dnn::NMS
 		 */
-		static std::vector<Bbox> computeNmsInput(std::vector<boxes_conf>& src, int max_wh,float ratio)
+		static std::vector<Bbox> computeNmsInput(std::vector<boxes_conf>& src, int max_wh,float ratio,int pad_h,int pad_w)
         {
             std::vector<Bbox> boxes;
             std::vector<float> scores;
@@ -338,13 +345,12 @@ namespace glasssix::smoke
          
                 int c = max_wh * it.conf;
                 Bbox temp;
-                temp.x      = static_cast<double>(it.top_x )*ratio;
-                temp.y      = static_cast<double>(it.top_y)*ratio;
+                temp.x      = static_cast<double>(it.top_x -pad_w)*ratio;
+                temp.y      = static_cast<double>(it.top_y-pad_h)*ratio;
                 temp.w  = static_cast<double>(it.bot_x - it.top_x)*ratio;
                 temp.h  = static_cast<double>(it.bot_y - it.top_y)*ratio;
                 temp.score=it.conf;
                 temp.category = it.category;
-                // std::cout<<it.top_x<<" "<< temp.x<<std::endl;
                 //if (temp.category == 0 || temp.category == 4)
                 //{
                     boxes.push_back(temp);
@@ -359,9 +365,8 @@ namespace glasssix::smoke
 		 * @return std::vector(boxes, classes)
 		 * @details Non-Maximum Suppression (NMS) on inference results
 		 */
-		static std::vector<location_char> non_max_suppression(std::vector<std::vector<float>>& prediction, float conf_thres, float iou_thres, float ratio)
+		static std::vector<location_char> non_max_suppression(std::vector<std::vector<float>>& prediction, float conf_thres, float iou_thres, float ratio,int pad_h,int pad_w)
         {
-            // std::cout<<"nms inpu size "<<prediction.size()<<std::endl;
 
             auto compute_box = yolo2xyxy(prediction, conf_thres);  
             // Batched NMS
@@ -370,7 +375,7 @@ namespace glasssix::smoke
             std::vector<float> scores;
             std::vector<int> classes;
 
-            boxes= computeNmsInput(compute_box, max_wh,ratio);
+            boxes= computeNmsInput(compute_box, max_wh,ratio,pad_h,pad_w);
 
             std::vector<Bbox> class_num;
             std::vector<Bbox> class_metra;
@@ -412,333 +417,9 @@ namespace glasssix::smoke
            * @return std::vector<smoke::box_info_internal>
            * @details run detect (maybe in multithreading)
          */
-       static void ReduceL2_mul(  std::shared_ptr<glasssix::memory::tensor<float>> input, std::shared_ptr<glasssix::memory::tensor<float>> output,float ratio=100.f)   
-    {
-        float L2=0.f;
-        const float *ptr=input->cpu_data();
-        float *out_ptr=output->mutable_cpu_data();
-        
-        for(int i=0;i<input->count();i++)
-        {
-            L2+= (ptr[i]*ptr[i]);
-        }
-
-        L2=sqrt(L2);
-        // L2= 48.41;
-        // std::cout<<"L2: "<<L2<<std::endl;
-        if(L2<0.00000f)
-        {
-            L2=0.00000000009;
-        }
-        for(int i=0;i<input->count();i++)
-        {
-            out_ptr[i]=(ptr[i]/L2)*ratio;
-            // out_ptr[i]=(ptr[i]/L2)*ratio;
-        }
-        int m=0;
-
-    }
-
-        void get_weight(std::string_view model_file,int weight_size, std::shared_ptr<glasssix::memory::tensor<float>> weight_f32)
-        {
-            FILE *fp = fopen(model_file.data(), "rb");
-            if (!fp)
-            {
-                LOG(FATAL) << "Cannot open " << model_file;
-            }
-            //LOG(INFO) << "[Pipeline weights memory cost list]=====================";
-            // (new glasssix::memory::tensor<float>(weight_size, this->params_.device_, memory::NCHW, nullptr);
-            // std::shared_ptr<glasssix::memory::tensor<float>> weight_f32(new glasssix::memory::tensor<float>(2, 8192, -1, glasssix::memory::NCHW, nullptr));
-            fread(weight_f32->mutable_cpu_data(), 1, weight_size * sizeof(float), fp);
-            CHECK_EQ(fclose(fp), 0) << "Cannot close " << model_file;
-        }
-
-
-        static void fully_connect(std::vector<std::shared_ptr<glasssix::memory::tensor<float>>>& bottom, 
-                                        std::shared_ptr<glasssix::memory::tensor<float>> top )
-    {
-        int l,m,n;
-        l= bottom[0]->data_shape()[1];
-
-        n= bottom[1]->data_shape()[1];
-        l=1;
-        m=8192;
-        n=2;
-        CHECK_EQ(bottom[1]->count(),m*n);
-
-        // top.reset
-        float *in1_ptr=bottom[0]->mutable_cpu_data(); 
-        // for(int i=0;i<8192;i++)
-        // {
-        //     in1_ptr[i]=1.f;
-        // }
-
-        float *in2_ptr=bottom[1]->mutable_cpu_data(); 
-        float *out_ptr=top->mutable_cpu_data(); 
-        for(int i=0;i<l;i++)
-        {
-             for(int j=0;j<n;j++)
-             {
-                for (size_t k = 0; k < m; k++)
-                {
-                   out_ptr[j]= out_ptr[j]+(in1_ptr[k]*in2_ptr[k]);
-                }      
-                in2_ptr+=m;
-             }
-             in1_ptr++;
-             out_ptr++;
-        }
-        out_ptr[0]+=bottom[1]->mutable_cpu_data()[8192*2];
-        out_ptr[1]+=bottom[1]->mutable_cpu_data()[8192*2+1];
-
-    }
-        struct nonzero_pair 
-        {
-            int xindex;
-            int yindex;
-            nonzero_pair(int x, int y) :xindex(x), yindex(y) { };
-        };
-
-        template <class T>
-        T max_tensor(std::shared_ptr<glasssix::memory::tensor<T> > input) 
-        {
-            T max = input->cpu_data()[0];
-            for (size_t i = 0; i < input->count(); i++)
-            {
-                max = max > input->cpu_data()[i] ? max:input->cpu_data()[i];
-            }
-            return max;
-        }
-
-        void BilinearInterMethod(int channelNum, int width, int height, float* imageDataInput, int resized_width, int resized_height, float* resizedData)
-        {
-            float r_scale = (float)height / resized_height;
-            float c_scale = (float)width / resized_width;
-        
-            float r_delta = (height - resized_height * r_scale)*0.5f;
-            float c_delta = (width - resized_width * c_scale)*0.5f;
-        
-            int r_w[2];
-            int c_w[2];
-        
-            for (size_t r = 0; r < resized_height; r++)
-            {
-                float r_ori = r * r_scale + r_delta;
-                int v_t = floor(r_ori);//坐标
-                int v_b = ceil(r_ori);//坐标
-                if (v_t > height-1 || v_b > height -1)
-                {
-                    v_t = height - 1;
-                    v_b = height - 1;
-                }
-        
-                r_w[0] = (v_b - r_ori)*256;
-                r_w[1] = 256 - r_w[0];
-        
-                int ind = r * resized_width * channelNum;
-        
-                for (size_t c = 0; c < resized_width; c++)
-                {
-                    float c_ori = c * c_scale + c_delta;
-                    int u_l = floor(c_ori);
-                    int u_r = ceil(c_ori);
-                    if (u_l > width - 1 || u_r > width - 1)
-                    {
-                        u_l = width - 1;
-                        u_r = width - 1;
-                    }
-        
-                    c_w[0] = (u_r - c_ori)*256;
-                    c_w[1] = 256 - c_w[0];
-        
-                    int index = ind + c* channelNum;
-        
-                    for (size_t i = 0; i < channelNum; i++)
-                    {
-                        auto q1 = *(imageDataInput + v_t * width * channelNum + u_l * channelNum + i);
-                        auto q2 = *(imageDataInput + v_t * width * channelNum + u_r * channelNum + i);
-                        auto q3 = *(imageDataInput + v_b * width * channelNum + u_r * channelNum + i);
-                        auto q4 = *(imageDataInput + v_b * width * channelNum + u_l * channelNum + i);
-                        float value = (float)(r_w[0] * c_w[0] * q1 +
-                            r_w[0] * c_w[1] * q2 +
-                            r_w[1] * c_w[0] * q4 +
-                            r_w[1] * c_w[1] * q3);
-        
-                        // *(resizedData + index + i) = value>>16;
-                        resizedData[ index + i] = float(value/65536);
-                    }
-                }
-            }
-        }
-
-        std::tuple<int, int,int,int> nonzero_indices_polar(const std::vector<nonzero_pair>& nonzero_indices)
-        {
-            int height_min = nonzero_indices[0].xindex;
-            int height_max = nonzero_indices[0].xindex;
-            int width_min = nonzero_indices[0].yindex;
-            int width_max = nonzero_indices[0].yindex;
-            for (size_t i = 0; i < nonzero_indices.size(); i++)
-            {
-                height_max = nonzero_indices[i].xindex > height_max ? nonzero_indices[i].xindex : height_max;
-                height_min = nonzero_indices[i].xindex < height_min ? nonzero_indices[i].xindex : height_min;
-                width_max = nonzero_indices[i].yindex > width_max ? nonzero_indices[i].yindex : width_max;
-                width_min = nonzero_indices[i].yindex < width_min ? nonzero_indices[i].yindex : width_min;
-            }
-            return std::make_tuple(height_min, height_max, width_min, width_max);
-        }
-        
-        void batch_augment(const cv::Mat & image,cv::Mat& output ,std::shared_ptr<glasssix::memory::tensor<float> > attention_map, int mode = 1, float theta = 0.5f, float padding_ratio = 0.1f)
-        {
-            int imgW = image.cols;
-            int imgH = image.rows;
-            float theta_c = 0.f;
-            if (mode == 1) 
-            {  
-                theta_c= theta * max_tensor(attention_map);//DEFAULT THE theta=instance
-                //将原来的值
-                const  float* attention_map_ptr = attention_map->cpu_data();
-                cv::Mat crop_mask(224,224,CV_32F);
-                std::vector<int> shape = attention_map->data_shape();
-                cv::Mat interpolation_Mat(14,14, CV_32F);;// = tensor2mat(attention_map, shape);
-
-                memcpy(interpolation_Mat.data, attention_map_ptr, 196*sizeof(float));     
-                //四维可能不能resize 需要降维 
-                float* inter_ptr = interpolation_Mat.ptr<float>();
-                float* crop_mask_ptr = crop_mask.ptr<float>();
-                BilinearInterMethod(1,14,14,inter_ptr,224,224,crop_mask_ptr);
-                std::vector<nonzero_pair> nonzero_indices;
-        
-                theta=0.1;
-                for (size_t i = 0; i < imgW * imgH; i++)
-                {
-                    if (crop_mask_ptr[i] > theta) 
-
-                    {
-                        nonzero_indices.emplace_back(nonzero_pair(i / imgW, i % imgH));
-                    }
-                }
-                //接下来分别找到nonzero_indices第一列和第二列的最大值
-                int height_min,height_max,width_min,width_max;
-                std::tie(height_min, height_max, width_min, width_max) = nonzero_indices_polar(nonzero_indices);
-                height_min = std::max(static_cast<int>(height_min - padding_ratio * 224), 0);
-                width_min = std::max(static_cast<int>(width_min - padding_ratio * 224), 0);
-                height_max = std::min(static_cast<int>(height_max + padding_ratio * 224), imgH);
-                width_max = std::min(static_cast<int>(width_max + padding_ratio * 224), imgW);
-                if( (width_max-width_min)==224 && (height_max-height_min  )==224 )
-                {
-                    output=image;
-                }
-                else
-                {
-                    cv::resize(image(cv::Range(height_min, height_max), cv::Range(width_min, width_max)), output, cv::Size(224, 224), cv::INTER_CUBIC);
-
-                }
-            }    
-        }
-
-        std::unordered_map<std::string, std::shared_ptr<glasssix::memory::tensor<float>>> Operator_completion(
-                           std::unordered_map<std::string, std::shared_ptr<glasssix::memory::tensor<float>>>& data)
-        {
-
-            std::unordered_map<std::string, std::shared_ptr<glasssix::memory::tensor<float>>> output;
-
-            // std::shared_ptr<glasssix::memory::tensor<float>> data[1];
-            std::shared_ptr<glasssix::memory::tensor<float>> feature_matrix_hat(new glasssix::memory::tensor<float>(1, 8192, -1, glasssix::memory::NCHW, nullptr));
-            std::shared_ptr<glasssix::memory::tensor<float>> feature_matrix(new glasssix::memory::tensor<float>(1, 8192, -1, glasssix::memory::NCHW, nullptr));
-            std::shared_ptr<glasssix::memory::tensor<float>> operation_240(new glasssix::memory::tensor<float>(1, 8192, -1, glasssix::memory::NCHW, nullptr));
-            std::shared_ptr<glasssix::memory::tensor<float>> operation_267(new glasssix::memory::tensor<float>(1, 8192, -1, glasssix::memory::NCHW, nullptr));
-            std::shared_ptr<glasssix::memory::tensor<float>> operation_272(new glasssix::memory::tensor<float>(1, 2, -1, glasssix::memory::NCHW, nullptr));
-            std::shared_ptr<glasssix::memory::tensor<float>> operation_273(new glasssix::memory::tensor<float>(1, 2, -1, glasssix::memory::NCHW, nullptr));
-            
-           
-            // std::string Gemm_87(model_directory_+std::string("/Gemm_87.racy") );
-            // get_weight (Gemm_87,8192*2+2,weight_Gemm_87);
-            const float *weight=weight_Gemm_87->cpu_data();
-            
-            // std::shared_ptr<glasssix::memory::tensor<float>> weight_Gemm_91(new glasssix::memory::tensor<float>(2, 8192, -1, glasssix::memory::NCHW, nullptr));
-            // std::string Gemm_91("../models/Gemm_91.racy");
-            // get_weight (Gemm_91,8192*2+2,weight_Gemm_91);
-            // const float *weight2=weight_Gemm_91->cpu_data();
-
-            // feature_matrix_hat实现全连接操作
-            //读取Gemm_91权重
-            std::vector<std::shared_ptr<glasssix::memory::tensor<float>>> bottom;
-            std::vector<std::shared_ptr<glasssix::memory::tensor<float>>> bottom1;
-
-            ReduceL2_mul(data["257"], feature_matrix_hat,100.f);//没问题
-                    const float *ptr2=feature_matrix_hat->cpu_data();
-            bottom.push_back(feature_matrix_hat);
-            bottom.push_back(weight_Gemm_87);
-            fully_connect(bottom, operation_272);
-            
-            ReduceL2_mul(data["232"], feature_matrix, 100.f ) ;//对的上
-            ReduceL2_mul(data["232"], operation_240, 1.f ) ;//对的上
-            bottom1.push_back(feature_matrix);
-            bottom1.push_back(weight_Gemm_87);
-            fully_connect(bottom1, operation_267);
-
-            float* output273=operation_273->mutable_cpu_data();
-            float* ptr272=operation_272->mutable_cpu_data();
-            float* ptr267=operation_267->mutable_cpu_data();
-            
-            // std::cout<<"ptr267: "<<ptr267[0]<<" "<<ptr267[1]<<"\n";
-            // std::cout<<"ptr272: "<<ptr272[0]<<" "<<ptr272[1]<<"\n";
-            output273[0]=ptr267[0] - ptr272[0];
-            output273[1]=ptr267[1] - ptr272[1];
-
-            // ptr272[0]=ptr267[0]-ptr272[0];
-            // ptr272[1]=ptr267[1]-ptr272[1];
-
-            output["273"]=operation_273;
-            output["output"]=operation_267;
-            output["240"]=operation_240;
-
-            return output;
-        }
-
-        std::tuple<int,float> post_process(std::unordered_map<std::string, std::shared_ptr<glasssix::memory::tensor<float>>>& input)
-        {
-            std::shared_ptr<glasssix::memory::tensor<float>> y_pred(new glasssix::memory::tensor<float>
-                    (1, 2, -1, glasssix::memory::NCHW, nullptr));
-            std::shared_ptr<glasssix::memory::tensor<float>> y_pred_auxred(new glasssix::memory::tensor<float>
-                    (1, 2, -1, glasssix::memory::NCHW, nullptr));
-
-            const float* y_pred_raw=input["y_pred_raw"]->cpu_data();
-            const float* y_pred_aux=input["y_pred_aux"]->cpu_data();
-        
-            const float* y_pred_crop3=input["y_pred_crop3"]->cpu_data();
-            const float* y_pred_aux_crop3=input["y_pred_aux_crop3"]->cpu_data();
-
-            float* y_pred_ptr=y_pred->mutable_cpu_data();
-            float* y_pred_auxred_ptr=y_pred_auxred->mutable_cpu_data();
-
-            y_pred_ptr[0]= (y_pred_raw[0]+y_pred_crop3[0])/2;
-            y_pred_ptr[1]= (y_pred_raw[1]+y_pred_crop3[1])/2;
-
-            y_pred_auxred_ptr[0]= (y_pred_crop3[0]+y_pred_aux_crop3[0])/2;
-            y_pred_auxred_ptr[1]= (y_pred_crop3[1]+y_pred_aux_crop3[1])/2;
-
-            y_pred_ptr[0]=sigmoid_x( y_pred_ptr[0]);
-            y_pred_ptr[1]=sigmoid_x( y_pred_ptr[1]);
-
-            int max_index=0;
-            float max=0.f;
-            float s=sigmoid_x(-0.74050f);
-            if( y_pred_ptr[0]> y_pred_ptr[1])
-            {
-                max_index=0;
-                max=y_pred_ptr[0];
-            }
-            else
-            {
-                max_index=1;
-                max=y_pred_ptr[1];
-            }
-            return {max_index,max};
-
-        }
-
-        std::vector<smoke::box_info_internal> categorys(cv::Mat& image,std::vector<location_char>& cate_input)
+ 
+             
+        std::vector<box_info_internal> categorys(cv::Mat& image,std::vector<location_char>& cate_input)
         {
             std::vector<box_info_internal> l_c;
             for(auto x:cate_input)
@@ -749,45 +430,39 @@ namespace glasssix::smoke
                 x.y1=x.y1<0?0:x.y1;
                 x.y2=x.y2>image.rows?image.rows:x.y2;
                 x.x2=x.x2>image.cols?image.cols:x.x2;
+                // cv::Mat cropped_image = image(cv::Range(321, 1438), cv::Range(140, 860));
                 cv::Mat cropped_image = image(cv::Range(x.y1, x.y2), cv::Range(x.x1, x.x2));
+
+
                 std::tie(cate_blob, ratio) =preprocess_categroy(cropped_image);
 
                 unsigned char *iptr=cate_blob.ptr<uchar>();
-                // for (int i = 0; i < cate_blob.rows*cate_blob.cols*cate_blob.channels(); i++) 
-                // {
-                //     iptr[i]=1;
-                // }
-                //  std::cout<<int(iptr[0])<<" "<<int(iptr[1])<<std::endl;
 
-                auto  network_result1 = net_category_.forward(cate_blob.data, 
+
+                auto network_result1 = net_category_.forward(cate_blob.data, 
                             { 1, cate_blob.rows, cate_blob.cols,cate_blob.channels() }, RKNN_TENSOR_NHWC);
-
-                auto net_full_result = Operator_completion(network_result1);
-
-                cv::Mat crop_images3;
-                batch_augment(cate_blob, crop_images3, network_result1["269"] ,1,0.1f);
-                 
-                auto  network_result2 = net_category_.forward(crop_images3.data, 
-                    { 1, crop_images3.rows, crop_images3.cols,crop_images3.channels() }, RKNN_TENSOR_NHWC);
-                    auto net_full_result2 = Operator_completion(network_result2);
-                std::unordered_map<std::string, std::shared_ptr<glasssix::memory::tensor<float>>> post_input;
-                post_input["y_pred_raw"]=net_full_result["output"];
-                post_input["y_pred_aux"]=net_full_result["273"];
-                post_input["y_pred_crop3"]=net_full_result2["output"];
-                post_input["y_pred_aux_crop3"]=net_full_result2["273"];
-                
+  
                 box_info_internal result;
-
-                int label;
-                float confidence;
-                std::tie(label, confidence) = post_process(post_input);
+                float smoke=network_result1["output"]->cpu_data()[0];
+                float not_smoke=network_result1["output"]->cpu_data()[1];
+                not_smoke=exp(not_smoke)/(exp(not_smoke)+exp(smoke));
+                smoke=exp(smoke)/(exp(not_smoke)+exp(smoke));
+   
 
                 result.x1=x.x1;
                 result.y1=x.y1;
                 result.x2=x.x2;
                 result.y2=x.y2;
-                result.category=label;
-                result.confidence=confidence;
+                if(not_smoke>smoke)
+                {
+                    result.category=1;
+                    result.confidence=not_smoke;
+                } 
+                else
+                {  
+                    result.category=0;
+                    result.confidence=smoke;
+                }
                 l_c.emplace_back(result);
 
             }
@@ -807,13 +482,15 @@ namespace glasssix::smoke
             cv::Mat blob;
             float ratio = 0;
 
-            std::tie(blob, ratio) = preprocess_detection( image, new_shape ) ;
+            int pad_h;  
+            int pad_w;
+            std::tie(blob, ratio) = preprocess_detection( image,pad_h,pad_w, new_shape ) ;
             std::vector<std::shared_ptr<memory::tensor<float>>> forwards;
 
             auto  network_result = net_detect_.forward(blob.data, { 1, blob.rows, blob.cols,blob.channels() }, RKNN_TENSOR_NHWC);
 
-            std::vector<std::string>  out_names={"359","379","output"};
-
+            // std::vector<std::string>  out_names={"359","379","output"};
+            std::vector<std::string>  out_names={"528","548","output"};
 
             for (size_t i=0;i< 3; i++)
             {
@@ -824,7 +501,7 @@ namespace glasssix::smoke
 			// float iou_threshold = 0.45f;
 
 			auto result = concat(forwards, conf_threshold );
-			auto nms_result = non_max_suppression(result, conf_threshold, iou_threshold, 1/ratio);
+            auto nms_result = non_max_suppression(result, conf_threshold, iou_threshold, 1/ratio,pad_h,pad_w);
             std::vector<box_info_internal> output;
             
             return nms_result;

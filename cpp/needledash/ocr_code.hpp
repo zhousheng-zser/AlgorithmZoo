@@ -119,7 +119,7 @@ namespace glasssix::exposing::impl
                         height,
                         width,
                         type,
-                        roi_x
+                        roi_x,
                         roi_y,
                         roi_width,
                         roi_height,
