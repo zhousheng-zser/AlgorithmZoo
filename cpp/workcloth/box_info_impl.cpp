@@ -42,6 +42,16 @@ namespace glasssix::workcloth
 		return internal_.lw_rgb;
 	}
 
+    bool box_info_impl::up_strange() const
+	{
+		return internal_.up_strange;
+	}
+
+	bool box_info_impl::lw_strange() const
+	{
+		return internal_.lw_strange;
+	}
+
     float box_info_impl::score() const
 	{
 		return internal_.score;
