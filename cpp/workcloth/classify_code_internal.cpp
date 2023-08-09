@@ -1,6 +1,7 @@
 #include <iostream>
 #include <cmath>
 #include "hardcode.hpp"
+#include "general.hpp"
 
 #include "classify_code_internal.hpp"
 #include "box_info_impl.hpp"
@@ -64,13 +65,12 @@ namespace glasssix::workcloth
             {
                 throw exposing::abi_invalid_argument("incorrect roi in phone");
             }
-            cv::Mat cropped_image = image(cv::Range(roi_y, roi_y + roi_height), cv::Range(roi_x, roi_x + roi_width));
-
+			cv::Rect roi_rect{ roi_x, roi_y, roi_width, roi_height };
 
             std::vector<box_info_internal> results;
             auto result = exposing::make_param_vector<box_info>();
 
-            run_workcloth(results, cropped_image, param_map);
+            run_workcloth(results, image, roi_rect, param_map);
 
             for (auto& i : results)
             {
@@ -81,7 +81,7 @@ namespace glasssix::workcloth
 
         std::string version()
         {
-            const std::string algo_module_version = "1.0.0";
+            const std::string algo_module_version = "1.1.0";
 
 #if defined(USE_RKNNAPI) || defined(USE_RKNN2API)
             //#if 0
@@ -94,7 +94,7 @@ namespace glasssix::workcloth
         }
 
     private:
-        void run_workcloth(std::vector<box_info_internal>& results, cv::Mat& image, std::map<std::string, float>& param_map)
+        void run_workcloth(std::vector<box_info_internal>& results, cv::Mat& image, cv::Rect roi_rect, std::map<std::string, float>& param_map)
         {
             float W = image.cols;
             float H = image.rows;
@@ -131,47 +131,70 @@ namespace glasssix::workcloth
             nms_cpu(sub_bboxes, nms_threshold);
 
 #ifdef BUILD_DEBUG_INFO
-            {
-                auto visul_mat = image.clone();
-                for (auto& bbox : sub_bboxes)
-                    cv::rectangle(visul_mat, bbox.get_rect(), bbox.cid ? cv::Scalar{ 0,0,255 } : cv::Scalar{ 0, 255, 0 }, 5);
-                cv::resize(visul_mat, visul_mat, cv::Size{}, 0.3, 0.3);
-                //cv::imshow("run_boxes", visul_mat); cv::waitKey(0);
-            }
+			auto visul_mat = image.clone();
+            cv::rectangle(visul_mat, roi_rect, cv::Scalar{ 250, 250, 250 }, 3);
 #endif // BUILD_DEBUG_INFO
+
 
             for (auto box : sub_bboxes) {
-                cv::Mat sub_person = image(box.get_rect());
-                int sub_w = sub_person.cols;
-                int sub_h = sub_person.rows;
-                int body_h = sub_h * 0.35;
-                int body_start = sub_h * 0.15;
-                int leg_h = sub_h * 0.5;
+                auto person_region = box.get_rect();
 
-				cv::Mat sub_person_body = sub_person(cv::Rect(0, body_start, sub_w, body_h));
-				cv::Mat sub_person_leg = sub_person(cv::Rect(0, leg_h, sub_w, leg_h));
-				auto up_bgr = cv::sum(sub_person_body) / (sub_w * body_h);
-                auto lw_bgr = cv::sum(sub_person_leg) / (sub_w * leg_h);
+                if (person_region.x < roi_rect.x ||
+                    person_region.y < roi_rect.y ||
+                    person_region.x + person_region.width > roi_rect.x + roi_rect.width ||
+                    person_region.y + person_region.height > roi_rect.y + roi_rect.height)
+                {
+                    continue;
+                }
+
+
+                cv::Mat sub_person = image(person_region);
+
+                int waist = sub_person.rows / 2;
+                int midline = sub_person.cols / 2;
+                int abdo_x1 = midline * 0.85;
+                int abdo_x2 = midline * 1.15;
+                int abdo_y1 = waist * 0.75;
+                int abdo_y2 = waist * 0.85;
+                int crotch_x1 = abdo_x1;
+                int crotch_x2 = abdo_x2;
+                int crotch_y1 = int(waist * 1.2);
+                int crotch_y2 = int(waist * 1.3);
+
+                auto upper_rect = cv::Rect{ abdo_x1, abdo_y1, abdo_x2 - abdo_x1, abdo_y2 - abdo_y1 };
+                auto lower_rect = cv::Rect{ crotch_x1, crotch_y1, crotch_x2 - crotch_x1, crotch_y2 - crotch_y1 };
+				auto [u_strange, upper_bgr] = extract_rgb(sub_person, upper_rect);
+                auto [l_strange, lower_bgr] = extract_rgb(sub_person, lower_rect);
 
 #ifdef BUILD_DEBUG_INFO
-                std::cout << "up_bgr: " << up_bgr << "\t" << (int)up_bgr[0] << " " << (int)up_bgr[1] << " " << (int)up_bgr[2] << std::endl;
-				std::cout << "lw_bgr: " << lw_bgr << "\t" << (int)lw_bgr[0] << " " << (int)lw_bgr[1] << " " << (int)lw_bgr[2] << std::endl;
-				std::cout << std::endl;
-                //cv::imshow("sub_person_body", sub_person_body); cv::waitKey(0);
-                //cv::imshow("sub_person_leg", sub_person_leg); cv::waitKey(0);
-                cv::imshow("sub_person", sub_person); cv::waitKey(0);
+				cv::rectangle(visul_mat, box.get_rect(), u_strange ? cv::Scalar{ 200, 0, 200 } : cv::Scalar{ 0, 100, 0 }, 5);
+                auto tl = box.get_rect().tl();
+                std::stringstream rgbinfo_u;
+                std::stringstream rgbinfo_l;
+                rgbinfo_u << "   ["<< upper_bgr[2]<< ", " << upper_bgr[1] << ", " << upper_bgr[0] << "]";
+                rgbinfo_l << "   ["<< lower_bgr[2]<< ", " << lower_bgr[1] << ", " << lower_bgr[0] << "]";
+                int font_face = cv::FONT_HERSHEY_COMPLEX;
+                double font_scale = 1;
+                int thickness = 3;
+                cv::rectangle(visul_mat, upper_rect + tl, cv::Scalar{ 0,0,255 }, 3);
+				cv::putText(visul_mat, rgbinfo_u.str(), cv::Point(abdo_x2, abdo_y2) + tl, font_face, font_scale, cv::Scalar(0, 0, 255), thickness, 7, 0);
+                cv::rectangle(visul_mat, lower_rect + tl, cv::Scalar{ 255,0,0}, 3);
+				cv::putText(visul_mat, rgbinfo_l.str(), cv::Point(crotch_x2, crotch_y2) + tl, font_face, font_scale, cv::Scalar(0, 255, 0), thickness, 7, 0);
 #endif // BUILD_DEBUG_INFO
+
 
                 box_info_internal in_box_info;
                 in_box_info.score = box.score;
                 in_box_info.up_rgb = exposing::make_param_vector<int>();
-                in_box_info.up_rgb.push_back((int)up_bgr[2]);//R
-                in_box_info.up_rgb.push_back((int)up_bgr[1]);//G
-                in_box_info.up_rgb.push_back((int)up_bgr[0]);//B
+                in_box_info.up_rgb.push_back((int)upper_bgr[2]);//R
+                in_box_info.up_rgb.push_back((int)upper_bgr[1]);//G
+                in_box_info.up_rgb.push_back((int)upper_bgr[0]);//B
+                in_box_info.up_strange = u_strange;
                 in_box_info.lw_rgb = exposing::make_param_vector<int>();
-                in_box_info.lw_rgb.push_back((int)lw_bgr[2]);//R
-                in_box_info.lw_rgb.push_back((int)lw_bgr[1]);//G
-                in_box_info.lw_rgb.push_back((int)lw_bgr[0]);//B
+                in_box_info.lw_rgb.push_back((int)lower_bgr[2]);//R
+                in_box_info.lw_rgb.push_back((int)lower_bgr[1]);//G
+                in_box_info.lw_rgb.push_back((int)lower_bgr[0]);//B
+                in_box_info.lw_strange = l_strange;
 
                 in_box_info.category = box.cid;
                 in_box_info.x1 = box.xmin;
@@ -180,6 +203,12 @@ namespace glasssix::workcloth
                 in_box_info.y2 = box.ymax;
                 results.push_back(in_box_info);
             }
+#ifdef BUILD_DEBUG_INFO
+            float vsmapscal = std::min(1920.f / visul_mat.cols, 1080.f / visul_mat.rows) * 0.85;
+			cv::resize(visul_mat, visul_mat, cv::Size{}, vsmapscal, vsmapscal);
+			cv::imshow("run_boxes", visul_mat); cv::waitKey(0);
+#endif // BUILD_DEBUG_INFO
+
         }
 
 
