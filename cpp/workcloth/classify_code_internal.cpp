@@ -81,7 +81,7 @@ namespace glasssix::workcloth
 
         std::string version()
         {
-            const std::string algo_module_version = "1.1.0";
+            const std::string algo_module_version = "1.1.1";
 
 #if defined(USE_RKNNAPI) || defined(USE_RKNN2API)
             //#if 0
@@ -171,8 +171,14 @@ namespace glasssix::workcloth
                 auto tl = box.get_rect().tl();
                 std::stringstream rgbinfo_u;
                 std::stringstream rgbinfo_l;
-                rgbinfo_u << "   ["<< upper_bgr[2]<< ", " << upper_bgr[1] << ", " << upper_bgr[0] << "]";
-                rgbinfo_l << "   ["<< lower_bgr[2]<< ", " << lower_bgr[1] << ", " << lower_bgr[0] << "]";
+                if (u_strange)
+					rgbinfo_u << "   strange";
+                else
+					rgbinfo_u << "   [" << upper_bgr[2] << ", " << upper_bgr[1] << ", " << upper_bgr[0] << "]";
+                if (l_strange)
+                    rgbinfo_l << "   strange";
+                else
+                    rgbinfo_l << "   ["<< lower_bgr[2]<< ", " << lower_bgr[1] << ", " << lower_bgr[0] << "]";
                 int font_face = cv::FONT_HERSHEY_COMPLEX;
                 double font_scale = 1;
                 int thickness = 3;

@@ -1,58 +1,87 @@
-#pragma once
+#ifndef FINDPEAKS_H
+#define FINDPEAKS_H
 
-#include <opencv2/opencv.hpp>
 #include <vector>
 
 namespace glasssix::workcloth
 {
-	template <class T>
-	static inline std::vector<size_t> find_peaks(std::vector<T>& src, T height, int distance)
+
+	using namespace std;
+
+	template<typename T>
+	inline vector<int> findPeaks(
+		vector<T> x,
+		vector<T> height = {},
+		size_t distance = 0)
 	{
-		size_t length = src.size();
-		if (length <= 1) return std::vector<size_t>();
+		vector<int> peaks;
+		for (int i = 1; i < x.size() - 1; i++) {
 
-		//we dont need peaks at start and end points
-		std::vector<int> sign(length, -1);
-		std::vector<T> difference(length, 0);
-		std::vector<size_t> temp_out;
-		//first-order difference (sign)
-		std::adjacent_difference(src.begin(), src.end(), difference.begin());
-		difference.erase(difference.begin());
-		difference.pop_back();
-		for (int i = 0; i < difference.size(); ++i) {
-			if (difference[i] >= 0) sign[i] = 1;
-		}
-		//second-order difference
-		for (int j = 1; j < length - 1; ++j)
-		{
-			int  diff = sign[j] - sign[j - 1];
-			if (diff < 0) {
-				temp_out.push_back(j);
+			if (x[i - 1] < x[i]) {
+				int iahead = i + 1;
+				while (iahead < x.size() - 1 && x[iahead] == x[i]) {
+					iahead++;
+				}
+				if (x[iahead] < x[i]) {
+					bool peakflag = true;
+					// Evaluate height condition
+					if (height.size() == 2) {
+
+						int currentPeakIndex = (i + iahead - 1) / 2;
+
+						if (x[currentPeakIndex] < height[0] || x[currentPeakIndex] > height[1]) {
+
+							peakflag = false;
+						}
+					}
+					if (peakflag) {
+						peaks.push_back((i + iahead - 1) / 2);
+					}
+					i = iahead;
+				}
 			}
 		}
-		if (temp_out.size() == 0 || distance == 0) return temp_out;
-		//sort peaks from large to small by src value at peaks
-		std::sort(temp_out.begin(), temp_out.end(), [&src](size_t a, size_t b) {
-			return (src[a] > src[b]);
-			});
 
-		std::vector<size_t> ans;
+		// Evaluate distance condition
+		if (distance > 0) {
+			vector<bool> eraseIndex(peaks.size(), false);
+			vector<int> sortPeaks = peaks;
+			sort(sortPeaks.begin(), sortPeaks.end(), [&x](int pos1, int pos2) {return (x[pos1] > x[pos2]); });	//sort peaks by the value of x[peaks]
 
-		std::unordered_map<size_t, int> except;
-		for (auto it : temp_out) {
-			if (!except.count(it)) // if not included
-			{
-				ans.push_back(it);
-				// update
-				size_t left = it - distance > 0 ? it - distance : 0;
-				size_t right = it + distance > length - 1 ? length - 1 : it + distance;
-				for (size_t i = left; i <= right; ++i)
-					++except[i];
+			for (int i = 0; i < sortPeaks.size(); i++) {
+
+				int j = find(peaks.begin(), peaks.end(), sortPeaks[i]) - peaks.begin();
+
+				if (eraseIndex[j]) {
+					continue;
+				}
+
+				int k = j - 1;
+
+				while (k >= 0 && std::abs(peaks[j] - peaks[k]) < distance) {
+					eraseIndex[k] = true;
+					k--;
+				}
+
+				k = j + 1;
+
+				while (k < peaks.size() && std::abs(peaks[j] - peaks[k]) < distance) {
+					eraseIndex[k] = true;
+					k++;
+				}
+			}
+
+			int eraseCount = 0;
+			for (int i = 0; i < eraseIndex.size(); i++) {
+				if (eraseIndex[i]) {
+					peaks.erase(peaks.begin() + i - eraseCount);
+					eraseCount++;
+				}
 			}
 		}
-		//sort the ans from small to large by index value
-		std::sort(ans.begin(), ans.end());
-		return ans;
+		return peaks;
 	}
 
 }
+
+#endif

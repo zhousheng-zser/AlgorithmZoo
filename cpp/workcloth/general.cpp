@@ -1,5 +1,3 @@
-#pragma once
-
 #include <opencv2/opencv.hpp>
 #include <vector>
 #include <string>
@@ -94,10 +92,19 @@ namespace glasssix::workcloth
 		auto [g_ranges, g_count] = bgr_stc[1];
 		auto [r_ranges, r_count] = bgr_stc[2];
 
-		auto b_peaks = find_peaks(b_count, area / peak_thres, peak_distance);
-		auto g_peaks = find_peaks(g_count, area / peak_thres, peak_distance);
-		auto r_peaks = find_peaks(r_count, area / peak_thres, peak_distance);
+#ifdef BUILD_DEBUG_INFO
+		//for (int c = 0; c < 3; c++) {
+		//	auto peakIndx = findPeaks(bgr_stc[c].second, { area / peak_thres, area }, peak_distance);
+		//	std::cout << c <<" peakIndx: ";
+		//	for (auto b : peakIndx)
+		//		std::cout << b << ", ";
+		//	std::cout << std::endl << std::endl;
+		//}
+#endif
 
+		auto b_peaks = findPeaks(b_count, { area / peak_thres, area }, peak_distance);
+		auto g_peaks = findPeaks(g_count, { area / peak_thres, area }, peak_distance);
+		auto r_peaks = findPeaks(r_count, { area / peak_thres, area }, peak_distance);
 
 		auto bgr_more = bgr_ranges_count(crop, 10);
 
@@ -109,10 +116,15 @@ namespace glasssix::workcloth
 			return std::distance(_count.begin(), biggest) * mul;
 		};
 
-		std::array<int, 3> O_BGR{ bgr_bind(b_count_m,10),bgr_bind(g_count_m,10),bgr_bind(r_count_m,10) };
 		bool _strange = false;
+		std::array<int, 3> O_BGR;
 		if (b_peaks.size() <= 1 && g_peaks.size() <= 1 && r_peaks.size() <= 1) {
+			O_BGR = { bgr_bind(b_count_m,10),bgr_bind(g_count_m,10),bgr_bind(r_count_m,10) };
+		}
+		else {
 			_strange = true;
+			//O_BGR = { -10,-10,-10 };
+			O_BGR = { bgr_bind(b_count_m,10),bgr_bind(g_count_m,10),bgr_bind(r_count_m,10) };
 		}
 		return { _strange, O_BGR }; //_strange == false Equal wearing == true
 	}
