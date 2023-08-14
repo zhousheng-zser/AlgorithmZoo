@@ -2,3 +2,5 @@
 build*/
 .vscode
 /JSON/Schemas
+/cmake/cross_compile_build/
+.idea/

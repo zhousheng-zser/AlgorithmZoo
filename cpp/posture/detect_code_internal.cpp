@@ -35,13 +35,9 @@ namespace glasssix::posture
         {
 
 #if defined(USE_RKNNAPI) || defined(USE_RKNN2API)
-            net_instance_ = std::make_unique<rknnwrapper::rknn_wrapper>(get_model_params("posture", false),
-           std::string(model_directory) + "/" +"Trespass_kpt_sim.rknn", device);      
+           net_instance_ = std::make_unique<rknnwrapper::rknn_wrapper>(get_model_params("posture", false), std::string(model_directory) + "/" +"Trespass_kpt_sim.rknn", device);      
 #else
-           net_instance_ = std::make_unique<glasssix::excalibur::pipeline<float>>(get_model_params("posture", false),
-           net_instance_ = std::make_unique<glasssix::excalibur::pipeline<float>>(get_model_params("posture", false),
-
-           std::string(model_directory) + "/" +"Trespass_kpt_sim.racy", device);      
+           net_instance_ = std::make_unique<glasssix::excalibur::pipeline<float>>(get_model_params("posture", false), std::string(model_directory) + "/" +"Trespass_kpt_sim.racy", device);      
 #endif
 
         }
