@@ -83,12 +83,46 @@ namespace glasssix::damocles
 			cv::Mat img(height, width, CV_8UC3, bitmap.data());
 			std::uint8_t temp[boxes.size() * forward_input_bytes];
 			std::uint8_t* ptr = temp;
+
 			for (size_t i = 0; i < boxes.size(); i++)
-			{
+			{	
 				cv::Mat crop_face;
 				cv::Rect2f rect(boxes[i].x, boxes[i].y, boxes[i].w, boxes[i].h);
 				safty_cut(img, crop_face, rect);
-				cv::resize(crop_face, crop_face, cv::Size(forward_input_width, forward_input_height));
+				
+				/////////////////////
+				int w = crop_face.rows;
+				int h = crop_face.cols;
+				
+				std::shared_ptr<memory::tensor<uint8_t>> crop_face_NCHW_tensor(new memory::tensor<uint8_t>(std::vector<int>{static_cast<int>(1), static_cast<int>(3), h, w}, -1, memory::NCHW, nullptr));
+
+				std::uint8_t* ptr_tensor = crop_face_NCHW_tensor->mutable_cpu_data();
+
+				for (int i = 0; i < h; i++)
+				{
+					for (int j = 0; j <  w; j++)
+					{
+						ptr_tensor[0 * h * w + i * w + j] = crop_face.ptr<std::uint8_t>(i)[j * 3 + 0];
+						ptr_tensor[1 * h * w + i * w + j] = crop_face.ptr<std::uint8_t>(i)[j * 3 + 1];
+						ptr_tensor[2 * h * w + i * w + j] = crop_face.ptr<std::uint8_t>(i)[j * 3 + 2];
+					}
+				}
+
+				excalibur::resize_cpu(crop_face_NCHW_tensor, crop_face_NCHW_tensor, forward_input_height, forward_input_width);
+				ptr_tensor = crop_face_NCHW_tensor->mutable_cpu_data();
+				crop_face = cv::Mat(forward_input_height, forward_input_width, CV_8UC3);
+				
+				for (int i = 0; i < forward_input_height; i++)
+				{
+					for (int j = 0; j < forward_input_width; j++)
+					{
+						crop_face.ptr<std::uint8_t>(i)[j * 3 + 0] = ptr_tensor[0 * forward_input_height * forward_input_width + i * forward_input_width + j];
+						crop_face.ptr<std::uint8_t>(i)[j * 3 + 1] = ptr_tensor[1 * forward_input_height * forward_input_width + i * forward_input_width + j];
+						crop_face.ptr<std::uint8_t>(i)[j * 3 + 2] = ptr_tensor[2 * forward_input_height * forward_input_width + i * forward_input_width + j];
+					}
+				}
+				//////////////////////
+
 				std::copy(crop_face.data, crop_face.data + forward_input_bytes, ptr);
 				ptr += forward_input_bytes;
 			}
@@ -115,7 +149,7 @@ namespace glasssix::damocles
 			auto network_result = (*spoofing_detect_instance_).forward(crop_faces | memory::tensor_convert_to<float>);
 			std::string output_name = "softmax";
 #endif
-				if (auto iter = network_result.find(output_name); iter != network_result.end())
+			if (auto iter = network_result.find(output_name); iter != network_result.end())
 			{
 				auto iter_softmax = iter->second->cpu_data();
 
@@ -182,7 +216,7 @@ namespace glasssix::damocles
 			bool finish_flag = false;
 			switch (action_cmd)
 			{
-			case 0: // ±ÕÑÛ
+			case 0: // ï¿½ï¿½ï¿½ï¿½
 			{
 				float left_eye_horizontal = distance(ldmk_info[39 * 2], ldmk_info[39 * 2 + 1], ldmk_info[43 * 2], ldmk_info[43 * 2 + 1]);
 				float left_eye_vertical = distance(ldmk_info[41 * 2], ldmk_info[41 * 2 + 1], ldmk_info[45 * 2], ldmk_info[45 * 2 + 1]);
@@ -194,7 +228,7 @@ namespace glasssix::damocles
 					finish_flag = true;
 			}
 				break;
-			case 1:// ÕÅ×ì
+			case 1:// ï¿½ï¿½ï¿½ï¿½
 			{
 				float mouth_horizontal = distance(ldmk_info[15 * 2], ldmk_info[15 * 2 + 1], ldmk_info[21 * 2], ldmk_info[21 * 2 + 1]);
 				float mouth_vertical = distance(ldmk_info[18 * 2], ldmk_info[18 * 2 + 1], ldmk_info[24 * 2], ldmk_info[24 * 2 + 1]);
@@ -203,7 +237,7 @@ namespace glasssix::damocles
 					finish_flag = true;
 			}
 				break;
-			case 2:// µãÍ·
+			case 2:// ï¿½ï¿½Í·
 			{
 				float total_horizontal = distance(ldmk_info[0], ldmk_info[1], ldmk_info[14 * 2], ldmk_info[14 * 2 + 1]);
 				float nose_jaw_vertical = distance(ldmk_info[7 * 2], ldmk_info[7 * 2 + 1], ldmk_info[38 * 2], ldmk_info[38 * 2 + 1]);
@@ -212,7 +246,7 @@ namespace glasssix::damocles
 					finish_flag = true;
 			}
 				break;
-			case 3:// ×óÒ¡Í·
+			case 3:// ï¿½ï¿½Ò¡Í·
 			{
 				float total_horizontal = distance(ldmk_info[0], ldmk_info[1], ldmk_info[14 * 2], ldmk_info[14 * 2 + 1]);
 				float nose_left_horizontal = distance(ldmk_info[0], ldmk_info[1], ldmk_info[38 * 2], ldmk_info[38 * 2 + 1]);
@@ -221,7 +255,7 @@ namespace glasssix::damocles
 					finish_flag = true;
 			}
 				break;
-			case 4:// ÓÒÒ¡Í·
+			case 4:// ï¿½ï¿½Ò¡Í·
 			{
 				float total_horizontal = distance(ldmk_info[0], ldmk_info[1], ldmk_info[14 * 2], ldmk_info[14 * 2 + 1]);
 				float nose_right_horizontal = distance(ldmk_info[14 * 2], ldmk_info[14 * 2 + 1], ldmk_info[38 * 2], ldmk_info[38 * 2 + 1]);
