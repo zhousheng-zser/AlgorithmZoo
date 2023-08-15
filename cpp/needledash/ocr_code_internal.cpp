@@ -134,7 +134,7 @@ namespace glasssix::needledash
                     int pad1 = (int)((new_shape.height - new_y) / 2);
                     int pad2 = new_shape.height - new_y - pad1;
                     cv::resize(img, resize_img, cv::Size2i{ new_x, new_y });
-                    cv::copyMakeBorder(resize_img, resize_img, 0, pad1 + pad2, 0, 0, cv::BORDER_CONSTANT,
+                    cv::copyMakeBorder(resize_img, resize_img, pad1, pad2, 0, 0, cv::BORDER_CONSTANT,
                         cv::Scalar{ 114, 114, 114 });
                 }
                 else {
@@ -144,7 +144,7 @@ namespace glasssix::needledash
                     int pad1 = (int)((new_shape.width - new_x) / 2);
                     int pad2 = new_shape.width - new_x - pad1;
                     cv::resize(img, resize_img, cv::Size2i{ new_x, new_y });
-                    cv::copyMakeBorder(resize_img, resize_img, 0, 0, 0, pad1 + pad2, cv::BORDER_CONSTANT,
+                    cv::copyMakeBorder(resize_img, resize_img, 0, 0, pad1, pad2, cv::BORDER_CONSTANT,
                         cv::Scalar{ 114, 114, 114 });
                 }
             }
@@ -197,13 +197,13 @@ namespace glasssix::needledash
                                           {140,301,  303,264,  238,542},
                                           {436,615,  739,380,  925,792} };
 										  
-            const float stride[4] = {8.0, 16.0, 32.0};
+            const float stride[4] = {8.0, 16.0, 32.0, 64.0};
 
             std::vector<pt> pt_location;
             std::vector<keypt> key_location;
             auto class_pred = [](float x, float y) {if (x > y) return 1; else return 0; };
 
-            for (int n = 0; n < 3; n++)
+            for (int n = 0; n < 4; n++)
             {
                 int num_grid_x = (int)(640 / stride[n]);
                 int num_grid_y = (int)(640 / stride[n]);
@@ -323,44 +323,6 @@ namespace glasssix::needledash
             return std::make_pair(pt_nms, key_nms);
         }
 
-
-        /**
-         * @fun scale_coords on keypt
-         * @param coords, old_image, new_image, step
-         * @return coords
-         */
-        std::vector<cv::Point2f> scale_coords_keypt(std::vector<keypt>& coords, cv::Size& old_shape, cv::Size& new_shape)
-        {
-            std::vector<cv::Point2f> scale_coords_keypt;
-
-            auto gain = std::min((float)new_shape.width / (float)old_shape.width, (float)new_shape.height / (float)old_shape.height);
-
-            auto pad = std::make_pair((new_shape.width - old_shape.width * gain) / 2, (new_shape.height - old_shape.height * gain) / 2);
-
-            auto clamp = [](int x, int min, int max) {if (x < min) return min; else if (x > max) return max; else return x; };
-
-            // scale coords on keypoint
-            for (const auto& it : coords)
-            {
-                cv::Point2f temp{};
-                temp.x = clamp((it.x - pad.first) / gain, 0, new_shape.width);
-                temp.y = clamp((it.y - pad.second) / gain, 0, new_shape.height);
-                scale_coords_keypt.push_back(temp);
-            }
-            return scale_coords_keypt;
-        }
-        
-        /**
-        * @fun outter round
-        * @details round num into Three digits after Decimal separator
-        */
-        std::string outter_round(float& num)
-        {
-            auto str = std::to_string(num);
-            str = str.substr(0, str.find("."));
-            return str;
-        }
-
         /**
         * @fun innner round 
         * @details round num into Three digits after Decimal separator
@@ -394,8 +356,6 @@ namespace glasssix::needledash
             //{
             //    return "999";
             //}
-            std::cout << "LOG: 0 \n";
-            std::cout << "boxes size:"<< boxes.size() <<"\n";
 
             float Xs = boxes[0].x;
             float Ys = boxes[0].y;
@@ -409,7 +369,6 @@ namespace glasssix::needledash
             float Xp = boxes[4].x;
             float Yp = boxes[4].y;
 
-            std::cout << "LOG: 1 \n";
             // find distance between p and s
             float d1 = std::sqrt((Xp - Xs) * (Xp - Xs) + (Yp - Ys) * (Yp - Ys));
 
@@ -421,8 +380,6 @@ namespace glasssix::needledash
 
             // find distance between p and e
             float d2 = std::sqrt((Xp - Xe) * (Xp - Xe) + (Yp - Ye) * (Yp - Ye));
-
-            std::cout << "LOG: 2 \n";
 
             if (d1 <= d2)
             {
@@ -451,8 +408,6 @@ namespace glasssix::needledash
                     float cosB = (b * b + e * e - d * d) / (2 * b * e);
 
                     float B = acos(cosB);
-
-                    std::cout << "LOG: 3 \n";
 
                     float result;
                     float angle_ratio = A / (2 * PI - B);
@@ -586,14 +541,15 @@ namespace glasssix::needledash
 
             std::tie(pt_location, key_location) = concat(forwards, conf_threshold);
 
-            std::cout << "Concat: detect size:" << pt_location.size() << "\n";
+            if (pt_location.size() == 0)
+            {
+                return { "0.00",  cv::Point(0,0),  cv::Point(0,0) };
+            }
 
             // non_max_suppression
             std::vector<point> pt_nms;
             std::vector<keypt> key_nms;
             std::tie(pt_nms, key_nms) = non_max_suppression(pt_location, key_location, conf_threshold, iou_threshold);
-
-            std::cout << "non_max_suppression pt_nms size:" << pt_nms.size() << "\n";
 
             // turn keypt into Point2f
             std::vector<cv::Point2f> key_point;
