@@ -1431,7 +1431,33 @@ namespace glasssix::longinus
             estimate_head_pose(landmark_data, bbox_data, yaw, pitch, roll);
             trackfaceinfo.headpose[0] = yaw;
             trackfaceinfo.headpose[1] = pitch;
-            trackfaceinfo.headpose[2] = atan(((trackfaceinfo.pts.y[0] - trackfaceinfo.pts.y[1]) / (trackfaceinfo.pts.x[0] - trackfaceinfo.pts.x[1]) + (trackfaceinfo.pts.y[3] - trackfaceinfo.pts.y[4]) / (trackfaceinfo.pts.x[3] - trackfaceinfo.pts.x[4])) / 2) * 180 / 3.1415926;
+
+            float y_sub_eye = trackfaceinfo.pts.y[0] - trackfaceinfo.pts.y[1];
+            float x_sub_eye = trackfaceinfo.pts.x[0] - trackfaceinfo.pts.x[1];
+            float y_sub_mouth = trackfaceinfo.pts.y[3] - trackfaceinfo.pts.y[4];
+            float x_sub_mouth = trackfaceinfo.pts.x[3] - trackfaceinfo.pts.x[4];
+
+            float l2_eye = std::sqrt(std::pow(y_sub_eye, 2.0f) + std::pow(x_sub_eye, 2.0f));
+            float l2_mouth = std::sqrt(std::pow(y_sub_mouth, 2.0f) + std::pow(x_sub_mouth, 2.0f));
+
+            int n = 0;
+            float mean_slope = 0.f;
+            if ((l2_eye > std::numeric_limits<float>::epsilon()) && (x_sub_eye != 0))
+            {
+                mean_slope += y_sub_eye / x_sub_eye;
+                n++;
+            }
+
+            if ((l2_mouth > std::numeric_limits<float>::epsilon()) && (x_sub_mouth != 0))
+            {
+                mean_slope += y_sub_mouth / x_sub_mouth;
+                n++;
+            }
+
+            if (n != 0)
+                mean_slope /= n;
+
+            trackfaceinfo.headpose[2] = atan(mean_slope) * 180 / 3.1415926;
         }
 #else
         void tracking_landmark(std::shared_ptr<memory::tensor<std::uint8_t>>& face, face_info_internal& trackfaceinfo, int offset_x, int offset_y)
