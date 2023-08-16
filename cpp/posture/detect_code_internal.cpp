@@ -127,9 +127,9 @@ std::string version()
 
                 for(int j=0;j<17;j++)
                 {
-                    temp_result.key_points.push_back(body[3*j] + roi_x);
-                    temp_result.key_points.push_back(body[3*j+1] + roi_y);
-                    temp_result.key_points.push_back(body[3*j+2]);
+                    temp_result.key_points.push_back(body[3*j+5] + roi_x);
+                    temp_result.key_points.push_back(body[3*j+5+1] + roi_y);
+                    temp_result.key_points.push_back(body[3*j+5+2]);
    
                 }
                 result.push_back( temp_result  );
