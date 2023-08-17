@@ -384,7 +384,7 @@ namespace glasssix::smog
                 box_info.category = 1;
                 box_info.confidence = scale_coords[4];
 
-                detect_result.push_back(scale_coords);
+                detect_result.push_back(box_info);
             }
 
             return detect_result;
