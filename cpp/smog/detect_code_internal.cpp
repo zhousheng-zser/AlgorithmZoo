@@ -61,7 +61,7 @@ namespace glasssix::smog
 
             auto results = exposing::make_param_vector<smog::box_info>();
 
-            for(auto& it:cate_result) 
+            for(auto& it:detect_result) 
             {
                 it.x1+=roi_x;
                 it.x2+=roi_x;
@@ -364,17 +364,6 @@ namespace glasssix::smog
             
             if(select_result.size() == 0)
             {
-                smog::box_info_internal box_info;
-
-                box_info.x1 = 0;
-                box_info.y1 = 0;
-                box_info.x2 = 0;
-                box_info.y2 = 0;
-                box_info.category = 0;
-                box_info.confidence = 0;
-
-                detect_result.push_back(box_info);
-
                 return detect_result;
             }
 
