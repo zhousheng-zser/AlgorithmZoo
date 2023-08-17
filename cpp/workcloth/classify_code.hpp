@@ -33,6 +33,7 @@ namespace glasssix::exposing::impl
                 std::int32_t roi_y,
                 std::int32_t roi_width,
                 std::int32_t roi_height,
+                std::int32_t color_index,
                 abi_in_t<exposing::param_hash_map<exposing::param_string, float>> param_map_abi,
                 abi_out_t<exposing::param_vector<workcloth::box_info>> result) noexcept = 0;
 
@@ -62,11 +63,12 @@ namespace glasssix::exposing::impl
             std::int32_t roi_y,
             std::int32_t roi_width,
             std::int32_t roi_height,
+            std::int32_t color_index,
             abi_in_t<exposing::param_hash_map<exposing::param_string, float>> param_map_abi,
             abi_out_t<exposing::param_vector<workcloth::box_info>> result) noexcept override
         {
             return abi_safe_call([&]
-                { *result = detach_abi(this->self().detect(create_from_abi<param_span<std::uint8_t>>(bitmap), channels, height, width, roi_x, roi_y, roi_width, roi_height,
+                { *result = detach_abi(this->self().detect(create_from_abi<param_span<std::uint8_t>>(bitmap), channels, height, width, roi_x, roi_y, roi_width, roi_height, color_index,
                     create_from_abi<exposing::param_hash_map<exposing::param_string, float>>(param_map_abi))); });
         }
 
@@ -102,6 +104,7 @@ namespace glasssix::exposing::impl
                 std::int32_t roi_y,
                 std::int32_t roi_width,
                 std::int32_t roi_height,
+                std::int32_t color_index,
                 const exposing::param_hash_map<exposing::param_string, float>& param_map_abi) const
             {
 				exposing::param_vector<workcloth::box_info> result{ nullptr };
@@ -116,6 +119,7 @@ namespace glasssix::exposing::impl
 						roi_y,
 						roi_width,
 						roi_height,
+                        color_index,
 						get_abi(param_map_abi),
 						put_abi(result))
 				),result);

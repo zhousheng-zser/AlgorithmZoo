@@ -19,10 +19,8 @@ namespace glasssix::workcloth
         int y1() const;
         int x2() const;
         int y2() const;
-        exposing::param_vector<int> up_rgb() const;
-        exposing::param_vector<int> lw_rgb() const;
-        bool up_strange() const;
-        bool lw_strange() const;
+        bool color_pure() const;
+        float color_conf() const;
         float score() const;
         int category() const;
 

@@ -9,6 +9,8 @@
 #include <Primitives/tensor_conversions.hpp>
 #include "logger.hpp"
 
+#include "../posture/detect_code.hpp"
+
 #include <opencv2/opencv.hpp>
 #include <opencv2/core/core.hpp>
 #include <opencv2/imgproc/imgproc.hpp>
@@ -33,6 +35,8 @@
 #include "../../common/include/RKNN2Wrapper/rknn2_wrapper.hpp"
 #endif
 
+//YHC
+// #include "dbg.h"
 
 namespace glasssix::workcloth
 {
@@ -42,15 +46,15 @@ namespace glasssix::workcloth
         impl(std::string_view model_directory, int device)
             : model_directory_{ std::string(model_directory) }, device_{ device }
         {
-            //Excalibur needs to distinguish between float and int8 models, rknn and rknn2 does not
 #if defined(USE_RKNNAPI) || defined(USE_RKNN2API)
-            pipline_instance_ = std::make_unique<rknnwrapper::rknn_wrapper>(get_model_params("workcloth"), std::string(model_directory) + "/" + "workcloth" + ".rknn", device);
-#else
-            pipline_instance_ = std::make_unique<excalibur::pipeline<float>>(get_model_params("workcloth"), std::string(model_directory) + "/" + "workcloth" + ".racy", device);
+            classify_instance_ = std::make_unique<rknnwrapper::rknn_wrapper>(get_model_params("workcloth_cls"), std::string(model_directory) + "/" + "workcloth_cls" + ".rknn", device);
 #endif
+            static bool ready = glasssix::exposing::get_component_loader().add_module_by_name("posture");
+            posture_instance_ = glasssix::exposing::make_exported_interface<posture::detect_code>(model_directory, device);
+
         }
 
-        exposing::param_vector<workcloth::box_info> detect(const exposing::param_span<std::uint8_t>& bitmap, int channels, int height, int width, int roi_x, int roi_y, int roi_width, int roi_height, std::map<std::string, float>& param_map)
+        exposing::param_vector<workcloth::box_info> detect(const exposing::param_span<std::uint8_t>& bitmap, int channels, int height, int width, int roi_x, int roi_y, int roi_width, int roi_height, int color_index, std::map<std::string, float>& param_map)
         {
             if (bitmap.empty())
             {
@@ -59,18 +63,57 @@ namespace glasssix::workcloth
             CHECK_EQ(channels, 3);
             CHECK_EQ(bitmap.size(), channels * height * width);
 
+            cv::Mat image2(height,width, CV_8UC3);
             cv::Mat image(cv::Size(width, height), CV_8UC3);
             std::memcpy(image.data, bitmap.data(), sizeof (uint8_t) * channels * height * width);
             if (roi_x<0 || roi_x>width || roi_y > height || roi_y < 0 || roi_height<0 || (roi_height + roi_y) >height || roi_width<0 || (roi_width + roi_x) > width)
             {
                 throw exposing::abi_invalid_argument("incorrect roi in phone");
             }
+
 			cv::Rect roi_rect{ roi_x, roi_y, roi_width, roi_height };
 
             std::vector<box_info_internal> results;
             auto result = exposing::make_param_vector<box_info>();
 
-            run_workcloth(results, image, roi_rect, param_map);
+
+            // //YHC
+            // auto vis_mat = image.clone();
+
+            auto empty_map_abi = exposing::make_param_hash_map<exposing::param_string, float>();
+            exposing::param_vector<posture::box_info> posture_info_list = posture_instance_.detect(bitmap, channels, height, width, 0, 0, width, height, empty_map_abi);
+            std::vector<PostureInfo> persons_info;
+
+            int pinfo_counter = 0;
+            for (auto pinfo : posture_info_list) {
+                pinfo_counter++;
+                PostureInfo postureInfo{ pinfo };
+
+                // std::cout<<"## Kpoints len: "<< postureInfo.Kpoints.size() <<std::endl;
+
+
+                if(postureInfo.x1<=roi_x||postureInfo.x2>=(roi_x+roi_width)||postureInfo.y1<=roi_y||postureInfo.y2>=(roi_y+roi_height)) continue;
+
+                persons_info.push_back(postureInfo);
+
+                //YHC
+                // cv::rectangle(vis_mat, postureInfo.get_rect(), cv::Scalar{ 250, 0, 250 }, 3);
+                // cv::rectangle(vis_mat, postureInfo.cls_cut, cv::Scalar{ 250, 0, 0 }, 3);
+                // cv::rectangle(vis_mat, postureInfo.color_cut, cv::Scalar{ 0, 0, 255 }, 3);
+                // for (auto kp : postureInfo.Kpoints) {
+                //     cv::circle(vis_mat, kp, 3, { 0,0,250 }, 3);
+                // }
+                //YHC~
+            }
+
+            //YHC
+            // std::cout<<"## export posture.png"<<std::endl;
+            // cv::rectangle(vis_mat, roi_rect, cv::Scalar{ 250, 250, 250 }, 3);
+            // cv::imwrite("/home/firefly/yhc/call_wkch/img_out/posture.png", vis_mat);
+            //YHC~
+
+            run_workcloth(results, image, persons_info, color_index, param_map);
+
 
             for (auto& i : results)
             {
@@ -81,12 +124,12 @@ namespace glasssix::workcloth
 
         std::string version()
         {
-            const std::string algo_module_version = "1.1.1";
+            const std::string algo_module_version = "1.2.0";
 
 #if defined(USE_RKNNAPI) || defined(USE_RKNN2API)
             //#if 0
             //std::string nn_frame_version = rknnwrapper::rknn_wrapper::version();
-            std::string nn_frame_version = pipline_instance_->version();
+            std::string nn_frame_version = classify_instance_->version();
 #else
             std::string nn_frame_version = excalibur::pipeline<float>::version();
 #endif
@@ -94,274 +137,9 @@ namespace glasssix::workcloth
         }
 
     private:
-        void run_workcloth(std::vector<box_info_internal>& results, cv::Mat& image, cv::Rect roi_rect, std::map<std::string, float>& param_map)
+
+        cv::Mat preprocess(cv::Mat img, int hope_w = 640, int hope_h = 640)
         {
-            float W = image.cols;
-            float H = image.rows;
-            float conf_threshold = param_map.count("conf_thres") ? param_map["conf_thres"] : 0.5f;
-            float nms_threshold = param_map.count("nms_thres") ? param_map["nms_thres"] : 0.5f;
-
-            auto det_mat = workcloth_imgprocess(image, 640, 640);
-            // cvt BGR2RGB
-            cv::cvtColor(det_mat, det_mat, cv::COLOR_BGR2RGB);
-
-            float map_ratio = float(std::max(image.cols, image.rows)) / 640;
-#ifdef BUILD_DEBUG_INFO
-            //cv::imshow("det_mat", det_mat); cv::waitKey(0);
-#endif // BUILD_DEBUG_INFO
-
-            std::vector<Bbox> sub_bboxes = detect_boxes(det_mat, conf_threshold, map_ratio);
-
-            for (auto& bbox : sub_bboxes) {
-                float padh = float(image.cols - image.rows) / 2;
-                bbox.ymin -= padh;
-                bbox.ymax -= padh;
-                // boundary check
-                bbox.ymin = std::max(bbox.ymin, 0.f);
-                bbox.ymax = std::max(bbox.ymax, 0.f);
-                bbox.ymin = std::min(bbox.ymin, H - 1);
-                bbox.ymax = std::min(bbox.ymax, H - 1);
-
-                bbox.xmin = std::max(bbox.xmin, 0.f);
-                bbox.xmax = std::max(bbox.xmax, 0.f);
-                bbox.xmin = std::min(bbox.xmin, W - 1);
-                bbox.xmax = std::min(bbox.xmax, W - 1);
-            }
-
-            nms_cpu(sub_bboxes, nms_threshold);
-
-#ifdef BUILD_DEBUG_INFO
-			auto visul_mat = image.clone();
-            cv::rectangle(visul_mat, roi_rect, cv::Scalar{ 250, 250, 250 }, 3);
-#endif // BUILD_DEBUG_INFO
-
-
-            for (auto box : sub_bboxes) {
-                auto person_region = box.get_rect();
-
-                if (person_region.x < roi_rect.x ||
-                    person_region.y < roi_rect.y ||
-                    person_region.x + person_region.width > roi_rect.x + roi_rect.width ||
-                    person_region.y + person_region.height > roi_rect.y + roi_rect.height)
-                {
-                    continue;
-                }
-
-
-                cv::Mat sub_person = image(person_region);
-
-                int waist = sub_person.rows / 2;
-                int midline = sub_person.cols / 2;
-                int abdo_x1 = midline * 0.85;
-                int abdo_x2 = midline * 1.15;
-                int abdo_y1 = waist * 0.75;
-                int abdo_y2 = waist * 0.85;
-                int crotch_x1 = abdo_x1;
-                int crotch_x2 = abdo_x2;
-                int crotch_y1 = int(waist * 1.2);
-                int crotch_y2 = int(waist * 1.3);
-
-                auto upper_rect = cv::Rect{ abdo_x1, abdo_y1, abdo_x2 - abdo_x1, abdo_y2 - abdo_y1 };
-                auto lower_rect = cv::Rect{ crotch_x1, crotch_y1, crotch_x2 - crotch_x1, crotch_y2 - crotch_y1 };
-				auto [u_strange, upper_bgr] = extract_rgb(sub_person, upper_rect);
-                auto [l_strange, lower_bgr] = extract_rgb(sub_person, lower_rect);
-
-#ifdef BUILD_DEBUG_INFO
-				cv::rectangle(visul_mat, box.get_rect(), u_strange ? cv::Scalar{ 200, 0, 200 } : cv::Scalar{ 0, 100, 0 }, 5);
-                auto tl = box.get_rect().tl();
-                std::stringstream rgbinfo_u;
-                std::stringstream rgbinfo_l;
-                if (u_strange)
-					rgbinfo_u << "   strange";
-                else
-					rgbinfo_u << "   [" << upper_bgr[2] << ", " << upper_bgr[1] << ", " << upper_bgr[0] << "]";
-                if (l_strange)
-                    rgbinfo_l << "   strange";
-                else
-                    rgbinfo_l << "   ["<< lower_bgr[2]<< ", " << lower_bgr[1] << ", " << lower_bgr[0] << "]";
-                int font_face = cv::FONT_HERSHEY_COMPLEX;
-                double font_scale = 1;
-                int thickness = 3;
-                cv::rectangle(visul_mat, upper_rect + tl, cv::Scalar{ 0,0,255 }, 3);
-				cv::putText(visul_mat, rgbinfo_u.str(), cv::Point(abdo_x2, abdo_y2) + tl, font_face, font_scale, cv::Scalar(0, 0, 255), thickness, 7, 0);
-                cv::rectangle(visul_mat, lower_rect + tl, cv::Scalar{ 255,0,0}, 3);
-				cv::putText(visul_mat, rgbinfo_l.str(), cv::Point(crotch_x2, crotch_y2) + tl, font_face, font_scale, cv::Scalar(0, 255, 0), thickness, 7, 0);
-#endif // BUILD_DEBUG_INFO
-
-
-                box_info_internal in_box_info;
-                in_box_info.score = box.score;
-                in_box_info.up_rgb = exposing::make_param_vector<int>();
-                in_box_info.up_rgb.push_back((int)upper_bgr[2]);//R
-                in_box_info.up_rgb.push_back((int)upper_bgr[1]);//G
-                in_box_info.up_rgb.push_back((int)upper_bgr[0]);//B
-                in_box_info.up_strange = u_strange;
-                in_box_info.lw_rgb = exposing::make_param_vector<int>();
-                in_box_info.lw_rgb.push_back((int)lower_bgr[2]);//R
-                in_box_info.lw_rgb.push_back((int)lower_bgr[1]);//G
-                in_box_info.lw_rgb.push_back((int)lower_bgr[0]);//B
-                in_box_info.lw_strange = l_strange;
-
-                in_box_info.category = box.cid;
-                in_box_info.x1 = box.xmin;
-                in_box_info.y1 = box.ymin;
-                in_box_info.x2 = box.xmax;
-                in_box_info.y2 = box.ymax;
-                results.push_back(in_box_info);
-            }
-#ifdef BUILD_DEBUG_INFO
-            float vsmapscal = std::min(1920.f / visul_mat.cols, 1080.f / visul_mat.rows) * 0.85;
-			cv::resize(visul_mat, visul_mat, cv::Size{}, vsmapscal, vsmapscal);
-			cv::imshow("run_boxes", visul_mat); cv::waitKey(0);
-#endif // BUILD_DEBUG_INFO
-
-        }
-
-
-        std::vector<Bbox> detect_boxes(cv::Mat img, float conf_threshold, float mapping_ratio) {
-#if defined(USE_RKNNAPI) || defined(USE_RKNN2API)
-            auto result = pipline_instance_->forward(img.data, { 1, img.rows, img.cols,img.channels() }, RKNN_TENSOR_NHWC);
-#else
-            auto input_tsr = std::make_shared<memory::tensor<std::uint8_t>>(std::vector<int>{1, img.rows, img.cols, img.channels()}, -1, memory::NHWC);
-            std::copy(img.data, img.data + img.step[0] * img.rows, input_tsr->mutable_cpu_data());
-            input_tsr->convert_order();
-            auto input_tensor = input_tsr | memory::tensor_convert_to<float>;
-            //for (auto i = 0; i < input_tensor->count(); i++) {
-            //    input_tensor->mutable_cpu_data()[i] /= 255;
-            //}
-            auto result = pipline_instance_->forward(input_tensor);
-#endif
-
-
-            std::vector<std::shared_ptr<memory::tensor<float>>> outRst;
-            for (auto& out : result) {
-#if defined(USE_RKNNAPI) || defined(USE_RKNN2API)
-                CHECK_EQ(out.second->data_shape().size(), 5);
-                std::vector<int> shape = out.second->data_shape();
-                out.second->reshape(std::vector<int>{shape[0], shape[1], shape[2]* shape[3], shape[4]});
-#endif
-                outRst.push_back(out.second);
-            }
-            std::sort(outRst.begin(), outRst.end(), [](const std::shared_ptr<memory::tensor<float>>& A, const std::shared_ptr<memory::tensor<float>>& B) {
-                auto countA = A->count();
-                auto countB = B->count();
-                return countA > countB;
-                });
-
-            std::vector<Bbox> preds = concat_yolo(outRst, conf_threshold);
-
-//#ifdef BUILD_DEBUG_INFO
-//            {
-//                auto visul_mat = img.clone();
-//                for (auto& bbox : preds)
-//                    cv::rectangle(visul_mat, bbox.get_rect(), bbox.cid ? cv::Scalar{ 0,0,255 } : cv::Scalar{ 0, 255, 0 }, 5);
-//                cv::imshow("detect_boxes", visul_mat); cv::waitKey(0);
-//            }
-//#endif // BUILD_DEBUG_INFO
-
-            for (auto& bbox : preds) {
-                bbox.mul_ratio(mapping_ratio);
-            }
-            return preds;
-
-        }
-
-        std::vector<Bbox> concat_yolo(std::vector<std::shared_ptr<glasssix::memory::tensor<float>>>& forwards, float conf_threshold)
-        {
-            const float stride[3] = { 8, 16, 32 };
-            const float anchors[3][6] = {
-            {12,16, 19,36, 40,28},
-            {36,75, 76,55, 72,146},
-            {142,110, 192,243, 459,401}
-            };
-            auto max_conf = [](float x, float y) {if (x > y) return x; else return y; };
-            auto class_pred = [](float x, float y) {if (x > y) return 1; else return 0; };
-            auto class_pred_list = [](std::vector<float>& cls_list) {
-                int maxPosdition = std::max_element(cls_list.begin(), cls_list.end()) - cls_list.begin();
-                return maxPosdition;
-            };
-
-            std::vector<Bbox> boxes_pred;
-
-            for (int n = 0; n < 3; n++)
-            {
-                auto& block = forwards[n];
-                int order = block->order();
-                int num = block->num();
-                int C = block->channels(); // 3
-                int H = block->height(); // [rows * cols]
-                int W = block->width();
-                int HW_step = H * W;
-
-                int num_grid_x = (int)(640 / stride[n]);
-                int num_grid_y = (int)(640 / stride[n]);
-                for (int q = 0; q < 3; q++)
-                {
-                    const float anchor_w = anchors[n][q * 2];
-                    const float anchor_h = anchors[n][q * 2 + 1];
-                    for (int i = 0; i < num_grid_y; i++)
-                    {
-                        for (int j = 0; j < num_grid_x; j++)
-                        {
-                            int cur = q * HW_step + (i * num_grid_x + j) * W;
-                            float* pdata = block->mutable_cpu_data() + cur;
-
-                            float x = (sigmoid_x(pdata[0]) * 2.f - 0.5f + j) * stride[n];  //cx
-                            float y = (sigmoid_x(pdata[1]) * 2.f - 0.5f + i) * stride[n];  //cy
-                            float w = powf(sigmoid_x(pdata[2]) * 2.f, 2.f) * anchor_w;     //w
-                            float h = powf(sigmoid_x(pdata[3]) * 2.f, 2.f) * anchor_h;     //h
-                            float obj_conf = sigmoid_x(pdata[4]);
-                            float person_conf = sigmoid_x(pdata[5]);
-
-                            if (obj_conf > conf_threshold && person_conf > conf_threshold) {
-                                Bbox bbox;
-                                bbox.xmin = x - w / 2;
-                                bbox.xmax = x + w / 2;
-                                bbox.ymin = y - h / 2;
-                                bbox.ymax = y + h / 2;
-                                bbox.score = obj_conf * person_conf;
-                                bbox.cid = 0;
-
-                                boxes_pred.push_back(bbox);
-                            }
-                        }
-                    }
-                }
-            }
-            return boxes_pred;
-        }
-
-        void nms_cpu(std::vector<Bbox>& bboxes, float iou_thres) {
-            if (bboxes.empty()) return;
-            std::sort(bboxes.begin(), bboxes.end(), [&](Bbox b1, Bbox b2) {return b1.score > b2.score; });
-            std::vector<float> area(bboxes.size());
-            for (int i = 0; i < bboxes.size(); ++i) {
-                area[i] = (bboxes[i].xmax - bboxes[i].xmin + 1) * (bboxes[i].ymax - bboxes[i].ymin + 1);
-            }
-            for (int i = 0; i < bboxes.size(); ++i) {
-                for (int j = i + 1; j < bboxes.size(); ) {
-                    float left = std::max(bboxes[i].xmin, bboxes[j].xmin);
-                    float right = std::min(bboxes[i].xmax, bboxes[j].xmax);
-                    float top = std::max(bboxes[i].ymin, bboxes[j].ymin);
-                    float bottom = std::min(bboxes[i].ymax, bboxes[j].ymax);
-                    float width = std::max(right - left + 1, 0.f);
-                    float height = std::max(bottom - top + 1, 0.f);
-                    float u_area = height * width;
-                    float iou = (u_area) / (area[i] + area[j] - u_area);
-                    if (iou >= iou_thres) {
-                        bboxes.erase(bboxes.begin() + j);
-                        area.erase(area.begin() + j);
-                    }
-                    else {
-                        ++j;
-                    }
-                }
-            }
-            if (bboxes.size() < 2) return;
-            std::sort(bboxes.begin(), bboxes.end(), [&](Bbox b1, Bbox b2) {return b1.score > b2.score; });
-        }
-
-        cv::Mat workcloth_imgprocess(cv::Mat& img, int hope_w = 384, int hope_h = 640) {
             int H = img.rows;
             int W = img.cols;
             float ratio_w = (float)W / (float)hope_w;
@@ -388,19 +166,129 @@ namespace glasssix::workcloth
             return resize_img;
         }
 
-        static inline float sigmoid_x(float x)
+
+        std::pair<float,float> run_classify(cv::Mat& image)
         {
-            return static_cast<float>(1.f / (1.f + exp(-x)));
+            cv::Mat blob = preprocess(image, 112, 112);
+            cv::cvtColor(blob, blob, cv::COLOR_BGR2RGB);
+
+            std::vector<std::shared_ptr<glasssix::memory::tensor<float>>> forwards;
+            auto network_result = classify_instance_->forward(blob.data, { 1, blob.rows, blob.cols,blob.channels() }, RKNN_TENSOR_NHWC);
+            for (auto& out : network_result) {
+                forwards.push_back(out.second);
+            }
+
+            const float* data_ptr = forwards[0]->cpu_data();
+            return std::make_pair(data_ptr[0], data_ptr[1]);
         }
+
+        enum class Color {
+            black = 0, grey, white, red, orange, yellow, green, cyan, blue, purple
+        };
+
+        std::map<Color, std::pair<cv::Scalar, cv::Scalar>> color_hsv_cfg{
+            {Color::black,{cv::Scalar{0, 0, 0},cv::Scalar{180, 255, 46}}},
+            {Color::grey,{cv::Scalar{0, 0, 0},cv::Scalar{180, 35, 220}}},
+            {Color::grey,{cv::Scalar{0, 0, 0},cv::Scalar{180, 35, 220}}},
+
+            //{Color::red,{cv::Scalar{0, 35, 46},cv::Scalar{180, 35, 220}}},
+            {Color::orange,{cv::Scalar{11, 35, 46},cv::Scalar{25, 255, 255}}},
+            {Color::yellow,{cv::Scalar{26, 35, 46},cv::Scalar{34, 255, 255}}},
+
+            {Color::green,{cv::Scalar{35, 35, 46},cv::Scalar{77, 255, 255}}},
+            {Color::cyan,{cv::Scalar{78, 35, 46},cv::Scalar{99, 255, 255}}},
+            {Color::blue,{cv::Scalar{100, 35, 46},cv::Scalar{124, 255, 255}}},
+            {Color::purple,{cv::Scalar{125, 35, 46},cv::Scalar{155, 255, 255}}},
+        };
+
+        std::pair<float,bool> calculate_singglehsv_method(cv::Mat image, float judge_thred, Color mode) {
+            auto img = image.clone();
+            int H = img.rows;
+            int W = img.cols;
+            int total_pixels = H * W;
+
+            cv::Mat color_mask;
+            cv::Mat hsv_img;
+            cv::cvtColor(img, hsv_img, cv::COLOR_BGR2HSV);
+
+            if(mode!=Color::red){
+                cv::Scalar hsv_lower = color_hsv_cfg.at(mode).first;
+                cv::Scalar hsv_upper = color_hsv_cfg.at(mode).second;
+
+                cv::inRange(hsv_img, hsv_lower, hsv_upper, color_mask);
+            }
+            else{
+                cv::Mat mask1;
+                cv::Scalar red_lower1 = cv::Scalar{0, 35, 46};
+                cv::Scalar red_upper1 = cv::Scalar{10, 255, 255};
+                cv::inRange(hsv_img, red_lower1, red_upper1, mask1);
+
+                cv::Mat mask2;
+                cv::Scalar red_lower2 = cv::Scalar{156, 35, 46};
+                cv::Scalar red_upper2 = cv::Scalar{180, 255, 255};
+                cv::inRange(hsv_img, red_lower2, red_upper2, mask2);
+                color_mask = mask1 + mask2;
+            }
+
+            float color_pixels = cv::countNonZero(color_mask);
+            float color_ratio = color_pixels / total_pixels;
+            
+            bool color_pure = color_ratio>judge_thred;
+
+            return {color_ratio,color_pure};
+
+        }
+
+        void run_workcloth(std::vector<box_info_internal>& results, cv::Mat& image, std::vector<PostureInfo>& persons,int color_index, std::map<std::string, float>& param_map)
+        {
+
+            std::cout << "==== run_workcloth ====" << std::endl;
+
+            float W = image.cols;
+            float H = image.rows;
+            float conf_threshold = param_map.count("conf_thres") ? param_map["conf_thres"] : 0.5f;
+            float nms_threshold = param_map.count("nms_thres") ? param_map["nms_thres"] : 0.5f;
+
+            for(auto& person:persons){
+                cv::Mat cls_image = image(person.cls_cut).clone();
+                auto classify_result = run_classify(cls_image);
+                // dbg(classify_result);
+
+                float score = std::max(classify_result.first, classify_result.second);
+                int category = classify_result.first < classify_result.second;
+                // dbg(score,category);
+
+                cv::Mat color_image = image(person.cls_cut).clone();
+
+                auto [color_conf, color_pure] = calculate_singglehsv_method(color_image,0.85, static_cast<Color>(color_index));
+
+                box_info_internal in_box_info;
+
+                in_box_info.score = score;
+                in_box_info.category = category;
+                in_box_info.color_conf = color_conf;
+                in_box_info.color_pure = color_pure;
+                in_box_info.x1 = person.x1;
+                in_box_info.y1 = person.y1;
+                in_box_info.x2 = person.x2;
+                in_box_info.y2 = person.y2;
+                results.push_back(in_box_info);
+            }
+
+        }
+
 
     private:
         std::string model_directory_;
         int device_;
+
+        posture::detect_code posture_instance_;
+
 #if defined(USE_RKNNAPI) || defined(USE_RKNN2API)
         //#if 0
-        std::unique_ptr<rknnwrapper::rknn_wrapper> pipline_instance_;
+        std::unique_ptr<rknnwrapper::rknn_wrapper> classify_instance_;
 #else
-        std::unique_ptr<excalibur::pipeline<float>> pipline_instance_;
+        std::unique_ptr<excalibur::pipeline<float>> classify_instance_;
 #endif
     };
 
@@ -416,8 +304,8 @@ namespace glasssix::workcloth
         return impl_->version();
     }
 
-    exposing::param_vector<workcloth::box_info> classify_code_internal::detect(exposing::param_span<std::uint8_t> bitmap, int channels, int height, int width, int roi_x, int roi_y, int roi_width, int roi_height, std::map<std::string, float>& param_map) const
+    exposing::param_vector<workcloth::box_info> classify_code_internal::detect(exposing::param_span<std::uint8_t> bitmap, int channels, int height, int width, int roi_x, int roi_y, int roi_width, int roi_height,int color_index, std::map<std::string, float>& param_map) const
     {
-        return impl_->detect(bitmap, channels, height, width, roi_x, roi_y, roi_width, roi_height, param_map);
+        return impl_->detect(bitmap, channels, height, width, roi_x, roi_y, roi_width, roi_height, color_index, param_map);
     }
 }
