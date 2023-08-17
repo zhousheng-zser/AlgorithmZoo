@@ -1437,8 +1437,8 @@ namespace glasssix::longinus
             float y_sub_mouth = trackfaceinfo.pts.y[3] - trackfaceinfo.pts.y[4];
             float x_sub_mouth = trackfaceinfo.pts.x[3] - trackfaceinfo.pts.x[4];
 
-            float l2_eye = std::sqrt(std::pow(y_sub_eye, 2.0f) + std::pow(x_sub_eye, 2.0f));
-            float l2_mouth = std::sqrt(std::pow(y_sub_mouth, 2.0f) + std::pow(x_sub_mouth, 2.0f));
+            float l2_eye = std::sqrt(y_sub_eye * y_sub_eye + x_sub_eye * x_sub_eye);
+            float l2_mouth = std::sqrt(y_sub_mouth * y_sub_mouth + x_sub_mouth * x_sub_mouth);
 
             int n = 0;
             float mean_slope = 0.f;
@@ -1505,8 +1505,8 @@ namespace glasssix::longinus
             float y_sub_mouth = trackfaceinfo.pts.y[3] - trackfaceinfo.pts.y[4];
             float x_sub_mouth = trackfaceinfo.pts.x[3] - trackfaceinfo.pts.x[4];
 
-            float l2_eye = std::sqrt(std::pow(y_sub_eye, 2.0f) + std::pow(x_sub_eye, 2.0f));
-            float l2_mouth = std::sqrt(std::pow(y_sub_mouth, 2.0f) + std::pow(x_sub_mouth, 2.0f));
+            float l2_eye = std::sqrt(y_sub_eye * y_sub_eye + x_sub_eye * x_sub_eye);
+            float l2_mouth = std::sqrt(y_sub_mouth * y_sub_mouth + x_sub_mouth * x_sub_mouth);
 
             int n = 0;
             float mean_slope = 0.f;
