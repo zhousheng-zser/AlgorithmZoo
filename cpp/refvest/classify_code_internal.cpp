@@ -2,6 +2,7 @@
 #include <cmath>
 #include <tuple>
 
+#include "../posture/detect_code.hpp"
 
 #include "classify_code_internal.hpp"
 #include "box_info_impl.hpp"
@@ -23,15 +24,16 @@ namespace glasssix::refvest
     {
     public:
         impl(const exposing::param_string model_directory, int device = -1)
-                : impl{get_model_params("refvest", false),  exposing::to_narrow_string(model_directory), device}
+                : impl{get_model_params("climb", false),  exposing::to_narrow_string(model_directory), device}
         {
         }
 
-        impl(const std::vector<std::string> &phai, std::string model_directory, int device)
-                :net_instance_(phai,  model_directory + std::string("/refvest_sim.rknn"), device)
+        impl(const std::vector<std::string> &phai, std::string model_directory, int device) 
+            :classify_instance_(phai,  model_directory + std::string("/refvest_cls.rknn"), device), model_directory_(model_directory)
         {
-
-        }
+            static bool ready = glasssix::exposing::get_component_loader().add_module_by_name("posture");
+            posture_instance_ = glasssix::exposing::make_exported_interface<posture::detect_code>(exposing::param_string(model_directory), device);
+        }       
 
         exposing::param_vector<refvest::box_info> detect(const exposing::param_span<std::uint8_t>& bitmap, int channels, int height, int width, int roi_x, int roi_y, int roi_width, int roi_height, std::map<std::string, float>& param_map)
         {
@@ -45,7 +47,7 @@ namespace glasssix::refvest
             cv::Mat image(cv::Size(width, height), CV_8UC3);
             std::memcpy(image.data, bitmap.data(), sizeof (uint8_t) * channels * height * width);
 
-            std::vector<box_info_internal> results;
+            std::vector<refvest::box_info_internal> results;
             auto result = exposing::make_param_vector<box_info>();
 
             if(roi_x<0 || roi_x>width || roi_y>height || roi_y<0 ||roi_height<0 || (roi_height+roi_y) >height || roi_width<0 || (roi_width+roi_x) > width)
@@ -53,9 +55,52 @@ namespace glasssix::refvest
                   throw exposing::abi_invalid_argument("incorrect roi in refvest");
             }
 
-            cv::Mat cropped_image = image(cv::Range(roi_y,roi_y+roi_height), cv::Range(roi_x,roi_x+roi_width)).clone();
+            auto empty_map_abi = exposing::make_param_hash_map<exposing::param_string, float>();
+            exposing::param_vector<posture::box_info> posture_info_list = posture_instance_.detect(bitmap, channels, height, width, 0, 0, width, height, empty_map_abi);
             
-            run_refvest(results, cropped_image,param_map);
+            std::vector<PostureInfo> persons_info;
+
+            for (auto pinfo : posture_info_list) {
+
+                PostureInfo postureInfo{ pinfo };
+
+                // get key 5 - key 13 min xy max xy
+                std::vector<float> x_vec;
+                std::vector<float> y_vec;
+                for(int i = 5; i < 13; i++)
+                {
+                    x_vec.push_back(postureInfo.Kpoints[i].first.x);
+                    y_vec.push_back(postureInfo.Kpoints[i].first.y);
+                }
+
+                auto limit = [](int x) {if (x < 0) return 0; else return x; };
+
+                float min_x = *std::min_element(x_vec.begin(), x_vec.end());
+                float min_y = *std::min_element(y_vec.begin(), y_vec.end());
+                float max_x = *std::max_element(x_vec.begin(), x_vec.end());
+                float max_y = *std::max_element(y_vec.begin(), y_vec.end());
+                
+                cv::Point min_pt(limit(min_x), limit(min_y));
+                cv::Point max_pt(limit(max_x), limit(max_y));
+
+                cv::Mat cropped_image = image(cv::Range(min_pt.x, max_pt.x), cv::Range(min_pt.y, max_pt.y)).clone();
+                
+                auto classify_result = run_classify(cropped_image, param_map);
+
+                auto classify_score = [](int x, int y) { if (x > y) return x; else return y;}; 
+                auto classify_label = [](int x, int y) { if (x > y) return 0; else return 1;};
+                
+                refvest::box_info_internal box_info;
+
+                box_info.x1 = min_pt.x;
+                box_info.y1 = min_pt.y;  
+                box_info.x2 = max_pt.x;
+                box_info.y2 = max_pt.y;
+                box_info.score = classify_score(classify_result.first, classify_result.second);
+                box_info.category = classify_label(classify_result.first, classify_result.second);
+
+                results.push_back(box_info);
+            }
 			
             for (auto& i : results)
             {
@@ -76,8 +121,6 @@ namespace glasssix::refvest
                 i.y2= i.y2>0?i.y2:0;
                 i.y2= i.y2<height?i.y2:height;
 
-          
-
                 result.push_back(exposing::make_as_first<box_info_impl>(i));
             }          
             return result;
@@ -90,205 +133,28 @@ namespace glasssix::refvest
 
 #if defined(USE_RKNNAPI) || defined(USE_RKNN2API)
 			//#if 0
-			std::string nn_frame_version = net_instance_.version();
+			std::string nn_frame_version = classify_instance_.version();
 #else
-			std::string nn_frame_version = net_instance_.version();
+			std::string nn_frame_version = classify_instance_.version();
 #endif
 			return fmt::format(R"({{"nn_frame_version":"{}", "algo_module_version":"{}"}})", nn_frame_version, algo_module_version);
 
         }
 
     private:
-	
-		std::array<float, 7> scale_coords(const std::array<float, 7>& coords, cv::Size& input_shape, cv::Size& output_shape)
-		{	
-			auto clamp = [](int x, int min, int max) {if (x < min) return min; else if (x > max) return max; else return x; };
-
-			// gain
-			float gain = std::min(input_shape.width / (float)output_shape.width, input_shape.height / (float)output_shape.height);
-
-			// pad
-			float pad_w = (input_shape.width - output_shape.width * gain) / 2.0;
-			float pad_h = (input_shape.height - output_shape.height * gain) / 2.0;
-
-			// x padding
-			// y padding
-
-			float x1 = (coords[0] - pad_w) / gain;
-			float y1 = (coords[1] - pad_h) / gain;
-			float x2 = (coords[2] - pad_w) / gain;
-			float y2 = (coords[3] - pad_h) / gain;
-
-			clamp(x1, 0, output_shape.width);
-			clamp(y1, 0, output_shape.height);
-			clamp(x2, 0, output_shape.width);
-			clamp(y2, 0, output_shape.height);
-
-			std::array<float, 7> temp = {x1, y1, x2, y2, coords[4], coords[5], coords[6]};
-
-			return temp;
-		}
-
-        void run_refvest(std::vector<box_info_internal>& result, cv::Mat& image, std::map<std::string, float>& param_map)
+        /**
+        * @fun letterbox
+        * @param src, new_shape
+        * @return tensor(preprocess(image))
+        * @details image preprocess and make tensor from images
+        */
+        std::tuple<cv::Mat, float> letterbox(cv::Mat img, int hope_size = 640)
         {
-			auto input_shape = cv::Size(640,  640);
-
-			auto output_shape = cv::Size(image.cols, image.rows);
-			
-			float conf_thres= param_map.count("conf_thres") ? param_map["conf_thres"] : 0.3f;
-            float iou_threshold = param_map.count("nms_thres") ? param_map["nms_thres"] : 0.5f;   
-			
-            auto [blob ,ratio]= refvest_imgprocess(image, 640);
-          
-            auto  output = net_instance_.forward(blob.data, { 1, blob.rows, blob.cols,blob.channels() }, RKNN_TENSOR_NHWC);
-
-            std::vector<std::array<float, 7>> detections = refvest_yolo_decoder(output["output"],conf_thres,iou_threshold);
-            std::vector<std::array<float, 7>> out = ppeople_refvest_assignment(detections);
-
-            for (const auto& bbox : out) {
-                box_info_internal box_ifo;
-				
-				auto scale_pt = scale_coords(bbox, input_shape, output_shape);
-                
-				box_ifo.x1 = static_cast<int>(scale_pt[0]);
-                box_ifo.y1 = static_cast<int>(scale_pt[1]);
-                box_ifo.x2 = static_cast<int>(scale_pt[2]);
-                box_ifo.y2 = static_cast<int>(scale_pt[3]);
-                box_ifo.score = scale_pt[4]* scale_pt[5];
-                box_ifo.category = static_cast<int>(scale_pt[6]);
-
-                result.push_back(box_ifo);
-            }
-
-        }
-
-        std::vector<std::array<float, 7>> ppeople_refvest_assignment(std::vector<std::array<float, 7>>& detections)
-        {
-            std::vector<std::array<float, 7>> detections_people;
-            std::vector<std::array<float, 7>> detections_ref;
-
-            for (auto& detection : detections) 
-            {
-                if (detection[6] > 0.5) 
-                {
-                    detections_ref.push_back(detection);
-                }
-                else 
-                {
-                    detections_people.push_back(detection);
-                }
-            }
-
-            for (auto& people : detections_people) {
-                float people_c = people[2] + people[0];
-                float people_w = (people[2] - people[0]) * 1.8;
-
-                for (auto& ref : detections_ref) {
-                    auto ref_c = ref[2] + ref[0];
-                    if (std::abs(people_c - ref_c) < people_w) {
-                        people[6] = 1;
-                    }
-                }
-            }
-
-            return detections_people;
-        }
-
-      std::vector<std::array<float, 7>> refvest_yolo_decoder(std::shared_ptr<memory::tensor<float>>& detectionMat, float conf_thres,float iou_thres, int type = 0)
-        {
-            std::vector<std::array<float, 7>> detections_target;
-            std::vector<std::array<float, 7>> detections_target_NMS;
-
-            std::vector<cv::Rect2d> bboxes;
-            std::vector <float> bbox_scores;
-            const float *data_ptr=detectionMat->cpu_data();
-            for (int idx = 0; idx < 8400; idx++) {
-                 
-                float obj_confidence = data_ptr[4];
-                float false_conf = data_ptr[5];
-                float true_conf = data_ptr[6];
-                bool class_pred = true_conf > false_conf;
-                float class_conf = data_ptr[5 + int(class_pred)];
-
-
-                if (obj_confidence * class_conf > conf_thres)
-                {
-                    if (idx > 8000) {
-                        const int grid = 20;
-                        const int stride = 32;
-
-                        float center_x = (data_ptr[0] + (idx - 8000) % grid) * stride;
-                        float center_y = (data_ptr[1] + (idx - 8000) / grid) * stride;
-                        float box_w = std::exp(data_ptr[2]  ) * stride;
-                        float box_h = std::exp(data_ptr[3]) * stride;
-
-                        float v0 = center_x - box_w / 2;
-                        float v1 = center_y - box_h / 2;
-                        float v2 = center_x + box_w / 2;
-                        float v3 = center_y + box_h / 2;
-
-                        bboxes.push_back({ v0, v1 , box_w, box_h });
-                        bbox_scores.push_back(obj_confidence);
-
-                        detections_target.push_back({ v0, v1 , v2, v3, obj_confidence, class_conf, static_cast<float>(class_pred) });
-                    }
-                    else if (idx > 6400) {
-                        const int grid = 40;
-                        const int stride = 16;
-                        float center_x = ( data_ptr[0] + (idx - 6400) % grid) * stride;
-                        float center_y = (data_ptr[1] + (idx - 6400) / grid) * stride;
-                        float box_w = std::exp(data_ptr[2]) * stride;
-                        float box_h = std::exp(data_ptr[3]) * stride;
-
-                        float v0 = center_x - box_w / 2;
-                        float v1 = center_y - box_h / 2;
-                        float v2 = center_x + box_w / 2;
-                        float v3 = center_y + box_h / 2;
-
-                        bboxes.push_back({ v0, v1 , box_w, box_h });
-                        bbox_scores.push_back(obj_confidence);
-
-                        detections_target.push_back({ v0, v1 , v2, v3, obj_confidence, class_conf, static_cast<float>(class_pred) });
-                    }
-                    else {
-                        const int grid = 80;
-                        const int stride = 8;
-                        float center_x = ( data_ptr[0]+ (idx - 0) % grid) * stride;
-                        float center_y = ( data_ptr[1]+ (idx - 0) / grid) * stride;
-                        float box_w = std::exp( data_ptr[2]  ) * stride;
-                        float box_h = std::exp( data_ptr[3]) * stride;
-
-                        float v0 = center_x - box_w / 2;
-                        float v1 = center_y - box_h / 2;
-                        float v2 = center_x + box_w / 2;
-                        float v3 = center_y + box_h / 2;
-
-                        bboxes.push_back({ v0, v1 , box_w, box_h });
-                        bbox_scores.push_back(obj_confidence);
-
-                        detections_target.push_back({ v0, v1 , v2, v3, obj_confidence, class_conf, static_cast<float>(class_pred) });
-                    }
-                }
-                           data_ptr+=7;
-            }
-
-            std::vector<int> bbox_indices;
-            cv::dnn::NMSBoxes(bboxes, bbox_scores, 0.5, iou_thres, bbox_indices);
-
-            for (int i = 0; i < bbox_indices.size(); i++) {
-                detections_target_NMS.push_back(detections_target[bbox_indices[i]]);
-            }
-
-            return detections_target_NMS;
-        }
-        
-        std::pair<cv::Mat, float> refvest_imgprocess(const cv::Mat& img, int hope_size = 640) {
             int H = img.rows;
             int W = img.cols;
             float ratio_w = (float)W / (float)hope_size;
             float ratio_h = (float)H / (float)hope_size;
             float ratio = ratio_w;
-
             cv::Mat resize_img;
             if(H==hope_size && W==hope_size )
             {
@@ -297,28 +163,29 @@ namespace glasssix::refvest
             else
             {
                 if (ratio_w == ratio_h)
-                    {
+                {
+
                     cv::resize(img, resize_img, cv::Size2i{ hope_size, hope_size });}
                 else if (ratio_w > ratio_h) {
-           
+
                     int new_x = hope_size;
                     int new_y = (int)(H / ratio_w);
                     int pad1 = (int)((hope_size - new_y) / 2);
                     int pad2 = hope_size - new_y - pad1;
                     cv::resize(img, resize_img, cv::Size2i{ new_x, new_y });
-            
+
                     cv::copyMakeBorder(resize_img, resize_img, pad1, pad2, 0, 0, cv::BORDER_CONSTANT, cv::Scalar{ 114,114,114 });
                 }
                 else {
-     
+
                     ratio = ratio_h;
                     int new_y = hope_size;
                     int new_x = (int)(W / ratio_h);
                     int pad1 = (int)((hope_size - new_x) / 2);
                     int pad2 = hope_size - new_x - pad1;
-  
+
                     cv::resize(img, resize_img, cv::Size2i{ new_x, new_y });
-                      
+
                     cv::copyMakeBorder(resize_img, resize_img, 0, 0, pad1, pad2, cv::BORDER_CONSTANT, cv::Scalar{ 114,114,114 });
                 }
             }
@@ -326,15 +193,31 @@ namespace glasssix::refvest
             return { resize_img, ratio };
         }
 
-        static inline float sigmoid_x(float x)
-        {
-            return static_cast<float>(1.f / (1.f + exp(-x)));
+        std::pair<float,float> run_classify(cv::Mat& image, std::map<std::string, float>& param_map)
+        {   
+            cv::Mat blobs;
+            float ratio = 0;
+            std::tie (blobs, ratio) = letterbox(image, 224);
+
+            std::vector<std::shared_ptr<glasssix::memory::tensor<float>>> forwards;
+
+            auto  network_result = classify_instance_.forward(blobs.data, { 1, blobs.rows, blobs.cols, blobs.channels() }, RKNN_TENSOR_NHWC);
+
+            forwards.push_back(network_result["output0"]);
+
+            const float* data_ptr = forwards[0]->cpu_data();
+
+            return std::make_pair(data_ptr[0], data_ptr[1]);
+
         }
+
+
 
     private:
         std::string model_directory_;
         int device_;
-        glasssix::rknnwrapper::rknn_wrapper net_instance_;
+        glasssix::rknnwrapper::rknn_wrapper classify_instance_;
+        posture::detect_code posture_instance_;
     };
 
     classify_code_internal::classify_code_internal(std::string_view model_directory, int device)
