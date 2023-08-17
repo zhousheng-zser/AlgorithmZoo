@@ -21,7 +21,7 @@ namespace glasssix::workcloth
 		return exposing::to_param_string(impl_->version());
 	}
 
-	exposing::param_vector<workcloth::box_info> classify_code_impl::detect(exposing::param_span<std::uint8_t> bitmap, int channels, int height, int width, int roi_x, int roi_y, int roi_width, int roi_height,
+	exposing::param_vector<workcloth::box_info> classify_code_impl::detect(exposing::param_span<std::uint8_t> bitmap, int channels, int height, int width, int roi_x, int roi_y, int roi_width, int roi_height, int color_index,
 		const exposing::param_hash_map<exposing::param_string, float>& param_map_abi) const
 	{
 		if (!impl_)
@@ -33,7 +33,7 @@ namespace glasssix::workcloth
 			param_map.insert(std::make_pair(it.key(), it.value()));
 		}
 
-		return impl_->detect(std::move(bitmap), channels, height, width, roi_x, roi_y, roi_width, roi_height, param_map);
+		return impl_->detect(std::move(bitmap), channels, height, width, roi_x, roi_y, roi_width, roi_height, color_index, param_map);
 	}
 
 }

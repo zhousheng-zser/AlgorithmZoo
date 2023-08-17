@@ -32,24 +32,14 @@ namespace glasssix::workcloth
 		return internal_.y2;
 	}
 
-	exposing::param_vector<int> box_info_impl::up_rgb() const
+    bool box_info_impl::color_pure() const
 	{
-		return internal_.up_rgb;
+		return internal_.color_pure;
 	}
 
-	exposing::param_vector<int> box_info_impl::lw_rgb() const
+    float box_info_impl::color_conf() const
 	{
-		return internal_.lw_rgb;
-	}
-
-    bool box_info_impl::up_strange() const
-	{
-		return internal_.up_strange;
-	}
-
-	bool box_info_impl::lw_strange() const
-	{
-		return internal_.lw_strange;
+		return internal_.color_conf;
 	}
 
     float box_info_impl::score() const

@@ -23,10 +23,8 @@ namespace glasssix::exposing::impl
             virtual std::int32_t G6_ABI_CALL y1(abi_out_t<int> result) noexcept = 0;
             virtual std::int32_t G6_ABI_CALL x2(abi_out_t<int> result) noexcept = 0;
             virtual std::int32_t G6_ABI_CALL y2(abi_out_t<int> result) noexcept = 0;
-            virtual std::int32_t G6_ABI_CALL up_rgb(abi_out_t<param_vector<int>> result) noexcept = 0;
-            virtual std::int32_t G6_ABI_CALL lw_rgb(abi_out_t<param_vector<int>> result) noexcept = 0;
-            virtual std::int32_t G6_ABI_CALL up_strange(abi_out_t<bool> result) noexcept = 0;
-            virtual std::int32_t G6_ABI_CALL lw_strange(abi_out_t<bool> result) noexcept = 0;
+            virtual std::int32_t G6_ABI_CALL color_pure(abi_out_t<bool> result) noexcept = 0;
+            virtual std::int32_t G6_ABI_CALL color_conf(abi_out_t<float> result) noexcept = 0;
             virtual std::int32_t G6_ABI_CALL score(abi_out_t<float> result) noexcept = 0;
 			virtual std::int32_t G6_ABI_CALL category(abi_out_t<int> result) noexcept = 0;
         };
@@ -60,35 +58,24 @@ namespace glasssix::exposing::impl
                 { *result = detach_abi(this->self().y2()); });
         }
 
-        virtual std::int32_t G6_ABI_CALL up_rgb(abi_out_t<param_vector<int>> result) noexcept override
+        virtual std::int32_t G6_ABI_CALL color_pure(abi_out_t<bool> result) noexcept override
         {
             return abi_safe_call([&]
-                { *result = detach_abi(this->self().up_rgb()); });
+                                 { *result = detach_abi(this->self().color_pure()); });
         }
 
-        virtual std::int32_t G6_ABI_CALL lw_rgb(abi_out_t<param_vector<int>> result) noexcept override
+        virtual std::int32_t G6_ABI_CALL color_conf(abi_out_t<float> result) noexcept override
         {
             return abi_safe_call([&]
-                { *result = detach_abi(this->self().lw_rgb()); });
+                                 { *result = detach_abi(this->self().color_conf()); });
         }
-
-        virtual std::int32_t G6_ABI_CALL up_strange(abi_out_t<bool> result) noexcept override
-        {
-            return abi_safe_call([&]
-                                 { *result = detach_abi(this->self().up_strange()); });
-        }
-
-        virtual std::int32_t G6_ABI_CALL lw_strange(abi_out_t<bool> result) noexcept override
-        {
-            return abi_safe_call([&]
-                                 { *result = detach_abi(this->self().lw_strange()); });
-        }
-
+        
         virtual std::int32_t G6_ABI_CALL score(abi_out_t<float> result) noexcept override
         {
             return abi_safe_call([&]
                                  { *result = detach_abi(this->self().score()); });
         }
+
         virtual std::int32_t G6_ABI_CALL category(abi_out_t<int> result) noexcept override
         {
             return abi_safe_call([&]
@@ -129,32 +116,18 @@ namespace glasssix::exposing::impl
                 return (check_abi_result(this->self_abi().y2(put_abi(result))), result);
             }
 
-            param_vector<int> up_rgb() const
-            {
-                param_vector<int> result;
-
-                return (check_abi_result(this->self_abi().up_rgb(put_abi(result))), result);
-            }
-
-            param_vector<int> lw_rgb() const
-            {
-                param_vector<int> result;
-
-                return (check_abi_result(this->self_abi().lw_rgb(put_abi(result))), result);
-            }
-
-			bool up_strange() const
+			bool color_pure() const
             {
                 bool result = 0;
 
-                return (check_abi_result(this->self_abi().up_strange(put_abi(result))), result);
+                return (check_abi_result(this->self_abi().color_pure(put_abi(result))), result);
             }
 
-			bool lw_strange() const
+			float color_conf() const
             {
-                bool result = 0;
+                float result = 0;
 
-                return (check_abi_result(this->self_abi().lw_strange(put_abi(result))), result);
+                return (check_abi_result(this->self_abi().color_conf(put_abi(result))), result);
             }
 
 			float score() const
