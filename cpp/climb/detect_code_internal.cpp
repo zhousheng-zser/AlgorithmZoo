@@ -29,7 +29,6 @@ namespace glasssix::climb
         }
 
         impl(const std::vector<std::string> &phai, std::string model_directory, int device)
-                :net_instance_(phai,  model_directory + std::string("/sleeping.rknn"), device)
         {
             static bool ready = glasssix::exposing::get_component_loader().add_module_by_name("posture");
             posture_instance_ = glasssix::exposing::make_exported_interface<posture::detect_code>(exposing::param_string(model_directory), device);
@@ -37,7 +36,6 @@ namespace glasssix::climb
 
         exposing::param_vector<climb::box_info> detect(const exposing::param_span<std::uint8_t>& bitmap, int channels, int height, int width, int roi_x, int roi_y, int roi_width, int roi_height, std::map<std::string, float>& param_map)
         {
-            // std::cout<<"climb\n";
             if (bitmap.empty())
             {
                 throw exposing::abi_invalid_argument("current frame is empty");
@@ -113,11 +111,12 @@ namespace glasssix::climb
 			const std::string algo_module_version = "1.0.0";
 
 #if defined(USE_RKNNAPI) || defined(USE_RKNN2API)
-			//#if 0
-			std::string nn_frame_version = net_instance_.version();
+
+            exposing::param_string nn_frame_version_param= posture_instance_.version();
 #else
-			std::string nn_frame_version = net_instance_.version();
+            exposing::param_string nn_frame_version_param = posture_instance_.version();
 #endif
+            std::string nn_frame_version =  exposing::to_narrow_string(nn_frame_version_param);
 			return fmt::format(R"({{"nn_frame_version":"{}", "algo_module_version":"{}"}})", nn_frame_version, algo_module_version);
 		}
 
@@ -166,10 +165,12 @@ namespace glasssix::climb
                     if( y<y_projection)
                     {       
                         output[i]=1;
+                        // std::cout<<"climb\n";
                     }
                     else
                     {       
                         output[i]=0;
+                        // std::cout<<"i dont know\n";
                     }
                 }
                 else
@@ -177,10 +178,12 @@ namespace glasssix::climb
                     if( y<y_projection)
                     {       
                         output[i]=1;
+                        // std::cout<<"climb\n";
                     }
                     else
                     {   
                         output[i]=0;
+                        //  std::cout<<"i dont know\n";
                     }
 
                 }
@@ -193,8 +196,7 @@ namespace glasssix::climb
     private:
         std::string model_directory_;
         int device_;
-        rknnwrapper::rknn_wrapper net_instance_;
-         posture::detect_code posture_instance_;
+        posture::detect_code posture_instance_;
 
     };
 
