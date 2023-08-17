@@ -328,7 +328,7 @@ namespace glasssix::smog
             std::vector<smog::box_info_internal> detect_result;
 
             float smog_thres = param_map.count("smog_thres") ? param_map["smog_thres"] : 0.65f;
-            float iou_thres = param_map.count("nms_thres") ? param_map["nms_thres"] : 0.65f
+            float iou_thres = param_map.count("nms_thres") ? param_map["nms_thres"] : 0.65f;
 
             // preprocess
             auto input_shape = cv::Size(640,  640);
@@ -343,7 +343,7 @@ namespace glasssix::smog
 
             std::vector<std::shared_ptr<glasssix::memory::tensor<float>>> forwards;
 
-            auto  network_result = net_detect_.forward(blobs.data, { 1, blobs.rows, blobs.cols, blobs.channels() }, RKNN_TENSOR_NHWC);
+            auto  network_results = net_detect_.forward(blobs.data, { 1, blobs.rows, blobs.cols, blobs.channels() }, RKNN_TENSOR_NHWC);
 
             forwards.push_back(network_results["onnx::Mul_423"]);
             forwards.push_back(network_results["onnx::Sigmoid_380"]);
