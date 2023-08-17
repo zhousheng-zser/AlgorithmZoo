@@ -52,7 +52,7 @@ namespace glasssix::smoke
                   throw exposing::abi_invalid_argument("incorrect roi in smoke");
             }
 
-            cv::Mat cropped_image = image(cv::Range(roi_y,roi_y+roi_height), cv::Range(roi_x,roi_x+roi_width));
+            cv::Mat cropped_image = image(cv::Range(roi_y,roi_y+roi_height), cv::Range(roi_x,roi_x+roi_width)).clone();
 
             auto detect_result = run_detect(cropped_image, roi_x, roi_y, roi_width, roi_height, param_map);
             auto cate_result=categorys(cropped_image,detect_result);
