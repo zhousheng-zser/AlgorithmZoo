@@ -9,7 +9,7 @@ namespace glasssix::needledash
         {
 			inline static const std::vector<std::string> meter_sim{
                 "glsv1",
-                "716 923",
+                "711 928",
                 "Input            images                   0 1 images 0=640 1=640 2=3 3=0,0,0 4=0.0039215686",
                 "MemoryData       /model.118/ia.0/Expand_output_0 0 1 /model.118/ia.0/Expand_output_0 0=80 1=80 2=256",
                 "MemoryData       /model.118/ia.1/Expand_output_0 0 1 /model.118/ia.1/Expand_output_0 0=40 1=40 2=512",

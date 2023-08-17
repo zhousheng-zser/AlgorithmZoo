@@ -24,6 +24,7 @@
 #endif
 #include <abi/param_vector.hpp>
 #include <utility>
+#include <tuple>
 
 namespace glasssix::posture
 {
@@ -35,21 +36,23 @@ namespace glasssix::posture
         {
 
 #if defined(USE_RKNNAPI) || defined(USE_RKNN2API)
-           net_instance_ = std::make_unique<rknnwrapper::rknn_wrapper>(get_model_params("posture", false), std::string(model_directory) + "/" +"Trespass_kpt_sim.rknn", device);      
+           net_detect_ = std::make_unique<rknnwrapper::rknn_wrapper>(get_model_params("posture", false),
+           std::string(model_directory) + "/" +"posture.rknn", device);      
 #else
-           net_instance_ = std::make_unique<glasssix::excalibur::pipeline<float>>(get_model_params("posture", false), std::string(model_directory) + "/" +"Trespass_kpt_sim.racy", device);      
+           net_detect_ = std::make_unique<glasssix::excalibur::pipeline<float>>(get_model_params("posture", false),
+           std::string(model_directory) + "/" +"posture.racy", device);      
 #endif
 
         }
 
 std::string version()
         {
-			const std::string algo_module_version = "1.0.0";
+			const std::string algo_module_version = "2.0.0";
 
 #if defined(USE_RKNNAPI) || defined(USE_RKNN2API)
-			std::string nn_frame_version = net_instance_->version();
+			std::string nn_frame_version = net_detect_->version();
 #else
-			std::string nn_frame_version = net_instance_->version();
+			std::string nn_frame_version = net_detect_->version();
 #endif
 			return fmt::format(R"({{"nn_frame_version":"{}", "algo_module_version":"{}"}})", nn_frame_version, algo_module_version);
 
@@ -76,81 +79,57 @@ std::string version()
 
             cv::Mat cropped_image = image(cv::Range(roi_y, roi_y + roi_height), cv::Range(roi_x, roi_x + roi_width));
 
-             cv::Mat blob;
-            float ratio;
-            std::tie(blob, ratio) = preprocess(cropped_image);
-    
+            auto new_shape = cv::Size(640,  640);
 
-#if defined(USE_RKNNAPI) || defined(USE_RKNN2API)
-			//#if 0
-			auto  network_result = net_instance_->forward(blob.data, { 1, blob.rows, blob.cols,blob.channels() }, RKNN_TENSOR_NHWC);
-#else
-            std::shared_ptr<glasssix::memory::tensor<uint8_t>> input_tensor_blob(new glasssix::memory::tensor<uint8_t>(std::vector<int>{1, blob.rows, blob.cols, 3}, -1, glasssix::memory::NHWC));
-            // mat convert into tensor
-            std::copy(blob.data, blob.data + blob.step[0] * blob.rows, input_tensor_blob->mutable_cpu_data());
+            cv::Mat blob;
+            float ratio = 0;
+            int pad_h=0;  
+            int pad_w=0;
+            std::tie(blob, ratio) = preprocess_detection( image,pad_h,pad_w, new_shape ) ;
 
-            // NHWC into NCHW tensor
-            input_tensor_blob->convert_order();
-            auto input_tensor = input_tensor_blob | glasssix::memory::tensor_convert_to<float>;
-			auto  network_result = net_instance_->forward(input_tensor);
-#endif
+            std::map< std::string,std::shared_ptr<memory::tensor<float>>> forwards;
 
-          
+            unsigned char * blobdata=blob.ptr<uchar>();
 
+            auto  network_result = net_detect_->forward(blob.data, { 1, blob.rows, blob.cols,blob.channels() }, RKNN_TENSOR_NHWC);
 
+            std::vector<std::string>  out_names={"onnx::Sigmoid_513","onnx::Concat_488","onnx::Mul_502","onnx::Mul_485"};
 
-
-            
-            std::vector<std::shared_ptr<memory::tensor<float>>> forwards;
-            std::vector<std::string>  out_names = {"output", "701","723", "745"};
-
-            for (size_t i = 0; i < out_names.size(); i++)//对输出数据做处理
+            for (size_t i=0;i< out_names.size(); i++)
             {
-                forwards.push_back(network_result[out_names[i]]);
+                forwards[out_names[i]]=  network_result[out_names[i]];
             }
 
+            std::shared_ptr<memory::tensor<float>> real_forwards=yolov8_complement(forwards);
 
+            //while the yolov8 ol add the code 
+                //real_forwards =network_result["output0"];
+            //and delete line 96-103,then delete function  yolov8_complement
 
-			float conf_threshold= param_map.count("conf_thres") ? param_map["conf_thres"] : 0.1f;
-            float iou_threshold = param_map.count("nms_thres") ? param_map["nms_thres"] : 0.5f;      
-
-
-            std::vector<pt>     pt_location;
-            std::vector<keypt> key_location;
-
-            std::tie(pt_location, key_location) = concat(forwards, conf_threshold);
-
-            // non_max_suppression
-            std::vector<point> pt_nms;
-            std::vector<keypt> key_nms;
-            std::tie(pt_nms, key_nms) = non_max_suppression(pt_location, key_location, conf_threshold, iou_threshold);
-
-
+            auto nms_result = post_process(real_forwards, blob,pad_h,pad_w, 1.f/ratio);
 
             auto fin_result= exposing::make_param_vector<box_info>();
 
             std::vector<box_info_internal> result;
 
-            for (int i=0;i<pt_nms.size();i++)
+            for (auto& body : nms_result)
             {
 
-               box_info_internal temp_result;
-                temp_result.x1=pt_nms[i].x1*ratio + roi_x;
-                temp_result.y1=pt_nms[i].y1*ratio + roi_y;
-                temp_result.x2=pt_nms[i].x2*ratio + roi_x;
-                temp_result.y2=pt_nms[i].y2*ratio + roi_y;
+                box_info_internal temp_result;
+                temp_result.x1=body[0]+ roi_x;
+                temp_result.y1=body[1]+ roi_y;
+                temp_result.x2=body[2]+ roi_x;
+                temp_result.y2=body[3]+ roi_y;
 
-                temp_result.score=pt_nms[i].score;
-
-                temp_result.category=pt_nms[i].category;
+                temp_result.score=body[4];
 
                 temp_result.key_points = exposing::make_param_vector<float>();
 
-                for(int j=0;j<14;j++)
+                for(int j=0;j<17;j++)
                 {
-                    temp_result.key_points.push_back(key_nms[j+14*i].x*ratio+roi_x);
-                    temp_result.key_points.push_back(key_nms[j+14*i].y*ratio+roi_y);
-                    temp_result.key_points.push_back(key_nms[j+14*i].score);
+                    temp_result.key_points.push_back(body[3*j+5] + roi_x);
+                    temp_result.key_points.push_back(body[3*j+5+1] + roi_y);
+                    temp_result.key_points.push_back(body[3*j+5+2]);
    
                 }
                 result.push_back( temp_result  );
@@ -164,267 +143,245 @@ std::string version()
             return fin_result;
 
 
-    
         }
 
     
-    private:
-
-
-            struct point {
-                float x1;
-                float y1;
-                float x2;
-                float y2;
-                float score;
-                int category;
-            };
-
-            struct pt {
-                float x;
-                float y;
-                float w;
-                float h;
-                float score;
-                int category;
-            };
-
-            struct keypt {
-                float x;
-                float y;
-                float score;
-            };
-
-
-
-        std::pair<std::vector<pt>, std::vector<keypt>> concat(std::vector<std::shared_ptr<glasssix::memory::tensor<float>>>& outs, float conf_thres)
+    private:      
+            static inline float sigmoid_x(float x)
             {
-                const float anchors[4][6] = { {19,27,  44,40,  38,94} , { 96,68,  86,152,  180,137},  {140,301,  303,264,  238,542},{ 436,615,  739,380,  925,792 }                                                              
-                                                };
-                const float stride[4] = { 8.0, 16.0, 32.0, 64.0 };
+                return static_cast<float>(1.f / (1.f + exp(-x)));
+            }
 
-                std::vector<pt> pt_location;
-                std::vector<keypt> key_location;
-                auto class_pred = [](float x, float y) {if (x > y) return 1; else return 0; };
+            std::tuple<cv::Mat, float> preprocess_detection(cv::Mat src,int& pad_h,int& pad_w,  cv::Size input_shape = cv::Size(640, 640) )
+            {
+                float scale = std::min((float)input_shape.width/(float)src.cols, (float)input_shape.height/(float)src.rows);
+                cv::Mat cut_image;
+                cv::Mat mask_image(input_shape, CV_8UC3, cv::Scalar(114, 114, 114));
+                if( src.rows != input_shape.height || src.cols != input_shape.width)
+                {      
+                    cv::resize(src, cut_image, cv::Size((int)(src.cols * scale), (int)(src.rows * scale)), cv::INTER_LINEAR);
 
-                for (int n = 0; n < 4; n++)
+                    pad_h = int((input_shape.height - cut_image.rows) /2 ) ; 
+                    pad_w = int((input_shape.width - cut_image.cols) /2 ) ; 
+                    cv::copyMakeBorder(cut_image, mask_image, pad_h, input_shape.height-cut_image.rows-pad_h, pad_w, input_shape.width-cut_image.cols-pad_w, cv::BORDER_CONSTANT, cv::Scalar{ 114,114,114 });
+                }
+                else 
                 {
-                    int num_grid_x = (int)(640 / stride[n]);
-                    int num_grid_y = (int)(640 / stride[n]);
+                    src.copyTo(mask_image);     
+                }
+                cv::cvtColor(mask_image, mask_image, cv::COLOR_BGR2RGB);
+                return {mask_image,scale};
+            }
 
-                    int ind = 0;
-                    const float* ptr_out = outs[n]->cpu_data();
-                    // channel
-                    for (int q = 0; q < 3; q++)
+            std::vector<std::vector<float>> post_process(std::shared_ptr<memory::tensor<float>>& net_result, cv::Mat & blob, int pad_h, int pad_w, float scale, float threshold=0.5,float iou_thres=0.7 )
+            {
+                std::vector<std::vector<float>> output;
+                // int nc=1;
+                // int nm=51;
+                // int mi=5;
+
+                std::shared_ptr<glasssix::memory::tensor<float>> dest 
+                    (new glasssix::memory::tensor<float>(8400, 56, -1, glasssix::memory::NCHW, nullptr));
+
+                tranpose( net_result ,dest);
+
+                const float *dest_ptr = dest->cpu_data(); 
+                // std::vector<Bbox> xywh_box;
+                std::vector<cv::Rect2d> xywh_boxes;
+
+                std::vector<std::vector<float>> key_points;
+
+                std::vector<float> scores;
+                std::vector<int> indices_body;//候选框顺序
+
+                int count=0;
+                for(int i=0;i<8400;i++)
+                {
+                    if(dest_ptr[56*i+4]>0.7 )
                     {
-                        const float anchor_w = anchors[n][q * 2];
-                        const float anchor_h = anchors[n][q * 2 + 1];
-                        for (int i = 0; i < num_grid_x; i++)
-                        {
-                            for (int j = 0; j < num_grid_y; j++)
-                            {
-                                const float* pdata = ptr_out + ind * 48;
+                        count++;
 
-                                float box_score = sigmoid_x(pdata[4]);
-                                float xxx = sigmoid_x(pdata[0]);
+                        indices_body.push_back(i);
+                        
+                        cv::Rect2d boxwh;
+                        boxwh.x      =  static_cast<double>(dest_ptr[56*i] - dest_ptr[56*i+2] / 2 );
+                        boxwh.y      =  static_cast<double>(dest_ptr[56*i+1] - dest_ptr[56*i+3]/2 );
+                        boxwh.width  =  static_cast<double>(dest_ptr[56*i+2]);
+                        boxwh.height =  static_cast<double>(dest_ptr[56*i+3]);       
 
-                                //if (box_score >= conf_thres)
-                                if (box_score >= 0.1)
-                                {
-                                    pt pt_temp{};
-                                    pt_temp.x = (sigmoid_x(pdata[0]) * 2.f - 0.5f + j) * stride[n];  //cx                 
-                                    pt_temp.y = (sigmoid_x(pdata[1]) * 2.f - 0.5f + i) * stride[n];  //cy
-                                    pt_temp.w = powf(sigmoid_x(pdata[2]) * 2.f, 2.f) * anchor_w;      //w
-                                    pt_temp.h = powf(sigmoid_x(pdata[3]) * 2.f, 2.f) * anchor_h;      //h
-                                    pt_temp.score = box_score;
-                                        
-                                    if (pt_temp.x > 270 && pt_temp.x < 290 && pt_temp.y>300)
-                                    {
-                                        int sd = 10;
-                                    }
-
-                                    pt_temp.category = class_pred(sigmoid_x(pdata[5]), sigmoid_x(pdata[6]));
-
-                                    pt_location.push_back(pt_temp);
-
-                                    //key-points
-                                    for (int group = 0; group < 14; ++group) {
-                                        keypt ky_temp{};
-                                        ky_temp.x = (pdata[6 + group * 3] * 2.f - 0.5f + j) * stride[n]; //point x
-                                        ky_temp.y = (pdata[7 + group * 3] * 2.f - 0.5f + i) * stride[n]; //point y
-                                        ky_temp.score = sigmoid_x(pdata[8 + group * 3]); //point score
-
-                                        key_location.push_back(ky_temp );
-                                    }
-
-                                }
-
-                                ind++;
-                            }
+                        { 
+                            xywh_boxes.push_back(boxwh);
+                            scores.push_back(dest_ptr[56*i+4]); 
+                            indices_body.push_back(i);
                         }
+
+                        std::vector<float> key_point(51);
+                        for(int j=0;j<51;j++)
+                        {
+                            key_point[j]=dest_ptr[56*i+5+j];
+                        }
+
+                            key_points.push_back( key_point );
+
                     }
                 }
 
-                return std::make_pair(pt_location, key_location);
-            }
-
-        static std::tuple<std::vector<cv::Rect>, std::vector<float>, std::vector<int>> computeNmsInput(std::vector<pt>& src)
-        {
-            std::vector<cv::Rect> boxes;
-            std::vector<float> scores;
-            std::vector<int> category;
-            for (auto const& it : src)
-            {
-                cv::Rect temp;
-                temp.x = static_cast<int>(it.x);
-                temp.y = static_cast<int>(it.y);
-                temp.width = static_cast<int>(it.w);
-                temp.height = static_cast<int>(it.h);
-                boxes.push_back(temp);
-                scores.push_back(it.score);
-                category.push_back(it.category);
-            }
-            return std::make_tuple(boxes, scores, category);
-        }
-
-        /**
-         * @fun non_max_suppression
-         * @param pt_location, key_location, conf_thres, iou_thres
-         * @return pt_nms, key_nms
-         * @details non_max_suppression
-         */
-        std::pair<std::vector<point>, std::vector<keypt>> non_max_suppression(std::vector<pt>& pt_location, std::vector<keypt>& key_location, float conf_thres, float iou_thres)
-        {
-            std::vector<point> pt_nms;
-            std::vector<keypt> key_nms;
-
-            std::vector<cv::Rect> boxes;
-            std::vector<float> scores;
-            std::vector<int> category;
-
-            std::tie(boxes, scores, category) = computeNmsInput(pt_location);
-
-            std::vector<int> indices;
-            cv::dnn::NMSBoxes(boxes, scores, conf_thres, iou_thres, indices, 1.f, 1);
-
-            for (auto const& it : indices)
-            {
-                point pt_temp{};
-
-                pt_temp.x1 = pt_location[it].x - pt_location[it].w / 2;
-                pt_temp.y1 = pt_location[it].y - pt_location[it].h / 2;
-
-                pt_temp.x2 = pt_location[it].x + pt_location[it].w / 2;
-                pt_temp.y2 = pt_location[it].y + pt_location[it].h / 2;
-                pt_temp.score = pt_location[it].score;
-                pt_temp.category = pt_location[it].category;
-
-                pt_nms.push_back(pt_temp);
-
-                for (int i = 0; i < 14; ++i)
+                std::vector<int> indices_body_copy( indices_body.size() );
+                for(int i=0;i<indices_body_copy.size();i++)
                 {
-                    key_nms.push_back(key_location[it * 14 + i]);
+                    indices_body_copy[i]=i;
+                }
+                cv::dnn::NMSBoxes(xywh_boxes, scores, 0.5, 0.6, indices_body_copy, 1.f, 0);
+
+                for(int i=0; i< indices_body_copy.size();i++)
+                {
+                    int index = indices_body_copy[i];
+                    std::vector<float> temp_output(56);
+                    
+                    temp_output[0]= (xywh_boxes[index].x - pad_w)*scale;
+                    temp_output[1]= (xywh_boxes[index].y - pad_h)*scale;
+                    temp_output[2]= (xywh_boxes[index].width + xywh_boxes[index].x - pad_w)*scale;
+                    temp_output[3]= (xywh_boxes[index].height + xywh_boxes[index].y - pad_h)*scale;
+                    temp_output[4]= scores[index];
+                    for(int j=0;j<17;j++)
+                    {
+                        temp_output[5+3*j+0] = (key_points[index][3*j]-pad_w)*scale;
+                        temp_output[5+3*j+1] = (key_points[index][3*j+1]-pad_h)*scale;
+                        temp_output[5+3*j+2] = key_points[index][3*j+2];
+         
+                    }
+
+                    output.emplace_back(temp_output);
+                
+                }
+            
+                return output;
+
+            }
+
+
+            void tranpose(std::shared_ptr<memory::tensor<float>>& data,
+                            std::shared_ptr<memory::tensor<float>>& dest)
+            {
+                const float *sour_ptr = data->cpu_data();
+
+                float *dest_ptr = dest->mutable_cpu_data();
+                for(int i=0;i< 56;i++)
+                {
+                    for(int j=0;j< 8400;j++)
+                    {
+                        dest_ptr[j*56+i]=sour_ptr[ i * 8400 + j];    
+                    }
                 }
             }
 
-            return std::make_pair(pt_nms, key_nms);
-        }
+            std::shared_ptr<memory::tensor<float>> yolov8_complement(std::map< std::string,std::shared_ptr<memory::tensor<float>>>& forwards)
+            {
 
-        static std::pair<cv::Mat, float> letterbox(cv::Mat& img) 
-        {
-            auto new_shape = cv::Size(640, 640);
-            int H = img.rows;
-            int W = img.cols;
-            float ratio_w = (float)W / (float)new_shape.width;
-            float ratio_h = (float)H / (float)new_shape.height;
-            float ratio = ratio_w;
+                std::shared_ptr<glasssix::memory::tensor<float>> output0
+                    (new memory::tensor<float>(std::vector<int>{1, 56, 8400}, -1, memory::NCHW));
 
-            cv::Mat resize_img;
-            if (H == new_shape.height && W == new_shape.width) {
-                resize_img = img;
+                std::shared_ptr<glasssix::memory::tensor<float>> Concat_522
+                        (new memory::tensor<float>(std::vector<int>{1, 51, 8400}, -1, memory::NCHW));
+
+                float *Mul_487=forwards["onnx::Mul_485"]->mutable_cpu_data();
+                std::vector<float> mul_weight280(8400);
+                for(int i=0;i<8400;i++)
+                {
+                    if(i<6400)
+                    {
+                        mul_weight280[i]=8.f;
+                    } 
+                    else if(i<8000)
+                    {
+                        mul_weight280[i]=16.f;
+                    }
+                    else
+                    {
+                        mul_weight280[i]=32.f;
+                    }
+                }
+
+                for(int i=0;i<4;i++)
+                {
+                    for(int j=0;j<8400;j++)
+                    {
+                        Mul_487[i*8400+j] = Mul_487[i*8400+j]*mul_weight280[j];
+                    }
+                }
+
+                float *Concat_508=forwards["onnx::Mul_502"]->mutable_cpu_data();
+                std::vector<float> Add_weight291(8400*2);
+                for(int i=0;i<8400;i++)
+                {
+                    if( i<6400)
+                    {
+                        Add_weight291[i]=i%80;
+                    }
+                    else if(i<8000)
+                    {
+                        Add_weight291[i]=(i -6400)%40;
+                    }
+                    else
+                    {
+                        Add_weight291[i]=(i -8000)%20;
+                    }
+
+                    if( i<6400)
+                    {
+                        Add_weight291[i+8400]=i/80;
+                    }
+                    else if(i<8000)
+                    {
+                        Add_weight291[i+8400]=(i -6400)/40;
+                    }
+                    else
+                    {
+                        Add_weight291[i+8400]=(i -8000)/20;
+                    }
+                }
+
+                for(int m=0;m<17;m++)
+                {
+                    for(int i=0;i<2;i++)
+                    {
+                        for(int j=0;j<8400;j++)
+                        {
+                            Concat_508[m*8400*2 + i*8400 +j] = (Concat_508[m*8400*2 + i*8400 +j]* 2.f + Add_weight291[i*8400+j])*mul_weight280[j] ;//最优层mul add mul
+                        }
+                    }
+                }   
+
+                float *Concat_514=forwards["onnx::Sigmoid_513"]->mutable_cpu_data();
+        
+                for(int i=0;i<17;i++)
+                {
+                    for(int j=0;j<8400;j++)
+                    {
+                        Concat_514[i*8400 +j] = sigmoid_x(Concat_514[i*8400 +j]) ;//最右侧sigmoid
+                    }
+                }
+                
+                //计算完毕
+                float * ptr_concat_522=Concat_522->mutable_cpu_data();     //Concat_522最右侧reshape
+
+                long index=0;
+                for(int j=0;j<17;j++)
+                {   
+                    memcpy(ptr_concat_522 + 8400*3*j ,  Concat_508 +j*8400*2,8400*2* sizeof(float) ); 
+                    memcpy(ptr_concat_522 + 8400*3*j+8400*2 ,  Concat_514 +j*8400  ,8400*1* sizeof(float) ); 
+                }
+
+                float *Concat_488=forwards["onnx::Concat_488"]->mutable_cpu_data();
+                float * ptr_output = output0->mutable_cpu_data();  
+                        
+                memcpy(ptr_output,        Mul_487,8400*4* sizeof(float) ); 
+                memcpy(ptr_output+8400*4, Concat_488,8400* sizeof(float) ); 
+                memcpy(ptr_output+8400*5, ptr_concat_522,8400*51* sizeof(float) ); 
+                return output0;
+
             }
-            else {
-                if (ratio_w == ratio_h) {
-                    cv::resize(img, resize_img, cv::Size2i{ new_shape.width, new_shape.height });
-                }
-                else if (ratio_w > ratio_h) {
 
-                    int new_x = new_shape.width;
-                    int new_y = (int)(H / ratio_w);
-                    int pad1 = (int)((new_shape.height - new_y) / 2);
-                    int pad2 = new_shape.height - new_y - pad1;
-                    cv::resize(img, resize_img, cv::Size2i{ new_x, new_y });
-                    cv::copyMakeBorder(resize_img, resize_img, 0, pad2+pad1, 0, 0, cv::BORDER_CONSTANT,
-                        cv::Scalar{ 114, 114, 114 });
-
-                }
-                else {
-                    ratio = ratio_h;
-                    int new_y = new_shape.height;
-                    int new_x = (int)(W / ratio_h);
-                    int pad1 = (int)((new_shape.width - new_x) / 2);
-                    int pad2 = new_shape.width - new_x - pad1;
-                    cv::resize(img, resize_img, cv::Size2i{ new_x, new_y });
-                    cv::copyMakeBorder(resize_img, resize_img, 0, 0, 0,  pad2+ pad1, cv::BORDER_CONSTANT,
-                        cv::Scalar{ 114, 114, 114 });
-
-                }
-            }
-
-            return { resize_img, ratio };
-        }
-
-        std::pair<cv::Mat, float> preprocess(cv::Mat& image) 
-        {
-            // letterbox
-            cv::Mat crop_image;
-            float ratio;
-            std::tie(crop_image, ratio) = letterbox(image);
-
-            // cvt BGR2RGB
-            cv::Mat rgb_image;
-            cv::cvtColor(crop_image, rgb_image, cv::COLOR_BGR2RGB);
-
-            return std::make_pair(rgb_image, ratio);
-        }
-
-        void xywh2xyxy(std::vector<std::array<float, 48>>& NMS_result, cv::Size origin_shape, std::tuple<float, float, int, int, int, int >& imgprocess_info) 
-        {
-            auto val_in_boundary = [](float val, float min_val, float max) {
-                if (val < min_val + 1)
-                    return min_val + 1;
-                else if (val >= max - 1)
-                    return min_val - 1;
-                else
-                    return val;
-            };
-
-            float ratio_w = std::get<0>(imgprocess_info);
-            float ratio_h = std::get<1>(imgprocess_info);
-            float col_pad_start = std::get<2>(imgprocess_info);
-            float row_pad_start = std::get<4>(imgprocess_info);
-
-            for (auto& box : NMS_result) {
-                float cx = (box[0] - col_pad_start) * ratio_w;
-                float cy = (box[1] - row_pad_start) * ratio_h;
-                float w = box[2] * ratio_w;
-                float h = box[3] * ratio_h;
-                box[0] = val_in_boundary(cx - w / 2, 0, origin_shape.width);
-                box[1] = val_in_boundary(cy - h / 2, 0, origin_shape.height);
-                box[2] = val_in_boundary(cx + w / 2, 0, origin_shape.width);
-                box[3] = val_in_boundary(cy + h / 2, 0, origin_shape.height);
-
-                for (int kp_group = 0; kp_group < 14; ++kp_group) {
-                    box[6 + kp_group * 3] = val_in_boundary((box[6 + kp_group * 3] - col_pad_start) * ratio_w, 0, origin_shape.width);
-                    box[7 + kp_group * 3] = val_in_boundary((box[7 + kp_group * 3] - row_pad_start) * ratio_h, 0, origin_shape.height);
-                }
-            }
-        }
-
-        static inline float sigmoid_x(float x)
-        {
-            return static_cast<float>(1.f / (1.f + exp(-x)));
-        }
 
        
 
@@ -433,9 +390,9 @@ std::string version()
         int device_; 
 
 #if defined(USE_RKNNAPI) || defined(USE_RKNN2API)
-       std::unique_ptr < rknnwrapper::rknn_wrapper> net_instance_;    
+       std::unique_ptr < rknnwrapper::rknn_wrapper> net_detect_;    
 #else
-       std::unique_ptr < glasssix::excalibur::pipeline<float>> net_instance_;  
+       std::unique_ptr < glasssix::excalibur::pipeline<float>> net_detect_;  
 #endif
 
     };
