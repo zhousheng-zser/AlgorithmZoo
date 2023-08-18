@@ -26,16 +26,13 @@ namespace glasssix::smog
     {
     public:
         impl(const exposing::param_string model_directory, int device = -1)
-                : impl{get_model_params("smog", false),  exposing::to_narrow_string(model_directory), device} 
+                : impl{get_model_params("smog", false),  exposing::to_narrow_string(model_directory), device}
         {
-
         }
 
         impl(const std::vector<std::string> &phai, std::string model_directory, int device)
-                :net_detect_(phai,  model_directory + std::string("/smog_sim.rknn"), device), model_directory_(model_directory)
-        {   
-           
-
+                :net_detect_(phai,  model_directory + std::string("/smog_sim.rknn"), device)
+        {
         }
 
         exposing::param_vector<smog::box_info> detect(const exposing::param_span<std::uint8_t>& bitmap, int channels, int height, int width, int roi_x, int roi_y, int roi_width, int roi_height, std::map<std::string, float>& param_map)
@@ -61,7 +58,7 @@ namespace glasssix::smog
 
             auto results = exposing::make_param_vector<smog::box_info>();
 
-            for(auto& it:cate_result) 
+            for(auto& it:detect_result) 
             {
                 it.x1+=roi_x;
                 it.x2+=roi_x;
@@ -328,7 +325,7 @@ namespace glasssix::smog
             std::vector<smog::box_info_internal> detect_result;
 
             float smog_thres = param_map.count("smog_thres") ? param_map["smog_thres"] : 0.65f;
-            float iou_thres = param_map.count("nms_thres") ? param_map["nms_thres"] : 0.65f
+            float iou_thres = param_map.count("nms_thres") ? param_map["nms_thres"] : 0.65f;
 
             // preprocess
             auto input_shape = cv::Size(640,  640);
@@ -343,7 +340,7 @@ namespace glasssix::smog
 
             std::vector<std::shared_ptr<glasssix::memory::tensor<float>>> forwards;
 
-            auto  network_result = net_detect_.forward(blobs.data, { 1, blobs.rows, blobs.cols, blobs.channels() }, RKNN_TENSOR_NHWC);
+            auto  network_results = net_detect_.forward(blobs.data, { 1, blobs.rows, blobs.cols, blobs.channels() }, RKNN_TENSOR_NHWC);
 
             forwards.push_back(network_results["onnx::Mul_423"]);
             forwards.push_back(network_results["onnx::Sigmoid_380"]);
@@ -364,17 +361,6 @@ namespace glasssix::smog
             
             if(select_result.size() == 0)
             {
-                smog::box_info_internal box_info;
-
-                box_info.x1 = 0;
-                box_info.y1 = 0;
-                box_info.x2 = 0;
-                box_info.y2 = 0;
-                box_info.category = 0;
-                box_info.confidence = 0;
-
-                detect_result.push_back(box_info);
-
                 return detect_result;
             }
 
@@ -395,7 +381,7 @@ namespace glasssix::smog
                 box_info.category = 1;
                 box_info.confidence = scale_coords[4];
 
-                detect_result.push_back(scale_coords);
+                detect_result.push_back(box_info);
             }
 
             return detect_result;
@@ -404,12 +390,7 @@ namespace glasssix::smog
 
 
     private:
-#if defined(USE_RKNNAPI) || defined(USE_RKNN2API)
-
-		rknnwrapper::rknn_wrapper net_detect_;
-#else
-		std::unique_ptr<excalibur::pipeline<float>> net_detect_;
-#endif
+        rknnwrapper::rknn_wrapper net_detect_;
         std::string model_directory_;
         int device_ ;
 
