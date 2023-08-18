@@ -23,10 +23,9 @@ namespace glasssix::exposing::impl
             virtual std::int32_t G6_ABI_CALL y1(abi_out_t<int> result) noexcept = 0;
             virtual std::int32_t G6_ABI_CALL x2(abi_out_t<int> result) noexcept = 0;
             virtual std::int32_t G6_ABI_CALL y2(abi_out_t<int> result) noexcept = 0;
-            virtual std::int32_t G6_ABI_CALL color_pure(abi_out_t<bool> result) noexcept = 0;
+            virtual std::int32_t G6_ABI_CALL is_sleeve(abi_out_t<int> result) noexcept = 0;
+            virtual std::int32_t G6_ABI_CALL color_type(abi_out_t<int> result) noexcept = 0;
             virtual std::int32_t G6_ABI_CALL color_conf(abi_out_t<float> result) noexcept = 0;
-            virtual std::int32_t G6_ABI_CALL score(abi_out_t<float> result) noexcept = 0;
-			virtual std::int32_t G6_ABI_CALL category(abi_out_t<int> result) noexcept = 0;
         };
     };
 
@@ -58,28 +57,22 @@ namespace glasssix::exposing::impl
                 { *result = detach_abi(this->self().y2()); });
         }
 
-        virtual std::int32_t G6_ABI_CALL color_pure(abi_out_t<bool> result) noexcept override
+        virtual std::int32_t G6_ABI_CALL is_sleeve(abi_out_t<int> result) noexcept override
         {
             return abi_safe_call([&]
-                                 { *result = detach_abi(this->self().color_pure()); });
+                                 { *result = detach_abi(this->self().is_sleeve()); });
+        }
+
+        virtual std::int32_t G6_ABI_CALL color_type(abi_out_t<int> result) noexcept override
+        {
+            return abi_safe_call([&]
+                                 { *result = detach_abi(this->self().color_type()); });
         }
 
         virtual std::int32_t G6_ABI_CALL color_conf(abi_out_t<float> result) noexcept override
         {
             return abi_safe_call([&]
                                  { *result = detach_abi(this->self().color_conf()); });
-        }
-        
-        virtual std::int32_t G6_ABI_CALL score(abi_out_t<float> result) noexcept override
-        {
-            return abi_safe_call([&]
-                                 { *result = detach_abi(this->self().score()); });
-        }
-
-        virtual std::int32_t G6_ABI_CALL category(abi_out_t<int> result) noexcept override
-        {
-            return abi_safe_call([&]
-                                 { *result = detach_abi(this->self().category()); });
         }
 
     };
@@ -116,11 +109,18 @@ namespace glasssix::exposing::impl
                 return (check_abi_result(this->self_abi().y2(put_abi(result))), result);
             }
 
-			bool color_pure() const
+			int is_sleeve() const
             {
-                bool result = 0;
+                int result = 0;
 
-                return (check_abi_result(this->self_abi().color_pure(put_abi(result))), result);
+                return (check_abi_result(this->self_abi().is_sleeve(put_abi(result))), result);
+            }
+
+			int color_type() const
+            {
+                int result = 0;
+
+                return (check_abi_result(this->self_abi().color_type(put_abi(result))), result);
             }
 
 			float color_conf() const
@@ -128,20 +128,6 @@ namespace glasssix::exposing::impl
                 float result = 0;
 
                 return (check_abi_result(this->self_abi().color_conf(put_abi(result))), result);
-            }
-
-			float score() const
-            {
-                float result = 0;
-
-                return (check_abi_result(this->self_abi().score(put_abi(result))), result);
-            }
-
-			int category() const
-            {
-                int result = 0;
-
-                return (check_abi_result(this->self_abi().category(put_abi(result))), result);
             }
         };
     };

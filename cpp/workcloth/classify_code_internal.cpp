@@ -36,7 +36,7 @@
 #endif
 
 //YHC
-// #include "dbg.h"
+//#include "dbg.h"
 
 namespace glasssix::workcloth
 {
@@ -54,7 +54,7 @@ namespace glasssix::workcloth
 
         }
 
-        exposing::param_vector<workcloth::box_info> detect(const exposing::param_span<std::uint8_t>& bitmap, int channels, int height, int width, int roi_x, int roi_y, int roi_width, int roi_height, int color_index, std::map<std::string, float>& param_map)
+        exposing::param_vector<workcloth::box_info> detect(const exposing::param_span<std::uint8_t>& bitmap, int channels, int height, int width, int roi_x, int roi_y, int roi_width, int roi_height, std::map<std::string, float>& param_map)
         {
             if (bitmap.empty())
             {
@@ -112,7 +112,7 @@ namespace glasssix::workcloth
             // cv::imwrite("/home/firefly/yhc/call_wkch/img_out/posture.png", vis_mat);
             //YHC~
 
-            run_workcloth(results, image, persons_info, color_index, param_map);
+            run_workcloth(results, image, persons_info, param_map);
 
 
             for (auto& i : results)
@@ -124,7 +124,7 @@ namespace glasssix::workcloth
 
         std::string version()
         {
-            const std::string algo_module_version = "1.2.0";
+            const std::string algo_module_version = "1.3.0";
 
 #if defined(USE_RKNNAPI) || defined(USE_RKNN2API)
             //#if 0
@@ -188,10 +188,9 @@ namespace glasssix::workcloth
 
         std::map<Color, std::pair<cv::Scalar, cv::Scalar>> color_hsv_cfg{
             {Color::black,{cv::Scalar{0, 0, 0},cv::Scalar{180, 255, 46}}},
-            {Color::grey,{cv::Scalar{0, 0, 0},cv::Scalar{180, 35, 220}}},
-            {Color::grey,{cv::Scalar{0, 0, 0},cv::Scalar{180, 35, 220}}},
+            {Color::grey,{cv::Scalar{0, 0, 46},cv::Scalar{180, 35, 220}}},
+            {Color::white,{cv::Scalar{0, 0, 221},cv::Scalar{180, 30, 255}}},
 
-            //{Color::red,{cv::Scalar{0, 35, 46},cv::Scalar{180, 35, 220}}},
             {Color::orange,{cv::Scalar{11, 35, 46},cv::Scalar{25, 255, 255}}},
             {Color::yellow,{cv::Scalar{26, 35, 46},cv::Scalar{34, 255, 255}}},
 
@@ -201,7 +200,7 @@ namespace glasssix::workcloth
             {Color::purple,{cv::Scalar{125, 35, 46},cv::Scalar{155, 255, 255}}},
         };
 
-        std::pair<float,bool> calculate_singglehsv_method(cv::Mat image, float judge_thred, Color mode) {
+        float calculate_singglehsv_method(cv::Mat image, Color mode) {
             auto img = image.clone();
             int H = img.rows;
             int W = img.cols;
@@ -210,7 +209,6 @@ namespace glasssix::workcloth
             cv::Mat color_mask;
             cv::Mat hsv_img;
             cv::cvtColor(img, hsv_img, cv::COLOR_BGR2HSV);
-
             if(mode!=Color::red){
                 cv::Scalar hsv_lower = color_hsv_cfg.at(mode).first;
                 cv::Scalar hsv_upper = color_hsv_cfg.at(mode).second;
@@ -233,45 +231,59 @@ namespace glasssix::workcloth
             float color_pixels = cv::countNonZero(color_mask);
             float color_ratio = color_pixels / total_pixels;
             
-            bool color_pure = color_ratio>judge_thred;
-
-            return {color_ratio,color_pure};
+            return color_ratio;
 
         }
 
-        void run_workcloth(std::vector<box_info_internal>& results, cv::Mat& image, std::vector<PostureInfo>& persons,int color_index, std::map<std::string, float>& param_map)
+        struct ColorDet{
+            float conf;
+            int type;
+        };
+
+        void run_workcloth(std::vector<box_info_internal>& results, cv::Mat& image, std::vector<PostureInfo>& persons, std::map<std::string, float>& param_map)
         {
-
-            std::cout << "==== run_workcloth ====" << std::endl;
-
             float W = image.cols;
             float H = image.rows;
-            float conf_threshold = param_map.count("conf_thres") ? param_map["conf_thres"] : 0.5f;
-            float nms_threshold = param_map.count("nms_thres") ? param_map["nms_thres"] : 0.5f;
 
+            float points_score_thres = param_map.count("points_score_thres") ? param_map["points_score_thres"] : 0.9f;
+            float points_num_thres = param_map.count("points_num_thres") ? param_map["points_num_thres"] : 0.9f;
+            
             for(auto& person:persons){
+                box_info_internal in_box_info;
+                
+                std::vector<float> Kpoints_vali_set{person.Kpoints_score[5],person.Kpoints_score[6],person.Kpoints_score[11],person.Kpoints_score[12]};
+                int effect_kpoints_counter = 0;
+
+                for(auto p_score: Kpoints_vali_set){
+                    if(p_score > points_score_thres) effect_kpoints_counter++;
+                }
+
+                bool bodyishard = ((float)effect_kpoints_counter/Kpoints_vali_set.size())<points_num_thres;
+                if(bodyishard) continue; // bodyishard
+
                 cv::Mat cls_image = image(person.cls_cut).clone();
                 auto classify_result = run_classify(cls_image);
-                // dbg(classify_result);
-
-                float score = std::max(classify_result.first, classify_result.second);
-                int category = classify_result.first < classify_result.second;
-                // dbg(score,category);
-
                 cv::Mat color_image = image(person.cls_cut).clone();
 
-                auto [color_conf, color_pure] = calculate_singglehsv_method(color_image,0.85, static_cast<Color>(color_index));
+                std::vector<ColorDet> color_det_rsts;
+                for(int color_index = 0; color_index<10;color_index++){
+                    ColorDet colordet;
+                    auto color_conf = calculate_singglehsv_method(color_image, static_cast<Color>(color_index));
+                    colordet.conf = color_conf;
+                    colordet.type = color_index;
+                    color_det_rsts.push_back(colordet);
+                }
+                std::sort(color_det_rsts.begin(), color_det_rsts.end(),
+                    [](const ColorDet& A, const ColorDet& B) { return A.conf > B.conf; });
 
-                box_info_internal in_box_info;
-
-                in_box_info.score = score;
-                in_box_info.category = category;
-                in_box_info.color_conf = color_conf;
-                in_box_info.color_pure = color_pure;
+                in_box_info.is_sleeve = classify_result.first < classify_result.second;                
+                in_box_info.color_conf = color_det_rsts[0].conf;
+                in_box_info.color_type = color_det_rsts[0].type;
                 in_box_info.x1 = person.x1;
                 in_box_info.y1 = person.y1;
                 in_box_info.x2 = person.x2;
                 in_box_info.y2 = person.y2;
+
                 results.push_back(in_box_info);
             }
 
@@ -304,8 +316,8 @@ namespace glasssix::workcloth
         return impl_->version();
     }
 
-    exposing::param_vector<workcloth::box_info> classify_code_internal::detect(exposing::param_span<std::uint8_t> bitmap, int channels, int height, int width, int roi_x, int roi_y, int roi_width, int roi_height,int color_index, std::map<std::string, float>& param_map) const
+    exposing::param_vector<workcloth::box_info> classify_code_internal::detect(exposing::param_span<std::uint8_t> bitmap, int channels, int height, int width, int roi_x, int roi_y, int roi_width, int roi_height, std::map<std::string, float>& param_map) const
     {
-        return impl_->detect(bitmap, channels, height, width, roi_x, roi_y, roi_width, roi_height, color_index, param_map);
+        return impl_->detect(bitmap, channels, height, width, roi_x, roi_y, roi_width, roi_height, param_map);
     }
 }
