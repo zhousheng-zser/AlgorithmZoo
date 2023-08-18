@@ -26,16 +26,13 @@ namespace glasssix::smog
     {
     public:
         impl(const exposing::param_string model_directory, int device = -1)
-                : impl{get_model_params("smog", false),  exposing::to_narrow_string(model_directory), device} 
+                : impl{get_model_params("smog", false),  exposing::to_narrow_string(model_directory), device}
         {
-
         }
 
         impl(const std::vector<std::string> &phai, std::string model_directory, int device)
-                :net_detect_(phai,  model_directory + std::string("/smog_sim.rknn"), device), model_directory_(model_directory)
-        {   
-           
-
+                :net_detect_(phai,  model_directory + std::string("/smog_sim.rknn"), device)
+        {
         }
 
         exposing::param_vector<smog::box_info> detect(const exposing::param_span<std::uint8_t>& bitmap, int channels, int height, int width, int roi_x, int roi_y, int roi_width, int roi_height, std::map<std::string, float>& param_map)
@@ -393,12 +390,7 @@ namespace glasssix::smog
 
 
     private:
-#if defined(USE_RKNNAPI) || defined(USE_RKNN2API)
-
-		rknnwrapper::rknn_wrapper net_detect_;
-#else
-		std::unique_ptr<excalibur::pipeline<float>> net_detect_;
-#endif
+        rknnwrapper::rknn_wrapper net_detect_;
         std::string model_directory_;
         int device_ ;
 
