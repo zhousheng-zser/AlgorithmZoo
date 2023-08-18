@@ -30,8 +30,11 @@ namespace glasssix::workcloth
 				cv::Point key_p;
 				key_p.x = key_points[i * 3];
                 key_p.y = key_points[i * 3 + 1];
+                Kpoints_score.push_back(key_points[i * 3 + 2]);
                 Kpoints.push_back(key_p);
             }
+
+
 
             std::vector<cv::Point> cls_Kpoints{Kpoints[5],Kpoints[6],Kpoints[7],Kpoints[8],Kpoints[9],Kpoints[10],Kpoints[11],Kpoints[12]};
             auto cls_rect = cv::minAreaRect(cls_Kpoints);
@@ -62,9 +65,9 @@ namespace glasssix::workcloth
 		float score;
 		int category;
         std::vector<cv::Point> Kpoints;
+        std::vector<float> Kpoints_score;
         cv::Rect cls_cut;
         cv::Rect color_cut;
-
     };
 
     struct box_info_internal
@@ -73,64 +76,9 @@ namespace glasssix::workcloth
         int y1;
         int x2;
         int y2;
-        bool color_conf;
-        float color_pure;
-        float score;
-        int category;
-    };
-
-    struct Bbox {
-        float xmin;
-        float ymin;
-        float xmax;
-        float ymax;
-        float score;
-        int cid = 0;
-
-        void add(cv::Point2f point) {
-            xmin += point.x;
-            ymin += point.y;
-            xmax += point.x;
-            ymax += point.y;
-        }
-        void add(int x, int y) {
-            xmin += x;
-            ymin += y;
-            xmax += x;
-            ymax += y;
-        }
-
-        void mul_ratio(float ratio) {
-            xmin = xmin * ratio;
-            ymin = ymin * ratio;
-            xmax = xmax * ratio;
-            ymax = ymax * ratio;
-        }
-
-        std::vector<cv::Point2f> points() {
-            std::vector<cv::Point2f> rect_points{
-                cv::Point2f(std::round(xmin),std::round(ymin)),
-                cv::Point2f(std::round(xmin),std::round(ymax)),
-                cv::Point2f(std::round(xmax),std::round(ymin)),
-                cv::Point2f(std::round(xmax),std::round(ymax)) };
-            return rect_points;
-        }
-
-        cv::Rect get_rect() {
-            return cv::Rect{
-                cv::Point(std::round(xmin), std::round(ymin)),
-                cv::Point(std::round(xmax), std::round(ymax)) };
-        }
-
-        cv::Point2f get_center() {
-            auto p1 = cv::Point2f(std::round(xmin), std::round(ymin));
-            auto p2 = cv::Point2f(std::round(xmax), std::round(ymax));
-            return (p1 + p2) / 2;
-        }
-
-        float get_area() {
-            return (xmax - xmin) * (ymax - ymin);
-        }
+        int is_sleeve;
+        int color_type;
+        float color_conf;
     };
 
 
@@ -153,7 +101,7 @@ namespace glasssix::workcloth
 
         std::string version();
 
-        exposing::param_vector<workcloth::box_info> detect(exposing::param_span<std::uint8_t> bitmap, int channels, int height, int width, int roi_x, int roi_y, int roi_width, int roi_height,int color_index, std::map<std::string, float>& param_map) const;
+        exposing::param_vector<workcloth::box_info> detect(exposing::param_span<std::uint8_t> bitmap, int channels, int height, int width, int roi_x, int roi_y, int roi_width, int roi_height, std::map<std::string, float>& param_map) const;
 
     private:
         std::unique_ptr<impl> impl_;

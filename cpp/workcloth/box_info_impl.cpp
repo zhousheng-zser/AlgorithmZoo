@@ -32,9 +32,14 @@ namespace glasssix::workcloth
 		return internal_.y2;
 	}
 
-    bool box_info_impl::color_pure() const
+    int box_info_impl::is_sleeve() const
 	{
-		return internal_.color_pure;
+		return internal_.is_sleeve;
+	}
+
+    int box_info_impl::color_type() const
+	{
+		return internal_.color_type;
 	}
 
     float box_info_impl::color_conf() const
@@ -42,13 +47,4 @@ namespace glasssix::workcloth
 		return internal_.color_conf;
 	}
 
-    float box_info_impl::score() const
-	{
-		return internal_.score;
-	}
-
-	int box_info_impl::category() const
-	{
-		return internal_.category;
-	}
 }

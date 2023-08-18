@@ -19,10 +19,9 @@ namespace glasssix::workcloth
         int y1() const;
         int x2() const;
         int y2() const;
-        bool color_pure() const;
+        int is_sleeve() const;
+        int color_type() const;
         float color_conf() const;
-        float score() const;
-        int category() const;
 
     private:
         box_info_internal internal_{};
