@@ -313,7 +313,16 @@ namespace glasssix::smog
             return scale_pt;
         }
 
-   
+        int reset(float x, int size)
+        {
+            if(x < 0)
+                return 0;
+            else if (x > size)
+                return x;
+            else 
+                return static_cast<int>(x);
+        }
+        
         /**
            * @fun run_detect
            * @param image param_map
@@ -374,10 +383,10 @@ namespace glasssix::smog
 
                 smog::box_info_internal box_info;
 
-                box_info.x1 = scale_coords[0];
-                box_info.y1 = scale_coords[1];
-                box_info.x2 = scale_coords[2];
-                box_info.y2 = scale_coords[3];
+                box_info.x1 = reset(scale_coords[0], image.cols); 
+                box_info.y1 = reset(scale_coords[1], image.rows); 
+                box_info.x2 = reset(scale_coords[2], image.cols);
+                box_info.y2 = reset(scale_coords[3], image.rows);
                 box_info.category = 1;
                 box_info.confidence = scale_coords[4];
 
