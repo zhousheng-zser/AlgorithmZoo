@@ -86,7 +86,7 @@ std::vector<Bbox> concat_yolo(std::vector<std::shared_ptr<glasssix::memory::tens
 						bbox.xmax = x + w / 2;
 						bbox.ymin = y - h / 2;
 						bbox.ymax = y + h / 2;
-						bbox.score = fire_conf;
+						bbox.score = fire_conf * obj_conf;
 						bbox.cid = 0;
 
 						result.push_back(bbox);
