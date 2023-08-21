@@ -89,10 +89,44 @@ namespace glasssix::workcloth
                 pinfo_counter++;
                 PostureInfo postureInfo{ pinfo };
 
-                // std::cout<<"## Kpoints len: "<< postureInfo.Kpoints.size() <<std::endl;
 
+                if(postureInfo.x1<0||postureInfo.x2>width||postureInfo.y1<0||postureInfo.y2>height) {
+                    float person_W_thr = (float)std::abs(postureInfo.x2-postureInfo.x1)/8;
+                    float person_H_thr = (float)std::abs(postureInfo.y2-postureInfo.y1)/8;
 
-                if(postureInfo.x1<=roi_x||postureInfo.x2>=(roi_x+roi_width)||postureInfo.y1<=roi_y||postureInfo.y2>=(roi_y+roi_height)) continue;
+                    if(postureInfo.x1<0){
+                        bool more_over_boundary = std::abs(postureInfo.x1)>person_W_thr;
+                        if(more_over_boundary)
+                            continue;
+                        else
+                            postureInfo.x1 = 0;
+                    }
+
+                    if(postureInfo.x2>width){
+                        bool more_over_boundary = std::abs(postureInfo.x2-width)>person_W_thr;
+                        if(more_over_boundary)
+                            continue;
+                        else
+                            postureInfo.x2 = width;
+                    }
+
+                    if(postureInfo.y1<0){
+                        bool more_over_boundary = std::abs(postureInfo.y1)>person_H_thr;
+                        if(more_over_boundary)
+                            continue;
+                        else
+                            postureInfo.y1 = 0;
+                    }
+
+                    if(postureInfo.y2>height){
+                        bool more_over_boundary = std::abs(postureInfo.y2-height)>person_H_thr;
+                        if(more_over_boundary)
+                            continue;
+                        else
+                            postureInfo.y2 = height;
+                    }
+
+                }
 
                 persons_info.push_back(postureInfo);
 
@@ -124,11 +158,10 @@ namespace glasssix::workcloth
 
         std::string version()
         {
-            const std::string algo_module_version = "1.3.0";
+            const std::string algo_module_version = "2.0.1";
 
 #if defined(USE_RKNNAPI) || defined(USE_RKNN2API)
             //#if 0
-            //std::string nn_frame_version = rknnwrapper::rknn_wrapper::version();
             std::string nn_frame_version = classify_instance_->version();
 #else
             std::string nn_frame_version = excalibur::pipeline<float>::version();
