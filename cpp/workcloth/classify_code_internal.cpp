@@ -158,7 +158,7 @@ namespace glasssix::workcloth
 
         std::string version()
         {
-            const std::string algo_module_version = "2.0.1";
+            const std::string algo_module_version = "2.0.2";
 
 #if defined(USE_RKNNAPI) || defined(USE_RKNN2API)
             //#if 0
@@ -296,7 +296,7 @@ namespace glasssix::workcloth
 
                 cv::Mat cls_image = image(person.cls_cut).clone();
                 auto classify_result = run_classify(cls_image);
-                cv::Mat color_image = image(person.cls_cut).clone();
+                cv::Mat color_image = image(person.color_cut).clone();
 
                 std::vector<ColorDet> color_det_rsts;
                 for(int color_index = 0; color_index<10;color_index++){
