@@ -89,43 +89,43 @@ namespace glasssix::workcloth
                 pinfo_counter++;
                 PostureInfo postureInfo{ pinfo };
 
+                if (postureInfo.x1<0 || postureInfo.x2>width || postureInfo.y1<0 || postureInfo.y2>height) {
+                    float person_W_thr = (float)std::abs(postureInfo.x2 - postureInfo.x1) / 8;
+                    float person_H_thr = (float)std::abs(postureInfo.y2 - postureInfo.y1) / 8;
 
-                if(postureInfo.x1<0||postureInfo.x2>width||postureInfo.y1<0||postureInfo.y2>height) {
-                    float person_W_thr = (float)std::abs(postureInfo.x2-postureInfo.x1)/8;
-                    float person_H_thr = (float)std::abs(postureInfo.y2-postureInfo.y1)/8;
-
-                    if(postureInfo.x1<0){
-                        bool more_over_boundary = std::abs(postureInfo.x1)>person_W_thr;
-                        if(more_over_boundary)
+                    if (postureInfo.x1 < 0) {
+                        bool more_over_boundary = std::abs(postureInfo.x1) > person_W_thr;
+                        if (more_over_boundary)
                             continue;
                         else
                             postureInfo.x1 = 0;
                     }
 
-                    if(postureInfo.x2>width){
-                        bool more_over_boundary = std::abs(postureInfo.x2-width)>person_W_thr;
-                        if(more_over_boundary)
+                    if (postureInfo.x2 > width - 1) {
+                        bool more_over_boundary = std::abs(postureInfo.x2 - width) > person_W_thr;
+                        if (more_over_boundary)
                             continue;
                         else
-                            postureInfo.x2 = width;
+                            postureInfo.x2 = width - 1;
                     }
 
-                    if(postureInfo.y1<0){
-                        bool more_over_boundary = std::abs(postureInfo.y1)>person_H_thr;
-                        if(more_over_boundary)
+                    if (postureInfo.y1 < 0) {
+                        bool more_over_boundary = std::abs(postureInfo.y1) > person_H_thr;
+                        if (more_over_boundary)
                             continue;
                         else
                             postureInfo.y1 = 0;
                     }
 
-                    if(postureInfo.y2>height){
-                        bool more_over_boundary = std::abs(postureInfo.y2-height)>person_H_thr;
-                        if(more_over_boundary)
+                    if (postureInfo.y2 > height - 1) {
+                        bool more_over_boundary = std::abs(postureInfo.y2 - height) > person_H_thr;
+                        if (more_over_boundary)
                             continue;
                         else
-                            postureInfo.y2 = height;
+                            postureInfo.y2 = height - 1;
                     }
 
+                    if (postureInfo.x2 <= postureInfo.x1 || postureInfo.y2 <= postureInfo.y1) continue;
                 }
 
                 persons_info.push_back(postureInfo);
@@ -170,6 +170,19 @@ namespace glasssix::workcloth
         }
 
     private:
+        bool rect_modify(cv::Rect& rec_region, int W, int H) {
+            rec_region.x = std::max(0, rec_region.x);
+            rec_region.y = std::max(0, rec_region.y);
+
+            rec_region.width = std::min(W - rec_region.x - 1, rec_region.width);
+            rec_region.height = std::min(H - rec_region.y - 1, rec_region.height);
+            if (rec_region.width < 1 || rec_region.height < 1) {
+                return true; // is invalid rect : true
+            }
+            else {
+                return false;
+            }
+        }
 
         cv::Mat preprocess(cv::Mat img, int hope_w = 640, int hope_h = 640)
         {
@@ -292,7 +305,7 @@ namespace glasssix::workcloth
                 }
 
                 bool bodyishard = ((float)effect_kpoints_counter/Kpoints_vali_set.size())<points_num_thres;
-                if(bodyishard) continue; // bodyishard
+				if (bodyishard || rect_modify(person.cls_cut, W, H) || rect_modify(person.color_cut, W, H)) continue; // bodyishard
 
                 cv::Mat cls_image = image(person.cls_cut).clone();
                 auto classify_result = run_classify(cls_image);
