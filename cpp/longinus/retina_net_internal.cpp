@@ -50,7 +50,7 @@ namespace glasssix::longinus
     class retina_net_internal::impl
     {
     public:
-        impl(const exposing::param_string racy_path, const exposing::param_string tracker_racy_path, float nms_threshold = 0.4, int device = -1) : impl{hardcode::get_model_params("longinus", false), racy_path, hardcode::get_model_params("pfld_land71_simp", false), tracker_racy_path, nms_threshold, device}
+        impl(const exposing::param_string racy_path, const exposing::param_string tracker_racy_path, float nms_threshold = 0.4, int device = -1) : impl{get_model_params("longinus", false), racy_path, get_model_params("pfld_land71_simp", false), tracker_racy_path, nms_threshold, device}
         {
         }
 
@@ -1431,7 +1431,33 @@ namespace glasssix::longinus
             estimate_head_pose(landmark_data, bbox_data, yaw, pitch, roll);
             trackfaceinfo.headpose[0] = yaw;
             trackfaceinfo.headpose[1] = pitch;
-            trackfaceinfo.headpose[2] = atan(((trackfaceinfo.pts.y[0] - trackfaceinfo.pts.y[1]) / (trackfaceinfo.pts.x[0] - trackfaceinfo.pts.x[1]) + (trackfaceinfo.pts.y[3] - trackfaceinfo.pts.y[4]) / (trackfaceinfo.pts.x[3] - trackfaceinfo.pts.x[4])) / 2) * 180 / 3.1415926;
+
+            float y_sub_eye = trackfaceinfo.pts.y[0] - trackfaceinfo.pts.y[1];
+            float x_sub_eye = trackfaceinfo.pts.x[0] - trackfaceinfo.pts.x[1];
+            float y_sub_mouth = trackfaceinfo.pts.y[3] - trackfaceinfo.pts.y[4];
+            float x_sub_mouth = trackfaceinfo.pts.x[3] - trackfaceinfo.pts.x[4];
+
+            float l2_eye = std::sqrt(y_sub_eye * y_sub_eye + x_sub_eye * x_sub_eye);
+            float l2_mouth = std::sqrt(y_sub_mouth * y_sub_mouth + x_sub_mouth * x_sub_mouth);
+
+            int n = 0;
+            float mean_slope = 0.f;
+            if ((l2_eye > std::numeric_limits<float>::epsilon()) && (x_sub_eye != 0))
+            {
+                mean_slope += y_sub_eye / x_sub_eye;
+                n++;
+            }
+
+            if ((l2_mouth > std::numeric_limits<float>::epsilon()) && (x_sub_mouth != 0))
+            {
+                mean_slope += y_sub_mouth / x_sub_mouth;
+                n++;
+            }
+
+            if (n != 0)
+                mean_slope /= n;
+
+            trackfaceinfo.headpose[2] = atan(mean_slope) * 180 / 3.1415926;
         }
 #else
         void tracking_landmark(std::shared_ptr<memory::tensor<std::uint8_t>>& face, face_info_internal& trackfaceinfo, int offset_x, int offset_y)
@@ -1473,7 +1499,33 @@ namespace glasssix::longinus
             estimate_head_pose(landmark_data, bbox_data, yaw, pitch, roll);
             trackfaceinfo.headpose[0] = yaw;
             trackfaceinfo.headpose[1] = pitch;
-            trackfaceinfo.headpose[2] = atan(((trackfaceinfo.pts.y[0] - trackfaceinfo.pts.y[1]) / (trackfaceinfo.pts.x[0] - trackfaceinfo.pts.x[1]) + (trackfaceinfo.pts.y[3] - trackfaceinfo.pts.y[4]) / (trackfaceinfo.pts.x[3] - trackfaceinfo.pts.x[4])) / 2) * 180 / 3.1415926;
+            
+            float y_sub_eye = trackfaceinfo.pts.y[0] - trackfaceinfo.pts.y[1];
+            float x_sub_eye = trackfaceinfo.pts.x[0] - trackfaceinfo.pts.x[1];
+            float y_sub_mouth = trackfaceinfo.pts.y[3] - trackfaceinfo.pts.y[4];
+            float x_sub_mouth = trackfaceinfo.pts.x[3] - trackfaceinfo.pts.x[4];
+
+            float l2_eye = std::sqrt(y_sub_eye * y_sub_eye + x_sub_eye * x_sub_eye);
+            float l2_mouth = std::sqrt(y_sub_mouth * y_sub_mouth + x_sub_mouth * x_sub_mouth);
+
+            int n = 0;
+            float mean_slope = 0.f;
+            if ((l2_eye > std::numeric_limits<float>::epsilon()) && (x_sub_eye != 0))
+            {
+                mean_slope += y_sub_eye / x_sub_eye;
+                n++;
+            }
+
+            if ((l2_mouth > std::numeric_limits<float>::epsilon()) && (x_sub_mouth != 0))
+            {
+                mean_slope += y_sub_mouth / x_sub_mouth;
+                n++;
+            }
+
+            if (n != 0)
+                mean_slope /= n;
+
+            trackfaceinfo.headpose[2] = atan(mean_slope) * 180 / 3.1415926;
         }
 #endif
 

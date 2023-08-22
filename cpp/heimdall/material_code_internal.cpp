@@ -62,9 +62,9 @@ namespace glasssix::heimdall
             case 4:
             case 6:
             case 7:
-                instance_.emplace_back(std::make_unique<excalibur::pipeline<float>>(hardcode::get_model_params(std::get<1>(*factory)), std::string(model_directory) + "/" + std::get<1>(*factory) + ".racy", device));
-                instance_.emplace_back(std::make_unique<excalibur::pipeline<float>>(hardcode::get_model_params(std::get<2>(*factory)), std::string(model_directory) + "/" + std::get<2>(*factory) + ".racy", device));
-                instance_.emplace_back(std::make_unique<excalibur::pipeline<float>>(hardcode::get_model_params(std::get<3>(*factory)), std::string(model_directory) + "/" + std::get<3>(*factory) + ".racy", device));
+                instance_.emplace_back(std::make_unique<excalibur::pipeline<float>>(get_model_params(std::get<1>(*factory)), std::string(model_directory) + "/" + std::get<1>(*factory) + ".racy", device));
+                instance_.emplace_back(std::make_unique<excalibur::pipeline<float>>(get_model_params(std::get<2>(*factory)), std::string(model_directory) + "/" + std::get<2>(*factory) + ".racy", device));
+                instance_.emplace_back(std::make_unique<excalibur::pipeline<float>>(get_model_params(std::get<3>(*factory)), std::string(model_directory) + "/" + std::get<3>(*factory) + ".racy", device));
                 if (factory_type == 6)
                 {
                     segement_instance_ = std::make_unique<char_segment>();
@@ -81,16 +81,16 @@ namespace glasssix::heimdall
 				}
                 break;
             case 3:
-                instance_.emplace_back(std::make_unique<excalibur::pipeline<float>>(hardcode::get_model_params(std::get<1>(*factory)), std::string(model_directory) + "/" + std::get<1>(*factory) + ".racy", device));
-                instance_.emplace_back(std::make_unique<excalibur::pipeline<float>>(hardcode::get_model_params(std::get<2>(*factory)), std::string(model_directory) + "/" + std::get<2>(*factory) + ".racy", device));
+                instance_.emplace_back(std::make_unique<excalibur::pipeline<float>>(get_model_params(std::get<1>(*factory)), std::string(model_directory) + "/" + std::get<1>(*factory) + ".racy", device));
+                instance_.emplace_back(std::make_unique<excalibur::pipeline<float>>(get_model_params(std::get<2>(*factory)), std::string(model_directory) + "/" + std::get<2>(*factory) + ".racy", device));
                 break;
             case 0:
             case 5:
             case 8:
-                instance_.emplace_back(std::make_unique<excalibur::pipeline<float>>(hardcode::get_model_params(std::get<1>(*factory)), std::string(model_directory) + "/" + std::get<1>(*factory) + ".racy", device));
-                instance_.emplace_back(std::make_unique<excalibur::pipeline<float>>(hardcode::get_model_params(std::get<2>(*factory)), std::string(model_directory) + "/" + std::get<2>(*factory) + ".racy", device));
-                instance_.emplace_back(std::make_unique<excalibur::pipeline<float>>(hardcode::get_model_params(std::get<3>(*factory)), std::string(model_directory) + "/" + std::get<3>(*factory) + ".racy", device));
-                instance_.emplace_back(std::make_unique<excalibur::pipeline<float>>(hardcode::get_model_params(std::get<4>(*factory)), std::string(model_directory) + "/" + std::get<4>(*factory) + ".racy", device));
+                instance_.emplace_back(std::make_unique<excalibur::pipeline<float>>(get_model_params(std::get<1>(*factory)), std::string(model_directory) + "/" + std::get<1>(*factory) + ".racy", device));
+                instance_.emplace_back(std::make_unique<excalibur::pipeline<float>>(get_model_params(std::get<2>(*factory)), std::string(model_directory) + "/" + std::get<2>(*factory) + ".racy", device));
+                instance_.emplace_back(std::make_unique<excalibur::pipeline<float>>(get_model_params(std::get<3>(*factory)), std::string(model_directory) + "/" + std::get<3>(*factory) + ".racy", device));
+                instance_.emplace_back(std::make_unique<excalibur::pipeline<float>>(get_model_params(std::get<4>(*factory)), std::string(model_directory) + "/" + std::get<4>(*factory) + ".racy", device));
                 segement_instance_ = std::make_unique<char_segment>(0.6, 0.25, 8, true);
                 classfi_instance_ = std::make_unique<char_classfi>(label_type::HEAVY_RAIL);
                 break;
@@ -124,12 +124,12 @@ namespace glasssix::heimdall
                 run_hot_roll(results, roi, top_five);
             else if (factory_type_ == 3 || factory_type_ == 6 || factory_type_ == 7)
                 run_cool_roll(results, roi, top_five);
-            else if (factory_type_ == 4 || factory_type_ == 5)// 5 new heavy
-                run_heavy_rail(results, roi, top_five);
+            else if (factory_type_ == 5)
+                run_heavy_rail(results, roi, top_five);  // 5 new heavy
             else if (factory_type_ == 0)
-                run_hot_roll_2(results, roi, top_five);       // new hot
+                run_hot_roll_2(results, roi, top_five);  // new hot
             else if (factory_type_ == 1)
-                run_cool_roll_2(results, roi, top_five);      // new cool
+                run_cool_roll_2(results, roi, top_five); // new cool
             else if (factory_type_ == 8)
             {
                 run_bar(results, roi, top_five);
@@ -146,7 +146,7 @@ namespace glasssix::heimdall
 
         static std::string version()
         {
-            return "1.0.5_2023.04.20";
+            return "1.0.6_2023.07.24";
         }
 
     private:
@@ -1140,6 +1140,7 @@ namespace glasssix::heimdall
                 bool inverse = false;
                 std::vector<float> res_vec = angel_infer(cut_img, *instance_[2]);
                 // 0: The character direction is inverse  1: The character direction is positive
+                if (res_vec.empty()) return;
                 if (res_vec[0] == 0)
                 {
                     cv::flip(cut_img, cut_img, -1);
@@ -1154,6 +1155,7 @@ namespace glasssix::heimdall
                 std::vector<float> probs;
 
                 float left = 0.f, right = 0.f;
+                if (segement_result.empty()) return;
                 if (segement_result[0] < 0)
                 {
                     left = std::ceil(std::abs(segement_result[0]));
@@ -1259,13 +1261,6 @@ namespace glasssix::heimdall
 
         void run_heavy_rail(std::vector<box_info_internal>& results, std::vector<int>& roi, int top_five)
         {
-            auto heavy_start = std::chrono::system_clock::now();
-            std::vector<int> angle_timer;
-            std::vector<int> segment_timer;
-            std::vector<int> class_timer;
-            std::chrono::time_point<std::chrono::system_clock> timer_start;
-            std::chrono::time_point<std::chrono::system_clock> timer_end;
-
             excalibur::rectangle<int> rect((int)roi[0], (int)roi[1], (int)roi[2], (int)roi[3]);
             std::shared_ptr<memory::tensor<uint8_t>> input;
             // image preprocessing
@@ -1274,23 +1269,29 @@ namespace glasssix::heimdall
             std::copy(input->cpu_data(), input->cpu_data() + input->count(1, 4), input_mat.data);
             if (input->order() == memory::NHWC)
                 input->convert_order();
-            auto [resized_img, ratio] = resize_fixed_size(640, input);
+            //auto [resized_img, ratio] = resize_fixed_size(640, input);
+
+            // adapted resize
+            float det_ratio = param_map_.count("heavy_det_resize") ? param_map_["heavy_det_resize"] : 1.0f;
+            int resized_w = int(input->width() * det_ratio);
+            int resized_h = int(input->height() * det_ratio);
+            excalibur::resize_cpu(input, input, resized_h, resized_w);
+            int aligned_w = ((resized_w + 31) >> 5) << 5;
+            int aligned_h = ((resized_h + 31) >> 5) << 5;
+            excalibur::make_border(input, input, 0, aligned_h - resized_h, 0, aligned_w - resized_w);
 
             // ocr detect
-            timer_start = std::chrono::system_clock::now(); //timer
-            std::pair<std::vector<std::vector<cv::Point2f>>, std::vector<float>> result = det_combine_best(resized_img, *instance_[0]);
-            int det_inference = std::chrono::duration_cast<std::chrono::milliseconds>(std::chrono::system_clock::now() - timer_start).count(); //timer
+            std::pair<std::vector<std::vector<cv::Point2f>>, std::vector<float>> result = det_combine_best(input, *instance_[0]);
 
             std::vector<std::vector<cv::Point2f>> box_list = result.first;
             for (size_t i = 0; i < box_list.size(); i++)
             {
                 for (size_t j = 0; j < box_list[i].size(); j++)
                 {
-                    box_list[i][j] *= ratio;
+                    box_list[i][j] *= det_ratio;
                 }
             }
 
-            auto other_infr_start = std::chrono::system_clock::now(); //timer
             for (size_t i = 0; i < box_list.size(); ++i)
             {
                 bool rotate = false;
@@ -1310,11 +1311,10 @@ namespace glasssix::heimdall
                     rotate = true;
                 }
                 bool inverse = false;
-                timer_start = std::chrono::system_clock::now(); //timer
                 std::vector<float> res_vec = angel_infer_short(cut_img, *instance_[2]);
                 //std::vector<float> res_vec = angel_infer(cut_img, *instance_[2]); //infer 32 * 320
-                angle_timer.push_back(std::chrono::duration_cast<std::chrono::milliseconds>(std::chrono::system_clock::now() - timer_start).count()); //timer
                 // 0: The character direction is inverse  1: The character direction is positive
+                if (res_vec.empty()) return;
                 if (res_vec[0] == 0)
                 {
                     cv::flip(cut_img, cut_img, -1);
@@ -1322,49 +1322,39 @@ namespace glasssix::heimdall
                 }
 
                 std::pair<std::vector<std::string>, std::vector<std::vector<float>>> out;
-                if (factory_type_ == 5)
+
+                cv::Mat roi_temp = cut_img.clone();
+                std::vector<float> segement_result = segement_instance_->detect(roi_temp, true, *instance_[1]);
+
+                std::string stringinfo;
+                std::vector<float> probs;
+
+                float left = 0.f, right = 0.f;
+                if (segement_result.empty()) return;
+                if (segement_result[0] < 0)
                 {
-                    cv::Mat roi_temp = cut_img.clone();
-                    timer_start = std::chrono::system_clock::now(); //timer
-                    std::vector<float> segement_result = segement_instance_->detect(roi_temp, true, *instance_[1]);
-                    segment_timer.push_back(std::chrono::duration_cast<std::chrono::milliseconds>(std::chrono::system_clock::now() - timer_start).count()); //timer
-
-                    std::string stringinfo;
-                    std::vector<float> probs;
-
-                    float left = 0.f, right = 0.f;
-                    if (segement_result[0] < 0)
-                    {
-                        left = std::ceil(std::abs(segement_result[0]));
-                        segement_result[0] = 0;
-                    }
-
-                    for (int i = segement_result.size() - 1; i > 0; i--)
-                    {
-						if (segement_result[i] > roi_temp.cols - (param_map_.count("segment_rcut") ? param_map_["segment_rcut"] : 25))
-							segement_result.pop_back();
-                    }
-                    segement_result.push_back(roi_temp.cols - 1);
-                    // offset segement point
-                    screen_result_point(segement_result, true);
-
-                    timer_start = std::chrono::system_clock::now(); //timer
-                    for (size_t j = 0; j < segement_result.size() - 1; j++)
-                    {
-                        cv::Mat small_img = roi_temp(cv::Range::all(), cv::Range((int)segement_result[j], (int)segement_result[j + 1]));
-                        auto [label, prob] = classfi_instance_->detect(small_img, *instance_[3]);
-                        stringinfo.push_back(label);
-                        probs.push_back(prob);
-                    }
-                    class_timer.push_back(std::chrono::duration_cast<std::chrono::milliseconds>(std::chrono::system_clock::now() - timer_start).count()); //timer
-
-                    out = std::make_pair<std::vector<std::string>, std::vector<std::vector<float>>>({ stringinfo }, { probs });
+                    left = std::ceil(std::abs(segement_result[0]));
+                    segement_result[0] = 0;
                 }
-                else
+
+                for (int i = segement_result.size() - 1; i > 0; i--)
                 {
-                    // run identify network
-                    out = rec_combine_best(cut_img, top_five, *instance_[1]);
+                    if (segement_result[i] > roi_temp.cols - (param_map_.count("segment_rcut") ? param_map_["segment_rcut"] : 25))
+                        segement_result.pop_back();
                 }
+                segement_result.push_back(roi_temp.cols - 1);
+                // offset segement point
+                screen_result_point(segement_result, true);
+
+                for (size_t j = 0; j < segement_result.size() - 1; j++)
+                {
+                    cv::Mat small_img = roi_temp(cv::Range::all(), cv::Range((int)segement_result[j], (int)segement_result[j + 1]));
+                    auto [label, prob] = classfi_instance_->detect(small_img, *instance_[3]);
+                    stringinfo.push_back(label);
+                    probs.push_back(prob);
+                }
+
+                out = std::make_pair<std::vector<std::string>, std::vector<std::vector<float>>>({ stringinfo }, { probs });
 
                 box_info_internal box;
                 auto location = exposing::make_param_vector<float>();
@@ -1388,25 +1378,12 @@ namespace glasssix::heimdall
                     messages.push_back(exposing::param_string(
                         "thsh: " + std::to_string(message_det_thresh_) +
                         "  bx_thsh: " + std::to_string(message_box_thresh_)));
-
-                    messages.push_back(exposing::param_string(
-                        "infer: [" + std::to_string(angle_timer.size()) + "]agl " + std::to_string(angle_timer[i]) + " ms  " +
-                        "[" + std::to_string(segment_timer.size()) + "]seg " + std::to_string(segment_timer[i]) + " ms  " +
-                        "[" + std::to_string(class_timer.size()) + "]cls " + std::to_string(class_timer[i]) + " ms "));
-
                     if (i == box_list.size() - 1) {
                         std::string message_str = "det_bxs score: ";
                         for (auto scores : result.second) {
                             message_str.append(std::to_string(scores) + " ");
                         }
                         messages.push_back(exposing::param_string(message_str));
-                        timer_end = std::chrono::system_clock::now();
-                        int other_inference = std::chrono::duration_cast<std::chrono::milliseconds>(timer_end - other_infr_start).count();
-                        int heavy_inference = std::chrono::duration_cast<std::chrono::milliseconds>(timer_end - heavy_start).count();
-                        messages.push_back(exposing::param_string(
-                            "infer: det " + std::to_string(det_inference) +
-                            "ms othr " + std::to_string(other_inference) +
-                            "ms all " + std::to_string(heavy_inference) + "ms "));
                     }
                     else {
                         messages.push_back(exposing::param_string("det_score: " + std::to_string(result.second[i])));

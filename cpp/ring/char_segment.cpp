@@ -136,11 +136,11 @@ namespace glasssix
 				return img;
 			}
 			else {
-				if (factory_type == 10 || factory_type == 11) {
+				if (factory_type == 10) {
 					cv::copyMakeBorder(img, img, 0, 0, 0, pad_w, cv::BORDER_REPLICATE); //ca
 				}
 				else {
-					cv::copyMakeBorder(img, img, 0, 0, 0, pad_w, cv::BORDER_CONSTANT); //bar
+					cv::copyMakeBorder(img, img, 0, 0, 0, pad_w, cv::BORDER_CONSTANT); //bar zinc
 				}
 				return img;
 			}

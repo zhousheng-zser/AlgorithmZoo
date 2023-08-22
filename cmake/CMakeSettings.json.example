@@ -25,6 +25,21 @@
           "name": "BUILD_DEBUG_INFO",
           "value": "False",
           "type": "BOOL"
+        },
+        {
+          "name": "BUILD_MATIERIAL_OCR_SDK",
+          "value": "True",
+          "type": "BOOL"
+        },
+        {
+          "name": "BUILD_FACE_SDK",
+          "value": "True",
+          "type": "BOOL"
+        },
+        {
+          "name": "BUILD_GENERAL_CV_SDK",
+          "value": "True",
+          "type": "BOOL"
         }
       ]
     },
@@ -53,6 +68,21 @@
           "name": "BUILD_DEBUG_INFO",
           "value": "False",
           "type": "BOOL"
+        },
+        {
+          "name": "BUILD_MATIERIAL_OCR_SDK",
+          "value": "True",
+          "type": "BOOL"
+        },
+        {
+          "name": "BUILD_FACE_SDK",
+          "value": "True",
+          "type": "BOOL"
+        },
+        {
+          "name": "BUILD_GENERAL_CV_SDK",
+          "value": "True",
+          "type": "BOOL"
         }
       ]
     },
@@ -80,6 +110,21 @@
         {
           "name": "BUILD_DEBUG_INFO",
           "value": "False",
+          "type": "BOOL"
+        },
+        {
+          "name": "BUILD_MATIERIAL_OCR_SDK",
+          "value": "True",
+          "type": "BOOL"
+        },
+        {
+          "name": "BUILD_FACE_SDK",
+          "value": "True",
+          "type": "BOOL"
+        },
+        {
+          "name": "BUILD_GENERAL_CV_SDK",
+          "value": "True",
           "type": "BOOL"
         }
       ]

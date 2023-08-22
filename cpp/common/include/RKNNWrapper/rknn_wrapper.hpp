@@ -6,6 +6,7 @@
 #include <unordered_map>
 
 #include "Primitives/tensor.hpp"
+#include "Primitives/fmt/format.h"
 #include "rknn_api.h"
 
 namespace glasssix
@@ -32,12 +33,18 @@ namespace glasssix
 			int code_;
 			std::string message_;
 		};
-		
-		static void printRKNNTensor(rknn_tensor_attr *attr) 
+
+		static void printRKNNTensor(rknn_tensor_attr* attr)
 		{
-			printf("index=%d name=%s n_dims=%d dims=[%d %d %d %d] n_elems=%d size=%d fmt=%d type=%d qnt_type=%d fl=%d zp=%d scale=%f\n", 
-					attr->index, attr->name, attr->n_dims, attr->dims[3], attr->dims[2], attr->dims[1], attr->dims[0], 
-					attr->n_elems, attr->size, 0, attr->type, attr->qnt_type, attr->fl, attr->zp, attr->scale);
+			printf("index=%d name=%s n_dims=%d dims=[", attr->index, attr->name, attr->n_dims);
+			for (size_t i = 0; i < attr->n_dims; i++)
+			{
+				if (i == attr->n_dims - 1)
+					printf("%d] ", attr->dims[attr->n_dims - i - 1]);
+				else
+					printf("%d ", attr->dims[attr->n_dims - i - 1]);
+			}
+			printf("n_elems=%d size=%d fmt=%d type=%d qnt_type=%d fl=%d zp=%d scale=%f\n", attr->n_elems, attr->size, 0, attr->type, attr->qnt_type, attr->fl, attr->zp, attr->scale);
 		}
 		
 		static unsigned char *load_model(const char *filename, int *model_size)
@@ -112,9 +119,10 @@ namespace glasssix
 						throw rknn_exception(ret, "rknn_query output_attrs fail!");
 					}
 					output_name_index_[output_attrs[i].index] = std::string(output_attrs[i].name);
-					std::vector<uint32_t> shape(4, 1);
+					std::vector<int> shape(output_attrs[i].n_dims > 4 ? output_attrs[i].n_dims : 4, 1);
 					for(uint32_t j = 0; j < output_attrs[i].n_dims; j++)
-						shape[j] = output_attrs[i].dims[j];
+						shape[j] = static_cast<int>(output_attrs[i].dims[j]);
+					std::reverse(shape.begin(), shape.end());
 					output_tensor_shape_index_[output_attrs[i].index] = shape;
 					printRKNNTensor(&(output_attrs[i]));
 				}
@@ -125,6 +133,16 @@ namespace glasssix
 				int ret = rknn_destroy(ctx_);
 				if(ret != 0)
 					printf("rknn_destroy fail!\n");
+			}
+
+			std::string version()
+			{
+				rknn_sdk_version version;
+				int ret = rknn_query(ctx_, RKNN_QUERY_SDK_VERSION, &version, sizeof(rknn_sdk_version));
+				if (ret < 0)
+					throw rknn_exception(ret, "rknn query sdk version failed");
+
+				return fmt::format(R"({}_{})", version.api_version, version.drv_version);
 			}
 			
 			std::unordered_map<std::string, std::shared_ptr<memory::tensor<float>>> forward(const std::shared_ptr<memory::tensor<std::uint8_t>>& input_tensor)
@@ -180,7 +198,9 @@ namespace glasssix
 				std::unordered_map<std::string, std::shared_ptr<memory::tensor<float>>> result;
 				for(size_t index = 0; index < io_num_.n_output; index++)
 				{
-					auto output_tensor = std::make_shared<memory::tensor<float>>(std::vector<int>{num, output_tensor_shape_index_[index][2], output_tensor_shape_index_[index][1], output_tensor_shape_index_[index][0]});
+					std::vector<int> temp_shape = output_tensor_shape_index_[index];
+					temp_shape[0] = num;
+					auto output_tensor = std::make_shared<memory::tensor<float>>(temp_shape);
 					std::copy(temp[index].begin(), temp[index].end(), output_tensor->mutable_cpu_data());
 					result[output_name_index_[index]] = output_tensor;
 				}
@@ -239,7 +259,9 @@ namespace glasssix
 				std::unordered_map<std::string, std::shared_ptr<memory::tensor<float>>> result;
 				for (size_t index = 0; index < io_num_.n_output; index++)
 				{
-					auto output_tensor = std::make_shared<memory::tensor<float>>(std::vector<int>{data_shape[0], output_tensor_shape_index_[index][2], output_tensor_shape_index_[index][1], output_tensor_shape_index_[index][0]});
+					std::vector<int> temp_shape = output_tensor_shape_index_[index];
+					temp_shape[0] = data_shape[0];
+					auto output_tensor = std::make_shared<memory::tensor<float>>(temp_shape);
 					std::copy(temp[index].begin(), temp[index].end(), output_tensor->mutable_cpu_data());
 					result[output_name_index_[index]] = output_tensor;
 				}
@@ -251,7 +273,7 @@ namespace glasssix
 			uint32_t flag_;
 			rknn_input_output_num io_num_;
 			std::unordered_map<int, std::string> output_name_index_;
-			std::unordered_map<int, std::vector<uint32_t>> output_tensor_shape_index_;
+			std::unordered_map<int, std::vector<int>> output_tensor_shape_index_;
 
 			static std::vector<std::string> split_string(const std::string& s, const std::string& c)
 			{

@@ -6,6 +6,7 @@
 #include <Excalibur/pipeline.hpp>
 #include <Primitives/pool_allocator.hpp>
 #include <Primitives/tensor_conversions.hpp>
+#include <Primitives/fmt/format.h>
 
 #ifdef USE_CUDA
 #include <cuda_runtime_api.h>
@@ -53,9 +54,9 @@ namespace glasssix::selene
 
 			//Excalibur needs to distinguish between float and int8 models, rknn and rknn2 does not
 #if defined(USE_RKNNAPI) || defined(USE_RKNN2API)
-			feature_extractor_instance_ = std::make_unique<rknnwrapper::rknn_wrapper>(hardcode::get_model_params(std::get<1>(*model_iter), use_int8), std::string(models_directory) + "/" + std::get<2>(*model_iter) + ".rknn", device);
+			feature_extractor_instance_ = std::make_unique<rknnwrapper::rknn_wrapper>(get_model_params(std::get<1>(*model_iter), use_int8), std::string(models_directory) + "/" + std::get<2>(*model_iter) + ".rknn", device);
 #else
-			feature_extractor_instance_ = std::make_unique<excalibur::pipeline<float>>(hardcode::get_model_params(std::get<1>(*model_iter), use_int8), std::string(models_directory) + "/" + std::get<2>(*model_iter) + (use_int8 ? "_int8.racy" : ".racy"), device);
+			feature_extractor_instance_ = std::make_unique<excalibur::pipeline<float>>(get_model_params(std::get<1>(*model_iter), use_int8), std::string(models_directory) + "/" + std::get<2>(*model_iter) + (use_int8 ? "_int8.racy" : ".racy"), device);
 #endif
 		}
 
@@ -66,33 +67,48 @@ namespace glasssix::selene
 				return {};
 			}
 
+			std::vector<std::uint8_t> temp_data;
+			if (model_type_ == 3)
+			{
+				temp_data.resize(bitmaps.size());
+				std::copy(bitmaps.begin(), bitmaps.end(), temp_data.begin());
+				if (order == 0)
+					convert_bgr2rgb_nchw(temp_data.data(), count);
+				else if (order == 1)
+					convert_bgr2rgb_nhwc(temp_data.data(), count);
+
+				bitmaps = exposing::param_span<std::uint8_t>(temp_data.data(), temp_data.size());
+			}
+
 			std::vector<std::vector<float>> result;
 #if defined(USE_RKNNAPI) || defined(USE_RKNN2API)
 #ifdef USE_RKNNAPI
-			auto network_result = (*feature_extractor_instance_).forward(bitmaps.data(), { static_cast<int>(count), 3, 128, 128 }, static_cast<rknn_tensor_format>(order));
+
+			auto network_result = (*feature_extractor_instance_).forward(bitmaps.data(), { static_cast<int>(count), single_bitmap_channels, single_bitmap_height, single_bitmap_width }, static_cast<rknn_tensor_format>(order));
 			std::string output_name = model_type_ == 3 ? "Conv_Conv_71/out0_0" : "conv5_dw_83_84";
 #else
 			//rknn2 can't transform order, so manual transform is needed
 			std::unordered_map<std::string, std::shared_ptr<memory::tensor<float>>> network_result;
 			if (order == 0)
 			{
-				std::vector<std::uint8_t> nhwc_bitmaps(count * 3 * 128 * 128);
+				constexpr std::size_t stride_c = single_bitmap_width * single_bitmap_height;
+				std::vector<std::uint8_t> nhwc_bitmaps(count * single_bitmap_bytes);
 				for (size_t i = 0; i < count; i++)
 				{
-					std::uint8_t* b = bitmaps.data() + i * 3 * 128 * 128;
-					std::uint8_t* g = bitmaps.data() + i * 3 * 128 * 128 + 128 * 128;
-					std::uint8_t* r = bitmaps.data() + i * 3 * 128 * 128 + 2 * 128 * 128;
-					for (size_t j = 0; j < 128 * 128; j++)
+					std::uint8_t* c1 = bitmaps.data() + i * single_bitmap_bytes;
+					std::uint8_t* c2 = bitmaps.data() + i * single_bitmap_bytes + stride_c;
+					std::uint8_t* c3 = bitmaps.data() + i * single_bitmap_bytes + 2 * stride_c;
+					for (size_t j = 0; j < stride_c; j++)
 					{
-						*(nhwc_bitmaps.data() + i * 3 * 128 * 128 + j) = *(b + j);
-						*(nhwc_bitmaps.data() + i * 3 * 128 * 128 + j + 1) = *(g + j);
-						*(nhwc_bitmaps.data() + i * 3 * 128 * 128 + j + 2) = *(r + j);
+						nhwc_bitmaps[i * single_bitmap_bytes + j * single_bitmap_channels] = c1[j];
+						nhwc_bitmaps[i * single_bitmap_bytes + j * single_bitmap_channels + 1] = c2[j];
+						nhwc_bitmaps[i * single_bitmap_bytes + j * single_bitmap_channels + 2] = c3[j];
 					}
 				}
-				network_result = (*feature_extractor_instance_).forward(nhwc_bitmaps.data(), { static_cast<int>(count), 3, 128, 128 }, rknn_tensor_format::RKNN_TENSOR_NHWC);
+				network_result = (*feature_extractor_instance_).forward(nhwc_bitmaps.data(), { static_cast<int>(count), single_bitmap_height, single_bitmap_width, single_bitmap_channels }, rknn_tensor_format::RKNN_TENSOR_NHWC);
 			}
 			else
-				network_result = (*feature_extractor_instance_).forward(bitmaps.data(), { static_cast<int>(count), 3, 128, 128 }, rknn_tensor_format::RKNN_TENSOR_NHWC);
+				network_result = (*feature_extractor_instance_).forward(bitmaps.data(), { static_cast<int>(count), single_bitmap_height, single_bitmap_width, single_bitmap_channels }, rknn_tensor_format::RKNN_TENSOR_NHWC);
 
 			std::string output_name = model_type_ == 3 ? "predict" : "conv5_dw";
 #endif
@@ -123,9 +139,17 @@ namespace glasssix::selene
 			return model_type_;
 		}
 
-		static std::string version()
+		std::string version()
 		{
-			return "1.0.0";
+			const std::string algo_module_version = "1.0.0";
+
+#if defined(USE_RKNNAPI) || defined(USE_RKNN2API)
+			//#if 0
+			std::string nn_frame_version = feature_extractor_instance_->version();
+#else
+			std::string nn_frame_version = feature_extractor_instance_->version();
+#endif
+			return fmt::format(R"({{"nn_frame_version":"{}", "algo_module_version":"{}"}})", nn_frame_version, algo_module_version);
 		}
 	private:
 		void init_cache(exposing::param_span<std::uint8_t> bitmaps, std::size_t count, int order)
@@ -149,6 +173,37 @@ namespace glasssix::selene
 
 			if (cache_->order() == memory::NHWC)
 				cache_->convert_order();
+		}
+
+		void convert_bgr2rgb_nchw(std::uint8_t* data, size_t count)
+		{
+			constexpr std::size_t stride_c = single_bitmap_width * single_bitmap_height;
+			for (size_t i = 0; i < count; i++)
+			{
+				std::uint8_t* ptr = data + i * single_bitmap_bytes;
+				std::vector<std::uint8_t> temp(stride_c);
+				std::copy(ptr, ptr + stride_c, temp.data());
+				std::copy(ptr + 2 * stride_c, ptr + single_bitmap_bytes, ptr);
+				std::copy(temp.data(), temp.data() + stride_c, ptr + 2 * stride_c);
+			}
+		}
+
+		void convert_bgr2rgb_nhwc(std::uint8_t* data, size_t count)
+		{
+			constexpr std::size_t stride_w = single_bitmap_width * single_bitmap_channels;
+			for (size_t i = 0; i < count; i++)
+			{
+				std::uint8_t* ptr = data + i * single_bitmap_bytes;
+				for (size_t h = 0; h < single_bitmap_height; h++)
+				{
+					for (size_t w = 0; w < single_bitmap_width; w++)
+					{
+						ptr[h * stride_w + w * single_bitmap_channels + 0] = ptr[h * stride_w + w * single_bitmap_channels + 0] ^ ptr[h * stride_w + w * single_bitmap_channels + 2];
+						ptr[h * stride_w + w * single_bitmap_channels + 2] = ptr[h * stride_w + w * single_bitmap_channels + 0] ^ ptr[h * stride_w + w * single_bitmap_channels + 2];
+						ptr[h * stride_w + w * single_bitmap_channels + 0] = ptr[h * stride_w + w * single_bitmap_channels + 0] ^ ptr[h * stride_w + w * single_bitmap_channels + 2];
+					}
+				}
+			}
 		}
 
 		int model_type_;
@@ -183,6 +238,6 @@ namespace glasssix::selene
 
 	std::string feature_extractor_internal::version()
 	{
-		return impl::version();
+		return impl_->version();
 	}
 }

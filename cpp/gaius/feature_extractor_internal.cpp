@@ -26,7 +26,7 @@ namespace glasssix::gaius
 	class feature_extractor_internal::impl
 	{
 	public:
-		impl(std::string_view racy_path, std::string_view mask_racy_path, int device, bool use_int8) : impl{ hardcode::get_model_params("mobile_unicorn", use_int8), std::string{ racy_path }, hardcode::get_model_params("mobile_unicorn_mask", use_int8), std::string{ mask_racy_path }, device }
+		impl(std::string_view racy_path, std::string_view mask_racy_path, int device, bool use_int8) : impl{ get_model_params("mobile_unicorn", use_int8), std::string{ racy_path }, get_model_params("mobile_unicorn_mask", use_int8), std::string{ mask_racy_path }, device }
 		{
 		}
 
