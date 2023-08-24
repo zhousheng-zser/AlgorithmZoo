@@ -158,7 +158,7 @@ namespace glasssix::workcloth
 
         std::string version()
         {
-            const std::string algo_module_version = "2.0.2";
+            const std::string algo_module_version = "2.1.0";
 
 #if defined(USE_RKNNAPI) || defined(USE_RKNN2API)
             //#if 0
@@ -170,6 +170,41 @@ namespace glasssix::workcloth
         }
 
     private:
+
+        inline cv::Mat safty_cut(cv::Mat& img, cv::Rect roi)
+        {
+            int width = roi.width;
+            int height = roi.height;
+            int x = roi.x;
+            int y = roi.y;
+
+            cv::Mat mat(height, width, img.type(), cv::Scalar(0));
+            int _x = x;
+            int _y = y;
+            int _width = width;
+            int _height = height;
+            if (x < 0)
+            {
+                _x = 0;
+                _width = width + x;
+            }
+
+            if (_x + _width > img.cols)
+                _width = img.cols - _x;
+
+            if (y < 0)
+            {
+                _y = 0;
+                _height = height + y;
+            }
+
+            if (_y + _height > img.rows)
+                _height = img.rows - _y;
+
+            img(cv::Rect(_x, _y, _width, _height)).copyTo(mat(cv::Rect(_x - x, _y - y, _width, _height)));
+            return mat;
+        }
+
         bool rect_modify(cv::Rect& rec_region, int W, int H) {
             rec_region.x = std::max(0, rec_region.x);
             rec_region.y = std::max(0, rec_region.y);
@@ -307,9 +342,9 @@ namespace glasssix::workcloth
                 bool bodyishard = ((float)effect_kpoints_counter/Kpoints_vali_set.size())<points_num_thres;
 				if (bodyishard || rect_modify(person.cls_cut, W, H) || rect_modify(person.color_cut, W, H)) continue; // bodyishard
 
-                cv::Mat cls_image = image(person.cls_cut).clone();
+                cv::Mat cls_image = safty_cut(image, person.cls_cut);
                 auto classify_result = run_classify(cls_image);
-                cv::Mat color_image = image(person.color_cut).clone();
+                cv::Mat color_image = safty_cut(image, person.color_cut);
 
                 std::vector<ColorDet> color_det_rsts;
                 for(int color_index = 0; color_index<10;color_index++){
