@@ -158,7 +158,7 @@ namespace glasssix::workcloth
 
         std::string version()
         {
-            const std::string algo_module_version = "2.1.0";
+            const std::string algo_module_version = "2.2.0";
 
 #if defined(USE_RKNNAPI) || defined(USE_RKNN2API)
             //#if 0
@@ -264,7 +264,7 @@ namespace glasssix::workcloth
         }
 
         enum class Color {
-            black = 0, grey, white, red, orange, yellow, green, cyan, blue, purple
+			black = 0, grey, white, red, orange, yellow, green, cyan, blue, purple
         };
 
         std::map<Color, std::pair<cv::Scalar, cv::Scalar>> color_hsv_cfg{
@@ -282,14 +282,11 @@ namespace glasssix::workcloth
         };
 
         float calculate_singglehsv_method(cv::Mat image, Color mode) {
-            auto img = image.clone();
-            int H = img.rows;
-            int W = img.cols;
-            int total_pixels = H * W;
+            int total_pixels = image.rows * image.cols;
 
             cv::Mat color_mask;
             cv::Mat hsv_img;
-            cv::cvtColor(img, hsv_img, cv::COLOR_BGR2HSV);
+            cv::cvtColor(image, hsv_img, cv::COLOR_BGR2HSV);
             if(mode!=Color::red){
                 cv::Scalar hsv_lower = color_hsv_cfg.at(mode).first;
                 cv::Scalar hsv_upper = color_hsv_cfg.at(mode).second;
@@ -297,6 +294,7 @@ namespace glasssix::workcloth
                 cv::inRange(hsv_img, hsv_lower, hsv_upper, color_mask);
             }
             else{
+                // detect red mode
                 cv::Mat mask1;
                 cv::Scalar red_lower1 = cv::Scalar{0, 35, 46};
                 cv::Scalar red_upper1 = cv::Scalar{10, 255, 255};
@@ -313,8 +311,36 @@ namespace glasssix::workcloth
             float color_ratio = color_pixels / total_pixels;
             
             return color_ratio;
-
         }
+
+        std::pair<Color, float> calculate_hsv_method_dropbgw(cv::Mat image) {
+
+            std::array<std::pair<Color, float>, 7> color_ratio_list{
+                std::pair<Color, float>{Color::red,0},
+                {Color::orange,0},
+                {Color::yellow,0},
+                {Color::green,0},
+                {Color::cyan,0},
+                {Color::blue,0},
+                {Color::purple,0},
+            };
+
+            //float wbg = calculate_singglehsv_method(image, Color::white);
+            //wbg += calculate_singglehsv_method(image, Color::black);
+            //wbg += calculate_singglehsv_method(image, Color::grey);
+
+            for (auto& color_ratio : color_ratio_list) {
+                auto retio = calculate_singglehsv_method(image, color_ratio.first);
+				//color_ratio.second = retio + wbg;
+				color_ratio.second = retio;
+            }
+
+            std::sort(color_ratio_list.begin(), color_ratio_list.end(), [](std::pair<Color, float>& A, std::pair<Color, float>& B) {
+                return A.second > B.second;
+                });
+            return color_ratio_list[0];
+        }
+
 
         struct ColorDet{
             float conf;
@@ -344,22 +370,19 @@ namespace glasssix::workcloth
 
                 cv::Mat cls_image = safty_cut(image, person.cls_cut);
                 auto classify_result = run_classify(cls_image);
+
+				person.color_cut.width *= 0.5;
+				person.color_cut.height *= 0.5;
+				person.color_cut.x += person.color_cut.width * 0.5;
+				person.color_cut.y += person.color_cut.height * 0.5;
+
                 cv::Mat color_image = safty_cut(image, person.color_cut);
 
-                std::vector<ColorDet> color_det_rsts;
-                for(int color_index = 0; color_index<10;color_index++){
-                    ColorDet colordet;
-                    auto color_conf = calculate_singglehsv_method(color_image, static_cast<Color>(color_index));
-                    colordet.conf = color_conf;
-                    colordet.type = color_index;
-                    color_det_rsts.push_back(colordet);
-                }
-                std::sort(color_det_rsts.begin(), color_det_rsts.end(),
-                    [](const ColorDet& A, const ColorDet& B) { return A.conf > B.conf; });
+                auto [best_color, best_ratio] = calculate_hsv_method_dropbgw(color_image);
 
                 in_box_info.is_sleeve = classify_result.first < classify_result.second;                
-                in_box_info.color_conf = color_det_rsts[0].conf;
-                in_box_info.color_type = color_det_rsts[0].type;
+                in_box_info.color_conf = best_ratio;
+                in_box_info.color_type = static_cast<int>(best_color);
                 in_box_info.x1 = person.x1;
                 in_box_info.y1 = person.y1;
                 in_box_info.x2 = person.x2;
