@@ -24,8 +24,8 @@ namespace glasssix::exposing::impl
             virtual std::int32_t G6_ABI_CALL x2(abi_out_t<int> result) noexcept = 0;
             virtual std::int32_t G6_ABI_CALL y2(abi_out_t<int> result) noexcept = 0;
             virtual std::int32_t G6_ABI_CALL is_sleeve(abi_out_t<int> result) noexcept = 0;
-            virtual std::int32_t G6_ABI_CALL color_type(abi_out_t<int> result) noexcept = 0;
-            virtual std::int32_t G6_ABI_CALL color_conf(abi_out_t<float> result) noexcept = 0;
+            virtual std::int32_t G6_ABI_CALL color_ratios(abi_out_t<param_vector<float>> result) noexcept = 0;
+
         };
     };
 
@@ -63,18 +63,11 @@ namespace glasssix::exposing::impl
                                  { *result = detach_abi(this->self().is_sleeve()); });
         }
 
-        virtual std::int32_t G6_ABI_CALL color_type(abi_out_t<int> result) noexcept override
+        virtual std::int32_t G6_ABI_CALL color_ratios(abi_out_t<param_vector<float>> result) noexcept override
         {
             return abi_safe_call([&]
-                                 { *result = detach_abi(this->self().color_type()); });
+                { *result = detach_abi(this->self().color_ratios()); });
         }
-
-        virtual std::int32_t G6_ABI_CALL color_conf(abi_out_t<float> result) noexcept override
-        {
-            return abi_safe_call([&]
-                                 { *result = detach_abi(this->self().color_conf()); });
-        }
-
     };
 
     template <>
@@ -116,18 +109,11 @@ namespace glasssix::exposing::impl
                 return (check_abi_result(this->self_abi().is_sleeve(put_abi(result))), result);
             }
 
-			int color_type() const
+            param_vector<float> color_ratios() const
             {
-                int result = 0;
+                param_vector<float> result;
 
-                return (check_abi_result(this->self_abi().color_type(put_abi(result))), result);
-            }
-
-			float color_conf() const
-            {
-                float result = 0;
-
-                return (check_abi_result(this->self_abi().color_conf(put_abi(result))), result);
+                return (check_abi_result(this->self_abi().color_ratios(put_abi(result))), result);
             }
         };
     };

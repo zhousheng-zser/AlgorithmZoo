@@ -20,8 +20,7 @@ namespace glasssix::workcloth
         int x2() const;
         int y2() const;
         int is_sleeve() const;
-        int color_type() const;
-        float color_conf() const;
+		exposing::param_vector<float> color_ratios() const;
 
     private:
         box_info_internal internal_{};

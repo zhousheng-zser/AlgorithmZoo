@@ -158,7 +158,7 @@ namespace glasssix::workcloth
 
         std::string version()
         {
-            const std::string algo_module_version = "2.2.0";
+            const std::string algo_module_version = "2.3.0";
 
 #if defined(USE_RKNNAPI) || defined(USE_RKNN2API)
             //#if 0
@@ -313,40 +313,6 @@ namespace glasssix::workcloth
             return color_ratio;
         }
 
-        std::pair<Color, float> calculate_hsv_method_dropbgw(cv::Mat image) {
-
-            std::array<std::pair<Color, float>, 7> color_ratio_list{
-                std::pair<Color, float>{Color::red,0},
-                {Color::orange,0},
-                {Color::yellow,0},
-                {Color::green,0},
-                {Color::cyan,0},
-                {Color::blue,0},
-                {Color::purple,0},
-            };
-
-            //float wbg = calculate_singglehsv_method(image, Color::white);
-            //wbg += calculate_singglehsv_method(image, Color::black);
-            //wbg += calculate_singglehsv_method(image, Color::grey);
-
-            for (auto& color_ratio : color_ratio_list) {
-                auto retio = calculate_singglehsv_method(image, color_ratio.first);
-				//color_ratio.second = retio + wbg;
-				color_ratio.second = retio;
-            }
-
-            std::sort(color_ratio_list.begin(), color_ratio_list.end(), [](std::pair<Color, float>& A, std::pair<Color, float>& B) {
-                return A.second > B.second;
-                });
-            return color_ratio_list[0];
-        }
-
-
-        struct ColorDet{
-            float conf;
-            int type;
-        };
-
         void run_workcloth(std::vector<box_info_internal>& results, cv::Mat& image, std::vector<PostureInfo>& persons, std::map<std::string, float>& param_map)
         {
             float W = image.cols;
@@ -378,11 +344,13 @@ namespace glasssix::workcloth
 
                 cv::Mat color_image = safty_cut(image, person.color_cut);
 
-                auto [best_color, best_ratio] = calculate_hsv_method_dropbgw(color_image);
+                auto color_ratios_abi = exposing::make_param_vector<float>();
+                for (int i = 0; i < 10; i++) {
+                    color_ratios_abi.push_back(calculate_singglehsv_method(color_image, static_cast<Color>(i)));
+                }
 
-                in_box_info.is_sleeve = classify_result.first < classify_result.second;                
-                in_box_info.color_conf = best_ratio;
-                in_box_info.color_type = static_cast<int>(best_color);
+                in_box_info.is_sleeve = classify_result.first < classify_result.second;
+                in_box_info.color_ratios = color_ratios_abi;
                 in_box_info.x1 = person.x1;
                 in_box_info.y1 = person.y1;
                 in_box_info.x2 = person.x2;

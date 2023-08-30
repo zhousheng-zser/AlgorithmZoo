@@ -77,8 +77,7 @@ namespace glasssix::workcloth
         int x2;
         int y2;
         int is_sleeve;
-        int color_type;
-        float color_conf;
+        exposing::param_vector<float> color_ratios; //color ratio list
     };
 
 
