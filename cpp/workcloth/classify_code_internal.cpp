@@ -158,7 +158,7 @@ namespace glasssix::workcloth
 
         std::string version()
         {
-            const std::string algo_module_version = "2.3.0";
+            const std::string algo_module_version = "2.3.1";
 
 #if defined(USE_RKNNAPI) || defined(USE_RKNN2API)
             //#if 0
@@ -268,17 +268,17 @@ namespace glasssix::workcloth
         };
 
         std::map<Color, std::pair<cv::Scalar, cv::Scalar>> color_hsv_cfg{
-            {Color::black,{cv::Scalar{0, 0, 0},cv::Scalar{180, 255, 46}}},
-            {Color::grey,{cv::Scalar{0, 0, 46},cv::Scalar{180, 35, 220}}},
+            {Color::black,{cv::Scalar{0, 0, 0},cv::Scalar{180, 255, 45}}},
+            {Color::grey,{cv::Scalar{0, 0, 46},cv::Scalar{180, 42, 220}}},
             {Color::white,{cv::Scalar{0, 0, 221},cv::Scalar{180, 30, 255}}},
 
-            {Color::orange,{cv::Scalar{11, 35, 46},cv::Scalar{25, 255, 255}}},
-            {Color::yellow,{cv::Scalar{26, 35, 46},cv::Scalar{34, 255, 255}}},
+            {Color::orange,{cv::Scalar{11, 42, 46},cv::Scalar{25, 255, 255}}},
+            {Color::yellow,{cv::Scalar{26, 42, 46},cv::Scalar{34, 255, 255}}},
 
-            {Color::green,{cv::Scalar{35, 35, 46},cv::Scalar{77, 255, 255}}},
-            {Color::cyan,{cv::Scalar{78, 35, 46},cv::Scalar{99, 255, 255}}},
-            {Color::blue,{cv::Scalar{100, 35, 46},cv::Scalar{124, 255, 255}}},
-            {Color::purple,{cv::Scalar{125, 35, 46},cv::Scalar{155, 255, 255}}},
+            {Color::green,{cv::Scalar{35, 42, 46},cv::Scalar{77, 255, 255}}},
+            {Color::cyan,{cv::Scalar{78, 42, 46},cv::Scalar{99, 255, 255}}},
+            {Color::blue,{cv::Scalar{100, 42, 46},cv::Scalar{124, 255, 255}}},
+            {Color::purple,{cv::Scalar{125, 42, 46},cv::Scalar{155, 255, 255}}},
         };
 
         float calculate_singglehsv_method(cv::Mat image, Color mode) {
@@ -296,12 +296,12 @@ namespace glasssix::workcloth
             else{
                 // detect red mode
                 cv::Mat mask1;
-                cv::Scalar red_lower1 = cv::Scalar{0, 35, 46};
+                cv::Scalar red_lower1 = cv::Scalar{0, 42, 46};
                 cv::Scalar red_upper1 = cv::Scalar{10, 255, 255};
                 cv::inRange(hsv_img, red_lower1, red_upper1, mask1);
 
                 cv::Mat mask2;
-                cv::Scalar red_lower2 = cv::Scalar{156, 35, 46};
+                cv::Scalar red_lower2 = cv::Scalar{156, 42, 46};
                 cv::Scalar red_upper2 = cv::Scalar{180, 255, 255};
                 cv::inRange(hsv_img, red_lower2, red_upper2, mask2);
                 color_mask = mask1 + mask2;
