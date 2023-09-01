@@ -51,7 +51,9 @@ namespace glasssix::workcloth
 #endif
             static bool ready = glasssix::exposing::get_component_loader().add_module_by_name("posture");
             posture_instance_ = glasssix::exposing::make_exported_interface<posture::detect_code>(model_directory, device);
-
+            posture_param_abi = exposing::make_param_hash_map<exposing::param_string, float>();
+            posture_param_abi.add_or_update("conf_thres", 0.8f);
+            posture_param_abi.add_or_update("nms_thres", 0.25f);
         }
 
         exposing::param_vector<workcloth::box_info> detect(const exposing::param_span<std::uint8_t>& bitmap, int channels, int height, int width, int roi_x, int roi_y, int roi_width, int roi_height, std::map<std::string, float>& param_map)
@@ -80,8 +82,7 @@ namespace glasssix::workcloth
             // //YHC
             // auto vis_mat = image.clone();
 
-            auto empty_map_abi = exposing::make_param_hash_map<exposing::param_string, float>();
-            exposing::param_vector<posture::box_info> posture_info_list = posture_instance_.detect(bitmap, channels, height, width, 0, 0, width, height, empty_map_abi);
+            exposing::param_vector<posture::box_info> posture_info_list = posture_instance_.detect(bitmap, channels, height, width, 0, 0, width, height, posture_param_abi);
             std::vector<PostureInfo> persons_info;
 
             int pinfo_counter = 0;
@@ -158,7 +159,7 @@ namespace glasssix::workcloth
 
         std::string version()
         {
-            const std::string algo_module_version = "2.3.1";
+            const std::string algo_module_version = "2.3.2";
 
 #if defined(USE_RKNNAPI) || defined(USE_RKNN2API)
             //#if 0
@@ -321,9 +322,17 @@ namespace glasssix::workcloth
             float points_score_thres = param_map.count("points_score_thres") ? param_map["points_score_thres"] : 0.9f;
             float points_num_thres = param_map.count("points_num_thres") ? param_map["points_num_thres"] : 0.9f;
             
-            for(auto& person:persons){
+            for(auto& person:persons)
+            {
+                // auto& person=persons[2];
                 box_info_internal in_box_info;
                 
+                // dbg(person.Kpoints_score);
+                // dbg(person.Kpoints_score[5]);
+                // dbg(person.Kpoints_score[6]);
+                // dbg(person.Kpoints_score[11]);
+                // dbg(person.Kpoints_score[12]);
+
                 std::vector<float> Kpoints_vali_set{person.Kpoints_score[5],person.Kpoints_score[6],person.Kpoints_score[11],person.Kpoints_score[12]};
                 int effect_kpoints_counter = 0;
 
@@ -332,7 +341,8 @@ namespace glasssix::workcloth
                 }
 
                 bool bodyishard = ((float)effect_kpoints_counter/Kpoints_vali_set.size())<points_num_thres;
-				if (bodyishard || rect_modify(person.cls_cut, W, H) || rect_modify(person.color_cut, W, H)) continue; // bodyishard
+                // dbg(bodyishard);
+				 if (bodyishard || rect_modify(person.cls_cut, W, H) || rect_modify(person.color_cut, W, H)) continue; // bodyishard
 
                 cv::Mat cls_image = safty_cut(image, person.cls_cut);
                 auto classify_result = run_classify(cls_image);
@@ -349,6 +359,15 @@ namespace glasssix::workcloth
                     color_ratios_abi.push_back(calculate_singglehsv_method(color_image, static_cast<Color>(i)));
                 }
 
+                // for (auto kp : person.Kpoints) {
+                //     cv::circle(image, kp, 3, { 255,255,255}, 3);
+                // }
+                // cv::circle(image, person.Kpoints[5], 3, { 0,0,150}, 3);
+                // cv::circle(image, person.Kpoints[6], 3, { 0,0,180}, 3);
+                // cv::circle(image, person.Kpoints[11], 3, { 0,0,210}, 3);
+                // cv::circle(image, person.Kpoints[12], 3, { 0,0,250}, 3);
+                // cv::imwrite("/home/firefly/yhc/bdh.png",image);
+
                 in_box_info.is_sleeve = classify_result.first < classify_result.second;
                 in_box_info.color_ratios = color_ratios_abi;
                 in_box_info.x1 = person.x1;
@@ -363,6 +382,7 @@ namespace glasssix::workcloth
 
 
     private:
+        exposing::param_hash_map<exposing::param_string, float> posture_param_abi;
         std::string model_directory_;
         int device_;
 
