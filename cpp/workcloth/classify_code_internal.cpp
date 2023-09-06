@@ -53,10 +53,10 @@ namespace glasssix::workcloth
 			posture_instance_ = glasssix::exposing::make_exported_interface<posture::detect_code>(model_directory, device);
 			posture_param_abi = exposing::make_param_hash_map<exposing::param_string, float>();
 			posture_param_abi.add_or_update("conf_thres", 0.8f);
-			posture_param_abi.add_or_update("nms_thres", 0.25f);
+			posture_param_abi.add_or_update("nms_thres", 0.30f);
 		}
 
-		exposing::param_vector<workcloth::box_info> detect(const exposing::param_span<std::uint8_t>& bitmap, int channels, int height, int width, int roi_x, int roi_y, int roi_width, int roi_height, int strategy, std::map<std::string, float>& param_map)
+		exposing::param_vector<workcloth::box_info> detect(const exposing::param_span<std::uint8_t>& bitmap, int channels, int height, int width, int roi_x, int roi_y, int roi_width, int roi_height, std::map<std::string, float>& param_map)
 		{
 			if (bitmap.empty())
 			{
@@ -129,12 +129,8 @@ namespace glasssix::workcloth
 
 			}
 
-			if (strategy == 0) {
-				run_workcloth(results, image, persons_info, param_map);
-			}
-			else if (strategy == 1) {
-				run_workcloth2(results, image, persons_info, param_map);
-			}
+			//run_workcloth(results, image, persons_info, param_map);
+			run_workcloth2(results, image, persons_info, param_map);
 
 
 			for (auto& i : results)
@@ -146,7 +142,7 @@ namespace glasssix::workcloth
 
 		std::string version()
 		{
-			const std::string algo_module_version = "2.4.0";
+			const std::string algo_module_version = "2.4.1";
 
 #if defined(USE_RKNNAPI) || defined(USE_RKNN2API)
 			//#if 0
@@ -420,16 +416,23 @@ namespace glasssix::workcloth
 				int center_total_pixels = color_img_center.rows * color_img_center.cols;
 				int left_total_pixels = color_img_left.rows * color_img_left.cols;
 				int right_total_pixels = color_img_right.rows * color_img_right.cols;
-				int total_pixels = center_total_pixels + left_total_pixels + right_total_pixels;
 
 				auto color_ratios_abi = exposing::make_param_vector<float>();
 				for (int i = 0; i < 10; i++) {
 					int center_color_pixels = calculate_singglehsv_method(color_img_center, static_cast<Color>(i));
-					int left_color_pixels = calculate_singglehsv_method(color_img_left, static_cast<Color>(i));
-					int right_color_pixels = calculate_singglehsv_method(color_img_right, static_cast<Color>(i));
-					int color_pixels = center_color_pixels + left_color_pixels + right_color_pixels;
-					float ratio = static_cast<float>(color_pixels) / total_pixels;
+					float ratio = static_cast<float>(center_color_pixels) / center_total_pixels;
+					color_ratios_abi.push_back(ratio);
+				}
 
+				for (int i = 0; i < 10; i++) {
+					int left_color_pixels = calculate_singglehsv_method(color_img_left, static_cast<Color>(i));
+					float ratio = static_cast<float>(left_color_pixels) / left_total_pixels;
+					color_ratios_abi.push_back(ratio);
+				}
+
+				for (int i = 0; i < 10; i++) {
+					int right_color_pixels = calculate_singglehsv_method(color_img_right, static_cast<Color>(i));
+					float ratio = static_cast<float>(right_color_pixels) / right_total_pixels;
 					color_ratios_abi.push_back(ratio);
 				}
 
@@ -473,8 +476,8 @@ namespace glasssix::workcloth
 		return impl_->version();
 	}
 
-	exposing::param_vector<workcloth::box_info> classify_code_internal::detect(exposing::param_span<std::uint8_t> bitmap, int channels, int height, int width, int roi_x, int roi_y, int roi_width, int roi_height, int strategy, std::map<std::string, float>& param_map) const
+	exposing::param_vector<workcloth::box_info> classify_code_internal::detect(exposing::param_span<std::uint8_t> bitmap, int channels, int height, int width, int roi_x, int roi_y, int roi_width, int roi_height, std::map<std::string, float>& param_map) const
 	{
-		return impl_->detect(bitmap, channels, height, width, roi_x, roi_y, roi_width, roi_height, strategy, param_map);
+		return impl_->detect(bitmap, channels, height, width, roi_x, roi_y, roi_width, roi_height, param_map);
 	}
 }

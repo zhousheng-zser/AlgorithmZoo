@@ -22,7 +22,7 @@ namespace glasssix::workcloth
 
         exposing::param_string version() const;
 
-        exposing::param_vector<workcloth::box_info> detect(exposing::param_span<std::uint8_t> bitmap, int channels, int height, int width, int roi_x, int roi_y, int roi_width, int roi_height, int strategy,
+        exposing::param_vector<workcloth::box_info> detect(exposing::param_span<std::uint8_t> bitmap, int channels, int height, int width, int roi_x, int roi_y, int roi_width, int roi_height,
             const exposing::param_hash_map<exposing::param_string, float>& param_map_abi) const;
 
     private:
