@@ -52,8 +52,8 @@ namespace glasssix::workcloth
 			static bool ready = glasssix::exposing::get_component_loader().add_module_by_name("posture");
 			posture_instance_ = glasssix::exposing::make_exported_interface<posture::detect_code>(model_directory, device);
 			posture_param_abi = exposing::make_param_hash_map<exposing::param_string, float>();
-			posture_param_abi.add_or_update("conf_thres", 0.8f);
-			posture_param_abi.add_or_update("nms_thres", 0.30f);
+			posture_param_abi.add_or_update("conf_thres", 0.7f);
+			posture_param_abi.add_or_update("nms_thres", 0.40f);
 		}
 
 		exposing::param_vector<workcloth::box_info> detect(const exposing::param_span<std::uint8_t>& bitmap, int channels, int height, int width, int roi_x, int roi_y, int roi_width, int roi_height, std::map<std::string, float>& param_map)
@@ -142,7 +142,7 @@ namespace glasssix::workcloth
 
 		std::string version()
 		{
-			const std::string algo_module_version = "2.4.1";
+			const std::string algo_module_version = "2.5.0";
 
 #if defined(USE_RKNNAPI) || defined(USE_RKNN2API)
 			//#if 0
@@ -299,7 +299,7 @@ namespace glasssix::workcloth
 			float H = image.rows;
 
 			float points_score_thres = param_map.count("points_score_thres") ? param_map["points_score_thres"] : 0.9f;
-			float points_num_thres = param_map.count("points_num_thres") ? param_map["points_num_thres"] : 0.9f;
+			float points_num_thres = param_map.count("points_num_thres") ? param_map["points_num_thres"] : 0.45f;
 
 			for (auto& person : persons)
 			{
@@ -412,12 +412,21 @@ namespace glasssix::workcloth
 				cv::Mat color_img_center = safty_cut(image, rc_img_center);
 				cv::Mat color_img_left = safty_cut(image, rc_img_left);
 				cv::Mat color_img_right = safty_cut(image, rc_img_right);
+				// Origin Main ROI CUT
+				cv::Mat color_image = safty_cut(image, person.color_cut);
 
 				int center_total_pixels = color_img_center.rows * color_img_center.cols;
 				int left_total_pixels = color_img_left.rows * color_img_left.cols;
 				int right_total_pixels = color_img_right.rows * color_img_right.cols;
 
 				auto color_ratios_abi = exposing::make_param_vector<float>();
+
+				for (int i = 0; i < 10; i++) {
+					int Main_color_pixels = calculate_singglehsv_method(color_image, static_cast<Color>(i));
+					float ratio = static_cast<float>(Main_color_pixels) / center_total_pixels;
+					color_ratios_abi.push_back(ratio);
+				}
+
 				for (int i = 0; i < 10; i++) {
 					int center_color_pixels = calculate_singglehsv_method(color_img_center, static_cast<Color>(i));
 					float ratio = static_cast<float>(center_color_pixels) / center_total_pixels;
