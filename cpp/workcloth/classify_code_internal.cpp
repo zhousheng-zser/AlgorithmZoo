@@ -53,7 +53,7 @@ namespace glasssix::workcloth
 			posture_instance_ = glasssix::exposing::make_exported_interface<posture::detect_code>(model_directory, device);
 			posture_param_abi = exposing::make_param_hash_map<exposing::param_string, float>();
 			posture_param_abi.add_or_update("conf_thres", 0.7f);
-			posture_param_abi.add_or_update("nms_thres", 0.40f);
+			posture_param_abi.add_or_update("nms_thres", 0.70f);
 		}
 
 		exposing::param_vector<workcloth::box_info> detect(const exposing::param_span<std::uint8_t>& bitmap, int channels, int height, int width, int roi_x, int roi_y, int roi_width, int roi_height, std::map<std::string, float>& param_map)
@@ -78,59 +78,20 @@ namespace glasssix::workcloth
 			std::vector<box_info_internal> results;
 			auto result = exposing::make_param_vector<box_info>();
 
-			exposing::param_vector<posture::box_info> posture_info_list = posture_instance_.detect(bitmap, channels, height, width, 0, 0, width, height, posture_param_abi);
-			std::vector<PostureInfo> persons_info;
+			exposing::param_vector<posture::box_info> posture_info_list_raw = posture_instance_.detect(bitmap, channels, height, width, 0, 0, width, height, posture_param_abi);
+			std::vector<PostureInfo> posture_info_list;
+			// std::vector<PostureInfo> persons_info;
 
 			//dbg(posture_info_list.size());
-
-			for (auto pinfo : posture_info_list) {
+			for (auto pinfo : posture_info_list_raw) {
 				PostureInfo postureInfo{ pinfo };
-
-				if (postureInfo.x1<0 || postureInfo.x2>width || postureInfo.y1<0 || postureInfo.y2>height) {
-					float person_W_thr = (float)std::abs(postureInfo.x2 - postureInfo.x1) / 8;
-					float person_H_thr = (float)std::abs(postureInfo.y2 - postureInfo.y1) / 8;
-
-					if (postureInfo.x1 < 0) {
-						bool more_over_boundary = std::abs(postureInfo.x1) > person_W_thr;
-						if (more_over_boundary)
-							continue;
-						else
-							postureInfo.x1 = 0;
-					}
-
-					if (postureInfo.x2 > width - 1) {
-						bool more_over_boundary = std::abs(postureInfo.x2 - width) > person_W_thr;
-						if (more_over_boundary)
-							continue;
-						else
-							postureInfo.x2 = width - 1;
-					}
-
-					if (postureInfo.y1 < 0) {
-						bool more_over_boundary = std::abs(postureInfo.y1) > person_H_thr;
-						if (more_over_boundary)
-							continue;
-						else
-							postureInfo.y1 = 0;
-					}
-
-					if (postureInfo.y2 > height - 1) {
-						bool more_over_boundary = std::abs(postureInfo.y2 - height) > person_H_thr;
-						if (more_over_boundary)
-							continue;
-						else
-							postureInfo.y2 = height - 1;
-					}
-
-					if (postureInfo.x2 <= postureInfo.x1 || postureInfo.y2 <= postureInfo.y1) continue;
-				}
-
-				persons_info.push_back(postureInfo);
-
+				posture_info_list.push_back(postureInfo);
 			}
 
+			body_nms_cpu(posture_info_list, 0.1);
+
 			//run_workcloth(results, image, persons_info, param_map);
-			run_workcloth2(results, image, persons_info, param_map);
+			run_workcloth2(results, image, posture_info_list, param_map);
 
 
 			for (auto& i : results)
@@ -142,7 +103,7 @@ namespace glasssix::workcloth
 
 		std::string version()
 		{
-			const std::string algo_module_version = "2.5.0";
+			const std::string algo_module_version = "2.6.0";
 
 #if defined(USE_RKNNAPI) || defined(USE_RKNN2API)
 			//#if 0
@@ -154,6 +115,40 @@ namespace glasssix::workcloth
 		}
 
 	private:
+
+		void body_nms_cpu(std::vector<PostureInfo>& bboxes, float iou_thres) {
+			if (bboxes.empty()) return;
+			std::sort(bboxes.begin(), bboxes.end(), [&](PostureInfo b1, PostureInfo b2) {return b1.score > b2.score; });
+			std::vector<float> area(bboxes.size());
+			for (int i = 0; i < bboxes.size(); ++i) {
+				area[i] = bboxes[i].iou_body_nms.area();
+			}
+			for (int i = 0; i < bboxes.size(); ++i) {
+				for (int j = i + 1; j < bboxes.size(); ) {
+					float left = std::max(bboxes[i].x1, bboxes[j].x1);
+					float right = std::min(bboxes[i].x2, bboxes[j].x2);
+					float top = std::max(bboxes[i].y1, bboxes[j].y1);
+					float bottom = std::min(bboxes[i].y2, bboxes[j].y2);
+					//float left = std::max(bboxes[i].iou_body_nms.x, bboxes[j].iou_body_nms.x);
+					//float right = std::min(bboxes[i].iou_body_nms.br().x, bboxes[j].iou_body_nms.br().x);
+					//float top = std::max(bboxes[i].iou_body_nms.y, bboxes[j].iou_body_nms.y);
+					//float bottom = std::min(bboxes[i].iou_body_nms.br().y, bboxes[j].iou_body_nms.br().y);
+					float width = std::max(right - left + 1, 0.f);
+					float height = std::max(bottom - top + 1, 0.f);
+					float u_area = height * width;
+					float iou = (u_area) / (area[i] + area[j] - u_area);
+					if (iou >= iou_thres) {
+						bboxes.erase(bboxes.begin() + j);
+						area.erase(area.begin() + j);
+					}
+					else {
+						++j;
+					}
+				}
+			}
+			if (bboxes.size() < 2) return;
+			std::sort(bboxes.begin(), bboxes.end(), [&](PostureInfo b1, PostureInfo b2) {return b1.score > b2.score; });
+		}
 
 		inline cv::Mat safty_cut(cv::Mat& img, cv::Rect roi)
 		{
@@ -364,8 +359,8 @@ namespace glasssix::workcloth
 			float W = image.cols;
 			float H = image.rows;
 
-			float points_score_thres = param_map.count("points_score_thres") ? param_map["points_score_thres"] : 0.9f;
-			float points_num_thres = param_map.count("points_num_thres") ? param_map["points_num_thres"] : 0.9f;
+			float points_score_thres = param_map.count("points_score_thres") ? param_map["points_score_thres"] : 0.95f;
+			float points_num_thres = param_map.count("points_num_thres") ? param_map["points_num_thres"] : 0.55f;
 
 			for (auto& person : persons)
 			{
@@ -415,6 +410,7 @@ namespace glasssix::workcloth
 				// Origin Main ROI CUT
 				cv::Mat color_image = safty_cut(image, person.color_cut);
 
+				int main_total_pixels = color_image.rows * color_image.cols;
 				int center_total_pixels = color_img_center.rows * color_img_center.cols;
 				int left_total_pixels = color_img_left.rows * color_img_left.cols;
 				int right_total_pixels = color_img_right.rows * color_img_right.cols;
@@ -423,7 +419,7 @@ namespace glasssix::workcloth
 
 				for (int i = 0; i < 10; i++) {
 					int Main_color_pixels = calculate_singglehsv_method(color_image, static_cast<Color>(i));
-					float ratio = static_cast<float>(Main_color_pixels) / center_total_pixels;
+					float ratio = static_cast<float>(Main_color_pixels) / main_total_pixels;
 					color_ratios_abi.push_back(ratio);
 				}
 

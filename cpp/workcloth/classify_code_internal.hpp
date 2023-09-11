@@ -12,16 +12,17 @@
 #include "box_info.hpp"
 
 #include "../posture/box_info.hpp"
+// #include "dbg.h"
 
 namespace glasssix::workcloth
 {
 	struct PostureInfo
 	{
 		PostureInfo(posture::box_info& b_info) {
-			x1 = b_info.x1();
-			x2 = b_info.x2();
-			y1 = b_info.y1();
-			y2 = b_info.y2();
+			//x1 = b_info.x1();
+			//x2 = b_info.x2();
+			//y1 = b_info.y1();
+			//y2 = b_info.y2();
 			score = b_info.score();
 			category = b_info.category();
 
@@ -33,8 +34,6 @@ namespace glasssix::workcloth
 				Kpoints_score.push_back(key_points[i * 3 + 2]);
 				Kpoints.push_back(key_p);
 			}
-
-
 
 			std::vector<cv::Point> cls_Kpoints{ Kpoints[5],Kpoints[6],Kpoints[7],Kpoints[8],Kpoints[9],Kpoints[10],Kpoints[11],Kpoints[12] };
 			auto cls_rect = cv::minAreaRect(cls_Kpoints);
@@ -50,6 +49,16 @@ namespace glasssix::workcloth
 			auto color_rect = cv::minAreaRect(color_Kpoints);
 			color_cut = color_rect.boundingRect();
 
+
+			cls_Kpoints.push_back(Kpoints[13]);
+			cls_Kpoints.push_back(Kpoints[14]);
+			auto iou_region_rorect = cv::minAreaRect(cls_Kpoints);
+			iou_body_nms = iou_region_rorect.boundingRect();
+
+			x1 = iou_body_nms.x;
+			y1 = iou_body_nms.y;
+			x2 = iou_body_nms.x + iou_body_nms.width;
+			y2 = iou_body_nms.y + iou_body_nms.height;
 		}
 
 		cv::Rect get_rect() {
@@ -68,6 +77,7 @@ namespace glasssix::workcloth
 		std::vector<float> Kpoints_score;
 		cv::Rect cls_cut;
 		cv::Rect color_cut;
+		cv::Rect iou_body_nms;
 	};
 
 	struct box_info_internal
