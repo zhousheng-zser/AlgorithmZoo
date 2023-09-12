@@ -45,15 +45,23 @@ namespace glasssix::workcloth
 			cls_cut.height = cls_H * 1.05;
 			cls_cut.width = cls_W * 1.3;
 
+			auto myboundingRect = [](std::vector<cv::Point>& points_list) {
+				cv::Point top_left{ 99999,99999 };
+				cv::Point bottom_right{ 0,0 };
+				for (auto p : points_list) {
+					if (p.x < top_left.x)top_left.x = p.x;
+					if (p.y < top_left.y)top_left.y = p.y;
+					if (p.x > bottom_right.x)bottom_right.x = p.x;
+					if (p.y > bottom_right.y)bottom_right.y = p.y;
+				}
+				return cv::Rect(top_left, bottom_right);
+			};
 			std::vector<cv::Point> color_Kpoints{ Kpoints[5],Kpoints[6],Kpoints[11],Kpoints[12] };
-			auto color_rect = cv::minAreaRect(color_Kpoints);
-			color_cut = color_rect.boundingRect();
-
+			color_cut = myboundingRect(color_Kpoints);
 
 			cls_Kpoints.push_back(Kpoints[13]);
 			cls_Kpoints.push_back(Kpoints[14]);
-			auto iou_region_rorect = cv::minAreaRect(cls_Kpoints);
-			iou_body_nms = iou_region_rorect.boundingRect();
+			iou_body_nms = myboundingRect(cls_Kpoints);
 
 			x1 = iou_body_nms.x;
 			y1 = iou_body_nms.y;

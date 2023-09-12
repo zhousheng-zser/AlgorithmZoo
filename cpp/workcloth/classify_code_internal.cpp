@@ -52,7 +52,7 @@ namespace glasssix::workcloth
 			static bool ready = glasssix::exposing::get_component_loader().add_module_by_name("posture");
 			posture_instance_ = glasssix::exposing::make_exported_interface<posture::detect_code>(model_directory, device);
 			posture_param_abi = exposing::make_param_hash_map<exposing::param_string, float>();
-			posture_param_abi.add_or_update("conf_thres", 0.7f);
+			posture_param_abi.add_or_update("conf_thres", 0.75f);
 			posture_param_abi.add_or_update("nms_thres", 0.70f);
 		}
 
@@ -84,11 +84,13 @@ namespace glasssix::workcloth
 
 			//dbg(posture_info_list.size());
 			for (auto pinfo : posture_info_list_raw) {
+				//dbg(pinfo.score());
+
 				PostureInfo postureInfo{ pinfo };
 				posture_info_list.push_back(postureInfo);
 			}
 
-			body_nms_cpu(posture_info_list, 0.1);
+			body_nms_cpu(posture_info_list, 0.5);
 
 			//run_workcloth(results, image, persons_info, param_map);
 			run_workcloth2(results, image, posture_info_list, param_map);
@@ -103,7 +105,7 @@ namespace glasssix::workcloth
 
 		std::string version()
 		{
-			const std::string algo_module_version = "2.6.0";
+			const std::string algo_module_version = "2.6.2";
 
 #if defined(USE_RKNNAPI) || defined(USE_RKNN2API)
 			//#if 0
@@ -341,7 +343,6 @@ namespace glasssix::workcloth
 				// cv::circle(image, person.Kpoints[6], 3, { 0,0,180}, 3);
 				// cv::circle(image, person.Kpoints[11], 3, { 0,0,210}, 3);
 				// cv::circle(image, person.Kpoints[12], 3, { 0,0,250}, 3);
-				// cv::imwrite("/home/firefly/yhc/bdh.png",image);
 
 				in_box_info.is_sleeve = classify_result.first < classify_result.second;
 				in_box_info.color_ratios = color_ratios_abi;
@@ -352,6 +353,7 @@ namespace glasssix::workcloth
 
 				results.push_back(in_box_info);
 			}
+				// cv::imwrite("/home/firefly/yhc/bdh.png",image);
 		}
 
 		void run_workcloth2(std::vector<box_info_internal>& results, cv::Mat& image, std::vector<PostureInfo>& persons, std::map<std::string, float>& param_map)
@@ -362,8 +364,11 @@ namespace glasssix::workcloth
 			float points_score_thres = param_map.count("points_score_thres") ? param_map["points_score_thres"] : 0.95f;
 			float points_num_thres = param_map.count("points_num_thres") ? param_map["points_num_thres"] : 0.55f;
 
+			//cv::Mat draw_image = image.clone();
 			for (auto& person : persons)
 			{
+				//dbg(person.score);
+
 				box_info_internal in_box_info;
 				std::vector<float> Kpoints_vali_set{ person.Kpoints_score[5],person.Kpoints_score[6],person.Kpoints_score[11],person.Kpoints_score[12] };
 				int effect_kpoints_counter = 0;
@@ -395,7 +400,12 @@ namespace glasssix::workcloth
 				cv::Point color_right = (color_center + person.Kpoints[5]) / 2;
 
 				cv::Rect rc_img_left(person.Kpoints[6], color_left);
-				cv::Rect rc_img_center(color_left, person.Kpoints[11]);
+				cv::Rect rc_img_center(
+					color_center.x- person.color_cut.width/4, 
+					color_center.y - person.color_cut.height / 4,
+					person.color_cut.width / 2,
+					person.color_cut.height / 2
+				);
 				cv::Rect rc_img_right(person.Kpoints[5], color_right);
 
 				bool rc_img_area_empty = rc_img_center.area() == 0 || rc_img_left.area() == 0 || rc_img_right.area() == 0;
@@ -417,29 +427,19 @@ namespace glasssix::workcloth
 
 				auto color_ratios_abi = exposing::make_param_vector<float>();
 
-				for (int i = 0; i < 10; i++) {
-					int Main_color_pixels = calculate_singglehsv_method(color_image, static_cast<Color>(i));
-					float ratio = static_cast<float>(Main_color_pixels) / main_total_pixels;
-					color_ratios_abi.push_back(ratio);
-				}
+				auto push_hsv_ratio = [&](cv::Mat region_img) {
+					for (int i = 0; i < 10; i++) {
+						int _color_pixels = calculate_singglehsv_method(region_img, static_cast<Color>(i));
+						int _total_pixels = region_img.cols * region_img.rows;
+						float ratio = static_cast<float>(_color_pixels) / static_cast<float>(_total_pixels);
+						color_ratios_abi.push_back(ratio);
+					}
+				};
 
-				for (int i = 0; i < 10; i++) {
-					int center_color_pixels = calculate_singglehsv_method(color_img_center, static_cast<Color>(i));
-					float ratio = static_cast<float>(center_color_pixels) / center_total_pixels;
-					color_ratios_abi.push_back(ratio);
-				}
-
-				for (int i = 0; i < 10; i++) {
-					int left_color_pixels = calculate_singglehsv_method(color_img_left, static_cast<Color>(i));
-					float ratio = static_cast<float>(left_color_pixels) / left_total_pixels;
-					color_ratios_abi.push_back(ratio);
-				}
-
-				for (int i = 0; i < 10; i++) {
-					int right_color_pixels = calculate_singglehsv_method(color_img_right, static_cast<Color>(i));
-					float ratio = static_cast<float>(right_color_pixels) / right_total_pixels;
-					color_ratios_abi.push_back(ratio);
-				}
+				push_hsv_ratio(color_image);
+				push_hsv_ratio(color_img_center);
+				push_hsv_ratio(color_img_left);
+				push_hsv_ratio(color_img_right);
 
 				in_box_info.is_sleeve = classify_result.first < classify_result.second;
 				in_box_info.color_ratios = color_ratios_abi;
@@ -449,8 +449,21 @@ namespace glasssix::workcloth
 				in_box_info.y2 = person.y2;
 
 				results.push_back(in_box_info);
+
+				//cv::rectangle(draw_image, rc_img_center, { 0,70,0 }, 2);
+				//cv::rectangle(draw_image, rc_img_left, { 70,70,0 }, 2);
+				//cv::rectangle(draw_image, rc_img_right, { 0,70,70 }, 2);
+				//cv::rectangle(draw_image, person.color_cut, { 0,0,0 }, 2);
+				//for (auto kp : person.Kpoints) {
+				//	cv::circle(draw_image, kp, 2, { 255,255,255 }, 2);
+				//}
+				//cv::circle(draw_image, person.Kpoints[5], 3, { 0,0,150}, 3);
+				//cv::circle(draw_image, person.Kpoints[6], 3, { 0,0,180}, 3);
+				//cv::circle(draw_image, person.Kpoints[11], 3, { 0,0,210}, 3);
+				//cv::circle(draw_image, person.Kpoints[12], 3, { 0,0,250}, 3);
+
 			}
-			//cv::imwrite("/home/firefly/yhc/bdh.png", image);
+			//cv::imwrite("/home/firefly/yhc/bdh.png", draw_image);
 		}
 
 
