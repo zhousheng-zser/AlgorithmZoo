@@ -52,7 +52,7 @@ namespace glasssix::workcloth
 			static bool ready = glasssix::exposing::get_component_loader().add_module_by_name("posture");
 			posture_instance_ = glasssix::exposing::make_exported_interface<posture::detect_code>(model_directory, device);
 			posture_param_abi = exposing::make_param_hash_map<exposing::param_string, float>();
-			posture_param_abi.add_or_update("conf_thres", 0.75f);
+			posture_param_abi.add_or_update("conf_thres", 0.70f);
 			posture_param_abi.add_or_update("nms_thres", 0.70f);
 		}
 
@@ -82,7 +82,7 @@ namespace glasssix::workcloth
 			std::vector<PostureInfo> posture_info_list;
 			// std::vector<PostureInfo> persons_info;
 
-			//dbg(posture_info_list.size());
+			//dbg(posture_info_list_raw.size());
 			for (auto pinfo : posture_info_list_raw) {
 				//dbg(pinfo.score());
 
@@ -105,7 +105,7 @@ namespace glasssix::workcloth
 
 		std::string version()
 		{
-			const std::string algo_module_version = "2.6.2";
+			const std::string algo_module_version = "2.6.3";
 
 #if defined(USE_RKNNAPI) || defined(USE_RKNN2API)
 			//#if 0
@@ -362,30 +362,35 @@ namespace glasssix::workcloth
 			float H = image.rows;
 
 			float points_score_thres = param_map.count("points_score_thres") ? param_map["points_score_thres"] : 0.95f;
-			float points_num_thres = param_map.count("points_num_thres") ? param_map["points_num_thres"] : 0.55f;
+			//float points_num_thres = param_map.count("points_num_thres") ? param_map["points_num_thres"] : 0.55f;
 
-			//cv::Mat draw_image = image.clone();
+			cv::Mat draw_image = image.clone();
 			for (auto& person : persons)
 			{
-				//dbg(person.score);
+				// dbg(person.score);
 
 				box_info_internal in_box_info;
-				std::vector<float> Kpoints_vali_set{ person.Kpoints_score[5],person.Kpoints_score[6],person.Kpoints_score[11],person.Kpoints_score[12] };
-				int effect_kpoints_counter = 0;
+				std::vector<float> Kpoints_vali_set{ person.Kpoints_score[5],person.Kpoints_score[6],person.Kpoints_score[7],person.Kpoints_score[8],person.Kpoints_score[11],person.Kpoints_score[12] };
+				// dbg(Kpoints_vali_set);
+				// dbg(person.color_cut.tl());
+
+				int invalid_kpoints_counter = 0;
 
 				for (auto p_score : Kpoints_vali_set) {
-					if (p_score > points_score_thres) effect_kpoints_counter++;
+					if (p_score < points_score_thres) invalid_kpoints_counter++;
 				}
 
-				bool bodyishard = ((float)effect_kpoints_counter / Kpoints_vali_set.size()) < points_num_thres;
+				bool bodyishard = invalid_kpoints_counter > 2;
 
-				// for (auto kp : person.Kpoints) {
-				// 	cv::circle(image, kp, 2, { 255,255,255 }, 2);
-				// }
-				// cv::circle(image, person.Kpoints[5], 3, { 0,0,150}, 3);
-				// cv::circle(image, person.Kpoints[6], 3, { 0,0,180}, 3);
-				// cv::circle(image, person.Kpoints[11], 3, { 0,0,210}, 3);
-				// cv::circle(image, person.Kpoints[12], 3, { 0,0,250}, 3);
+				//  for (auto kp : person.Kpoints) {
+				//  	cv::circle(image, kp, 2, { 255,255,255 }, 2);
+				//  }
+				//  cv::circle(image, person.Kpoints[5], 3, { 0,0,150}, 3);
+				//  cv::circle(image, person.Kpoints[6], 3, { 0,0,180}, 3);
+				//  cv::circle(image, person.Kpoints[11], 3, { 0,0,210}, 3);
+				//  cv::circle(image, person.Kpoints[12], 3, { 0,0,250}, 3);
+				//  cv::circle(image, person.Kpoints[7], 2, { 0,255,0}, 2);
+				//  cv::circle(image, person.Kpoints[8], 2, { 0,255,0}, 2);
 				// dbg(bodyishard);
 
 				if (bodyishard || rect_modify(person.cls_cut, W, H) || rect_modify(person.color_cut, W, H)) continue; // bodyishard
@@ -410,9 +415,6 @@ namespace glasssix::workcloth
 
 				bool rc_img_area_empty = rc_img_center.area() == 0 || rc_img_left.area() == 0 || rc_img_right.area() == 0;
 				if (rc_img_area_empty) continue;
-				// std::cout<<"rc_img_center "<<rc_img_center<< " area:"<<rc_img_center.area()<<std::endl;
-				// std::cout<<"rc_img_left "<<rc_img_left<< " area:"<<rc_img_left.area()<<std::endl;
-				// std::cout<<"rc_img_right "<<rc_img_right<< " area:"<<rc_img_right.area()<<std::endl;
 
 				cv::Mat color_img_center = safty_cut(image, rc_img_center);
 				cv::Mat color_img_left = safty_cut(image, rc_img_left);
