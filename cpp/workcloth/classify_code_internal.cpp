@@ -131,10 +131,6 @@ namespace glasssix::workcloth
 					float right = std::min(bboxes[i].x2, bboxes[j].x2);
 					float top = std::max(bboxes[i].y1, bboxes[j].y1);
 					float bottom = std::min(bboxes[i].y2, bboxes[j].y2);
-					//float left = std::max(bboxes[i].iou_body_nms.x, bboxes[j].iou_body_nms.x);
-					//float right = std::min(bboxes[i].iou_body_nms.br().x, bboxes[j].iou_body_nms.br().x);
-					//float top = std::max(bboxes[i].iou_body_nms.y, bboxes[j].iou_body_nms.y);
-					//float bottom = std::min(bboxes[i].iou_body_nms.br().y, bboxes[j].iou_body_nms.br().y);
 					float width = std::max(right - left + 1, 0.f);
 					float height = std::max(bottom - top + 1, 0.f);
 					float u_area = height * width;
@@ -382,15 +378,6 @@ namespace glasssix::workcloth
 
 				bool bodyishard = invalid_kpoints_counter > 2;
 
-				//  for (auto kp : person.Kpoints) {
-				//  	cv::circle(image, kp, 2, { 255,255,255 }, 2);
-				//  }
-				//  cv::circle(image, person.Kpoints[5], 3, { 0,0,150}, 3);
-				//  cv::circle(image, person.Kpoints[6], 3, { 0,0,180}, 3);
-				//  cv::circle(image, person.Kpoints[11], 3, { 0,0,210}, 3);
-				//  cv::circle(image, person.Kpoints[12], 3, { 0,0,250}, 3);
-				//  cv::circle(image, person.Kpoints[7], 2, { 0,255,0}, 2);
-				//  cv::circle(image, person.Kpoints[8], 2, { 0,255,0}, 2);
 				// dbg(bodyishard);
 
 				if (bodyishard || rect_modify(person.cls_cut, W, H) || rect_modify(person.color_cut, W, H)) continue; // bodyishard
@@ -421,11 +408,6 @@ namespace glasssix::workcloth
 				cv::Mat color_img_right = safty_cut(image, rc_img_right);
 				// Origin Main ROI CUT
 				cv::Mat color_image = safty_cut(image, person.color_cut);
-
-				int main_total_pixels = color_image.rows * color_image.cols;
-				int center_total_pixels = color_img_center.rows * color_img_center.cols;
-				int left_total_pixels = color_img_left.rows * color_img_left.cols;
-				int right_total_pixels = color_img_right.rows * color_img_right.cols;
 
 				auto color_ratios_abi = exposing::make_param_vector<float>();
 
@@ -463,6 +445,8 @@ namespace glasssix::workcloth
 				//cv::circle(draw_image, person.Kpoints[6], 3, { 0,0,180}, 3);
 				//cv::circle(draw_image, person.Kpoints[11], 3, { 0,0,210}, 3);
 				//cv::circle(draw_image, person.Kpoints[12], 3, { 0,0,250}, 3);
+				//cv::circle(draw_image, person.Kpoints[7], 2, { 0,255,0}, 2);
+				//cv::circle(draw_image, person.Kpoints[8], 2, { 0,255,0}, 2);
 
 			}
 			//cv::imwrite("/home/firefly/yhc/bdh.png", draw_image);
