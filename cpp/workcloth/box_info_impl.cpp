@@ -37,14 +37,10 @@ namespace glasssix::workcloth
 		return internal_.is_sleeve;
 	}
 
-    int box_info_impl::color_type() const
+	exposing::param_vector<float> box_info_impl::color_ratios() const
 	{
-		return internal_.color_type;
+		return internal_.color_ratios;
 	}
-
-    float box_info_impl::color_conf() const
-	{
-		return internal_.color_conf;
-	}
+	
 
 }
