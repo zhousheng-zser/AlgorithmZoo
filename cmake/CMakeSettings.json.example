@@ -104,7 +104,7 @@
         },
         {
           "name": "COMMON_LIBRARY_DIRS",
-          "value": "E:/Research/Source/Repos/Excalibur/cmake/out/build/x86-Release/lib",
+          "value": "E:/Research/Source/Repos/Excalibur/cmake/out/build/x86-Release-cpu-only/lib",
           "type": "STRING"
         },
         {
