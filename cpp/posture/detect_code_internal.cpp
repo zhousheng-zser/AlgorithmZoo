@@ -62,6 +62,10 @@ std::string version()
         exposing::param_vector<posture::box_info> detect(const exposing::param_span<std::uint8_t>& bitmap, int channels, int height, int width,
             int roi_x, int roi_y, int roi_width, int roi_height, std::map<std::string, float>& param_map)
         {
+            // std::cout<<"in posture\n";
+            float con_thres = param_map.count("conf_thres") ? param_map["conf_thres"] : 0.5f;
+            float iou_thres = param_map.count("nms_thres") ? param_map["nms_thres"] : 0.6f;
+
             if (bitmap.empty())
             {
                 throw exposing::abi_invalid_argument("current frame is empty");
@@ -106,7 +110,7 @@ std::string version()
                 //real_forwards =network_result["output0"];
             //and delete line 96-103,then delete function  yolov8_complement
 
-            auto nms_result = post_process(real_forwards, blob,pad_h,pad_w, 1.f/ratio);
+            auto nms_result = post_process(real_forwards, blob,pad_h,pad_w, 1.f/ratio,con_thres,iou_thres);
 
             auto fin_result= exposing::make_param_vector<box_info>();
 
@@ -140,8 +144,8 @@ std::string version()
                 fin_result.push_back(exposing::make_as_first<box_info_impl> (i));
             }
 
+            // std::cout<<"out posture\n";
             return fin_result;
-
 
         }
 
@@ -173,8 +177,13 @@ std::string version()
                 return {mask_image,scale};
             }
 
-            std::vector<std::vector<float>> post_process(std::shared_ptr<memory::tensor<float>>& net_result, cv::Mat & blob, int pad_h, int pad_w, float scale, float threshold=0.5,float iou_thres=0.7 )
+            std::vector<std::vector<float>> post_process(std::shared_ptr<memory::tensor<float>>& net_result, cv::Mat & blob, 
+                     int pad_h, int pad_w, float scale, float threshold=0.5,float iou_thres=0.7 )
             {
+                // std::cout<<"threshold: "<<threshold<<" iou_thres:"<<iou_thres<<std::endl;
+                int imgw = blob.cols*scale -1;
+                int imgh = blob.rows*scale -1;
+
                 std::vector<std::vector<float>> output;
                 // int nc=1;
                 // int nm=51;
@@ -231,7 +240,7 @@ std::string version()
                 {
                     indices_body_copy[i]=i;
                 }
-                cv::dnn::NMSBoxes(xywh_boxes, scores, 0.5, 0.6, indices_body_copy, 1.f, 0);
+                cv::dnn::NMSBoxes(xywh_boxes, scores, threshold, iou_thres, indices_body_copy, 1.f, 0);
 
                 for(int i=0; i< indices_body_copy.size();i++)
                 {
@@ -242,15 +251,35 @@ std::string version()
                     temp_output[1]= (xywh_boxes[index].y - pad_h)*scale;
                     temp_output[2]= (xywh_boxes[index].width + xywh_boxes[index].x - pad_w)*scale;
                     temp_output[3]= (xywh_boxes[index].height + xywh_boxes[index].y - pad_h)*scale;
+
+                    temp_output[0]=temp_output[0] > 0.f  ? temp_output[0] : 0;
+                    temp_output[0]=temp_output[0] < (imgw-1) ? temp_output[0] : (imgw-1);
+
+                    temp_output[1]=temp_output[1] > 0.f  ? temp_output[1] : 0;
+                    temp_output[1]=temp_output[1] < (imgh-1) ? temp_output[1] : (imgh-1);
+
+                    temp_output[2]=temp_output[2] > 0.f  ? temp_output[2] : 0;
+                    temp_output[2]=temp_output[2] < (imgw - 1) ? temp_output[2] : (imgw-1);
+
+                    temp_output[3]=temp_output[3] > 0.f  ? temp_output[3] : 0;
+                    temp_output[3]=temp_output[3] < (imgh-1) ? temp_output[3] : (imgh-1);       
+                    //当x1和x2或y1
+
+                    // std::cout<<temp_output[0]<<" "<<temp_output[1]<<" "<<temp_output[2]<<" "<<temp_output[3]<<std::endl; 
+
                     temp_output[4]= scores[index];
                     for(int j=0;j<17;j++)
                     {
                         temp_output[5+3*j+0] = (key_points[index][3*j]-pad_w)*scale;
                         temp_output[5+3*j+1] = (key_points[index][3*j+1]-pad_h)*scale;
                         temp_output[5+3*j+2] = key_points[index][3*j+2];
-         
-                    }
 
+                        temp_output[5+3*j+0]=temp_output[5+3*j+0] > 0.f ?  temp_output[5+3*j+0] : 0.f;
+                        temp_output[5+3*j+0]=temp_output[5+3*j+0] < (imgw-1) ? temp_output[5+3*j+0] : (imgw-1);
+
+                        temp_output[5+3*j+1] = temp_output[5+3*j+1] > 0.f ? temp_output[5+3*j +1] : 0.f;
+                        temp_output[5+3*j+1] = temp_output[5+3*j+1] < (imgh-1) ? temp_output[5+3*j+1] : (imgh-1);       
+                    }
                     output.emplace_back(temp_output);
                 
                 }
