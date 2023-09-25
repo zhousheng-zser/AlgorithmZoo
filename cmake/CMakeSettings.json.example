@@ -16,6 +16,16 @@
           "value": "",
           "type": "STRING"
         },
+		{
+          "name": "OpenCV_DIR",
+          "value": "E:/opencv-4.7.0/build",
+          "type": "STRING"
+        },
+        {
+          "name": "CUDA_CUDART_LIBRARY",
+          "value": "C:/Program Files/NVIDIA GPU Computing Toolkit/CUDA/v11.6/lib/x64",
+          "type": "STRING"
+        },
         {
           "name": "COMMON_LIBRARY_DIRS",
           "value": "E:/Research/Source/Repos/Excalibur/cmake/out/build/x64-Debug/lib",
@@ -38,6 +48,11 @@
         },
         {
           "name": "BUILD_GENERAL_CV_SDK",
+          "value": "False",
+          "type": "BOOL"
+        },
+        {
+          "name": "BUILD_TENSORRT_SUPPORT",
           "value": "True",
           "type": "BOOL"
         }
@@ -57,6 +72,16 @@
         {
           "name": "Boost_INCLUDE_DIRS",
           "value": "",
+          "type": "STRING"
+        },
+		{
+          "name": "OpenCV_DIR",
+          "value": "E:/opencv-4.7.0/build",
+          "type": "STRING"
+        },
+        {
+          "name": "CUDA_CUDART_LIBRARY",
+          "value": "C:/Program Files/NVIDIA GPU Computing Toolkit/CUDA/v11.6/lib/x64",
           "type": "STRING"
         },
         {
@@ -81,6 +106,11 @@
         },
         {
           "name": "BUILD_GENERAL_CV_SDK",
+          "value": "False",
+          "type": "BOOL"
+        },
+        {
+          "name": "BUILD_TENSORRT_SUPPORT",
           "value": "True",
           "type": "BOOL"
         }
