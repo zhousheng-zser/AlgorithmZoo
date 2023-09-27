@@ -19,7 +19,7 @@ namespace glasssix::onphone
         int y1() const;
         int x2() const;
         int y2() const;
-        int category() const;
+        float category() const;
         float confidence() const;
 
 
