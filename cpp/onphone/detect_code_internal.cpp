@@ -165,60 +165,6 @@ namespace glasssix::onphone
 			return effect_head_list;
 		}
 
-//		std::vector<float> classify_batch(std::vector<HeadBox>& headbox_list, cv::Mat image) {
-//			//std::vector<cv::Mat> letter_img_list;
-//
-//			int batchNum = headbox_list.size();
-//			auto batch_tensor = std::make_shared<glasssix::memory::tensor<float>>(std::vector<int>{batchNum, 3, 112, 224}, -1, memory::NCHW);
-//			float* bt_pdata = batch_tensor->mutable_cpu_data();
-//			for (auto headbox : headbox_list) {
-//				auto _tensor = matConverTensor(safty_cut(image, headbox.DetPhoneRegion()));
-//				std::memcpy(bt_pdata, _tensor->cpu_data(), sizeof(float) * _tensor->count());
-//				bt_pdata += _tensor->count();
-//			}
-//			std::vector<float> rst;
-//#if defined(USE_RKNNAPI) || defined(USE_RKNN2API)
-//			//auto det_rst_map = classi_instance_->forward(batch_tensor);
-//			//CHECK_EQ(1, det_rst_map.size());
-//			//rst_tensor = det_rst_map.begin()->second;
-//			//CHECK_EQ(batchNum, rst_tensor->num());
-//			//CHECK_EQ(batchNum * 2, rst_tensor->count());
-//			//
-//			//for (int n = 0; n < batchNum; n++) {
-//			//	rst.push_back(rst_tensor->cpu_data()[n * 2]);				
-//			//}
-//#endif
-//			return rst;
-//		}
-//
-//		std::vector<float> classify_batch2(std::vector<HeadBox>& headbox_list, cv::Mat image) {
-//			//std::vector<cv::Mat> letter_img_list;
-//
-//			int batchNum = headbox_list.size();
-//			std::shared_ptr<glasssix::memory::tensor<uint8_t>> input_tensor_u8(
-//				new glasssix::memory::tensor<uint8_t>(std::vector<int>{batchNum, 112, 224, 3}, -1, glasssix::memory::NHWC));
-//			auto pdata = input_tensor_u8->mutable_cpu_data();
-//			constexpr int step = 112 * 224 * 3;
-//			for (auto headbox : headbox_list) {
-//				auto cut_img = imgPreProcess(safty_cut(image, headbox.DetPhoneRegion()), 224, 112);
-//				std::copy(cut_img.data, cut_img.data + cut_img.step[0] * cut_img.rows, pdata);
-//				pdata += step;
-//			}
-//			std::vector<float> rst;
-//#if defined(USE_RKNNAPI) || defined(USE_RKNN2API)
-//			//auto det_rst_map = classi_instance_->forward(batch_tensor);
-//			//CHECK_EQ(1, det_rst_map.size());
-//			//rst_tensor = det_rst_map.begin()->second;
-//			//CHECK_EQ(batchNum, rst_tensor->num());
-//			//CHECK_EQ(batchNum * 2, rst_tensor->count());
-//			//
-//			//for (int n = 0; n < batchNum; n++) {
-//			//	rst.push_back(rst_tensor->cpu_data()[n * 2]);				
-//			//}
-//#endif
-//			return rst;
-//		}
-
 		float classify(HeadBox& headbox, cv::Mat image) {
 			auto det_phone_region = headbox.DetPhoneRegion();
 			cv::Mat cls_img = safty_cut(image, det_phone_region);
@@ -393,7 +339,6 @@ namespace glasssix::onphone
 		std::string model_directory_;
 		int device_;
 #if defined(USE_RKNNAPI) || defined(USE_RKNN2API)
-		//#if 0
 		std::unique_ptr<rknnwrapper::rknn_wrapper> detect_instance_;
 		std::unique_ptr<rknnwrapper::rknn_wrapper> classi_instance_;
 #else
