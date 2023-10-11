@@ -33,7 +33,7 @@ namespace glasssix::onphone
 		return internal_.y2;
 	}
 
-	int box_info_impl::category() const
+	float box_info_impl::category() const
 	{
 		return internal_.category;
 	}

@@ -23,7 +23,7 @@ namespace glasssix::exposing::impl
             virtual std::int32_t G6_ABI_CALL y1(abi_out_t<int> result) noexcept = 0;
             virtual std::int32_t G6_ABI_CALL x2(abi_out_t<int> result) noexcept = 0;
             virtual std::int32_t G6_ABI_CALL y2(abi_out_t<int> result) noexcept = 0;
-			virtual std::int32_t G6_ABI_CALL category(abi_out_t<int> result) noexcept = 0;
+			virtual float G6_ABI_CALL category(abi_out_t<float> result) noexcept = 0;
             virtual float G6_ABI_CALL confidence(abi_out_t<float> result) noexcept = 0;
         };
     };
@@ -55,7 +55,7 @@ namespace glasssix::exposing::impl
             return abi_safe_call([&]
                 { *result = detach_abi(this->self().y2()); });
         }
-        virtual std::int32_t G6_ABI_CALL category(abi_out_t<int> result) noexcept override
+        virtual float G6_ABI_CALL category(abi_out_t<float> result) noexcept override
         {
             return abi_safe_call([&]
                                  { *result = detach_abi(this->self().category()); });
@@ -99,9 +99,9 @@ namespace glasssix::exposing::impl
 
                 return (check_abi_result(this->self_abi().y2(put_abi(result))), result);
             }
-			int category() const
+            float category() const
             {
-                int result = 0;
+                float result = 0.f;
 
                 return (check_abi_result(this->self_abi().category(put_abi(result))), result);
             }
