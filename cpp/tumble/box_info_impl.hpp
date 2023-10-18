@@ -4,11 +4,11 @@
 #include "box_info.hpp"
 #include "detect_code_internal.hpp"
 
-namespace glasssix::onphone
+namespace glasssix::tumble
 {
-    inline constexpr exposing::utf8_string_view call_box_info_qualified_name{ u8"g6.onphone.boxInfo" };
+    inline constexpr exposing::utf8_string_view tumble_box_info_qualified_name{ u8"g6.tumble.boxInfo" };
 
-    class box_info_impl : public exposing::implements<box_info_impl, box_info>, public exposing::make_external_qualified_name<call_box_info_qualified_name>
+    class box_info_impl : public exposing::implements<box_info_impl, box_info>, public exposing::make_external_qualified_name<tumble_box_info_qualified_name>
     {
     public:
         box_info_impl();
@@ -19,9 +19,9 @@ namespace glasssix::onphone
         int y1() const;
         int x2() const;
         int y2() const;
-        float category() const;
-        float confidence() const;
-
+        float score() const;
+        int category() const;
+        exposing::param_string version() const;
 
     private:
         box_info_internal internal_{};

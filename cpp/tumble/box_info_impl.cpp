@@ -1,6 +1,6 @@
 #include "box_info_impl.hpp"
 
-namespace glasssix::onphone
+namespace glasssix::tumble
 {
 	box_info_impl::box_info_impl()
 	{
@@ -10,8 +10,7 @@ namespace glasssix::onphone
 	{
 	}
 
-	box_info_impl::~box_info_impl()
-	= default;
+	box_info_impl::~box_info_impl()	= default;
 
 	int box_info_impl::x1() const
 	{
@@ -33,15 +32,18 @@ namespace glasssix::onphone
 		return internal_.y2;
 	}
 
-	float box_info_impl::category() const
+    float box_info_impl::score() const
+	{
+		return internal_.score;
+	}
+
+	int box_info_impl::category() const
 	{
 		return internal_.category;
 	}
 
-	float box_info_impl::confidence() const
+	exposing::param_string box_info_impl::version() const
 	{
-		return internal_.confidence;
+		return internal_.version;
 	}
-
-	
 }
