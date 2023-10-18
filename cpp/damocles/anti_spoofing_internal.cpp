@@ -90,38 +90,7 @@ namespace glasssix::damocles
 				cv::Rect2f rect(boxes[i].x, boxes[i].y, boxes[i].w, boxes[i].h);
 				safty_cut(img, crop_face, rect);
 				
-				/////////////////////
-				int w = crop_face.rows;
-				int h = crop_face.cols;
-				
-				std::shared_ptr<memory::tensor<uint8_t>> crop_face_NCHW_tensor(new memory::tensor<uint8_t>(std::vector<int>{static_cast<int>(1), static_cast<int>(3), h, w}, -1, memory::NCHW, nullptr));
-
-				std::uint8_t* ptr_tensor = crop_face_NCHW_tensor->mutable_cpu_data();
-
-				for (int i = 0; i < h; i++)
-				{
-					for (int j = 0; j <  w; j++)
-					{
-						ptr_tensor[0 * h * w + i * w + j] = crop_face.ptr<std::uint8_t>(i)[j * 3 + 0];
-						ptr_tensor[1 * h * w + i * w + j] = crop_face.ptr<std::uint8_t>(i)[j * 3 + 1];
-						ptr_tensor[2 * h * w + i * w + j] = crop_face.ptr<std::uint8_t>(i)[j * 3 + 2];
-					}
-				}
-
-				excalibur::resize_cpu(crop_face_NCHW_tensor, crop_face_NCHW_tensor, forward_input_height, forward_input_width);
-				ptr_tensor = crop_face_NCHW_tensor->mutable_cpu_data();
-				crop_face = cv::Mat(forward_input_height, forward_input_width, CV_8UC3);
-				
-				for (int i = 0; i < forward_input_height; i++)
-				{
-					for (int j = 0; j < forward_input_width; j++)
-					{
-						crop_face.ptr<std::uint8_t>(i)[j * 3 + 0] = ptr_tensor[0 * forward_input_height * forward_input_width + i * forward_input_width + j];
-						crop_face.ptr<std::uint8_t>(i)[j * 3 + 1] = ptr_tensor[1 * forward_input_height * forward_input_width + i * forward_input_width + j];
-						crop_face.ptr<std::uint8_t>(i)[j * 3 + 2] = ptr_tensor[2 * forward_input_height * forward_input_width + i * forward_input_width + j];
-					}
-				}
-				//////////////////////
+				cv::resize(crop_face, crop_face, forward_input_height, forward_input_width);
 
 				std::copy(crop_face.data, crop_face.data + forward_input_bytes, ptr);
 				ptr += forward_input_bytes;

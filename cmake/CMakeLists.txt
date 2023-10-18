@@ -25,7 +25,6 @@ option(BUILD_UNIT_TEST "Build unit test." OFF)
 option(COSINE_DISTANCE "Use cosine distance in irsiviel." ON)
 option(USE_OPENMP "Use OpenMP" OFF)
 option(BUILD_DEBUG_INFO "Build debug info." OFF)
-option(BUILD_TENSORRT_SUPPORT "Build TensorRT Support" ON)
 #option(HAVE_SSE "Control CPU SSE options when using gcc or clang" OFF)
 #option(HAVE_AVX "Control CPU AVX options when using gcc or clang" OFF)
 #option(HAVE_AVX2 "Control CPU AVX2 options when using gcc or clang" OFF)
@@ -117,17 +116,6 @@ if(CMAKE_CXX_COMPILER_ID STREQUAL "MSVC")
 	set(CMAKE_STATIC_LIBRARY_PREFIX lib)
 endif()
 
-if(BUILD_TENSORRT_SUPPORT)
-	set(USE_CUDA true)
-	set(USE_CUDNN true)
-	set(USE_TENSORRT true)
-
-	if(NOT DEFINED TENSORRT_DIR)
-		message(FATAL_ERROR "TENSORRT_DIR: please specify TensorRT location in cmake command line.")
-	endif()
-
-endif()
-
 include(Dependencies.cmake)
 
 set(LIBRARY_OUTPUT_PATH ${PROJECT_BINARY_DIR}/lib)
@@ -140,10 +128,6 @@ endif()
 
 if(BUILD_DEBUG_INFO)
 	add_definitions(-DBUILD_DEBUG_INFO)
-endif()
-
-if(BUILD_TENSORRT_SUPPORT)
-	add_subdirectory(trt_sample)
 endif()
 
 if(BUILD_MATIERIAL_OCR_SDK)

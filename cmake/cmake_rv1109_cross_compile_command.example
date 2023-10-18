@@ -1,1 +1,1 @@
-cmake .. -DCMAKE_TOOLCHAIN_FILE=../rv1109_cross_compile.toolchain -DRKNNAPI_VERSION=1 -DCOMMON_LIBRARY_DIRS="/root/Excalibur/cmake/build_rv1109/lib;/root/rv1109/external/rknpu/rknn/rknn_api/librknn_api/lib" -DBUILD_FACE_SDK=ON 
+cmake .. -DCMAKE_TOOLCHAIN_FILE=../rv1109_cross_compile.toolchain -DRKNNAPI_VERSION=1 -DCOMMON_LIBRARY_DIRS="/root/Excalibur/cmake/build_rv1109/lib;/opt/rv1109/external/rknpu/rknn/rknn_api/librknn_api/lib" -DBUILD_FACE_SDK=ON 
