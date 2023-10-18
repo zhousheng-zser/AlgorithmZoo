@@ -110,7 +110,7 @@ namespace glasssix::selene
 			else
 				network_result = (*feature_extractor_instance_).forward(bitmaps.data(), { static_cast<int>(count), single_bitmap_height, single_bitmap_width, single_bitmap_channels }, rknn_tensor_format::RKNN_TENSOR_NHWC);
 
-			std::string output_name = model_type_ == 3 ? "predict" : "conv5_dw";
+			//std::string output_name = model_type_ == 3 ? "predict" : "conv5_dw";
 #endif
 #else
 			init_cache(bitmaps, count, order);
