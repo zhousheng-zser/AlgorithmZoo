@@ -90,7 +90,7 @@ namespace glasssix::damocles
 				cv::Rect2f rect(boxes[i].x, boxes[i].y, boxes[i].w, boxes[i].h);
 				safty_cut(img, crop_face, rect);
 				
-				cv::resize(crop_face, crop_face, forward_input_height, forward_input_width);
+				cv::resize(crop_face, crop_face, cv::Size(forward_input_width, forward_input_height));
 
 				std::copy(crop_face.data, crop_face.data + forward_input_bytes, ptr);
 				ptr += forward_input_bytes;
