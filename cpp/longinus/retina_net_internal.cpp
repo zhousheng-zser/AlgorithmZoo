@@ -22,8 +22,12 @@
 #include "../../common/include/RKNN2Wrapper/rknn2_wrapper.hpp"
 #include <opencv2/opencv.hpp>
 #include <opencv2/imgproc/types_c.h>
+
 #endif
 
+#if defined(BUILD_RV1106) 
+    #include <fstream>
+#endif
 namespace
 {
     static float estimate_head_pose_weights[] =
@@ -90,6 +94,41 @@ namespace glasssix::longinus
                 anchors_fpn_[key] = anchors_fpn[i];
                 num_anchors_[key] = anchors_fpn[i].size();
             }
+
+#if defined(BUILD_RV1106) 
+        matmul_weight.resize(208*14);
+
+        std::string filename;
+
+        std::string track_path( tracker_racy_path);
+        std::cout<<tracker_racy_path<<" tracker_racy_path: "<<track_path<<std::endl;
+        std::size_t found = track_path.find_last_of("/");
+        std::cout<<found<<std::endl;
+
+        if(std::string::npos==found)
+        {
+                //need implement
+        }
+        else
+        {
+                std::string supplement_path(track_path,0,found );
+                filename=supplement_path+ R"(/land71_supplement.dat)";
+                // std::cout<<supplement_path<<std::endl;
+        }
+
+        std::ifstream fin;
+
+        fin.open(filename, std::ios::in | std::ios::binary);
+        if (fin.is_open() == false)
+        {
+             throw exposing::abi_invalid_argument("rv1106 supplement weight dat not find");
+        }
+        while (fin.read((char*)matmul_weight.data(), 208*14*sizeof(float)))
+        { }      
+        fin.close(); 
+#endif
+
+
         }
 
         ~impl()
@@ -1401,7 +1440,30 @@ namespace glasssix::longinus
             trackfaceinfo.score = res["188"]->cpu_data()[1];
             const float* glass_data = res["157"]->cpu_data();
             const float* mask_data = res["161"]->cpu_data();
+#if defined(BUILD_RV1106) 
+            std::vector<std::string> intermediate_out{"185","199","212","114","118","122","126" };
+            float *concat_ptr = concat.data();
+            for (size_t i = 0; i < intermediate_out.size(); i++)
+            {
+                memcpy(concat_ptr, network_result1[intermediate_out[i]]->mutable_cpu_data(), network_result1[intermediate_out[i]]->count()*sizeof(float));
+                concat_ptr+=network_result1[intermediate_out[i]]->count();
+            }
+            concat_ptr=nullptr; 
+
+            auto result_215 = std::make_shared<glasssix::memory::tensor<float>>(shape1, -1, glasssix::memory::NCHW);
+           
+            const float* landmark_data=result_215->mutable_cpu_data();
+            for (size_t i = 0; i < 14; i++)
+            {   
+                landmark_data[i]=0.f;
+                for (size_t j = 0; j < 208; j++)
+                {
+                    landmark_data[i]+=(matmul_weight[i*208+j]*concat[j]);
+                }  
+            }
+#else
             const float* landmark_data = res["215"]->cpu_data();
+#endif
             const float* bbox_data = res["output"]->cpu_data();
 #endif
 
@@ -1616,6 +1678,10 @@ namespace glasssix::longinus
         std::map<std::string, std::vector<anchor_box>> anchors_;
         //each layer's fpn has how many shapes of anchor = number of ratio * number of scales
         std::map<std::string, int> num_anchors_;
+
+#if defined(BUILD_RV1106) 
+        std::vector<float> matmul_weight;
+#endif
 
 #if defined(USE_RKNNAPI) || defined(USE_RKNN2API)
         //#if 0
