@@ -169,7 +169,7 @@ if(BUILD_GENERAL_CV_SDK)
 	add_subdirectory(Needledash)
 	add_subdirectory(Brionac)
 	#add_subdirectory(Plate)
-	add_subdirectory(Universal_pedestrian)
+	add_subdirectory(UniversalPedestrian)
 endif()
 
 if(BUILD_UNIT_TEST)
