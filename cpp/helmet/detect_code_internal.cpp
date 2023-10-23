@@ -69,7 +69,6 @@ namespace glasssix::helmet
 
             cv::Mat cropped_image = image(cv::Range(roi_y,roi_y+roi_height), cv::Range(roi_x,roi_x+roi_width));
 
-
             std::vector<helmet::box_info_internal> result =  helmet_detect(cropped_image, con_thres, iou_thres, MIN_HEAD);
             // std::cout<<"ok\n";
             // std::cout<<result[0].x1<<" "<<result[0].x2<<std::endl;
@@ -104,6 +103,8 @@ namespace glasssix::helmet
         }
 
     private:
+
+
         /**
          * @fun preprocess
          * @param src, new_shape
@@ -142,6 +143,201 @@ namespace glasssix::helmet
             }
         }
 
+        void  Softmax(float* data, int num )
+        {   
+            
+            double L2_Sum=0.f;
+            for(size_t i=0; i<num; i++) 
+            {
+                data[i]= ( exp(data[i] ) );
+                L2_Sum +=  data[i];
+            }
+            for(size_t i=0; i<num; i++) 
+            {
+                data[i] =  data[i] / L2_Sum ;
+            }       
+        }
+
+        std::shared_ptr<glasssix::memory::tensor<float>> Concat(std::vector<std::shared_ptr<memory::tensor<float>>>& outs, float conf_thres)
+        {
+            //20 40 80
+            std::vector<float> cat(65*8400);//1*65*8400 = 64*8400 + 1*8400
+            const float *data80=outs[2]->cpu_data();
+            const float *data40=outs[1]->cpu_data();
+            const float *data20=outs[0]->cpu_data();
+            // int i=0;
+            int Candidate=8400;
+            for(int i=0;i<65;i++)
+            {   
+                int j=0;
+                for(; j<6400; j++)
+                {
+                    cat[ i*Candidate + j] = data80[i*6400 + j];
+                }
+                for(; j<8000; j++)
+                {
+                    cat[ i*Candidate + j] = data40[i*1600 + j-6400];
+                }
+                
+                for(; j<8400; j++)
+                {
+                    cat[ i*Candidate + j] = data20[i*400 + j-8000 ];
+                }
+            }
+
+            //boxes cat[0:64*8400]
+ 
+            std::vector<float> reshape_box(8400*64);
+            //tranpose and softmax
+            for(int i=0; i<64; i++)
+            {
+                for(int j=0; j<8400; j++)
+                {
+                    reshape_box[j*64 + i] = cat[i*8400 + j ];
+                }
+            }
+            
+            int index = 0;
+            for(int i=0; i<8400; i++)
+            {
+                for(int j=0; j<4; j++)
+                {
+                    Softmax(reshape_box.data()+ 16*index ,16 ) ;
+                    index++ ;
+                }
+            }
+
+            //reshape and tranpose  64*8400 ->8400*64
+            std::vector<float> reshape_box2(16*4*8400);
+
+            std::array<float, 64> temp;
+
+        
+            for(int i=0; i<8400; i++)
+            {
+                for(int j=0; j<4; j++)
+                {
+                    for(int k=0; k<16; k++)
+                    {
+                        reshape_box2[k*4*8400 +j*8400 +i ] = reshape_box[i*16*4 + j*16+k ];
+                    }
+                }
+            }
+
+
+            std::vector<float> conv(4*8400);
+
+            for(int i=0;i<4*8400;i++)
+            {
+                conv[i]=0.f;
+            }
+
+            //16个通道 1*1卷积
+            for(int i=0;i<16;i++)
+            {
+                for(int j=0;j<4*8400;j++)
+                {
+                    int location = 4*8400;
+                    reshape_box2[i*location+j ] = reshape_box2[i*location+j ] * i;
+                    conv[j] = conv[j] +reshape_box2[i*location+j ]; 
+                }
+            }
+
+            //slice and function operator
+
+            std::vector<float> sub_add(8400*2);
+
+            for(int i=0; i<6400; i++)
+            {
+                sub_add[i]=i%80-0.5f+1.f;
+            }
+            for(int i=0; i<1600; i++)
+            {
+                sub_add[6400+i]=i%40-0.5f+1.f;
+            }
+            for(int i=0; i<400; i++)
+            {
+                sub_add[8000+i] = i%20-0.5f+1.f;
+            }
+
+            for(int i=0; i<6400; i++)
+            {
+                sub_add[8400+i]=i/80-0.5f+1.f;
+            }
+            
+            for(int i=0; i<1600; i++)
+            {
+                sub_add[8400+6400+i]=i/40-0.5f+1.f;
+            }
+            for(int i=0; i<400; i++)
+            {
+                sub_add[8400+8000+i] = i/20-0.5f+1.f;
+            }
+
+            //2次sub and add   此处应该是xyxy2xywh
+            std::vector<float> sub_data(8400*2);
+            std::vector<float> add_data(8400*2);
+            for(int i=0;i<8400*2;i++)
+            {
+                sub_data[i] = sub_add[i]-conv[i];
+                add_data[i] = conv[i+8400*2]+sub_add[i];
+            }
+            
+            std::vector<float> add2_data(8400*2);
+            std::vector<float> sub2_data(8400*2);
+
+            for(int i=0;i<8400*2;i++)
+            {
+                add2_data[i]=sub_data[i]+add_data[i];
+                sub2_data[i]=add_data[i]-sub_data[i];
+            }
+
+            //div concat
+            std::vector<float>  concat(8400*24);
+            for(int i=0;i<8400*2;i++)
+            {
+                concat[i]        = add2_data[i]/2.f;     
+                concat[i+8400*2] = sub2_data[i] ;   
+            }
+            
+            std::vector<float> MUL(8400);
+
+            for(int i=0; i<6400; i++)
+            {
+                    MUL[i]=8;
+                if(i<1600)
+                {
+                    MUL[i+6400]=16;   
+                }
+                if(i<400)
+                {
+                    MUL[i+8000]=32;  
+                }
+            }
+
+              std::shared_ptr<glasssix::memory::tensor<float>> output0
+                (new memory::tensor<float>(std::vector<int>{1, 5, 8400}, -1, memory::NCHW));
+            // std::vector<float> output(5*8400);
+            float * output=output0->mutable_cpu_data();
+            for(int i=0;i<8400;i++)
+            {
+                concat[8400*0 +i] = concat[8400*0 +i]*MUL[i];
+                concat[8400*1 +i] = concat[8400*1 +i]*MUL[i];
+                concat[8400*2 +i] = concat[8400*2 +i]*MUL[i];
+                concat[8400*3 +i] = concat[8400*3 +i]*MUL[i];
+
+                output[8400*0 +i]= concat[8400*0 +i];
+                output[8400*1 +i]= concat[8400*1 +i];
+                output[8400*2 +i]= concat[8400*2 +i];
+                output[8400*3 +i]= concat[8400*3 +i];
+                output[8400*4 +i]=  sigmoid_x(cat[8400*64 +i]);
+            }
+                      
+            return  output0;
+
+        }
+
+
         std::vector<std::vector<float>> post_process(std::shared_ptr<memory::tensor<float>>& net_result, cv::Mat & blob, int pad_h, int pad_w, float scale, float threshold=0.5,float iou_thres=0.6 )
         {
             std::vector<std::vector<float>> output;
@@ -164,7 +360,7 @@ namespace glasssix::helmet
             int count=0;
             for(int i=0;i<8400;i++)
             {
-                if(dest_ptr[dim_2*i+4]>0.8 )
+                if(dest_ptr[dim_2*i+4]>0.75 )
                 {
                     count++;      
                     indices_body.push_back(i);
@@ -218,58 +414,7 @@ namespace glasssix::helmet
 
         }
 
-         std::shared_ptr<memory::tensor<float>> yolov8s_complement(std::unordered_map< std::string,std::shared_ptr<memory::tensor<float>>>& forwards)
-        {
-            
-            long num_of_sigmoid_output = forwards["onnx::Sigmoid_380"]->count();
-            int dim = num_of_sigmoid_output/8400;
-
-            std::shared_ptr<glasssix::memory::tensor<float>> output0
-                (new memory::tensor<float>(std::vector<int>{1, 4+dim, 8400}, -1, memory::NCHW));
-
-            float *concat_4_output=forwards["onnx::Mul_423"]->mutable_cpu_data();
-            std::vector<float> mul_weight(8400);
-
-            for(int i=0;i<8400;i++)
-            {
-                if(i<6400)
-                {
-                    mul_weight[i]=8.f;
-                } 
-                else if(i<8000)
-                {
-                    mul_weight[i]=16.f;
-                }
-                else
-                {
-                    mul_weight[i]=32.f;
-                }
-            }
-
-            for(int i=0;i<4;i++)
-            {
-                for(int j=0;j<8400;j++)
-                {
-                    concat_4_output[i*8400+j] = concat_4_output[i*8400+j]*mul_weight[j];
-                }
-            }
-
-            float *Split_output_1=forwards["onnx::Sigmoid_380"]->mutable_cpu_data();
-
-            for(size_t i=0;i<dim*8400;i++)
-            {
-                Split_output_1[i] = sigmoid_x(Split_output_1[i]);
-            }
-
-            float * ptr_output = output0->mutable_cpu_data();  
-
-            memcpy(ptr_output,        concat_4_output,8400*4* sizeof(float) ); //4个坐标维度
-            memcpy(ptr_output+8400*4, Split_output_1, 8400*dim* sizeof(float) );
-            return output0;
-
-        }
-
-
+        
         std::tuple<cv::Mat, float> preprocess_detection(cv::Mat src,int& pad_h,int& pad_w,  cv::Size input_shape = cv::Size(640, 640) )
         {
             float scale = std::min((float)input_shape.width/(float)src.cols, (float)input_shape.height/(float)src.rows);
@@ -303,13 +448,22 @@ namespace glasssix::helmet
             int pad_h=0;  
             int pad_w=0;
             std::tie(blob, ratio) = preprocess_detection( image,pad_h,pad_w, new_shape ) ;
-            std::map< std::string,std::shared_ptr<memory::tensor<float>>> forwards;
 
-            unsigned char * blobdata=blob.ptr<uchar>();
+            // unsigned char * blobdata=blob.ptr<uchar>();
 
-            auto  network_result = net_detect_.forward(blob.data, { 1, blob.rows, blob.cols,blob.channels() }, RKNN_TENSOR_NHWC);
+            auto  network_results = net_detect_.forward(blob.data, { 1, blob.rows, blob.cols,blob.channels() }, RKNN_TENSOR_NHWC);
 
-            std::shared_ptr<memory::tensor<float>> real_output = yolov8s_complement(network_result);
+            std::vector<std::string>  out_names={"/model.22/Concat_2_output_0","/model.22/Concat_1_output_0","/model.22/Concat_output_0"};
+
+            std::vector<std::shared_ptr<memory::tensor<float>>> forwards;
+
+            for (size_t i=0;i< 3; i++)//对输出数据做处理
+            {
+                forwards.push_back(network_results[out_names[i]]);
+            }
+     
+            float conf_threshold=0.f;
+            auto real_output = Concat(forwards, conf_threshold);
 
             auto nms_result = post_process(real_output, blob,pad_h,pad_w, 1.f/ratio, threshold,iou_thres );
 
@@ -332,50 +486,54 @@ namespace glasssix::helmet
                                 (int)(96)), cv::INTER_LINEAR);
 
                 auto  network_result = net_class_.forward(headimg.data, { 1, headimg.rows, headimg.cols,headimg.channels() }, RKNN_TENSOR_NHWC);
+               
                 const float *data1=network_result["output"]->cpu_data();
-                const float *data2=network_result["569"]->cpu_data();
+
+
+
                 
                 // std::cout<<"data1[0]"<<data1[0]<<std::endl;
-                std::vector<float> confidenceofhelmet(2);
+                std::vector<float> confidenceofhelmet(3);
 
                 float sum_confi=0.f;
-                for(int i=0;i<2;i++)
+                for(int i=0;i<3;i++)
                 {
-                    sum_confi+= exp(data2[i]);
+                    sum_confi+= exp(data1[i]);
                 }
 
-                for(int i=0;i<2;i++)
+                for(int i=0;i<3;i++)
                 {
-                    confidenceofhelmet[i] = exp(data2[i])/sum_confi;
+                    confidenceofhelmet[i] = exp(data1[i])/sum_confi;
                 }
 
-
-                if(data1[1]>data1[0])
+                
+                if(data1[0]>data1[1]&&data1[0]>data1[2] )
                 {
-                        box_info_internal  headp;
+                      box_info_internal  headp;
                         headp.x1=x1;
                         headp.x2=x2;
                         headp.y1=y1;
-                        headp.y2=y2;      
-                                                 
-                        if( data2[0]<data2[1] && confidenceofhelmet[1]>0.9)
-                        {
-                            headp.category=2;
-                            headp.score=  confidenceofhelmet[1]; 
-                        }   
-                        else
-                        {
-                            // std::cout<<"helmet"<<std::endl;
-                            headp.category=0;
-                            headp.score=  confidenceofhelmet[0]; 
-                        }
+                        headp.y2=y2;     
 
+                        headp.category=2;
+                        headp.score=  confidenceofhelmet[0]; 
+                        output.push_back(headp);
+
+                }
+                else if(data1[1]>data1[0]&&data1[1]>data1[2] )
+                {
+                      box_info_internal  headp;
+                        headp.x1=x1;
+                        headp.x2=x2;
+                        headp.y1=y1;
+                        headp.y2=y2;    
+
+                        headp.category=0;
+                        headp.score=  confidenceofhelmet[1]; 
                         output.push_back(headp);
                 }
-                else
-                {
-                    // std::cout<<"no know\n";
-                }
+
+
             }
             // std::cout<<output.size()<<std::endl;
             return output;
