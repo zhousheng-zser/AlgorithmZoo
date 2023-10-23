@@ -14,6 +14,16 @@
 
 #include <Primitives/tensor_conversions.hpp>
 
+
+#ifdef BUILD_DEBUG_INFO
+#include <opencv2/highgui/highgui.hpp>
+
+
+
+#define GetShowRatio(visual_img) std::min(float(1920.f / visual_img.cols), float(1080.f / visual_img.rows)) * 0.75
+#define ShowResize(visual_img, showRatio) cv::resize(visual_img, visual_img, cv::Size(), showRatio, showRatio);
+#endif // BUILD_DEBUG_INFO
+
 namespace glasssix::flame
 {
     struct box_info_internal
