@@ -22,15 +22,18 @@
 #include "../../common/include/RKNN2Wrapper/rknn2_wrapper.hpp"
 #include <opencv2/opencv.hpp>
 #include <opencv2/imgproc/types_c.h>
-
-#endif
-
 #if defined(BUILD_RV1106) 
-    #include <fstream>
+#include <fstream>
+#include "Julius/julius_gemv.hpp"
 #endif
-namespace
+#endif
+
+
+namespace glasssix::longinus
 {
-    static float estimate_head_pose_weights[] =
+    namespace
+    {
+        static float estimate_head_pose_weights[] =
         {
             -88.16000008, 19.16736698,
             15.29246944, 133.74215091,
@@ -46,40 +49,55 @@ namespace
             22.79330967, 70.73228422,
             -29.22699468, 23.91464714,
             -0.30067024, -0.01195406,
-            -48.752375, 79.479039105};
-}
+            -48.752375, 79.479039105 };
+    }
 
-namespace glasssix::longinus
-{
     class retina_net_internal::impl
     {
     public:
-        impl(const exposing::param_string racy_path, const exposing::param_string tracker_racy_path, float nms_threshold = 0.4, int device = -1) : impl{get_model_params("longinus", false), racy_path, get_model_params("pfld_land71_simp", false), tracker_racy_path, nms_threshold, device}
+        impl(int model_type, float nms_threshold, int device) : model_type_{ model_type }, nms_threshold_{nms_threshold}, device_{ device } {}
+        impl(std::string_view models_directory, int model_type, int detect_model_type, float nms_threshold = 0.4, int device = -1) : impl{model_type, nms_threshold, device}
         {
-        }
 
-        impl(const std::vector<std::string> &phai, const exposing::param_string racy_path, const std::vector<std::string> &tracker_phai, const exposing::param_string tracker_racy_path, float nms_threshold = 0.4, int device = -1)
-            : retina_{phai, exposing::to_narrow_string(racy_path), device}, tracker_{tracker_phai, exposing::to_narrow_string(tracker_racy_path), -1}, nms_threshold_(nms_threshold), device_(device)
-        {
-            ratio_ = {1.0};
+            //Excalibur needs to distinguish between float and int8 models, rknn and rknn2 does not
+#if defined(USE_RKNNAPI) || defined(USE_RKNN2API)
+            switch (model_type)
+            {
+            case 0:
+                retina_ = std::make_unique<rknnwrapper::rknn_wrapper>(get_model_params(std::string("longinus")), std::string(models_directory) + "/longinus320.rknn", device);
+                break;
+            case 1:
+                retina_ = std::make_unique<rknnwrapper::rknn_wrapper>(get_model_params(std::string("longinus")), std::string(models_directory) + "/longinus640.rknn", device);
+                break;
+            default:
+                throw exposing::abi_invalid_argument("Invalid model_type param!");
+                break;
+            }
+            tracker_ = std::make_unique<rknnwrapper::rknn_wrapper>(get_model_params(std::get<3>(*model_iter)), std::string(models_directory) + "/pfld_land71_simp.rknn", device);
+#else
+            retina_ = std::make_unique<excalibur::pipeline<float>>(get_model_params(std::string("longinus")), std::string(models_directory) + "/longinus.racy", device);
+            tracker_ = std::make_unique<excalibur::pipeline<float>>(get_model_params(std::string("pfld_land71_simp")), std::string(models_directory) + "/pfld_land71_simp.racy", device);
+#endif
+
+            ratio_ = { 1.0 };
             //anchor setting
-            feat_stride_fpn_ = {32, 16, 8};
+            feat_stride_fpn_ = { 32, 16, 8 };
             anchor_cfg tmp;
-            tmp.SCALES = {32, 16};
+            tmp.SCALES = { 32, 16 };
             tmp.BASE_SIZE = 16;
             tmp.RATIOS = ratio_;
             tmp.ALLOWED_BORDER = 9999;
             tmp.STRIDE = 32;
             cfg_.push_back(tmp);
 
-            tmp.SCALES = {8, 4};
+            tmp.SCALES = { 8, 4 };
             tmp.BASE_SIZE = 16;
             tmp.RATIOS = ratio_;
             tmp.ALLOWED_BORDER = 9999;
             tmp.STRIDE = 16;
             cfg_.push_back(tmp);
 
-            tmp.SCALES = {2, 1};
+            tmp.SCALES = { 2, 1 };
             tmp.BASE_SIZE = 16;
             tmp.RATIOS = ratio_;
             tmp.ALLOWED_BORDER = 9999;
@@ -95,40 +113,25 @@ namespace glasssix::longinus
                 num_anchors_[key] = anchors_fpn[i].size();
             }
 
+#if defined(USE_RKNN2API)
 #if defined(BUILD_RV1106) 
-        matmul_weight.resize(208*14);
+            matmul_weight_.resize(208 * 14);
 
-        std::string filename;
+            std::string filename = std::string(models_directory) + "/land71_supplement.dat";
 
-        std::string track_path( tracker_racy_path);
-        std::cout<<tracker_racy_path<<" tracker_racy_path: "<<track_path<<std::endl;
-        std::size_t found = track_path.find_last_of("/");
-        std::cout<<found<<std::endl;
+            std::ifstream fin;
 
-        if(std::string::npos==found)
-        {
-                //need implement
-        }
-        else
-        {
-                std::string supplement_path(track_path,0,found );
-                filename=supplement_path+ R"(/land71_supplement.dat)";
-                // std::cout<<supplement_path<<std::endl;
-        }
-
-        std::ifstream fin;
-
-        fin.open(filename, std::ios::in | std::ios::binary);
-        if (fin.is_open() == false)
-        {
-             throw exposing::abi_invalid_argument("rv1106 supplement weight dat not find");
-        }
-        while (fin.read((char*)matmul_weight.data(), 208*14*sizeof(float)))
-        { }      
-        fin.close(); 
+            fin.open(filename, std::ios::in | std::ios::binary);
+            if (fin.is_open() == false)
+            {
+                throw exposing::abi_invalid_argument("rv1106 supplement weight dat not find");
+            }
+            while (fin.read((char*)matmul_weight.data(), 208 * 14 * sizeof(float)))
+            {
+            }
+            fin.close();
 #endif
-
-
+#endif
         }
 
         ~impl()
@@ -151,7 +154,10 @@ namespace glasssix::longinus
 
             //#if 0
             cv::Mat cache_temp(height, width, CV_8UC3, bitmap.data());
-            const int fix_size = 320;
+            int fix_size = 320;
+            if (model_type_ == 1)
+                fix_size = 640;
+
             int max_edge = std::max(width, height);
             float scale = max_edge * 1.0f / fix_size;
 
@@ -170,7 +176,7 @@ namespace glasssix::longinus
             const char* bbox_suffix[3] = { "","","" };
             const char* landmark_suffix[3] = { "","","" };
 #endif
-            auto blob_data = retina_.forward(cache_forward.data, { 1, hs, ws, 3 }, RKNN_TENSOR_NHWC);
+            auto blob_data = retina_->forward(cache_forward.data, { 1, hs, ws, 3 }, RKNN_TENSOR_NHWC);
 
             std::string name_bbox = "face_rpn_bbox_pred_";
             std::string name_score = "face_rpn_cls_prob_reshape_";
@@ -340,7 +346,7 @@ namespace glasssix::longinus
             excalibur::resize_cpu(cache_temp, cache_forward, int(height / scale), int(width / scale));
             excalibur::make_border(cache_forward, cache_forward, 0, hs - int(height / scale), 0, ws - int(width / scale));
 
-            auto blob_data = retina_.forward(cache_forward | memory::tensor_convert_to<float>);
+            auto blob_data = retina_->forward(cache_forward | memory::tensor_convert_to<float>);
 
             std::string name_bbox = "face_rpn_bbox_pred_";
             std::string name_score = "face_rpn_cls_prob_reshape_";
@@ -1429,7 +1435,7 @@ namespace glasssix::longinus
             int height = face.rows;
 
             cv::resize(face, face, cv::Size(80, 80));
-            auto res = tracker_.forward(face.data, { 1, 80, 80, 3 }, RKNN_TENSOR_NHWC);
+            auto res = tracker_->forward(face.data, { 1, 80, 80, 3 }, RKNN_TENSOR_NHWC);
 #ifdef USE_RKNNAPI
             trackfaceinfo.score = res["Softmax_Softmax_103/out0_2"]->cpu_data()[1];
             const float* glass_data = res["Softmax_Softmax_76/out0_3"]->cpu_data();
@@ -1440,27 +1446,30 @@ namespace glasssix::longinus
             trackfaceinfo.score = res["188"]->cpu_data()[1];
             const float* glass_data = res["157"]->cpu_data();
             const float* mask_data = res["161"]->cpu_data();
-#if defined(BUILD_RV1106) 
-            std::vector<std::string> intermediate_out{"185","199","212","114","118","122","126" };
-            float *concat_ptr = concat.data();
+#if defined(USE_RKNN2API) && defined(BUILD_RV1106) 
+            constexpr std::vector<std::string> intermediate_out{"185","199","212","114","118","122","126" };
+            std::vector<float> concat(208, 0.f);
+            float *concat_data = concat.data();
             for (size_t i = 0; i < intermediate_out.size(); i++)
             {
-                memcpy(concat_ptr, network_result1[intermediate_out[i]]->mutable_cpu_data(), network_result1[intermediate_out[i]]->count()*sizeof(float));
-                concat_ptr+=network_result1[intermediate_out[i]]->count();
+                std::memcpy(concat_data, res[intermediate_out[i]]->cpu_data(), res[intermediate_out[i]]->count()*sizeof(float));
+                concat_data += res[intermediate_out[i]]->count();
             }
-            concat_ptr=nullptr; 
 
-            auto result_215 = std::make_shared<glasssix::memory::tensor<float>>(shape1, -1, glasssix::memory::NCHW);
+            constexpr std::vector<int> shape_215{ 1, 14, 1, 1 };
+            auto result_215 = std::make_shared<glasssix::memory::tensor<float>>(shape_215, -1, glasssix::memory::NCHW);
            
-            const float* landmark_data=result_215->mutable_cpu_data();
-            for (size_t i = 0; i < 14; i++)
-            {   
-                landmark_data[i]=0.f;
-                for (size_t j = 0; j < 208; j++)
-                {
-                    landmark_data[i]+=(matmul_weight[i*208+j]*concat[j]);
-                }  
-            }
+            float* landmark_data=result_215->mutable_cpu_data();
+
+            excalibur::julius::cblas_sgemv_AnoTrans(14, 208, 1.f, matmul_weight_.data(), 208, concat_data, 1, 0.f, landmark_data, 1);
+            //for (size_t i = 0; i < 14; i++)
+            //{   
+            //    landmark_data[i] = 0.f;
+            //    for (size_t j = 0; j < 208; j++)
+            //    {
+            //        landmark_data[i] += (matmul_weight_[i*208+j]*concat[j]);
+            //    }  
+            //}
 #else
             const float* landmark_data = res["215"]->cpu_data();
 #endif
@@ -1528,7 +1537,7 @@ namespace glasssix::longinus
             int width = face->width();
             int height = face->height();
             excalibur::resize_cpu(face, face, 80, 80);
-            auto res = tracker_.forward(face | memory::tensor_convert_to<float>);
+            auto res = tracker_->forward(face | memory::tensor_convert_to<float>);
             trackfaceinfo.score = res["188"]->cpu_data()[1];
             const float* glass_data = res["157"]->cpu_data();
             const float* mask_data = res["161"]->cpu_data();
@@ -1659,14 +1668,15 @@ namespace glasssix::longinus
     private:
 #if defined(USE_RKNNAPI) || defined(USE_RKNN2API)
 //#if 0
-        rknnwrapper::rknn_wrapper retina_;
-        rknnwrapper::rknn_wrapper tracker_;
+        std::unique_ptr<rknnwrapper::rknn_wrapper> retina_;
+        std::unique_ptr<rknnwrapper::rknn_wrapper> tracker_;
 #else
-        glasssix::excalibur::pipeline<float> retina_;
-        glasssix::excalibur::pipeline<float> tracker_;
+        std::unique_ptr<glasssix::excalibur::pipeline<float>> retina_;
+        std::unique_ptr<glasssix::excalibur::pipeline<float>> tracker_;
 #endif
 
         int device_;
+        int model_type_;
         float nms_threshold_;
         std::vector<float> ratio_;
         std::vector<anchor_cfg> cfg_;
@@ -1679,8 +1689,10 @@ namespace glasssix::longinus
         //each layer's fpn has how many shapes of anchor = number of ratio * number of scales
         std::map<std::string, int> num_anchors_;
 
+#if defined(USE_RKNN2API)
 #if defined(BUILD_RV1106) 
-        std::vector<float> matmul_weight;
+        std::vector<float> matmul_weight_;
+#endif
 #endif
 
 #if defined(USE_RKNNAPI) || defined(USE_RKNN2API)
@@ -1697,12 +1709,7 @@ namespace glasssix::longinus
     //retina_net_internal
     //######################################################################
 
-    retina_net_internal::retina_net_internal(const exposing::param_string racy_path, const exposing::param_string tracker_racy_path, float nms_threshold, int device) : impl_{std::make_unique<impl>(racy_path, tracker_racy_path, nms_threshold, device)}
-    {
-    }
-
-    retina_net_internal::retina_net_internal(const std::vector<std::string> &phai, const exposing::param_string racy_path, const std::vector<std::string> &tracker_phai, const exposing::param_string tracker_racy_path, float nms_threshold, int device)
-        : impl_{std::make_unique<impl>(phai, racy_path, tracker_phai, tracker_racy_path, nms_threshold, device)}
+    retina_net_internal::retina_net_internal(std::string_view models_directory, int model_type, float nms_threshold, int device) : impl_{std::make_unique<impl>(models_directory, model_type, nms_threshold, device)}
     {
     }
 

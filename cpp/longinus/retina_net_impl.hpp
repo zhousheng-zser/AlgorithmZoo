@@ -18,9 +18,8 @@ namespace glasssix::longinus
 		retina_net_impl();
 		~retina_net_impl();
 
-		void init(const exposing::param_string& racy_path, const exposing::param_string& tracker_racy_path, float nms_threshold, std::int32_t device);
-		void init(exposing::param_span<const exposing::param_string> phai, const exposing::param_string& racy_path, exposing::param_span<const exposing::param_string> tracker_phai, const exposing::param_string& tracker_racy_path, float nms_threshold, std::int32_t device);
-
+		void init(const exposing::param_string& models_directory, int model_type, float nms_threshold, std::int32_t device);
+		
 		exposing::param_string version() const;
 		exposing::param_vector<face_info> detect(exposing::param_span<std::uint8_t> bitmap, std::int32_t channels, std::int32_t height, std::int32_t width, std::int32_t min_size, float threshold, std::int32_t order, bool do_attributing) const;
 		face_info single_trace(face_info face, exposing::param_span<std::uint8_t> bitmap, std::int32_t channels, std::int32_t height, std::int32_t width, std::int32_t order) const;

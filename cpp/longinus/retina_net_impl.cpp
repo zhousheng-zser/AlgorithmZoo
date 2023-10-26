@@ -12,19 +12,9 @@ namespace glasssix::longinus
 	{
 	}
 
-	void retina_net_impl::init(const exposing::param_string& racy_path, const exposing::param_string& tracker_racy_path, float nms_threshold, std::int32_t device)
+	void retina_net_impl::init(const exposing::param_string& models_directory, int model_type, float nms_threshold, std::int32_t device)
 	{
-		impl_ = std::make_unique<retina_net_internal>(racy_path, tracker_racy_path, nms_threshold, device);
-	}
-
-	void retina_net_impl::init(exposing::param_span<const exposing::param_string> phai, const exposing::param_string& racy_path, exposing::param_span<const exposing::param_string> tracker_phai, const exposing::param_string& tracker_racy_path, float nms_threshold, std::int32_t device)
-	{
-		std::vector<std::string> phai_internal(phai.size());
-		std::vector<std::string> tracker_phai_internal(tracker_phai.size());
-
-		std::transform(phai.begin(), phai.end(), phai_internal.begin(), &exposing::to_narrow_string);
-		std::transform(tracker_phai.begin(), tracker_phai.end(), tracker_phai_internal.begin(), &exposing::to_narrow_string);
-		impl_ = std::make_unique<retina_net_internal>(phai_internal, racy_path, tracker_phai_internal, tracker_racy_path, nms_threshold, device);
+		impl_ = std::make_unique<retina_net_internal>(exposing::to_narrow_string(models_directory), model_type, nms_threshold, device);
 	}
 
 	exposing::param_string retina_net_impl::version() const
