@@ -73,7 +73,7 @@ namespace glasssix::longinus
                 throw exposing::abi_invalid_argument("Invalid model_type param!");
                 break;
             }
-            tracker_ = std::make_unique<rknnwrapper::rknn_wrapper>(get_model_params(std::get<3>(*model_iter)), std::string(models_directory) + "/pfld_land71_simp.rknn", device);
+            tracker_ = std::make_unique<rknnwrapper::rknn_wrapper>(get_model_params(std::string("pfld_land71_simp")), std::string(models_directory) + "/pfld_land71_simp.rknn", device);
 #else
             retina_ = std::make_unique<excalibur::pipeline<float>>(get_model_params(std::string("longinus")), std::string(models_directory) + "/longinus.racy", device);
             tracker_ = std::make_unique<excalibur::pipeline<float>>(get_model_params(std::string("pfld_land71_simp")), std::string(models_directory) + "/pfld_land71_simp.racy", device);
