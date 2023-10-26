@@ -24,7 +24,7 @@ namespace glasssix::refvest
     {
     public:
         impl(const exposing::param_string model_directory, int device = -1)
-                : impl{get_model_params("climb", false),  exposing::to_narrow_string(model_directory), device}
+                : impl{get_model_params("refvest", false),  exposing::to_narrow_string(model_directory), device}
         {
         }
 
@@ -33,6 +33,9 @@ namespace glasssix::refvest
         {
             static bool ready = glasssix::exposing::get_component_loader().add_module_by_name("posture");
             posture_instance_ = glasssix::exposing::make_exported_interface<posture::detect_code>(exposing::param_string(model_directory), device);
+            posture_param_abi = exposing::make_param_hash_map<exposing::param_string, float>();
+			posture_param_abi.add_or_update("conf_thres", 0.0f);
+			posture_param_abi.add_or_update("nms_thres", 0.30f);
         }       
 
         exposing::param_vector<refvest::box_info> detect(const exposing::param_span<std::uint8_t>& bitmap, int channels, int height, int width, int roi_x, int roi_y, int roi_width, int roi_height, std::map<std::string, float>& param_map)
@@ -56,52 +59,109 @@ namespace glasssix::refvest
             }
 
             auto empty_map_abi = exposing::make_param_hash_map<exposing::param_string, float>();
-            exposing::param_vector<posture::box_info> posture_info_list = posture_instance_.detect(bitmap, channels, height, width, 0, 0, width, height, empty_map_abi);
+            exposing::param_vector<posture::box_info> posture_info_list = posture_instance_.detect(bitmap, channels, height, width, 0, 0, width, height, posture_param_abi);
             
             std::vector<PostureInfo> persons_info;
 
             for (auto pinfo : posture_info_list) {
-
+                    
                 PostureInfo postureInfo{ pinfo };
 
                 // get key 5 - key 13 min xy max xy
                 std::vector<float> x_vec;
                 std::vector<float> y_vec;
-                for(int i = 5; i < 13; i++)
+
+                std::vector<float> pred_vec = {postureInfo.Kpoints[5].second , postureInfo.Kpoints[6].second , postureInfo.Kpoints[11].second , postureInfo.Kpoints[12].second};
+
+                int sum = 0;
+
+                for(auto &it: pred_vec)
                 {
-                    x_vec.push_back(postureInfo.Kpoints[i].first.x);
-                    y_vec.push_back(postureInfo.Kpoints[i].first.y);
+                    if(it < 0.8) 
+                    { 
+                        sum += 1;
+                    }
                 }
-
-                auto limit = [](int x) {if (x < 0) return 0; else return x; };
-
-                float min_x = *std::min_element(x_vec.begin(), x_vec.end());
-                float min_y = *std::min_element(y_vec.begin(), y_vec.end());
-                float max_x = *std::max_element(x_vec.begin(), x_vec.end());
-                float max_y = *std::max_element(y_vec.begin(), y_vec.end());
                 
-                cv::Point min_pt(limit(min_x), limit(min_y));
-                cv::Point max_pt(limit(max_x), limit(max_y));
+                if(sum < 2)
+                {
+                    std::cout << "post: ["<<postureInfo.x1 << ", " << postureInfo.y1 << "], [" << postureInfo.x2 << ", " << postureInfo.y2 << "], "<< postureInfo.score << "\n";
+                    // valid
+                    for(int i = 5; i < 13; i++)
+                    {   
+                        x_vec.push_back(postureInfo.Kpoints[i].first.x);
+                        y_vec.push_back(postureInfo.Kpoints[i].first.y);
+                    }
 
-                cv::Mat cropped_image = image(cv::Range(min_pt.x, max_pt.x), cv::Range(min_pt.y, max_pt.y)).clone();
-                
-                auto classify_result = run_classify(cropped_image, param_map);
+                    float min_x = *std::min_element(x_vec.begin(), x_vec.end());
+                    float min_y = *std::min_element(y_vec.begin(), y_vec.end());
+                    float max_x = *std::max_element(x_vec.begin(), x_vec.end());
+                    float max_y = *std::max_element(y_vec.begin(), y_vec.end());
 
-                auto classify_score = [](int x, int y) { if (x > y) return x; else return y;}; 
-                auto classify_label = [](int x, int y) { if (x > y) return 0; else return 1;};
-                
-                refvest::box_info_internal box_info;
+                    constexpr auto limit = [](float x) {if (x < 0) return 0.0f ; else return x; };
 
-                box_info.x1 = min_pt.x;
-                box_info.y1 = min_pt.y;  
-                box_info.x2 = max_pt.x;
-                box_info.y2 = max_pt.y;
-                box_info.score = classify_score(classify_result.first, classify_result.second);
-                box_info.category = classify_label(classify_result.first, classify_result.second);
+                    min_x = limit(min_x);
+                    min_y = limit(min_y);                 
+                    max_x = limit(max_x);
+                    max_y = limit(max_y);
 
-                results.push_back(box_info);
+                    if(min_x > (image.cols - 1))
+                    {
+                        min_x = image.cols - 1;
+                    }	
+                    if(min_y > (image.rows - 1))
+                    {
+                        min_y = image.rows - 1;
+                    }
+                    if(max_x > (image.cols - 1))
+                    {
+                        max_x = image.cols - 1;	
+                    }
+                    if(max_y > (image.rows - 1))
+                    {
+                        max_y = image.rows - 1;
+                    }
+
+                    if((max_x - min_x < 0) || (max_y - min_y < 0) || (max_x - min_x == 0) ||(max_y - min_y == 0))
+                    {
+                        continue;
+                    }
+                    else
+                    {
+                        cv::Point min_pt(min_x, min_y);
+                        cv::Point max_pt(max_x, max_y);
+                        
+                        cv::Mat cropped_image = image(cv::Range(min_pt.y, max_pt.y), cv::Range(min_pt.x, max_pt.x)).clone();
+                        
+                        auto classify_result = run_classify(cropped_image, param_map);
+
+                        float score = 0.f;
+                        int category = 0;
+
+                        if(classify_result.first > classify_result.second)
+                        {
+                            score = classify_result.first;
+                            category = 0;
+                        }
+                        else 
+                        {
+                            score = classify_result.second;
+                            category = 1;
+                        }
+
+                        refvest::box_info_internal box_info;
+
+                        box_info.x1 = min_pt.x;
+                        box_info.y1 = min_pt.y;  
+                        box_info.x2 = max_pt.x;
+                        box_info.y2 = max_pt.y;
+                        box_info.score = score;
+                        box_info.category = category;
+
+                        results.push_back(box_info);
+                    }
+                }
             }
-			
             for (auto& i : results)
             {
                 i.x1+=roi_x;
@@ -129,7 +189,7 @@ namespace glasssix::refvest
 
         std::string version()
         {
-			const std::string algo_module_version = "1.0.0";
+			const std::string algo_module_version = "1.0.1";
 
 #if defined(USE_RKNNAPI) || defined(USE_RKNN2API)
 			//#if 0
@@ -156,6 +216,7 @@ namespace glasssix::refvest
             float ratio_h = (float)H / (float)hope_size;
             float ratio = ratio_w;
             cv::Mat resize_img;
+
             if(H==hope_size && W==hope_size )
             {
                 resize_img=img;
@@ -166,6 +227,7 @@ namespace glasssix::refvest
                 {
 
                     cv::resize(img, resize_img, cv::Size2i{ hope_size, hope_size });}
+
                 else if (ratio_w > ratio_h) {
 
                     int new_x = hope_size;
@@ -173,7 +235,6 @@ namespace glasssix::refvest
                     int pad1 = (int)((hope_size - new_y) / 2);
                     int pad2 = hope_size - new_y - pad1;
                     cv::resize(img, resize_img, cv::Size2i{ new_x, new_y });
-
                     cv::copyMakeBorder(resize_img, resize_img, pad1, pad2, 0, 0, cv::BORDER_CONSTANT, cv::Scalar{ 114,114,114 });
                 }
                 else {
@@ -183,9 +244,7 @@ namespace glasssix::refvest
                     int new_x = (int)(W / ratio_h);
                     int pad1 = (int)((hope_size - new_x) / 2);
                     int pad2 = hope_size - new_x - pad1;
-
                     cv::resize(img, resize_img, cv::Size2i{ new_x, new_y });
-
                     cv::copyMakeBorder(resize_img, resize_img, 0, 0, pad1, pad2, cv::BORDER_CONSTANT, cv::Scalar{ 114,114,114 });
                 }
             }
@@ -196,8 +255,9 @@ namespace glasssix::refvest
         std::pair<float,float> run_classify(cv::Mat& image, std::map<std::string, float>& param_map)
         {   
             cv::Mat blobs;
-            float ratio = 0;
-            std::tie (blobs, ratio) = letterbox(image, 224);
+            // float ratio = 0;
+            // std::tie (blobs, ratio) = letterbox(image, 224);
+            cv::resize(image, blobs, cv::Size(224, 224));
 
             std::vector<std::shared_ptr<glasssix::memory::tensor<float>>> forwards;
 
@@ -214,6 +274,7 @@ namespace glasssix::refvest
 
 
     private:
+    	exposing::param_hash_map<exposing::param_string, float> posture_param_abi;
         std::string model_directory_;
         int device_;
         glasssix::rknnwrapper::rknn_wrapper classify_instance_;

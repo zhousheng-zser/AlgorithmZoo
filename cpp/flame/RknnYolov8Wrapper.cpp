@@ -1,5 +1,4 @@
 #include "RknnYolov8Wrapper.hpp"
-#include "numpyExtensor.hpp"
 #include <algorithm>
 #include <numeric>
 #include <math.h>
@@ -97,12 +96,9 @@ namespace glasssix::flame
 	}
 
 	RknnYolov8Wrapper::RknnYolov8Wrapper(std::string racy, int device, uint32_t flag) {
-#if defined(USE_RKNNAPI) || defined(USE_RKNN2API)
+
 		std::vector<std::string> rkn_phai;
 		base_instance_ = std::make_unique<rknnwrapper::rknn_wrapper>(rkn_phai, racy, device, flag);
-#else
-		base_instance_ = std::make_unique<onnxrt::pipline>(racy);
-#endif
 	}
 
 	std::vector<RknnYolov8Wrapper::TensorSptr> RknnYolov8Wrapper::sort_yolo_rst(const std::unordered_map<std::string, TensorSptr>& result) {
