@@ -27,13 +27,6 @@
 #include <cuda_runtime_api.h>
 #endif
 
-//#ifdef BUILD_DEBUG_INFO
-//#include "dbg.h"
-//#include <opencv2/highgui.hpp>
-//#include "numpyExtensor.hpp"
-//
-//#endif // BUILD_DEBUG_INFO
-
 namespace glasssix::fighting
 {
     class detect_code_internal::impl
@@ -52,8 +45,6 @@ namespace glasssix::fighting
 
         float detect(exposing::param_span<std::uint8_t> bitmap, int height, int width, int roi_x, int roi_y, int roi_width, int roi_height, std::map<std::string, float>& param_map_std)
         {
-            auto detect_start = std::chrono::system_clock::now();
-
             size_t bitmap_size = bitmap.size();
             CHECK_EQ(bitmap.size(), BATCH_ * height * width * 3);
             // split bitmap to img vector
@@ -76,105 +67,41 @@ namespace glasssix::fighting
                 tailCrops.push_back(c_tail);
             }
 
-
-#if defined(USE_RKNNAPI) || defined(USE_RKNN2API)
-            auto inpuTensor = make_rknn_input(headCrops, mediCrops, tailCrops, std::vector<int>{1, BATCH_ * 3 * 3, CROP_SIZE_, CROP_SIZE_});
+            auto inpuTensor = make_rknn_input_speed(headCrops, mediCrops, tailCrops, std::vector<int>{1, BATCH_ * 3 * 3, CROP_SIZE_, CROP_SIZE_});
             auto det_rst_map = instance_->forward(inpuTensor->mutable_cpu_data(), { 1, CROP_SIZE_, CROP_SIZE_, 9 * BATCH_ }, RKNN_TENSOR_NHWC);
-#else
-            auto inpuTensor = make_onnx_input(headCrops, mediCrops, tailCrops, std::vector<int>{1, BATCH_ * 3 * 3, CROP_SIZE_, CROP_SIZE_});
-            auto det_rst_map = instance_->forward(inpuTensor);
-#endif
-
             auto det_scores = det_rst_map.begin()->second->cpu_data();
 
             return det_scores[0];
         }
 
-        template<typename T>
-        std::shared_ptr<glasssix::memory::tensor<T>> tensor_transpose_0132(const std::shared_ptr<glasssix::memory::tensor<T>>& bottom) {
-            int num = bottom->num();
-            int channels = bottom->channels();
-            int height = bottom->height();
-            int width = bottom->width();
-            auto top = std::make_shared<glasssix::memory::tensor<T>>(std::vector<int>{num, channels, width, height}, -1, memory::NCHW);
-
-            int W_step = width; //8400
-            int countb = bottom->count();
-
-            for (int nc = 0; nc < num; nc++) {
-                const T* bottom_ptr = bottom->cpu_data() + countb * nc; // bottom_ptr -> D * HW
-                T* top_ptr = top->mutable_cpu_data() + countb * nc; // top_ptr -> HW * D
-
-                for (int i = 0; i < W_step; i++) { //for 8400
-                    for (int line = 0; line < height; line++) { //for 6
-                        top_ptr[i * height + line] = bottom_ptr[line * W_step + i];
-                    }
-                }
-            }
-            return top;
-        }
-
-        std::shared_ptr<glasssix::memory::tensor<uint8_t>> make_rknn_input(
-            std::vector<cv::Mat>& headCrops,
-            std::vector<cv::Mat>& mediCrops,
-			std::vector<cv::Mat>& tailCrops,
-            std::vector<int> input_shape)
-        {
-            int inpuTensorCopyFlag = 0;
-            auto inpuTensor = std::make_shared<glasssix::memory::tensor<uint8_t>>(input_shape, -1, memory::NCHW);
-            //input_shape = {1, BATCH_ * 3 * 3, CROP_SIZE_, CROP_SIZE_}
-
-            auto CropsPushTensor = [&inpuTensor, &inpuTensorCopyFlag, this](std::vector<cv::Mat>& Crops) {
-                for (auto& crop : Crops) {
-                    cv::cvtColor(crop, crop, cv::COLOR_BGR2RGB);
-                    auto crop_tensor = matConverTensor<uint8_t>(crop); // 3*8*DS*3 -> 3*8*3*DS
-                    int count = crop_tensor->count();
-
-                    auto crop_tensor_data = crop_tensor->mutable_cpu_data();
-                    std::copy(crop_tensor_data, crop_tensor_data + count, inpuTensor->mutable_cpu_data() + inpuTensorCopyFlag);
-                    inpuTensorCopyFlag += count;
-                }
-            };
-
-            CropsPushTensor(headCrops);
-            CropsPushTensor(tailCrops);
-            CropsPushTensor(mediCrops);
-            CHECK_EQ(inpuTensorCopyFlag, inpuTensor->count()); // 3*8*3*DS
-
-            inpuTensor->reshape(std::vector{ 1, 1, BATCH_ * 9, 256 * 256 });
-            auto inpuTensor_trans = tensor_transpose_0132(inpuTensor); //
-            inpuTensor_trans->reshape(std::vector{ 1, 256, 256, BATCH_ * 9 });
-            return inpuTensor_trans;
-        }
-
-        std::shared_ptr<glasssix::memory::tensor<float>> make_onnx_input(
+        std::shared_ptr<glasssix::memory::tensor<uint8_t>> make_rknn_input_speed(
             std::vector<cv::Mat>& headCrops,
             std::vector<cv::Mat>& mediCrops,
             std::vector<cv::Mat>& tailCrops,
             std::vector<int> input_shape)
         {
             int inpuTensorCopyFlag = 0;
-            auto inpuTensor = std::make_shared<glasssix::memory::tensor<float>>(input_shape, -1, memory::NCHW);
-
-            auto CropsPushTensor = [&inpuTensor, &inpuTensorCopyFlag, this](std::vector<cv::Mat>& Crops) {
+            cv::Mat inputMat(cv::Size(CROP_SIZE_ * CROP_SIZE_, BATCH_ * 9), CV_8UC1);
+            auto CropsPushTensor = [&inputMat, &inpuTensorCopyFlag, this](std::vector<cv::Mat>& Crops) {
+                int cropHWStep = CROP_SIZE_ * CROP_SIZE_;
                 for (auto& crop : Crops) {
-                    cv::cvtColor(crop, crop, cv::COLOR_BGR2RGB);
-
-                    auto crop_tensor = matConverTensor<float>(crop);
-
-                    for (int i = 0; i < crop_tensor->count(); i++) {
-                        crop_tensor->mutable_cpu_data()[i] = crop_tensor->mutable_cpu_data()[i] / 255;
+                    std::vector<cv::Mat> channels;
+                    split(crop, channels);
+                    for (int c = 0; c < 3; c++) {
+                        std::copy(channels[c].data, channels[c].data + cropHWStep, inputMat.data + inpuTensorCopyFlag);
+                        inpuTensorCopyFlag += cropHWStep;
                     }
-                    int count = crop_tensor->count();
-                    std::memcpy(inpuTensor->mutable_cpu_data() + inpuTensorCopyFlag, crop_tensor->cpu_data(), sizeof(float) * count);
-                    inpuTensorCopyFlag += count;
                 }
             };
-
             CropsPushTensor(headCrops);
             CropsPushTensor(tailCrops);
             CropsPushTensor(mediCrops);
-            CHECK_EQ(inpuTensorCopyFlag, inpuTensor->count());
+
+            cv::transpose(inputMat, inputMat);
+
+            auto inpuTensor = std::make_shared<glasssix::memory::tensor<uint8_t>>(std::vector{ 1, 256, 256, BATCH_ * 9 }, -1, memory::NCHW);
+            std::copy(inputMat.data, inputMat.data + inputMat.step[0] * inputMat.rows, inpuTensor->mutable_cpu_data());
+
             return inpuTensor;
         }
 
@@ -215,16 +142,6 @@ namespace glasssix::fighting
             return rst;
         }
 
-        template<typename T>
-        std::shared_ptr<glasssix::memory::tensor<T>> matConverTensor(cv::Mat input_image) {
-            std::shared_ptr<glasssix::memory::tensor<uint8_t>> input_tensor_u8(new glasssix::memory::tensor<uint8_t>(std::vector<int>{1, input_image.rows, input_image.cols, 3}, -1, glasssix::memory::NHWC));
-            std::copy(input_image.data, input_image.data + input_image.step[0] * input_image.rows, input_tensor_u8->mutable_cpu_data());
-            input_tensor_u8->convert_order();
-            if constexpr (std::is_same_v<T, uint8_t>)
-                return input_tensor_u8;
-            else
-                return input_tensor_u8 | glasssix::memory::tensor_convert_to<T>;            
-        }
 
         cv::Mat safty_cut(cv::Mat& img, cv::Rect roi)
         {
