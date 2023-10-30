@@ -68,8 +68,7 @@ namespace glasssix::longinus
     public:
         class impl;
         retina_net_internal() = delete;
-        retina_net_internal(const exposing::param_string racy_path, const exposing::param_string tracker_racy_path, float nms_threshold = 0.4, int device = -1);
-        retina_net_internal(const std::vector<std::string> &phai, const exposing::param_string racy_path, const std::vector<std::string> &tracker_phai, const exposing::param_string tracker_racy_path, float nms_threshold = 0.4, int device = -1);
+        retina_net_internal(std::string_view models_directory, int model_type, float nms_threshold = 0.4, int device = -1);
         retina_net_internal(const retina_net_internal &) = delete;
         retina_net_internal &operator=(const retina_net_internal &) = delete;
         ~retina_net_internal();

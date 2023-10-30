@@ -11,6 +11,7 @@
 #include <opencv2/opencv.hpp>
 #include "box_info.hpp"
 
+
 namespace glasssix::onphone
 {
     struct box_info_internal

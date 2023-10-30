@@ -17,8 +17,6 @@
 #include "../../common/include/RKNNWrapper/rknn_wrapper.hpp"
 #elif defined(USE_RKNN2API)
 #include "../../common/include/RKNN2Wrapper/rknn2_wrapper.hpp"
-#else
-#include "onxrt.hpp"
 #endif
 
 #include <opencv2/opencv.hpp>
@@ -26,13 +24,8 @@
 #include <opencv2/imgproc.hpp>
 #include <opencv2/dnn.hpp>
 
-#include "dbg.h"
-#include "numpyExtensor.hpp"
-
 #ifdef BUILD_DEBUG_INFO
 #include <opencv2/highgui/highgui.hpp>
-#include "dbg.h"
-#include "numpyExtensor.hpp"
 
 #define GetShowRatio(visual_img) std::min(float(1920.f / visual_img.cols), float(1080.f / visual_img.rows)) * 0.75
 #define ShowResize(visual_img, showRatio) cv::resize(visual_img, visual_img, cv::Size(), showRatio, showRatio);
@@ -47,13 +40,8 @@ namespace glasssix::onphone
 		impl(const exposing::param_string model_directory, int device = -1)
 			: device_(device)
 		{
-#if defined(USE_RKNNAPI) || defined(USE_RKNN2API)
 			detect_instance_ = std::make_unique<rknnwrapper::rknn_wrapper>(get_model_params("onphone"), std::string(model_directory) + "/" + "onphone_det" + ".rknn", device);
 			classi_instance_ = std::make_unique<rknnwrapper::rknn_wrapper>(get_model_params("onphone"), std::string(model_directory) + "/" + "onphone_cls" + ".rknn", device);
-#else
-			detect_instance_ = std::make_unique<onnxrt::pipline>(exposing::to_narrow_string(model_directory) + "/" + "head_yolov8s_best.onnx");
-			classi_instance_ = std::make_unique<onnxrt::pipline>(exposing::to_narrow_string(model_directory) + "/" + "efficientnet.onnx");
-#endif
 		}
 
 
@@ -90,12 +78,8 @@ namespace glasssix::onphone
 		{
 			const std::string algo_module_version = "2.0.0";
 
-#if defined(USE_RKNNAPI) || defined(USE_RKNN2API)
-			//#if 0
 			std::string nn_frame_version = detect_instance_->version();
-#else
-			std::string nn_frame_version = detect_instance_->version();
-#endif
+
 			return fmt::format(R"({{"nn_frame_version":"{}", "algo_module_version":"{}"}})", nn_frame_version, algo_module_version);
 		}
 
@@ -338,13 +322,8 @@ namespace glasssix::onphone
 	private:
 		std::string model_directory_;
 		int device_;
-#if defined(USE_RKNNAPI) || defined(USE_RKNN2API)
 		std::unique_ptr<rknnwrapper::rknn_wrapper> detect_instance_;
 		std::unique_ptr<rknnwrapper::rknn_wrapper> classi_instance_;
-#else
-		std::unique_ptr<onnxrt::pipline> detect_instance_;
-		std::unique_ptr<onnxrt::pipline> classi_instance_;
-#endif
 	};
 
 	detect_code_internal::detect_code_internal(std::string_view model_directory, int device)

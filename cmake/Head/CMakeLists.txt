@@ -1,7 +1,7 @@
-cmake_minimum_required(VERSION 3.14.3)
-set(module_name flame)
-file(GLOB src ${CMAKE_CURRENT_SOURCE_DIR}/../../cpp/flame/*.cpp)
-file(GLOB header ${CMAKE_CURRENT_SOURCE_DIR}/../../cpp/flame/*.hpp)
+﻿cmake_minimum_required(VERSION 3.14.3)
+set(module_name head)
+file(GLOB src ${CMAKE_CURRENT_SOURCE_DIR}/../../cpp/head/*.cpp)
+file(GLOB header ${CMAKE_CURRENT_SOURCE_DIR}/../../cpp/head/*.hpp)
 
 add_library(${module_name} SHARED ${src} ${header})
 
@@ -15,9 +15,5 @@ if(NOT OPENCV_FOUND)
 endif()
 target_link_libraries(${module_name} PRIVATE ${OpenCV_LIBS})
 
-
-
-target_include_directories(${module_name} PRIVATE ${COMMON_INCLUDE_DIRS} )
+target_include_directories(${module_name} PRIVATE ${COMMON_INCLUDE_DIRS})
 target_link_libraries(${module_name} PRIVATE ${COMMON_LIBRARIES})
-
-

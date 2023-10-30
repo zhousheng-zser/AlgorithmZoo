@@ -9,13 +9,7 @@
 #include "../../common/include/RKNN2Wrapper/rknn2_wrapper.hpp"
 #endif
 
-#ifdef BUILD_DEBUG_INFO
-#include "dbg.h"
-#include "numpyExtensor.hpp"
-#endif
-#ifndef USE_RKNN2API
-#include "onxrt.hpp"
-#endif
+
 
 namespace glasssix::flame
 {
@@ -48,8 +42,6 @@ namespace glasssix::flame
 
 #ifdef BUILD_DEBUG_INFO
 		void CosineSimilarity(TensorSptr A, TensorSptr B, int logLen = 0) {
-			dbg(A->data_shape());
-			dbg(B->data_shape());
 			CHECK_EQ(A->count(), B->count());
 			if (A->data_shape() != B->data_shape()) {
 				std::cout << "CosineSimilarity Inputs Shape Not EQ!" << std::endl;;
@@ -74,11 +66,7 @@ namespace glasssix::flame
 		};
 #endif
 	private:
-#if defined(USE_RKNNAPI) || defined(USE_RKNN2API)
 		std::unique_ptr<rknnwrapper::rknn_wrapper> base_instance_;
-#else
-		std::unique_ptr<onnxrt::pipline> base_instance_;
-#endif
 		std::vector<TensorSptr> sort_yolo_rst(const std::unordered_map<std::string, TensorSptr>&);
 		TensorSptr flame_yolov8_complement(std::vector<TensorSptr>&);
 	};
