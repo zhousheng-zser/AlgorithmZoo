@@ -17,6 +17,7 @@
 #include <opencv2/highgui.hpp>
 #include <opencv2/imgproc.hpp>
 #include "hardcode.hpp"
+#include <mutex>
 
 namespace glasssix::wander
 {
@@ -35,7 +36,7 @@ namespace glasssix::wander
            
         }
 
-        exposing::param_vector<wander::box_info> detect(const exposing::param_span<std::uint8_t>& bitmap, int channels, int height, int width, int roi_x, int roi_y, int roi_width, int roi_height, std::map<std::string, float>& param_map)
+        exposing::param_vector<wander::box_info> detect(const exposing::param_span<std::uint8_t>& bitmap, int channels, int height, int width, int roi_x, int roi_y, int roi_width, int roi_height, std::map<std::string, double>& param_map)
         {
 
             if (bitmap.empty())
@@ -61,6 +62,11 @@ namespace glasssix::wander
 
             for(auto& it:cate_result) 
             {
+                // std::cout<<it.first_show_time<<std::endl;
+                // std::cout<<it.last_show_time<<std::endl;
+                // std::cout<<it.cosine_similarity<<std::endl;
+                // std::cout<<it.confidence<<std::endl;
+                // std::cout<<it.id<<std::endl;
                 it.x1+=roi_x;
                 it.x2+=roi_x;
                 it.y1+=roi_y;
@@ -75,7 +81,7 @@ namespace glasssix::wander
        
         std::string version()
         {
-        const std::string algo_module_version = "1.0.0";
+        const std::string algo_module_version = "1.1.0";
 
 #if defined(USE_RKNNAPI) || defined(USE_RKNN2API)
         //#if 0
@@ -86,51 +92,35 @@ namespace glasssix::wander
         return fmt::format(R"({{"nn_frame_version":"{}", "algo_module_version":"{}"}})", nn_frame_version, algo_module_version);
         }
 
+    public: 
+        // struct wander_info
+        // {
+        //     std::array<float,2048> feature;            
+        //     float   feature_sqrt_xx;
+        //     double first_init_time;
+        //     double last_match_time;
+        // };
+
     private:
-
-        struct location_char
-        {
-            int x1;
-            int y1;
-            int x2;
-            int y2;
-            int category;
-        };
-
-            struct location
-        {
-            float x1;
-            float y1;
-            float x2;
-            float y2;
-        };
-
-        struct xywh
-        {
-            float x1;
-            float y1;
-            float x2;
-            float y2;
-        };
 
         struct landmark
         {
            float mark[10]; 
         };
-
-
-        struct wander_info
+  
+        struct return_info
         {
-            std::array<float,2049> feature;            
-            double first_init_time;
-            double last_match_time;
+            int id;
+            double first_show_time=0.f;
+            double last_show_time=0.f;
+            float  cosine_similarity=0.f;
+            int x1;
+            int x2;
+            int y1;
+            int y2;
         };
 
-        /**  @fun letterbox
-         *   @param image ratioFill
-         *   @return letterbox(image)
-         *   @details Resize and pad image while meeting stride-multiple constrain
-         */
+
 
         inline float sigmoid_x(float x)
 		{
@@ -169,7 +159,6 @@ namespace glasssix::wander
             }       
         }
     
-
         std::tuple<cv::Mat, float> preprocess_detection(cv::Mat src,int& pad_h,int& pad_w,  cv::Size input_shape = cv::Size(640, 640) )
         {
             float ratio = std::min((float)input_shape.width/(float)src.cols, (float)input_shape.height/(float)src.rows);
@@ -191,7 +180,7 @@ namespace glasssix::wander
             return {mask_image,ratio};
         }
 
-        std::vector<std::vector<float>> post_process(std::shared_ptr<memory::tensor<float>>& net_result, cv::Mat & blob, int pad_h, int pad_w, float scale, float threshold=0.6,float iou_thres=0.6 )
+        std::vector<std::vector<float>> post_process(std::shared_ptr<memory::tensor<float>>& net_result, cv::Mat & blob, int pad_h, int pad_w, float scale, float threshold=0.7,float iou_thres=0.6 )
         {
             std::vector<std::vector<float>> output;
 
@@ -239,7 +228,7 @@ namespace glasssix::wander
                 indices_body_copy[i]=i;
             }
 
-            cv::dnn::NMSBoxes(xywh_boxes, scores, threshold, iou_thres, indices_body_copy, 1.f, 0);
+            cv::dnn::NMSBoxes(xywh_boxes, scores, threshold, iou_thres, indices_body_copy, threshold, iou_thres);
 
 
             // cv::imwrite("../preocess.jpg",blob);
@@ -422,7 +411,7 @@ namespace glasssix::wander
                 }
             }
 
-              std::shared_ptr<glasssix::memory::tensor<float>> output0
+            std::shared_ptr<glasssix::memory::tensor<float>> output0
                 (new memory::tensor<float>(std::vector<int>{1, 5, 8400}, -1, memory::NCHW));
             // std::vector<float> output(5*8400);
             float * output=output0->mutable_cpu_data();
@@ -444,8 +433,7 @@ namespace glasssix::wander
 
         }
 
-
-        float cosine_similiar(const float *data1,const float* data2, float sqrt_xx,float sqrt_yy,int num=2048)
+        static float cosine_similiar(const float *data1,const float* data2, float sqrt_xx,float sqrt_yy,int num=2048)
         {
             float xy=0.f;
             float xx=0.f;
@@ -461,7 +449,7 @@ namespace glasssix::wander
             return xy/(sqrt_xx*sqrt_yy); 
         }
 
-        int get_id(std::map<int, wander_info> & feature_table,int num)
+        int get_id(std::map<int, wander_info> & feature_table,int num)//get a new allocate id
         {
             int id=num-1;
             bool full=true;
@@ -493,85 +481,83 @@ namespace glasssix::wander
             return id;
         }
 
-        void delete_feature_library( std::map<int, wander_info> & feature_table )
-        {
-            std::map<int, wander_info> ::iterator it;
-            double earliest = feature_table[feature_table.begin()->first].first_init_time ;
+        //  void delete_feature_library_one(int devices, std::map<int,std::map<int, wander_info>> & feature_tables )
+        // {
+        //     if(feature_tables.count(devices))
+        //     {
+        //         feature_tables.erase(devices);
+        //     }
+        // }
 
-            int key=feature_table.begin()->first;
-            for(it=feature_table.begin(); it != feature_table.end();  it++ )
-            {
-                if(feature_table[feature_table.begin()->first].first_init_time <earliest)
-                {
-                    key = feature_table[feature_table.begin()->first].first_init_time;
-                    earliest = feature_table[feature_table.begin()->first].first_init_time ;
-                }
-            }     
-            feature_table.erase(key);
-        }
+        //  void delete_feature_library_all(std::map<int,std::map<int, wander_info>> & feature_tables )
+        // {
+        //     feature_tables.clear();
+        // }
 
-        bool feature_match(float *data,float sqrt_xx, std::map<int, wander_info> & feature_table, int wander_time_threshole, int table_size=200, float threshold=0.85)
+        return_info feature_match(float *data,float sqrt_xx, double current_time, int devices, int table_size=200, float threshold=0.92)
         { 
-            //遍历map
+            // wander_array.push_back(1);
+            return_info person_result;
+
+            //ergodic map
+            //check devices if insered:get() else make a map         
+            //  std::cout<<"devices id: "<<devices<<" working start!\n";
+            std::map<int, wander_info> feature_table;
+
+            if(feature_tables.count(devices))
+            {   
+                feature_table = feature_tables[devices];
+                // std::cout<<"match devices: "<<devices<<" "<<feature_table.size()<<" "<<feature_tables[devices].size()<<std::endl;
+            } 
+
             std::map<int, wander_info> ::iterator it;
             for(it=feature_table.begin(); it != feature_table.end();  it++ )
             {   
                 float *data2 = feature_table[it->first].feature.data();
                 auto similiar = cosine_similiar(data, data2, sqrt_xx,feature_table[it->first].feature[2048] );
-
                 if(similiar>threshold)
                 {
-                    
-                    // std::cout<<"same one: "<<similiar<<std::endl;
-                    // return true;
-                    time_t nowtime;
-	                time(&nowtime);
-                    feature_table[it->first].last_match_time =  (double)nowtime;
-                    auto wander_time = feature_table[it->first].last_match_time - feature_table[it->first].first_init_time ;
-                    if( wander_time > wander_time_threshole )
-                    {
-                        // std::cout<<"wander true\n";
-                        return true;
-                    }
-                    return false;
-                    // w_i.current_time = (double)nowtime;
+                    feature_table[it->first].last_match_time = current_time;
+                    person_result.id = it->first;
+                    person_result.first_show_time = feature_table[it->first].first_init_time;
+                    person_result.last_show_time  = current_time;
+                    person_result.cosine_similarity = similiar;
+                    // std::cout<<"devices id: "<<devices<<" working end!\n";
+                    return person_result;
                 }
             }
-            if(feature_table.size() >= table_size   )
-            {
-                delete_feature_library(feature_table);
-            }
-            //未匹配到
+
             {
                 auto id = get_id(feature_table, table_size);
-                std::array<float,2049> feature;
-                for (size_t i=0; i< 2048; i++) //对输出数据做处理
-                {
-                    feature[i]=data[i];
-                }
-                feature[2048] = sqrt_xx;
+                // std::cout<<"new id: "<<id<<std::endl;
+                std::array<float,2048> feature;
+                std::memcpy(feature.data(), data, 2048*sizeof(float));
                 wander_info w_i;
                 w_i.feature = feature;
-
-                //获取时间
-                time_t nowtime;
-	            time(&nowtime);
-                w_i.first_init_time = (double)nowtime;
+                w_i.feature_sqrt_xx = sqrt_xx;
+                w_i.first_init_time = current_time;
                 feature_table[id] = w_i;     
-                // std::cout<<"library size: "<<feature_table.size() <<"\n" ;        
+                person_result.id =id;
+                //  std::cout<<" person_result.id id: "<< person_result.id<<std::endl;
+                person_result.first_show_time = current_time;
+                person_result.last_show_time  = 0.f;
+                person_result.cosine_similarity = 0.f;
+                feature_tables[devices]=feature_table;
+                //  std::cout<<"devices id: "<<devices<<" working end!\n";
             }
-             return false;
+             return person_result;
         }
 
-
-        std::vector<box_info_internal> run_detect(cv::Mat& image, int roi_x, int roi_y, int roi_width, int roi_height, std::map<std::string, float>& param_map)
+        std::vector<box_info_internal> run_detect(cv::Mat& image, int roi_x, int roi_y, int roi_width, int roi_height, std::map<std::string, double>& param_map)
         {
+                // fun();
+            double device_id        = param_map.count("device_id") ? param_map["device_id"] : 0;
+            double feature_table_size = param_map.count("feature_table_size") ? param_map["feature_table_size"] : 10000.f;      
+            double current_time        = param_map.count("current_time") ? param_map["current_time"] : 0.f;
+
+            float feature_match_threshold  = param_map.count("feature_match_threshold") ? param_map["feature_match_threshold"] : 0.92f;
+            float conf_threshold   = param_map.count("person_conf") ? param_map["person_conf"] : 0.7f;
             
-
-            float wander_time        = param_map.count("wander_time") ? param_map["wander_time"] : 3.f;
-            float feature_table_size = param_map.count("feature_table_size") ? param_map["feature_table_size"] : 200.f;      
-
-            float conf_threshold= 0.6f;
             float iou_threshold =  0.45f;   
 
             auto new_shape = cv::Size(640,  640);
@@ -595,7 +581,7 @@ namespace glasssix::wander
    
             auto real_output = Concat(forwards, conf_threshold);//5*8400
 
-            auto nms_result = post_process(real_output, blob,pad_h,pad_w, 1.f/ratio);
+            auto nms_result = post_process(real_output, blob,pad_h,pad_w, 1.f/ratio,conf_threshold);
 
 
             std::vector<box_info_internal> l_c; 
@@ -628,29 +614,25 @@ namespace glasssix::wander
                     xx += data1[i] * data1[i] ;
                 }
                 auto sqrt_xx=sqrt(xx);
-                auto is_wander = feature_match(data1, sqrt_xx, feature_library, wander_time,feature_table_size );
-
-           
-
+                std::lock_guard<std::mutex> lock(Feature_Table_Mutex);
+                // std::cout<<"device: "<<std::round(device_id)<<"1\n";
+                auto person_info = feature_match(data1, sqrt_xx,current_time, std::round(device_id), feature_table_size, feature_match_threshold );
+                // std::cout<<"device: "<<std::round(device_id)<<"2\n";
+    
                 box_info_internal result;
                 result.x1=x1>0?x1:0 ;
                 result.y1=y1>0?y1:0 ;
                 result.x2=x2<image.cols ?x2:image.cols ;
                 result.y2=y2<image.rows ?y2:image.rows ;
                 result.confidence = head[4] ;
-                if( is_wander)
-                {
-                    result.category = 0;//wander
-                }
-                else
-                {
-                    result.category = 1;
-                }
+                result.id = person_info.id;
+                result.first_show_time = person_info.first_show_time;
+                result.last_show_time = person_info.last_show_time;
+                result.cosine_similarity= person_info.cosine_similarity;
                 l_c.emplace_back(result);
             }
             return l_c;
         }
-
 
 
     private:
@@ -662,21 +644,25 @@ namespace glasssix::wander
 		std::unique_ptr<excalibur::pipeline<float>> net_detect_;
         std::unique_ptr<excalibur::pipeline<float>> net_feature_;
 #endif
-        std::map<int, wander_info>  feature_library;
         std::string model_directory_;
+        
         int device_ ;
 
+    public:
+        static std::mutex Feature_Table_Mutex;
+        static std::map<int, std::map<int, wander_info>>  feature_tables;
     };
 
     detect_code_internal::detect_code_internal(std::string_view model_directory, int device)
         : impl_{ std::make_unique<impl>(model_directory, device) }
     {
+
     }
 
     detect_code_internal::~detect_code_internal() = default;
 
 
-    exposing::param_vector<wander::box_info> detect_code_internal::detect(exposing::param_span<std::uint8_t> bitmap, int channels, int height, int width, int roi_x, int roi_y, int roi_width, int roi_height, std::map<std::string, float>& param_map) const
+    exposing::param_vector<wander::box_info> detect_code_internal::detect(exposing::param_span<std::uint8_t> bitmap, int channels, int height, int width, int roi_x, int roi_y, int roi_width, int roi_height, std::map<std::string, double>& param_map) const
     {
         return impl_->detect(bitmap, channels, height, width, roi_x, roi_y, roi_width, roi_height, param_map);
     }
@@ -686,4 +672,6 @@ namespace glasssix::wander
 		return impl_->version();
 	}
 
+    std::map<int, std::map<int, wander_info>> detect_code_internal::impl::feature_tables;
+    std::mutex detect_code_internal::impl::Feature_Table_Mutex;
 }

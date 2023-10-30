@@ -15,6 +15,7 @@
 #include <opencv2/core.hpp>
 #include <opencv2/imgproc.hpp>
 #include <opencv2/dnn.hpp>
+#include <opencv2/opencv.hpp>
 
 #include "../posture/detect_code.hpp"
 
@@ -52,13 +53,37 @@ namespace glasssix::climb
             }
 
             float x1= param_map.count("x1") ? param_map["x1"] : 0.3f;
-            float y1 = param_map.count("y1") ? param_map["y1"] : 0.5f;   
-            float x2= param_map.count("x2") ? param_map["x2"] : 0.3f;
-            float y2 = param_map.count("y2") ? param_map["y2"] : 0.5f;   
+            float y1 = param_map.count("y1") ? param_map["y1"] : 0.5f; 
 
+            float x2= param_map.count("x2") ? param_map["x2"] : 0.3f;
+            float y2 = param_map.count("y2") ? param_map["y2"] : 0.5f; 
             
+            float x3= param_map.count("x3") ? param_map["x3"] : 0.3f;
+            float y3 = param_map.count("y3") ? param_map["y3"] : 0.5f;   
+            
+            float x4= param_map.count("x4") ? param_map["x4"] : 0.3f;
+            float y4 = param_map.count("y4") ? param_map["y4"] : 0.5f; 
+
+            std::vector<cv::Point> contours(4);//四点定位墙
+            std::cout<<x1<<" "<<x2<<" "<<x3<<std::endl;   
+            contours[0].x=static_cast<int>(x1);
+            contours[0].y=static_cast<int>(y1);
+            contours[1].x=static_cast<int>(x2);
+            contours[1].y=static_cast<int>(y2);
+            contours[2].x=static_cast<int>(x3);
+            contours[2].y=static_cast<int>(y3);
+            contours[3].x=static_cast<int>(x4);
+            contours[3].y=static_cast<int>(y4);
+
+            for (size_t i = 0; i < 4; i++)
+            {
+                cv::circle(image,  contours[i], 20, cv::Scalar(0, 0, 255));
+            }
+
+           cv::imwrite("../plypoint.jpg",image);
+
             auto empty_map_abi = exposing::make_param_hash_map<exposing::param_string, float>();
-            exposing::param_vector<posture::box_info> posture_info_list = posture_instance_.detect(bitmap, channels, height, width, 0, 0, width, height, empty_map_abi);
+            exposing::param_vector<posture::box_info> posture_info_list = posture_instance_.detect(bitmap, channels, height, width, roi_x, roi_y, roi_width, roi_height, empty_map_abi);
             std::vector<PostureInfo> persons_info; 
 
             std::vector<std::vector<float>> nms_result;
@@ -91,7 +116,9 @@ namespace glasssix::climb
                 nms_result.push_back(temp);
                 boxs.push_back(box);
             }
-            auto category_vector=is_climb(nms_result, x1, y1, x2, y2 );
+
+
+            auto category_vector=is_climb(nms_result, contours  );
 
             auto results = exposing::make_param_vector<climb::box_info>();
 
@@ -143,50 +170,57 @@ namespace glasssix::climb
 
         }
 
-        std::vector<int> is_climb( std::vector<std::vector<float>>& nms_result,float x1,float y1,float x2,float y2)
+        std::vector<int> is_climb( std::vector<std::vector<float>>& nms_result,std::vector<cv::Point>&contours  )
         {
+            
             std::vector<int> output(nms_result.size());
-            float slope = (y2 - y1) / (x2 - x1);    
-            float intercept = y1 - slope * x1;
+            // float slope = (y2 - y1) / (x2 - x1);    
+            // float intercept = y1 - slope * x1;
 
             for(int i=0; i<nms_result.size(); i++)
             {       
                 std::vector<float> Human_lowest_point=get_human_lowest_point(nms_result[i]);
                 float x=Human_lowest_point[0];
                 float y=Human_lowest_point[1];
-                float A=slope;
-                float B=-1;
-                float C=intercept;
-                float  x_projection=(B * (B * x - A * y) - A * C) / (A * A + B * B);
-                float  y_projection = (A * ((-B) * x + A * y) - B * C) / (A * A + B * B );
-                // float outconf = nms_result[i][4]; //需要注意
-                if(slope>0.f)
-                {
-                    if( y<y_projection)
-                    {       
-                        output[i]=1;
-                        // std::cout<<"climb\n";
-                    }
-                    else
-                    {       
-                        output[i]=0;
-                        // std::cout<<"i dont know\n";
-                    }
-                }
-                else
-                {   
-                    if( y<y_projection)
-                    {       
-                        output[i]=1;
-                        // std::cout<<"climb\n";
-                    }
-                    else
-                    {   
-                        output[i]=0;
-                        //  std::cout<<"i dont know\n";
-                    }
 
-                }
+            
+                
+                
+                //j=cols i=rows;
+                output[i]=pointPolygonTest(contours, cv::Point2f(x, y),false)>0?1:0;
+
+                // float A=slope;
+                // float B=-1;
+                // float C=intercept;
+                // float  x_projection=(B * (B * x - A * y) - A * C) / (A * A + B * B);
+                // float  y_projection = (A * ((-B) * x + A * y) - B * C) / (A * A + B * B );
+                // // float outconf = nms_result[i][4]; //需要注意
+                // if(slope>0.f)
+                // {
+                //     if( y<y_projection)
+                //     {       
+                //         output[i]=1;
+                //         // std::cout<<"climb\n";
+                //     }
+                //     else
+                //     {       
+                //         output[i]=0;
+                //         // std::cout<<"i dont know\n";
+                //     }
+                // }
+                // else
+                // {   
+                //     if( y<y_projection)
+                //     {       
+                //         output[i]=1;
+                //         // std::cout<<"climb\n";
+                //     }
+                //     else
+                //     {   
+                //         output[i]=0;
+                //         //  std::cout<<"i dont know\n";
+                //     }
+                // }
 
             }
 
@@ -194,6 +228,7 @@ namespace glasssix::climb
         }
 
     private:
+    
         std::string model_directory_;
         int device_;
         posture::detect_code posture_instance_;

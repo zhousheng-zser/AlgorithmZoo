@@ -81,6 +81,8 @@ std::string version()
                 throw exposing::abi_invalid_argument("incorrect roi in posture");
             }
 
+            // std::cout<< roi_x<<" "<<roi_y<<" "<<roi_width<<" "<<roi_height<<std::endl;
+
             cv::Mat cropped_image = image(cv::Range(roi_y, roi_y + roi_height), cv::Range(roi_x, roi_x + roi_width));
 
             auto new_shape = cv::Size(640,  640);
@@ -89,7 +91,7 @@ std::string version()
             float ratio = 0;
             int pad_h=0;  
             int pad_w=0;
-            std::tie(blob, ratio) = preprocess_detection( image,pad_h,pad_w, new_shape ) ;
+            std::tie(blob, ratio) = preprocess_detection( cropped_image,pad_h,pad_w, new_shape ) ;
 
             std::map< std::string,std::shared_ptr<memory::tensor<float>>> forwards;
 

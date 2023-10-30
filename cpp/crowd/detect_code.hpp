@@ -1,9 +1,10 @@
-#ifndef _wander_DETECT_CODE_HPP_
-#define _wander_DETECT_CODE_HPP_
+#ifndef _CROWD_DETECT_CODE_HPP_
+#define _CROWD_DETECT_CODE_HPP_
 
 #include "box_info.hpp"
 #include <abi/consumer.hpp>
-namespace glasssix::wander
+
+namespace glasssix::crowd
 {
     struct detect_code;
 }
@@ -11,11 +12,11 @@ namespace glasssix::wander
 namespace glasssix::exposing::impl
 {
     template <>
-    struct abi<wander::detect_code>
+    struct abi<crowd::detect_code>
     {
         using identity_type = type_identity_interface;
 
-        static constexpr guid id{ "34AA76A2-524D-48AC-8A3F-F2510490F20F" };
+        static constexpr guid id{ "8D18F8DD-67BC-4EFA-A87C-97AE50DAFF5A" };
 
         struct type : abi_unknown_object
         {
@@ -32,15 +33,15 @@ namespace glasssix::exposing::impl
                 std::int32_t roi_y,
                 std::int32_t roi_width,
                 std::int32_t roi_height,
-                abi_in_t<exposing::param_hash_map<exposing::param_string, double>> param_map_abi,
-                abi_out_t<exposing::param_vector<wander::box_info>> result) noexcept = 0;
+                abi_in_t<exposing::param_hash_map<exposing::param_string, float>> param_map_abi,
+                abi_out_t<exposing::param_vector<crowd::box_info>> result) noexcept = 0;
 
             virtual std::int32_t G6_ABI_CALL version(abi_out_t<param_string> result) noexcept = 0;
         };
     };
 
     template <typename Derived>
-    struct interface_vtable<Derived, wander::detect_code> : interface_vtable_base<Derived, wander::detect_code>
+    struct interface_vtable<Derived, crowd::detect_code> : interface_vtable_base<Derived, crowd::detect_code>
     {
 
         virtual std::int32_t G6_ABI_CALL init(
@@ -61,12 +62,12 @@ namespace glasssix::exposing::impl
             std::int32_t roi_y,
             std::int32_t roi_width,
             std::int32_t roi_height,
-            abi_in_t<exposing::param_hash_map<exposing::param_string, double>> param_map_abi,
-            abi_out_t<exposing::param_vector<wander::box_info>> result) noexcept override
+            abi_in_t<exposing::param_hash_map<exposing::param_string, float>> param_map_abi,
+            abi_out_t<exposing::param_vector<crowd::box_info>> result) noexcept override
         {
             return abi_safe_call([&]
                 { *result = detach_abi(this->self().detect(create_from_abi<param_span<std::uint8_t>>(bitmap), channels, height, width, roi_x, roi_y, roi_width, roi_height,
-                   create_from_abi<exposing::param_hash_map<exposing::param_string, double>>(param_map_abi))); });
+                   create_from_abi<exposing::param_hash_map<exposing::param_string, float>>(param_map_abi))); });
         }
 
         virtual std::int32_t G6_ABI_CALL version(abi_out_t<param_string> result) noexcept override
@@ -81,10 +82,10 @@ namespace glasssix::exposing::impl
     };
 
     template <>
-    struct abi_adapter<wander::detect_code>
+    struct abi_adapter<crowd::detect_code>
     {
         template <typename Derived>
-        struct type : enable_self_abi_awareness<Derived, wander::detect_code>
+        struct type : enable_self_abi_awareness<Derived, crowd::detect_code>
         {
             void init(
                 const param_string& model_directory,
@@ -95,7 +96,7 @@ namespace glasssix::exposing::impl
                     get_abi(device)));
             }
 
-            exposing::param_vector<wander::box_info> detect(
+            exposing::param_vector<crowd::box_info> detect(
                 param_span<std::uint8_t> bitmap,
                 std::int32_t channels,
                 std::int32_t height,
@@ -104,9 +105,9 @@ namespace glasssix::exposing::impl
                 std::int32_t roi_y,
                 std::int32_t roi_width,
                 std::int32_t roi_height,
-                const exposing::param_hash_map<exposing::param_string, double>& param_map_abi) const
+                const exposing::param_hash_map<exposing::param_string, float>& param_map_abi) const
             {
-                exposing::param_vector<wander::box_info> result{ nullptr };
+                exposing::param_vector<crowd::box_info> result{ nullptr };
 
                 return (check_abi_result(
                     this->self_abi().detect(
@@ -134,7 +135,7 @@ namespace glasssix::exposing::impl
     };
 }
 
-namespace glasssix::wander
+namespace glasssix::crowd
 {
     struct detect_code : exposing::inherits<detect_code>
     {

@@ -15,13 +15,15 @@ namespace glasssix::wander
         box_info_impl(const box_info_internal& internal);
         ~box_info_impl();
 
+        int id() const;
         int x1() const;
         int y1() const;
         int x2() const;
         int y2() const;
-        int category() const;
         float confidence() const;
-
+        double first_show_time() const;
+        double last_show_time() const;
+        float cosine_similarity() const;
 
     private:
         box_info_internal internal_{};

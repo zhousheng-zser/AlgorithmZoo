@@ -18,19 +18,27 @@ namespace glasssix::exposing::impl
         static constexpr guid id{ "4C151F47-C811-4C49-B781-7686A86F0A96" };
 
         struct type : abi_unknown_object
-        {
+        {   
+            virtual std::int32_t G6_ABI_CALL id(abi_out_t<int> result) noexcept = 0;
             virtual std::int32_t G6_ABI_CALL x1(abi_out_t<int> result) noexcept = 0;
             virtual std::int32_t G6_ABI_CALL y1(abi_out_t<int> result) noexcept = 0;
             virtual std::int32_t G6_ABI_CALL x2(abi_out_t<int> result) noexcept = 0;
             virtual std::int32_t G6_ABI_CALL y2(abi_out_t<int> result) noexcept = 0;
-			virtual std::int32_t G6_ABI_CALL category(abi_out_t<int> result) noexcept = 0;
             virtual float G6_ABI_CALL confidence(abi_out_t<float> result) noexcept = 0;
+            virtual float G6_ABI_CALL cosine_similarity(abi_out_t<float> result) noexcept = 0;
+            virtual double G6_ABI_CALL first_show_time(abi_out_t<double> result) noexcept = 0;
+            virtual double G6_ABI_CALL last_show_time(abi_out_t<double> result) noexcept = 0;
         };
     };
 
     template <typename Derived>
     struct interface_vtable<Derived, wander::box_info> : interface_vtable_base<Derived, wander::box_info>
     {
+        virtual std::int32_t G6_ABI_CALL id(abi_out_t<int> result) noexcept override
+        {
+            return abi_safe_call([&]
+                { *result = detach_abi(this->self().id()); });
+        }
 
         virtual std::int32_t G6_ABI_CALL x1(abi_out_t<int> result) noexcept override
         {
@@ -55,13 +63,25 @@ namespace glasssix::exposing::impl
             return abi_safe_call([&]
                 { *result = detach_abi(this->self().y2()); });
         }
-        virtual std::int32_t G6_ABI_CALL category(abi_out_t<int> result) noexcept override
+
+        virtual float G6_ABI_CALL cosine_similarity(abi_out_t<float> result) noexcept override
         {
             return abi_safe_call([&]
-                                 { *result = detach_abi(this->self().category()); });
+                                 { *result = detach_abi(this->self().cosine_similarity()); });
         }
 
-        virtual float G6_ABI_CALL confidence(abi_out_t<float> result) noexcept override
+         virtual double G6_ABI_CALL first_show_time(abi_out_t<double> result) noexcept override
+        {
+            return abi_safe_call([&]
+                                 { *result = detach_abi(this->self().first_show_time()); });
+        }
+
+         virtual double G6_ABI_CALL last_show_time(abi_out_t<double> result) noexcept override
+        {
+            return abi_safe_call([&]
+                                 { *result = detach_abi(this->self().last_show_time()); });
+        }
+         virtual float G6_ABI_CALL confidence(abi_out_t<float> result) noexcept override
         {
             return abi_safe_call([&]
                                  { *result = detach_abi(this->self().confidence()); });
@@ -74,43 +94,64 @@ namespace glasssix::exposing::impl
         template <typename Derived>
         struct type : enable_self_abi_awareness<Derived, wander::box_info>
         {
+            
+            int id() const
+            {
+                int result = 0;
+                return (check_abi_result(this->self_abi().id(put_abi(result))), result);
+            }
 
             int x1() const
             {
                 int result = 0;
-
                 return (check_abi_result(this->self_abi().x1(put_abi(result))), result);
             }
+
             int y1() const
             {
                 int result = 0;
-
                 return (check_abi_result(this->self_abi().y1(put_abi(result))), result);
             }
+
             int x2() const
             {
                 int result = 0;
 
                 return (check_abi_result(this->self_abi().x2(put_abi(result))), result);
             }
+
             int y2() const
             {
                 int result = 0;
 
                 return (check_abi_result(this->self_abi().y2(put_abi(result))), result);
             }
-			int category() const
-            {
-                int result = 0;
 
-                return (check_abi_result(this->self_abi().category(put_abi(result))), result);
-            }
             float confidence() const
             {
                 float result = 0.f;
-
                 return (check_abi_result(this->self_abi().confidence(put_abi(result))), result);
             }
+
+            double first_show_time() const
+            {
+                double result = 0.f;
+                return (check_abi_result(this->self_abi().first_show_time(put_abi(result))), result);
+            }
+
+            double last_show_time() const
+            {
+                double result = 0.f;
+                return (check_abi_result(this->self_abi().last_show_time(put_abi(result))), result);
+                
+            }
+
+            float cosine_similarity() const
+            {
+                float result = 0.f;
+                return (check_abi_result(this->self_abi().cosine_similarity(put_abi(result))), result);       
+            }
+
         };
     };
 }
