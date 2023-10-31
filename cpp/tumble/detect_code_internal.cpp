@@ -147,15 +147,18 @@ namespace glasssix::tumble
         }
 
         /**
-        * @fun sigmoid
-        */ 
-        static inline float sigmoid(float x) {
+        * @fun sigmoid_x
+        * @param 
+        * @return sigmoid(x)
+        */
+        inline float sigmoid_x(float x)
+        {
             return static_cast<float>(1.f / (1.f + exp(-x)));
         }
 
         /**
          * @fun Softmax
-         * @param data, num
+         * @param data, stride
          * @return softmax(data) between stride 
          * @detail
          */
@@ -188,7 +191,7 @@ namespace glasssix::tumble
 
         /**
          * @fun 1D-Conv1x1
-         * @param data, result, num
+         * @param data, stride
          * @return 1D-Conv1x1(data, kernel, stride)
          * @detail
          */
@@ -206,6 +209,15 @@ namespace glasssix::tumble
             }
             *result = res;
         }
+
+        struct bbox
+        {
+            float x;
+            float y;
+            float w;
+            float h;
+            float conf;
+        };
 
         /**
          * @fun concat
@@ -238,20 +250,30 @@ namespace glasssix::tumble
             // create candidate_index vector
             std::vector<int>   candidate_index;
             std::vector<float> candidate_thres;
-            std::vector<int>   candidate_types;
+			std::vector<int>   candidate_types;
 
             for(int i = 0; i < 8400; i++)
             {
-                float thres0  = sigmoid(concat_array[64 * 8400 + i]);
-                float thres1  = sigmoid(concat_array[65 * 8400 + i]);
-                // threshold0 > threshold1
-                float thres = thres0 > thres1 ? thres0 : thres1;
-                float type  = thres0 > thres1 ? 0 : 1;
+                float temp1  = sigmoid_x(concat_array[64 * 8400 + i]);
+				float temp2  = sigmoid_x(concat_array[65 * 8400 + i]);
+				
+				float thres = 0.f;
+				if(temp1 > temp2)
+				{
+					thres = temp1;
+					type  = 0;
+				}
+				else
+				{
+					thres = temp2;
+					type  = 1;
+				}
+				
                 if(thres > conf_thres)
                 {
                     candidate_index.push_back(i);
                     candidate_thres.push_back(thres);
-                    candidate_types.push_back(type);
+					candidate_types.push_back(type);
                 }
             }
 
@@ -261,7 +283,6 @@ namespace glasssix::tumble
             }
             else 
             {
-                // candidate_num
                 int candidate_num = candidate_index.size();
 
                 // select candidate_array from concat_array
@@ -347,9 +368,11 @@ namespace glasssix::tumble
 
                     add_array[i / 4]                 = anchor_array[candidate_index[i / 4]] + conv_array[i + 2];
                     add_array[i / 4 + candidate_num] = anchor_array[candidate_index[i / 4]  + 8400] + conv_array[i + 3];
+
                 }
 
                 // sub add data checked
+
                 std::vector<float> sub_array_2(candidate_num * 2);
                 std::vector<float> add_array_2(candidate_num * 2);
 
@@ -400,7 +423,7 @@ namespace glasssix::tumble
                     bbox[2] = concat_array_2[i + candidate_num * 2] * mul[candidate_index[i]];
                     bbox[3] = concat_array_2[i + candidate_num * 3] * mul[candidate_index[i]];
                     bbox[4] = candidate_thres[i];
-                    bbox[5] = candidate_types[i];
+					bbox[5] = candidate_types[i];
                     bboxs.push_back(bbox);
                 }
 
@@ -557,19 +580,17 @@ namespace glasssix::tumble
             float ratio = 0;
             std::tie (blobs, ratio) = letterbox(image, 640);
 
-            cv::cvtColor(blobs, blobs, cv::COLOR_BGR2RGB);
-
             std::vector<std::shared_ptr<glasssix::memory::tensor<float>>> forwards;
             std::vector<std::string>  phais;
 
             auto  network_results = detect_instance_.forward(blobs.data, { 1, blobs.rows, blobs.cols,blobs.channels() }, RKNN_TENSOR_NHWC);
 
             // forwards 
-            forwards.push_back(network_results["output0"]);
-            forwards.push_back(network_results["340"]);
-            forwards.push_back(network_results["355"]);
+            forwards.push_back(network_results["onnx::Concat_363"]);
+			forwards.push_back(network_results["onnx::Concat_370"]);
+			forwards.push_back(network_results["onnx::Concat_377"]);
 
-            auto concat_result = concat(forwards, conf_thres);
+            auto concat_result = concat(forwards, conf_thres, blobs);
 
             // NMS
             auto nms_result = non_max_suppression(concat_result, conf_thres, iou_thres);

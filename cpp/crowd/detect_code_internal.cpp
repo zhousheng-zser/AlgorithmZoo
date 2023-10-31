@@ -124,21 +124,6 @@ namespace glasssix::crowd
 
             
 
-            // std::vector<crowd::box_info_internal> result =  crowd_detect(cropped_image, con_thres, iou_thres, MIN_HEAD);
-            // // std::cout<<"ok\n";
-            // // std::cout<<result[0].x1<<" "<<result[0].x2<<std::endl;
-
-            
-
-            // for( auto& it:result) {
-            //     // std::cout<<it.x1<<std::endl;
-            //     it.x1+=roi_x;
-            //     it.x2+=roi_x;
-            //     it.y1+=roi_y;
-            //     it.y2+=roi_y;
-            //     results.push_back(glasssix::exposing::make_as_first<box_info_impl>(it));
-            // }
-
             
             return results;
         }
@@ -243,7 +228,6 @@ namespace glasssix::crowd
             cv::Mat centroids;
 
             int numLabels = cv::connectedComponentsWithStats(grayImage, labeledImage, stats, centroids,4);
-            // std::cout<<"numLabels: "<<numLabels<<std::endl;
             
             for (int i = 1; i < numLabels; ++i)  // 忽略背景标签 0
             {

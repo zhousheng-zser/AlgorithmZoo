@@ -70,8 +70,7 @@ namespace glasssix::helmet
             cv::Mat cropped_image = image(cv::Range(roi_y,roi_y+roi_height), cv::Range(roi_x,roi_x+roi_width));
 
             std::vector<helmet::box_info_internal> result =  helmet_detect(cropped_image, con_thres, iou_thres, MIN_HEAD);
-            // std::cout<<"ok\n";
-            // std::cout<<result[0].x1<<" "<<result[0].x2<<std::endl;
+
 
             auto results = exposing::make_param_vector<helmet::box_info>();
 
@@ -489,10 +488,6 @@ namespace glasssix::helmet
                
                 const float *data1=network_result["output"]->cpu_data();
 
-
-
-                
-                // std::cout<<"data1[0]"<<data1[0]<<std::endl;
                 std::vector<float> confidenceofhelmet(3);
 
                 float sum_confi=0.f;
@@ -535,10 +530,9 @@ namespace glasssix::helmet
 
 
             }
-            // std::cout<<output.size()<<std::endl;
+
             return output;
-            // std::cout<<output[0].x1<<std::endl;
-            // std::cout<<output[0].y1<<std::endl;
+
         }
 
 
