@@ -8,7 +8,7 @@ set(CMAKE_AR ${CROSS_COMPILE_TOOLCHAIN_DIR}/bin/arm-rockchip830-linux-uclibcgnue
 set(CMAKE_RANLIB ${CROSS_COMPILE_TOOLCHAIN_DIR}/bin/arm-rockchip830-linux-uclibcgnueabihf-ranlib)
 set(CMAKE_LINKER ${CROSS_COMPILE_TOOLCHAIN_DIR}/bin/arm-rockchip830-linux-uclibcgnueabihf-ld)
 
-set(CMAKE_FIND_ROOT_PATH /opt/rv1106/rv1106package/arm-rockchip830-linux-uclibcgnueabihf)
+set(CMAKE_FIND_ROOT_PATH /opt/rv1106/rv1106_3rdparty/arm-rockchip830-linux-uclibcgnueabihf)
 
 set(CMAKE_FIND_ROOT_PATH_MODE_PROGRAM NEVER)
 set(CMAKE_FIND_ROOT_PATH_MODE_INCLUDE ONLY)

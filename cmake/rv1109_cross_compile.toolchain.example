@@ -8,7 +8,7 @@ set(CMAKE_AR ${CROSS_COMPILE_TOOLCHAIN_DIR}/bin/arm-linux-gnueabihf-ar)
 set(CMAKE_RANLIB ${CROSS_COMPILE_TOOLCHAIN_DIR}/bin/arm-linux-gnueabihf-ranlib)
 set(CMAKE_LINKER ${CROSS_COMPILE_TOOLCHAIN_DIR}/bin/arm-linux-gnueabihf-ld)
 
-set(CMAKE_FIND_ROOT_PATH /opt/rv1109_3rdparty/arm-linux-gnueabihf)
+set(CMAKE_FIND_ROOT_PATH /opt/rv1109/rv1109_3rdparty/arm-linux-gnueabihf)
 
 set(CMAKE_FIND_ROOT_PATH_MODE_PROGRAM NEVER)
 set(CMAKE_FIND_ROOT_PATH_MODE_INCLUDE ONLY)
