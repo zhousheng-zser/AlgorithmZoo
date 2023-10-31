@@ -81,7 +81,7 @@ namespace glasssix::wander
        
         std::string version()
         {
-        const std::string algo_module_version = "1.1.0";
+        const std::string algo_module_version = "1.0.2";
 
 #if defined(USE_RKNNAPI) || defined(USE_RKNN2API)
         //#if 0

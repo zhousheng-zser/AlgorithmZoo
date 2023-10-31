@@ -350,7 +350,6 @@ namespace glasssix::brionac
 
         static std::vector<location_char> non_max_suppression(cv:: Mat& blob, std::vector<std::vector<float>>& prediction, float conf_thres, float iou_thres, float ratio,int pad_w,int pad_h)
         {
-            // std::cout<<"nms inpu size "<<prediction.size()<<std::endl;
 
             auto compute_box = yolo2xyxy(prediction, conf_thres);
             // Batched NMS

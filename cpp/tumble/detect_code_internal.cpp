@@ -147,105 +147,288 @@ namespace glasssix::tumble
         }
 
         /**
-        * @fun sigmoid
-        */ 
-        static inline float sigmoid(float x) {
+        * @fun sigmoid_x
+        * @param 
+        * @return sigmoid(x)
+        */
+        inline float sigmoid_x(float x)
+        {
             return static_cast<float>(1.f / (1.f + exp(-x)));
         }
 
-        /*
-        * @fun concat
-        */
-        std::vector<std::array<float, 6>> concat(std::vector<std::shared_ptr<glasssix::memory::tensor<float>>>& prediction, float conf_thres, cv::Mat& blobs)
+        /**
+         * @fun Softmax
+         * @param data, stride
+         * @return softmax(data) between stride 
+         * @detail
+         */
+        void  Softmax(float *data, int num )
         {
-            std::vector<std::array<float, 6>> concat_result;
+            float sum = 0.f;
+            float temp[16] = {0};
 
-            // ["onnx::Sigmoid_380"] = NCHW
-            int channels = 1;
-            int width    = 2;
-            int height   = 8400;
-            int num      = 1;
-            const float *thres_data_ptr = prediction[1]->cpu_data();
+            // find max value in data
+            float max = data[0];
+            for(int i = 1; i < num; i++)
+            {
+                if(data[i] > max)
+                {
+                    max = data[i];
+                }
+            }
 
-            std::vector<int>   select_vec;
-            std::vector<float> score_vec;
-            std::vector<int> label_vec;
+            for(int i = 0; i < num; i++)
+            {
+                temp[i] = exp(data[i] - max);
 
-            int stride = channels * width;
+                sum += temp[i];
+            }
+            for(int i = 0; i < num; i++)
+            {
+                data[i] = temp[i] / sum;
+            }
+        }
+
+        /**
+         * @fun 1D-Conv1x1
+         * @param data, stride
+         * @return 1D-Conv1x1(data, kernel, stride)
+         * @detail
+         */
+        void Conv1x1(float* data, float* result, int num)
+        {
+            float kernel[16] = {0.f, 1.f, 2.f, 3.f, 4.f, 5.f, 6.f, 7.f,
+                                    8.f, 9.f, 10.f, 11.f, 12.f, 13.f, 14.f, 15.f};
             
+            // reset resultPtr to zero
+            float res = 0.f;
+            // 1D-Conv1x1
+            for(int i = 0; i < num; i++)
+            {
+                res += data[i] * kernel[i];
+            }
+            *result = res;
+        }
+
+        struct bbox
+        {
+            float x;
+            float y;
+            float w;
+            float h;
+            float conf;
+        };
+
+        /**
+         * @fun concat
+         * @param outs, conf_thres
+         * @return bbox 
+         * @details concat data into bbox xywh
+         */
+        std::vector<std::array<float,6>> concat(std::vector<std::shared_ptr<glasssix::memory::tensor<float>>>& outs, float conf_thres)
+        {
+            std::vector<float> concat_array(66 * 8400, 0);
+            
+            const float* Ptr80  = outs[0]->cpu_data();
+            const float* Ptr40  = outs[1]->cpu_data();
+            const float* Ptr20  = outs[2]->cpu_data();
+
+            for(int i = 0; i < 66; i++)
+            {
+                int j = 0;
+                // step + offset
+                for(;j < 6400; j++)
+                    concat_array[i * 8400 + j] = Ptr80[i * (80 * 80) + j];
+                for(;j < 8000; j++)
+                    concat_array[i * 8400 + j] = Ptr40[ i * (40 * 40) + j - 6400];
+                for(;j < 8400; j++)
+                    concat_array[i * 8400 + j] = Ptr20[ i * (20 * 20) + j - 8000];
+            }
+
+            // spilt
+            // simgoid for threshold
+            // create candidate_index vector
+            std::vector<int>   candidate_index;
+            std::vector<float> candidate_thres;
+			std::vector<int>   candidate_types;
+
             for(int i = 0; i < 8400; i++)
             {
-                float score = sigmoid(thres_data_ptr[0]);
-                float label_score = sigmoid(thres_data_ptr[8400]);
-            
-                float target = (score > label_score) ? score : label_score;
-                int index = (score > label_score) ? 0 : 1;
-                
-                if(target > conf_thres)
+                float temp1  = sigmoid_x(concat_array[64 * 8400 + i]);
+				float temp2  = sigmoid_x(concat_array[65 * 8400 + i]);
+				
+				float thres = 0.f;
+				if(temp1 > temp2)
+				{
+					thres = temp1;
+					type  = 0;
+				}
+				else
+				{
+					thres = temp2;
+					type  = 1;
+				}
+				
+                if(thres > conf_thres)
                 {
-                    select_vec.push_back(i);
-                    score_vec.push_back(target);
-                    label_vec.push_back(index);
+                    candidate_index.push_back(i);
+                    candidate_thres.push_back(thres);
+					candidate_types.push_back(type);
                 }
-
-                thres_data_ptr += 1;
             }
 
-            // judge if select_vec.size() = 0;
-            if(select_vec.size() == 0)
-            {   
-                std::array<float, 6> zero = {0,0,0,0,0,0};
-                concat_result.push_back(zero);
-                return concat_result;
-            } 
-
-            // use for position data ["onnx::Mul_423"]
-            channels = 4;
-
-            stride = channels * width;
-
-            for(int i = 0; i < select_vec.size(); i++)
+            if(candidate_index.empty())
             {
-                const float *pt_data_ptr = prediction[0]->cpu_data();
-                
-                std::array<float, 6> pt = {0, 0, 0, 0, 0, 0};
-                
-                int index = select_vec[i];
-
-                pt_data_ptr = pt_data_ptr + index;
-
-                if(index < 6400)
-                {
-                    int scale = 8;
-                    pt[0] = pt_data_ptr[0 + 0 * 8400] * scale;
-                    pt[1] = pt_data_ptr[0 + 1 * 8400] * scale;
-                    pt[2] = pt_data_ptr[0 + 2 * 8400] * scale;
-                    pt[3] = pt_data_ptr[0 + 3 * 8400] * scale;
-
-                } else if ((6399 < index) && ( index < 8000))
-                {
-                    int scale = 16;
-                    pt[0] = pt_data_ptr[0 + 0 * 8400] * scale;
-                    pt[1] = pt_data_ptr[0 + 1 * 8400] * scale;
-                    pt[2] = pt_data_ptr[0 + 2 * 8400] * scale;
-                    pt[3] = pt_data_ptr[0 + 3 * 8400] * scale;
-                }
-                else if ((8000 < index)&&( index < 8399))
-                {   
-                    int scale = 32;
-                    pt[0] = pt_data_ptr[0 + 0 * 8400] * scale;
-                    pt[1] = pt_data_ptr[0 + 1 * 8400] * scale;
-                    pt[2] = pt_data_ptr[0 + 2 * 8400] * scale;
-                    pt[3] = pt_data_ptr[0 + 3 * 8400] * scale;
-                }
-
-                pt[4] = score_vec[i];
-                pt[5] = label_vec[i];
-
-                concat_result.push_back(pt);
+                return std::vector<std::array<float, 6>>();
             }
+            else 
+            {
+                int candidate_num = candidate_index.size();
 
-            return concat_result;
+                // select candidate_array from concat_array
+                std::vector<float> candidate_array(64 * candidate_num, 0);
+                for(int i = 0; i < 64; i++)
+                {
+                    for(int j = 0; j < candidate_num; j++)
+                    {
+                        candidate_array[i * candidate_num + j] = concat_array[i * 8400 + candidate_index[j]];
+                    }
+                }
+
+                // transpose candidate_array into reshape_array
+                std::vector<float> reshape_array(candidate_num * 64, 0);
+                // transpose
+                for(int i = 0; i < 64; i++)
+                {
+                    for(int j = 0; j < candidate_num; j++)
+                    {
+                        reshape_array[j * 64 + i] = candidate_array[i * candidate_num + j];
+                    }
+                }
+
+                // softmax 16 stride for reshape_array
+                for(int i = 0; i < candidate_num; i++)
+                {
+                    for(int j = 0; j < 4; j++)
+                    {
+                        Softmax(&reshape_array[i * 64 + j * 16], 16);
+                    }
+                }
+
+                // 1D-Conv1x1
+                std::vector<float> conv_array(candidate_num * 4, 0);
+                for(int i = 0; i < candidate_num; i++)
+                {
+                    for(int j = 0; j < 4; j++)
+                    {
+                        Conv1x1(&reshape_array[i * 64 + j * 16], &conv_array[i * 4 + j], 16);
+                    }
+                }
+                // conv_array is equeal to onnx-inference
+
+                // create anchor array
+                std::vector<float> anchor_array(8400 * 2);
+                
+                for(int i=0; i<6400; i++)
+                {
+                    anchor_array[i]=i%80-0.5f+1.f;
+                }
+                for(int i=0; i<1600; i++)
+                {
+                    anchor_array[6400+i]=i%40-0.5f+1.f;
+                }
+                for(int i=0; i<400; i++)
+                {
+                    anchor_array[8000+i] = i%20-0.5f+1.f;
+                }
+
+                for(int i=0; i<6400; i++)
+                {
+                    anchor_array[8400+i]=i/80-0.5f+1.f;
+                }
+                for(int i=0; i<1600; i++)
+                {
+                    anchor_array[8400+6400+i]=i/40-0.5f+1.f;
+                }
+                for(int i=0; i<400; i++)
+                {
+                    anchor_array[8400+8000+i] = i/20-0.5f+1.f;
+                }
+
+
+                // create bbox array
+                // create sub array and add array
+                std::vector<float> sub_array(candidate_num * 2);
+                std::vector<float> add_array(candidate_num * 2);
+
+                for(int i = 0; i < candidate_num * 4; i += 4)
+                {
+                    sub_array[i / 4]                 = anchor_array[candidate_index[i / 4]] - conv_array[i];
+                    sub_array[i / 4 + candidate_num] = anchor_array[candidate_index[i / 4]  + 8400] - conv_array[i + 1];
+
+                    add_array[i / 4]                 = anchor_array[candidate_index[i / 4]] + conv_array[i + 2];
+                    add_array[i / 4 + candidate_num] = anchor_array[candidate_index[i / 4]  + 8400] + conv_array[i + 3];
+
+                }
+
+                // sub add data checked
+
+                std::vector<float> sub_array_2(candidate_num * 2);
+                std::vector<float> add_array_2(candidate_num * 2);
+
+                for(int i = 0; i < candidate_num; i++)
+                {
+                    add_array_2[i]                 = sub_array[i] + add_array[i];
+                    add_array_2[i + candidate_num] = sub_array[i + candidate_num] + add_array[i + candidate_num];
+
+                    sub_array_2[i]                 = add_array[i] - sub_array[i];
+                    sub_array_2[i + candidate_num] = add_array[i + candidate_num] - sub_array[i + candidate_num];
+                }
+
+                // create concat array
+                std::vector<float> concat_array_2(candidate_num * 4);
+
+                for(int i = 0; i < candidate_num; i++)
+                {
+                    concat_array_2[i]                     = add_array_2[i] / 2.f;
+                    concat_array_2[i + candidate_num]     = add_array_2[i + candidate_num] / 2.f;
+                    concat_array_2[i + candidate_num * 2] = sub_array_2[i];
+                    concat_array_2[i + candidate_num * 3] = sub_array_2[i + candidate_num];
+                }
+                // concat_array checked
+
+                // Mul
+                std::vector<float> mul(8400);
+
+                for(int i = 0; i < 8400; i++)
+                {
+                    // 80 * 80
+                    if(i < 6400)
+                        mul[i] = 8.f;
+                    // 40 * 40
+                    else if(i < 8000)
+                        mul[i] = 16.f;
+                    // 20 * 20
+                    else
+                        mul[i] = 32.f;
+                }
+
+                std::array<float, 6> bbox;
+                std::vector<std::array<float, 6>> bboxs;
+
+                for(int i = 0; i < candidate_num; i++)
+                {
+                    bbox[0] = concat_array_2[i]                     * mul[candidate_index[i]];
+                    bbox[1] = concat_array_2[i + candidate_num]     * mul[candidate_index[i]];
+                    bbox[2] = concat_array_2[i + candidate_num * 2] * mul[candidate_index[i]];
+                    bbox[3] = concat_array_2[i + candidate_num * 3] * mul[candidate_index[i]];
+                    bbox[4] = candidate_thres[i];
+					bbox[5] = candidate_types[i];
+                    bboxs.push_back(bbox);
+                }
+
+                return bboxs;
+            }
         }
 
         /*
@@ -397,16 +580,15 @@ namespace glasssix::tumble
             float ratio = 0;
             std::tie (blobs, ratio) = letterbox(image, 640);
 
-            cv::cvtColor(blobs, blobs, cv::COLOR_BGR2RGB);
-
             std::vector<std::shared_ptr<glasssix::memory::tensor<float>>> forwards;
             std::vector<std::string>  phais;
 
             auto  network_results = detect_instance_.forward(blobs.data, { 1, blobs.rows, blobs.cols,blobs.channels() }, RKNN_TENSOR_NHWC);
 
             // forwards 
-            forwards.push_back(network_results["onnx::Mul_423"]);
-            forwards.push_back(network_results["onnx::Sigmoid_380"]);
+            forwards.push_back(network_results["onnx::Concat_363"]);
+			forwards.push_back(network_results["onnx::Concat_370"]);
+			forwards.push_back(network_results["onnx::Concat_377"]);
 
             auto concat_result = concat(forwards, conf_thres, blobs);
 
