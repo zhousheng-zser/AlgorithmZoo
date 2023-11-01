@@ -75,12 +75,6 @@ namespace glasssix::climb
             contours[3].x=static_cast<int>(x4);
             contours[3].y=static_cast<int>(y4);
 
-            for (size_t i = 0; i < 4; i++)
-            {
-                cv::circle(image,  contours[i], 20, cv::Scalar(0, 0, 255));
-            }
-
-           cv::imwrite("../plypoint.jpg",image);
 
             auto empty_map_abi = exposing::make_param_hash_map<exposing::param_string, float>();
 
