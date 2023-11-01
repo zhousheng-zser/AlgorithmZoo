@@ -46,10 +46,6 @@ namespace glasssix::crowd
         exposing::param_vector<crowd::box_info> detect(const exposing::param_span<std::uint8_t>& bitmap, int channels, int height, int width, int roi_x, int roi_y, int roi_width, int roi_height, std::map<std::string, float>& param_map)
         {
 
-            // float MIN_HEAD = param_map.count("min_size") ? param_map["min_size"] : 48.f;
-            // float con_thres = param_map.count("conf_thres") ? param_map["conf_thres"] : 0.5f;
-            // float iou_thres = param_map.count("nms_thres") ? param_map["nms_thres"] : 0.6f;
-
             if (bitmap.empty())
             {
                 throw exposing::abi_invalid_argument("current frame is empty");

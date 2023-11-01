@@ -50,7 +50,7 @@ namespace glasssix::workcloth
 			classify_instance_ = std::make_unique<rknnwrapper::rknn_wrapper>(get_model_params("workcloth_cls"), std::string(model_directory) + "/" + "workcloth_cls" + ".rknn", device);
 #endif
 			static bool ready = glasssix::exposing::get_component_loader().add_module_by_name("posture");
-			posture_instance_ = glasssix::exposing::make_exported_interface<posture::detect_code>(model_directory, device);
+			posture_instance_ = glasssix::exposing::make_exported_interface<posture::detect_code>(model_directory, device,1);
 			posture_param_abi = exposing::make_param_hash_map<exposing::param_string, float>();
 			posture_param_abi.add_or_update("conf_thres", 0.70f);
 			posture_param_abi.add_or_update("nms_thres", 0.70f);
