@@ -32,7 +32,7 @@ namespace glasssix::climb
         impl(const std::vector<std::string> &phai, std::string model_directory, int device)
         {
             static bool ready = glasssix::exposing::get_component_loader().add_module_by_name("posture");
-            posture_instance_ = glasssix::exposing::make_exported_interface<posture::detect_code>(exposing::param_string(model_directory), device);
+            posture_instance_ = glasssix::exposing::make_exported_interface<posture::detect_code>(exposing::param_string(model_directory), device,1);
         }
 
         exposing::param_vector<climb::box_info> detect(const exposing::param_span<std::uint8_t>& bitmap, int channels, int height, int width, int roi_x, int roi_y, int roi_width, int roi_height, std::map<std::string, float>& param_map)
@@ -83,6 +83,14 @@ namespace glasssix::climb
            cv::imwrite("../plypoint.jpg",image);
 
             auto empty_map_abi = exposing::make_param_hash_map<exposing::param_string, float>();
+
+
+            float con_thres = param_map.count("conf_thres") ? param_map["conf_thres"] : 0.5f;
+            float nms_thres = param_map.count("nms_thres") ? param_map["nms_thres"] : 0.6f;
+
+            empty_map_abi.add_or_update("conf_thres", con_thres);
+            empty_map_abi.add_or_update("nms_thres", nms_thres);
+
             exposing::param_vector<posture::box_info> posture_info_list = posture_instance_.detect(bitmap, channels, height, width, roi_x, roi_y, roi_width, roi_height, empty_map_abi);
             std::vector<PostureInfo> persons_info; 
 

@@ -1,5 +1,5 @@
-#ifndef __POSTURE_DETECT_CODE_INTERNAL_HPP__
-#define __POSTURE_DETECT_CODE_INTERNAL_HPP__
+#ifndef __head_DETECT_CODE_INTERNAL_HPP__
+#define __head_DETECT_CODE_INTERNAL_HPP__
 
 #include <memory>
 #include <string>
@@ -11,7 +11,7 @@
 
 #include "box_info.hpp"
 
-namespace glasssix::posture
+namespace glasssix::head
 {
     struct box_info_internal
     {
@@ -34,7 +34,7 @@ namespace glasssix::posture
         /// </summary>
         /// <param name="racy_path">The model path</param>
         /// <param name="device">The device ID; -1 for CPU or a non-negative number for a GPU core</param>
-        detect_code_internal(std::string_view model_directory, int device,int model_type);
+        detect_code_internal(std::string_view model_directory, int device);
 
         virtual ~detect_code_internal();
 
@@ -43,7 +43,7 @@ namespace glasssix::posture
 
         std::string version();
 
-        exposing::param_vector<posture::box_info> detect(exposing::param_span<std::uint8_t> bitmap,
+        exposing::param_vector<head::box_info> detect(exposing::param_span<std::uint8_t> bitmap,
             int channels, int height, int width, int roi_x, int roi_y, int roi_width, int roi_height, std::map<std::string, float>& param_map) const;
 
     private:

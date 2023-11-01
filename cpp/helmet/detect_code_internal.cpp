@@ -70,7 +70,8 @@ namespace glasssix::helmet
             cv::Mat cropped_image = image(cv::Range(roi_y,roi_y+roi_height), cv::Range(roi_x,roi_x+roi_width));
 
             std::vector<helmet::box_info_internal> result =  helmet_detect(cropped_image, con_thres, iou_thres, MIN_HEAD);
-
+            // std::cout<<"ok\n";
+            // std::cout<<result[0].x1<<" "<<result[0].x2<<std::endl;
 
             auto results = exposing::make_param_vector<helmet::box_info>();
 
@@ -359,7 +360,7 @@ namespace glasssix::helmet
             int count=0;
             for(int i=0;i<8400;i++)
             {
-                if(dest_ptr[dim_2*i+4]>0.75 )
+                if(dest_ptr[dim_2*i+4]>threshold )
                 {
                     count++;      
                     indices_body.push_back(i);
@@ -481,12 +482,30 @@ namespace glasssix::helmet
                 cv::Mat crop = image(cv::Range(y1,y2), cv::Range(x1,x2));
 
                 cv::Mat headimg;
-                cv::resize(crop, headimg, cv::Size((int)(96), 
-                                (int)(96)), cv::INTER_LINEAR);
+                crop = hisEqulColor(crop);
+                
+                if( crop.cols>96 && crop.rows>96 )
+                {
+                     cv::resize(crop, headimg, cv::Size((int)(96), (int)(96)), cv::INTER_LINEAR);
+                }
+                else
+                {
+                    float scale_second = 96.f /float(crop.cols)> 96.f /float(crop.rows) ? 96.f /float(crop.rows) : 96.f /float(crop.cols);//返回较小的放缩系数
+                    cv::resize(crop, headimg, cv::Size(std::round(scale_second*crop.cols ), std::round(crop.rows*scale_second)), cv::INTER_LINEAR);
+                    
+                    int border_w =   96-std::round(scale_second*crop.cols);
+                    int border_h =   96-std::round(scale_second*crop.rows);
+                    int top_h = border_h/2;
+                    int left_w = border_w/2;
+                    cv::copyMakeBorder(headimg, headimg, top_h, border_h-top_h, left_w, 
+                               border_w-left_w, cv::BORDER_CONSTANT, cv::Scalar{ 0,0,0 });
+                }
+
 
                 auto  network_result = net_class_.forward(headimg.data, { 1, headimg.rows, headimg.cols,headimg.channels() }, RKNN_TENSOR_NHWC);
                
                 const float *data1=network_result["output"]->cpu_data();
+
 
                 std::vector<float> confidenceofhelmet(3);
 
@@ -527,14 +546,29 @@ namespace glasssix::helmet
                         headp.score=  confidenceofhelmet[1]; 
                         output.push_back(headp);
                 }
-
-
             }
-
             return output;
-
         }
 
+        cv::Mat hisEqulColor(const cv::Mat& img) 
+        {
+
+            cv::Mat ycrcb;
+            cv::cvtColor(img, ycrcb, cv::COLOR_BGR2YCrCb);
+            std::vector<cv::Mat> channels;
+            cv::split(ycrcb, channels);
+
+            cv::Ptr<cv::CLAHE> clahe = cv::createCLAHE();
+            clahe->setClipLimit(2.0);
+            clahe->setTilesGridSize(cv::Size(8, 8));
+            clahe->apply(channels[0], channels[0]);
+
+            cv::merge(channels, ycrcb);
+
+            cv::cvtColor(ycrcb, img, cv::COLOR_YCrCb2BGR);
+
+            return img;
+        }
 
     private:
         std::string model_directory_;

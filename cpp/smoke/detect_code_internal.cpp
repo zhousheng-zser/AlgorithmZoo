@@ -32,9 +32,10 @@ namespace glasssix::smoke
             :cigarette_detect_instance_(phai,  model_directory + std::string("/cigarette_detect.rknn"), device), model_directory_(model_directory)
         {
             static bool ready = glasssix::exposing::get_component_loader().add_module_by_name("posture");
-            posture_instance_ = glasssix::exposing::make_exported_interface<posture::detect_code>(exposing::param_string(model_directory), device);
+            posture_instance_ = glasssix::exposing::make_exported_interface<posture::detect_code>(exposing::param_string(model_directory), device,1);
             posture_param_abi = exposing::make_param_hash_map<exposing::param_string, float>();
-			posture_param_abi.add_or_update("conf_thres", 0.0f);
+        
+			posture_param_abi.add_or_update("conf_thres", 0.65f);
 			posture_param_abi.add_or_update("nms_thres", 0.30f);
         } 
 
@@ -59,15 +60,24 @@ namespace glasssix::smoke
             auto result = exposing::make_param_vector<box_info>();
 
             auto empty_map_abi = exposing::make_param_hash_map<exposing::param_string, float>();
-            exposing::param_vector<posture::box_info> posture_info_list = posture_instance_.detect(bitmap, channels, height, width, 0, 0, width, height, posture_param_abi);
+            // float con_thres = param_map.count("conf_thres") ? param_map["conf_thres"] : 0.7f;
+            // float nms_thres = param_map.count("nms_thres") ? param_map["nms_thres"] : 0.7f;
+
+            empty_map_abi.add_or_update("conf_thres", 0.7);
+            empty_map_abi.add_or_update("nms_thres", 0.45);
+
+
+            exposing::param_vector<posture::box_info> posture_info_list = posture_instance_.detect(bitmap, channels, height, width, 0, 0, width, height, empty_map_abi);
             
+            // std::cout<<"posture_info_list :"<<posture_info_list.size()<<std::endl;
+
             std::vector<PostureInfo> persons_info;
 
             for (auto pinfo : posture_info_list) {
                 PostureInfo postureInfo{ pinfo };
 
                 // show pinfo score
-                std::cout << "pinfo score: " << postureInfo.score << std::endl;
+
 
                 // get key 0 - key 4 min xy max xy
                 std::vector<float> x_vec;
@@ -122,12 +132,12 @@ namespace glasssix::smoke
                     y_vec.push_back(postureInfo.Kpoints[0].first.y);
 
                     // show 5 - 9 circle on image 
-                    for(int i = 0; i < 4; i++)
-                    {
-                        cv::circle(image, cv::Point(x_vec[i], y_vec[i]), 2, cv::Scalar(0, 255, 0), 2);
-                    }
+                    // for(int i = 0; i < 4; i++)
+                    // {
+                    //     cv::circle(image, cv::Point(x_vec[i], y_vec[i]), 2, cv::Scalar(0, 255, 0), 2);
+                    // }
 
-                    cv::imwrite("posture.jpg", image);
+                    // cv::imwrite("posture.jpg", image);
 
                     // min_x = 左上人体框体的x坐标, min_y = 鼻子0号点的y坐标
                     float min_x = 0;
@@ -181,8 +191,8 @@ namespace glasssix::smoke
                         cv::Point max_pt(max_x, max_y);
                         
                         cv::Mat cropped_image = image(cv::Range(min_pt.y, max_pt.y), cv::Range(min_pt.x, max_pt.x)).clone();
-                        // cropped_image check 
-                        cv::imwrite("cropped_image.jpg", cropped_image);
+                        // // cropped_image check 
+                        // cv::imwrite("cropped_image.jpg", cropped_image);
 
                         // cigarette detect
                         auto detect_result = run_detect(cropped_image, param_map);
@@ -210,10 +220,10 @@ namespace glasssix::smoke
                                 
                                 float cigarette_area = (it[3] - it[1]) * (it[2] - it[0]);
 
-                                // darw rectangle on cropped_image
-                                cv::rectangle(cropped_image, cv::Point(it[0], it[1]), cv::Point(it[2], it[3]), cv::Scalar(0, 255, 0), 2);
+                                // // darw rectangle on cropped_image
+                                // cv::rectangle(cropped_image, cv::Point(it[0], it[1]), cv::Point(it[2], it[3]), cv::Scalar(0, 255, 0), 2);
 
-                                cv::imwrite("cigarette_detect_cropped_image.jpg", cropped_image);
+                                // cv::imwrite("cigarette_detect_cropped_image.jpg", cropped_image);
 
                                 if(cigarette_area > mouth_area)
                                 {
@@ -454,8 +464,6 @@ namespace glasssix::smoke
             {
                 // candidate_num
                 int candidate_num = candidate_index.size();
-
-                std::cout << "candidate_num: " << candidate_num << std::endl;
 
                 // select candidate_array from concat_array
                 std::vector<float> candidate_array(64 * candidate_num, 0);
