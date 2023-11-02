@@ -26,34 +26,18 @@ namespace glasssix::wander
         float  cosine_similarity=0.f;
     };
 
-    struct wander_info
-    {
-        std::array<float,2048> feature;            
-        float   feature_sqrt_xx;
-        double first_init_time;
-        double last_match_time;
-    };
- 
 
-    class detect_code_internal //类和嵌套类impl
+    class detect_code_internal 
     {
     public:
         class impl;
-
-        //     struct wander_info
-        // {
-        //     std::array<float,2048> feature;            
-        //     float   feature_sqrt_xx;
-        //     double first_init_time;
-        //     double last_match_time;
-        // };
 
         /// <summary>
         /// Creates an instance with a specified GPU core or the default CPU.
         /// </summary>
         /// <param name="racy_path">The model path</param>
         /// <param name="device">The device ID; -1 for CPU or a non-negative number for a GPU core</param>
-        detect_code_internal(std::string_view model_directory, int device);//构造函数
+        detect_code_internal(std::string_view model_directory, int device);
 
         virtual ~detect_code_internal();
 
@@ -62,6 +46,8 @@ namespace glasssix::wander
 
         std::string version();
 
+        std::string remove_library(int id);
+   
         exposing::param_vector<wander::box_info> detect(exposing::param_span<std::uint8_t> bitmap, int channels, int height, int width, int roi_x, int roi_y, int roi_width, int roi_height, std::map<std::string, double>& param_map) const;
         //成员函数
     private:

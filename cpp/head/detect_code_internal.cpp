@@ -58,8 +58,6 @@ std::string version()
 
 
 
-
-
         exposing::param_vector<head::box_info> detect(const exposing::param_span<std::uint8_t>& bitmap, int channels, int height, int width,
                                                         int roi_x, int roi_y, int roi_width, int roi_height, std::map<std::string, float>& param_map)
         {
@@ -140,7 +138,7 @@ std::string version()
             }
      
             float conf_threshold=0.f;
-            auto real_output = Yovo8se_Concat(forwards);
+            auto real_output = Yovo8s_Concat(forwards);
 
             return post_process(real_output, blob,pad_h,pad_w, 1.f/ratio, threshold,iou_thres );
       
@@ -272,7 +270,7 @@ std::string version()
             return output;
         }
 
-        std::shared_ptr<memory::tensor<float>> Yovo8se_Concat(std::vector<std::shared_ptr<memory::tensor<float>>>& outs)
+        std::shared_ptr<memory::tensor<float>> Yovo8s_Concat(std::vector<std::shared_ptr<memory::tensor<float>>>& outs)
         {
             const int candidate_num=8400;
             std::shared_ptr<glasssix::memory::tensor<float>> output0

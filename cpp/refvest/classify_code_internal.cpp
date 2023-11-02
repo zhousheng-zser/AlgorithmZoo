@@ -85,7 +85,7 @@ namespace glasssix::refvest
                 
                 if(sum < 2)
                 {
-                    std::cout << "post: ["<<postureInfo.x1 << ", " << postureInfo.y1 << "], [" << postureInfo.x2 << ", " << postureInfo.y2 << "], "<< postureInfo.score << "\n";
+                    // std::cout << "post: ["<<postureInfo.x1 << ", " << postureInfo.y1 << "], [" << postureInfo.x2 << ", " << postureInfo.y2 << "], "<< postureInfo.score << "\n";
                     // valid
                     for(int i = 5; i < 13; i++)
                     {   
