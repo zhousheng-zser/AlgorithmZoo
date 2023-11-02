@@ -1,4 +1,6 @@
-
+      
+#ifndef __GENCOMPUTATIONAL_HPP__
+#define __GENCOMPUTATIONAL_HPP__
     static inline float sigmoid_x(float x)
     {
         return static_cast<float>(1.f / (1.f + exp(-x)));
@@ -28,3 +30,5 @@
             data[i] =  data[i] / L2_Sum ;
         }       
     }
+
+#endif
