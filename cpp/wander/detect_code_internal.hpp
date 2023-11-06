@@ -19,11 +19,15 @@ namespace glasssix::wander
         int y1;
         int x2;
         int y2;
-        int category;
         float confidence;
+        int id;
+        double first_show_time=0.f;
+        double last_show_time=0.f;
+        float  cosine_similarity=0.f;
     };
 
-    class detect_code_internal
+
+    class detect_code_internal 
     {
     public:
         class impl;
@@ -42,10 +46,13 @@ namespace glasssix::wander
 
         std::string version();
 
-        exposing::param_vector<wander::box_info> detect(exposing::param_span<std::uint8_t> bitmap, int channels, int height, int width, int roi_x, int roi_y, int roi_width, int roi_height, std::map<std::string, float>& param_map) const;
-
+        std::string remove_library(int id);
+   
+        exposing::param_vector<wander::box_info> detect(exposing::param_span<std::uint8_t> bitmap, int channels, int height, int width, int roi_x, int roi_y, int roi_width, int roi_height, std::map<std::string, double>& param_map) const;
+        //成员函数
     private:
         std::unique_ptr<impl> impl_;
     };
+
 }
 #endif

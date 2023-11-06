@@ -1,6 +1,6 @@
 #include "box_info_impl.hpp"
 
-namespace glasssix::wander
+namespace glasssix::crowd
 {
 	box_info_impl::box_info_impl()
 	{
@@ -12,11 +12,6 @@ namespace glasssix::wander
 
 	box_info_impl::~box_info_impl()
 	= default;
-
-	int box_info_impl::id() const
-	{
-		return internal_.id;
-	}
 
 	int box_info_impl::x1() const
 	{
@@ -38,25 +33,19 @@ namespace glasssix::wander
 		return internal_.y2;
 	}
 
-	float box_info_impl::confidence() const
+	float box_info_impl::score() const
 	{
-		return internal_.confidence;
+		return internal_.score;
 	}
 
-	float box_info_impl::cosine_similarity() const
+	int box_info_impl::category() const
 	{
-		return internal_.cosine_similarity;
+		return internal_.category;
 	}
 
-	double box_info_impl::first_show_time() const
+	exposing::param_string box_info_impl::version() const
 	{
-		return internal_.first_show_time;
+		return internal_.version;
 	}
-
-	double box_info_impl::last_show_time() const
-	{
-		return internal_.last_show_time;
-	}
-
-
+	
 }

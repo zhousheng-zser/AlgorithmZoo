@@ -32,7 +32,7 @@ namespace glasssix::refvest
             :classify_instance_(phai,  model_directory + std::string("/refvest_cls.rknn"), device), model_directory_(model_directory)
         {
             static bool ready = glasssix::exposing::get_component_loader().add_module_by_name("posture");
-            posture_instance_ = glasssix::exposing::make_exported_interface<posture::detect_code>(exposing::param_string(model_directory), device);
+            posture_instance_ = glasssix::exposing::make_exported_interface<posture::detect_code>(exposing::param_string(model_directory), device,1);
             posture_param_abi = exposing::make_param_hash_map<exposing::param_string, float>();
 			posture_param_abi.add_or_update("conf_thres", 0.0f);
 			posture_param_abi.add_or_update("nms_thres", 0.30f);
@@ -85,7 +85,7 @@ namespace glasssix::refvest
                 
                 if(sum < 2)
                 {
-                    std::cout << "post: ["<<postureInfo.x1 << ", " << postureInfo.y1 << "], [" << postureInfo.x2 << ", " << postureInfo.y2 << "], "<< postureInfo.score << "\n";
+                    // std::cout << "post: ["<<postureInfo.x1 << ", " << postureInfo.y1 << "], [" << postureInfo.x2 << ", " << postureInfo.y2 << "], "<< postureInfo.score << "\n";
                     // valid
                     for(int i = 5; i < 13; i++)
                     {   

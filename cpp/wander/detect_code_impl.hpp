@@ -2,9 +2,10 @@
 #define __DETECT_CODE_IMPL_HPP__
 
 #include "detect_code.hpp"
-
 #include <memory>
 #include <abi/consumer.hpp>
+#include <map>
+
 
 namespace glasssix::wander
 {
@@ -22,13 +23,17 @@ namespace glasssix::wander
 
         exposing::param_string version() const;
 
+        exposing::param_string remove_library(std::int32_t device) const;
+
         exposing::param_vector<wander::box_info> detect(exposing::param_span<std::uint8_t> bitmap, int channels, int height, int width, int roi_x, int roi_y, int roi_width, int roi_height,
-           const exposing::param_hash_map<exposing::param_string, float>& param_map_abi) const;
+           const exposing::param_hash_map<exposing::param_string, double>& param_map_abi) const;
 
     private:
 
-        std::unique_ptr<detect_code_internal> impl_;
+        std::unique_ptr<detect_code_internal> impl_;   
     };
 }
+
+
 
 #endif

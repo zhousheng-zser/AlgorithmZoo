@@ -1,12 +1,10 @@
 #include "detect_code_impl.hpp"
 #include "detect_code_internal.hpp"
-#include "box_info_impl.hpp"
-
+#include <map>
 #include <utility>
 
-namespace glasssix::wander
+namespace glasssix::crowd
 {
-	
 	detect_code_impl::detect_code_impl() = default;
 
 	detect_code_impl::~detect_code_impl() = default;
@@ -22,18 +20,13 @@ namespace glasssix::wander
 		return exposing::to_param_string(impl_->version());
 	}
 
-	exposing::param_string detect_code_impl::remove_library(std::int32_t device) const
-	{
-		return exposing::to_param_string(impl_->remove_library(device));
-	}
-
-	exposing::param_vector<wander::box_info> detect_code_impl::detect(exposing::param_span<std::uint8_t> bitmap, int channels, int height, int width,int roi_x, int roi_y, int roi_width, int roi_height,
-		const exposing::param_hash_map<exposing::param_string, double>& param_map_abi) const
+	exposing::param_vector<crowd::box_info> detect_code_impl::detect(exposing::param_span<std::uint8_t> bitmap, int channels, int height, int width, int roi_x, int roi_y,
+         int roi_width, int roi_height,const exposing::param_hash_map<exposing::param_string, float>& param_map_abi) const
 	{
 		if (!impl_)
-			throw exposing::abi_invalid_operation(u8"wander internal object not initialized");
+			throw exposing::abi_invalid_operation(u8"crowd internal object not initialized");
 
-		std::map<std::string, double> param_map;
+		std::map<std::string, float> param_map;
 
 		for (auto it : param_map_abi) {
 			param_map.insert(std::make_pair(it.key(), it.value()));

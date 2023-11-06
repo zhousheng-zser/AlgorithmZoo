@@ -1,5 +1,5 @@
-#ifndef __POSTURE_DETECT_CODE_INTERNAL_HPP__
-#define __POSTURE_DETECT_CODE_INTERNAL_HPP__
+#ifndef __CROWD_DETECT_CODE_INTERNAL_HPP__
+#define __CROWD_DETECT_CODE_INTERNAL_HPP__
 
 #include <memory>
 #include <string>
@@ -11,17 +11,17 @@
 
 #include "box_info.hpp"
 
-namespace glasssix::posture
+namespace glasssix::crowd
 {
     struct box_info_internal
     {
-        std::int32_t x1;
-        std::int32_t y1;
-        std::int32_t x2;
-        std::int32_t y2;
-        float score;
+        int x1;
+        int y1;
+        int x2;
+        int y2;
         int category;
-        exposing::param_vector<float> key_points;
+        float score;
+        exposing::param_string version;
     };
 
     class detect_code_internal
@@ -34,7 +34,7 @@ namespace glasssix::posture
         /// </summary>
         /// <param name="racy_path">The model path</param>
         /// <param name="device">The device ID; -1 for CPU or a non-negative number for a GPU core</param>
-        detect_code_internal(std::string_view model_directory, int device,int model_type);
+        detect_code_internal(std::string_view model_directory, int device);
 
         virtual ~detect_code_internal();
 
@@ -43,8 +43,7 @@ namespace glasssix::posture
 
         std::string version();
 
-        exposing::param_vector<posture::box_info> detect(exposing::param_span<std::uint8_t> bitmap,
-            int channels, int height, int width, int roi_x, int roi_y, int roi_width, int roi_height, std::map<std::string, float>& param_map) const;
+        exposing::param_vector<crowd::box_info> detect(exposing::param_span<std::uint8_t> bitmap, int channels, int height, int width, int roi_x, int roi_y, int roi_width, int roi_height, std::map<std::string, float>& param_map) const;
 
     private:
         std::unique_ptr<impl> impl_;

@@ -11,8 +11,47 @@
 
 #include "box_info.hpp"
 
+#include "../posture/box_info.hpp"
+
+#include <opencv2/opencv.hpp>
+
 namespace glasssix::smoke
 {
+    struct PostureInfo
+    {
+        PostureInfo(posture::box_info& b_info) {
+            x1 = b_info.x1();
+            x2 = b_info.x2();
+            y1 = b_info.y1();
+            y2 = b_info.y2();
+            score = b_info.score();
+            category = b_info.category();
+
+            auto key_points = b_info.key_points();
+            for (size_t i = 0; i < (int)key_points.size() / 3; i++) {
+				std::pair<cv::Point, float> key_p;
+				key_p.first.x = key_points[i * 3];
+                key_p.first.y = key_points[i * 3 + 1];
+                key_p.second = key_points[i * 3 + 2];
+                Kpoints.push_back(key_p);
+            }
+        }
+
+        cv::Rect get_rect() {
+            return cv::Rect{
+                cv::Point(std::round(x1), std::round(y1)),
+                cv::Point(std::round(x2), std::round(y2)) };
+        }
+
+		std::int32_t x1;
+		std::int32_t y1;
+		std::int32_t x2;
+		std::int32_t y2;
+		float score;
+		int category;
+        std::vector<std::pair<cv::Point, float>> Kpoints;
+    };
+
     struct box_info_internal
     {
         int x1;
