@@ -9,9 +9,9 @@
 #include "Primitives/fmt/format.h"
 
 #if defined(BUILD_RV1106) 
-	#include "rknn_api_rv1106.h"
+#include "rknn_api_rv1106.h"
 #else
-	#include "rknn_api.h"
+#include "rknn_api.h"
 #endif
 namespace glasssix
 {
