@@ -177,7 +177,6 @@ namespace glasssix::longinus
 
             for(auto it:nms_result)
             {
-                // std::cout<<x.x1<<" "<<x.x2<<" "<<x.confidence<<" "<<x.category<<"\n";     
 
                 face_info_internal temp_face_info;
                 temp_face_info.rect.x = it.x1;
@@ -210,9 +209,8 @@ namespace glasssix::longinus
                     face.is_alive = false;
                     face.has_mask = std::numeric_limits<float>::min();
 
-                    //float score = face.score;
                     tracking_landmark(faceROI_in_frame, face, rect.x, rect.y);
-                    //face.score = score;
+
                     refine(face, height, width, true);
                 }
 
@@ -2651,7 +2649,7 @@ namespace glasssix::longinus
                     anchor_box &bbox_i = bboxes[i].rect;
                     float x = std::max<float>(x1, static_cast<float>(bbox_i.x));
                     float y = std::max<float>(y1, static_cast<float>(bbox_i.y));
-                    float w = std::min<float>(x2, static_cast<float>(bbox_i.w + bbox_i.x - 1)) - x + 1; //<- float �Ͳ���1
+                    float w = std::min<float>(x2, static_cast<float>(bbox_i.w + bbox_i.x - 1)) - x + 1; //<- float 锟酵诧拷锟斤拷1
                     float h = std::min<float>(y2, static_cast<float>(bbox_i.h + bbox_i.y - 1)) - y + 1;
                     if (w <= 0 || h <= 0)
                         continue;
