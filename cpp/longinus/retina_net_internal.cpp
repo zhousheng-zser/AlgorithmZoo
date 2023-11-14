@@ -2894,15 +2894,8 @@ namespace glasssix::longinus
            
             float* landmark_data=result_215->mutable_cpu_data();
 
-            // excalibur::julius::cblas_sgemv_AnoTrans(14, 208, 1.f, matmul_weight_.data(), 208, concat_data, 1, 0.f, landmark_data, 1);
-            for (size_t i = 0; i < 14; i++)
-            {   
-               landmark_data[i] = 0.f;
-               for (size_t j = 0; j < 208; j++)
-               {
-                   landmark_data[i] += (matmul_weight_[i*208+j]*concat[j]);
-               }  
-            }
+            MatrixMul(concat.data(), matmul_weight_.data() ,landmark_data, 1, 208, 14);
+
 #else
             const float* landmark_data = res["215"]->cpu_data();
 #endif
