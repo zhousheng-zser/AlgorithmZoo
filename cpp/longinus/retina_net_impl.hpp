@@ -18,7 +18,7 @@ namespace glasssix::longinus
 		retina_net_impl();
 		~retina_net_impl();
 
-		void init(const exposing::param_string& models_directory, int model_type, float nms_threshold, std::int32_t device);
+		void init(const exposing::param_string& models_directory, int model_type, int instance , float nms_threshold, std::int32_t device );
 		
 		exposing::param_string version() const;
 		exposing::param_vector<face_info> detect(exposing::param_span<std::uint8_t> bitmap, std::int32_t channels, std::int32_t height, std::int32_t width, std::int32_t min_size, float threshold, std::int32_t order, bool do_attributing) const;
@@ -27,5 +27,6 @@ namespace glasssix::longinus
 			float scale, std::int32_t order) const;
 	private:
 		std::unique_ptr<retina_net_internal> impl_;
+		// std::unique_ptr<retina_net_internal> impl2_;
 	};
 }

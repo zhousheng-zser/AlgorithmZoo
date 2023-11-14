@@ -12,9 +12,9 @@ namespace glasssix::longinus
 	{
 	}
 
-	void retina_net_impl::init(const exposing::param_string& models_directory, int model_type, float nms_threshold, std::int32_t device)
+	void retina_net_impl::init(const exposing::param_string& models_directory, int model_type, int instance, float nms_threshold, std::int32_t device)
 	{
-		impl_ = std::make_unique<retina_net_internal>(exposing::to_narrow_string(models_directory), model_type, nms_threshold, device);
+		impl_ = std::make_unique<retina_net_internal>(exposing::to_narrow_string(models_directory), model_type, instance, nms_threshold, device );
 	}
 
 	exposing::param_string retina_net_impl::version() const

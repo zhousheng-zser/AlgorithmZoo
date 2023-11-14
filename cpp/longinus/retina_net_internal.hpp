@@ -67,8 +67,9 @@ namespace glasssix::longinus
     {
     public:
         class impl;
+        class impl_yolo;
         retina_net_internal() = delete;
-        retina_net_internal(std::string_view models_directory, int model_type, float nms_threshold = 0.4, int device = -1);
+        retina_net_internal(std::string_view models_directory, int model_type, int instance=0, float nms_threshold = 0.4, int device = -1);
         retina_net_internal(const retina_net_internal &) = delete;
         retina_net_internal &operator=(const retina_net_internal &) = delete;
         ~retina_net_internal();
@@ -90,7 +91,10 @@ namespace glasssix::longinus
         static std::string version();
 
     private:
+        int instance_ = 0; 
         std::unique_ptr<impl> impl_;
+
+        std::unique_ptr<impl_yolo> impl_yolo_;
     };
 }
 
