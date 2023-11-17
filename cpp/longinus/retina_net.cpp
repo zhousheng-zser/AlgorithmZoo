@@ -34,7 +34,7 @@ namespace glasssix::longinus
     namespace
     {
         //processing
-        inline anchor_win whctrs(anchor_box anchor)
+        static inline anchor_win whctrs(anchor_box anchor)
         {
             //Return width, height, x center, and y center for an anchor (window).
             anchor_win win;
@@ -46,7 +46,7 @@ namespace glasssix::longinus
             return win;
         }
 
-        inline anchor_box make_anchors(anchor_win win)
+        static inline anchor_box make_anchors(anchor_win win)
         {
             //Given a vector of widths (ws) and heights (hs) around a center
             //(x_ctr, y_ctr), output a set of anchors (windows).
@@ -59,7 +59,7 @@ namespace glasssix::longinus
             return anchor;
         }
 
-        inline std::vector<anchor_box> ratio_enum(anchor_box anchor, std::vector<float> ratios)
+        static inline std::vector<anchor_box> ratio_enum(anchor_box anchor, std::vector<float> ratios)
         {
             //Enumerate a set of anchors for each aspect ratio wrt an anchor.
             std::vector<anchor_box> anchors;
@@ -79,7 +79,7 @@ namespace glasssix::longinus
             return anchors;
         }
 
-        inline std::vector<anchor_box> scale_enum(anchor_box anchor, std::vector<int> scales)
+        static inline std::vector<anchor_box> scale_enum(anchor_box anchor, std::vector<int> scales)
         {
             //Enumerate a set of anchors for each scale wrt an anchor.
             std::vector<anchor_box> anchors;
@@ -97,7 +97,7 @@ namespace glasssix::longinus
             return anchors;
         }
 
-        inline std::vector<anchor_box> generate_anchors(int base_size = 16, std::vector<float> ratios = { 0.5, 1, 2 },
+        static inline std::vector<anchor_box> generate_anchors(int base_size = 16, std::vector<float> ratios = { 0.5, 1, 2 },
             std::vector<int> scales = { 8, 64 }, int stride = 16, bool dense_anchor = false)
         {
             //Generate anchor (reference) windows by enumerating aspect ratios X
@@ -134,7 +134,7 @@ namespace glasssix::longinus
             return anchors;
         }
 
-        inline std::vector<std::vector<anchor_box>> generate_anchors_fpn(bool dense_anchor = false, std::vector<anchor_cfg> cfg = {})
+        static inline std::vector<std::vector<anchor_box>> generate_anchors_fpn(bool dense_anchor = false, std::vector<anchor_cfg> cfg = {})
         {
             //Generate anchor (reference) windows by enumerating aspect ratios X
             //scales wrt a reference (0, 0, 15, 15) window.
@@ -156,7 +156,7 @@ namespace glasssix::longinus
             return anchors;
         }
 
-        inline std::vector<anchor_box> anchors_plane(int height, int width, int stride, std::vector<anchor_box> base_anchors)
+        static inline std::vector<anchor_box> anchors_plane(int height, int width, int stride, std::vector<anchor_box> base_anchors)
         {
             /*
             height: height of plane
@@ -188,7 +188,7 @@ namespace glasssix::longinus
             return all_anchors;
         }
 
-        inline void clip_boxes(std::vector<anchor_box>& boxes, int width, int height)
+        static inline void clip_boxes(std::vector<anchor_box>& boxes, int width, int height)
         {
             //Clip boxes to image boundaries.
             for (size_t i = 0; i < boxes.size(); i++)
@@ -216,7 +216,7 @@ namespace glasssix::longinus
             }
         }
 
-        inline void clip_box(anchor_box& box, int width, int height)
+        static inline void clip_box(anchor_box& box, int width, int height)
         {
             //Clip boxes to image boundaries.
             if (box.x < 0)
@@ -241,7 +241,7 @@ namespace glasssix::longinus
             //    boxes[i].y2 = std::max<float>(std::min<float>(boxes[i].y2, height - 1), 0);
         }
 
-        inline std::vector<anchor_box> bbox_pred(std::vector<anchor_box> anchors, std::vector<std::vector<float>> regress)
+        static inline std::vector<anchor_box> bbox_pred(std::vector<anchor_box> anchors, std::vector<std::vector<float>> regress)
         {
             //"""
             //  Transform the set of class-agnostic boxes into class-specific boxes
@@ -273,7 +273,7 @@ namespace glasssix::longinus
             return rects;
         }
 
-        //inline void refine(face_info_internal &face, const int &height, const int &width, bool square)
+        //static inline void refine(face_info_internal &face, const int &height, const int &width, bool square)
         //{
         //    float bbw = 0, bbh = 0, maxSide = 0, minSide = 0;
         //    float h = 0, w = 0;
@@ -309,7 +309,7 @@ namespace glasssix::longinus
         //    face.rect.w = minSide;
         //}
 
-        inline anchor_box bbox_pred(anchor_box anchor, std::vector<float> regress)
+        static inline anchor_box bbox_pred(anchor_box anchor, std::vector<float> regress)
         {
             anchor_box rect;
 
@@ -331,7 +331,7 @@ namespace glasssix::longinus
             return rect;
         }
 
-        inline std::vector<face_pts> landmark_pred(std::vector<anchor_box> anchors, std::vector<face_pts> facepts)
+        static inline std::vector<face_pts> landmark_pred(std::vector<anchor_box> anchors, std::vector<face_pts> facepts)
         {
             std::vector<face_pts> pts(anchors.size());
             for (size_t i = 0; i < anchors.size(); i++)
@@ -351,7 +351,7 @@ namespace glasssix::longinus
             return pts;
         }
 
-        inline face_pts landmark_pred(anchor_box anchor, face_pts facePt)
+        static inline face_pts landmark_pred(anchor_box anchor, face_pts facePt)
         {
             face_pts pt;
             float width = anchor.w;
@@ -368,12 +368,12 @@ namespace glasssix::longinus
             return pt;
         }
 
-        inline bool compare_bbox(const face_info_internal& a, const face_info_internal& b)
+        static inline bool compare_bbox(const face_info_internal& a, const face_info_internal& b)
         {
             return a.score > b.score;
         }
 
-        inline std::vector<face_info_internal> nms(std::vector<face_info_internal>& bboxes, float threshold)
+        static inline std::vector<face_info_internal> nms(std::vector<face_info_internal>& bboxes, float threshold)
         {
             std::vector<face_info_internal> bboxes_nms;
             std::sort(bboxes.begin(), bboxes.end(), std::bind(&compare_bbox, std::placeholders::_1, std::placeholders::_2));
@@ -433,24 +433,26 @@ namespace glasssix::longinus
     }
 
     retina_net::retina_net(std::string_view models_directory, int model_type, float nms_threshold, int device)
-        : facedetector_base{ models_directory, model_type, nms_threshold, device } 
+        : facedetector_base{ models_directory, model_type, nms_threshold, device },
+        model_type_{ model_type },
+        nms_threshold_{ nms_threshold }
     {
         //Excalibur needs to distinguish between float and int8 models, rknn and rknn2 does not
 #if defined(USE_RKNNAPI) || defined(USE_RKNN2API)
         switch (model_type)
         {
         case 0:
-            retina_ = std::make_unique<rknnwrapper::rknn_wrapper>(get_model_params(std::string("longinus")), std::string(models_directory) + "/longinus320.rknn", device);
+            retina_ = std::make_unique<rknnwrapper::rknn_wrapper>(get_model_params(std::string("retina")), std::string(models_directory) + "/retina_320.rknn", device);
             break;
         case 1:
-            retina_ = std::make_unique<rknnwrapper::rknn_wrapper>(get_model_params(std::string("longinus")), std::string(models_directory) + "/longinus640.rknn", device);
+            retina_ = std::make_unique<rknnwrapper::rknn_wrapper>(get_model_params(std::string("retina")), std::string(models_directory) + "/retina_640.rknn", device);
             break;
         default:
             throw exposing::abi_invalid_argument("Invalid model_type param!");
             break;
         }
 #else
-        retina_ = std::make_unique<excalibur::pipeline<float>>(get_model_params(std::string("longinus")), std::string(models_directory) + "/longinus.racy", device);
+        retina_ = std::make_unique<excalibur::pipeline<float>>(get_model_params(std::string("retina")), std::string(models_directory) + "/retina.racy", device);
 #endif
 
         ratio_ = { 1.0 };
@@ -638,7 +640,7 @@ namespace glasssix::longinus
 
                 cv::Rect rect(face.rect.x, face.rect.y, face.rect.w, face.rect.h);
                 cv::Mat faceROI_in_frame;
-                safty_cut(cache_temp, faceROI_in_frame, rect);
+                mat_safty_cut(cache_temp, faceROI_in_frame, rect);
                 face.headpose[0] = face.headpose[1] = face.headpose[2] = std::numeric_limits<float>::min();
                 face.clarity = std::numeric_limits<float>::min();
                 face.is_alive = false;
