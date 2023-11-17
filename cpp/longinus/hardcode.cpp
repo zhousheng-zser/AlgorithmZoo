@@ -8,7 +8,7 @@ namespace glasssix::longinus
 
         struct hardcode_model_params
         {
-            inline static const std::vector<std::string> longinus{
+            inline static const std::vector<std::string> retina{
                 "glsv1 Retina_Face_Net",
                 "129 148",
                 "Input            data             0 1 data 0=320 1=240 2=3 3=0,0,0 4=1",
@@ -257,7 +257,7 @@ namespace glasssix::longinus
 
         const std::unordered_map<std::string, std::vector<std::string>> hardcode_map{
             {"pfld_land71_simp", hardcode_model_params::pfld_land71_simp},
-            {"longinus", hardcode_model_params::longinus}
+            {"retina", hardcode_model_params::retina}
         };
     }
 

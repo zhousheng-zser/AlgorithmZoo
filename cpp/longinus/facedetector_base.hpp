@@ -3,14 +3,13 @@
 #include "face_info.hpp"
 #include <vector>
 
+#include <opencv2/opencv.hpp>
+#include <opencv2/imgproc/types_c.h>
+
 #ifdef USE_RKNNAPI
 #include "RKNNWrapper/rknn_wrapper.hpp"
-#include <opencv2/opencv.hpp>
-#include <opencv2/imgproc/types_c.h>
 #elif defined(USE_RKNN2API)
 #include "RKNN2Wrapper/rknn2_wrapper.hpp"
-#include <opencv2/opencv.hpp>
-#include <opencv2/imgproc/types_c.h>
 #if defined(BUILD_RV1106) 
 #include <fstream>
 #include "Julius/julius_gemv.hpp"
@@ -93,9 +92,7 @@ namespace glasssix::longinus
 
 		virtual std::string version() const = 0;
 
-#if defined(USE_RKNAPI) || defined(USE_RKNN2API)
-        static void safty_cut(cv::Mat& img, cv::Mat& dst, cv::Rect roi);
-#endif
+        static void mat_safty_cut(cv::Mat& img, cv::Mat& dst, cv::Rect roi);
 
     protected:
         void refine(face_info_internal& face, const int& height, const int& width, bool square);
