@@ -188,7 +188,7 @@ namespace glasssix::longinus
 
         cv::Mat similarity;
         cv::Mat match_roi;
-        safty_cut(gray, match_roi, search_window);
+        facedetector_base::safty_cut(gray, match_roi, search_window);
         matchTemplateCpu(match_roi, gray_model, similarity);
         cv::Point minpoint;
         //find min-distance point
