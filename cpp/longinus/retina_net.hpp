@@ -1,108 +1,53 @@
 #pragma once
-
 #include "face_info.hpp"
+#include "facedetector_base.hpp"
 
+#include <memory>
+#include <vector>
+#include <map>
 #include <abi/consumer.hpp>
 
 namespace glasssix::longinus
 {
-	struct retina_net;
-}
+    class retina_net : public facedetector_base
+    {
+    public:
+        retina_net(std::string_view models_directory, int model_type, float nms_threshold = 0.4, int device = -1);
+        retina_net() = delete;
+        retina_net(const retina_net&) = delete;
+        retina_net&operator=(const retina_net&) = delete;
+        virtual ~retina_net();
 
-namespace glasssix::exposing::impl
-{
-	template<> struct abi<longinus::retina_net>
-	{
-		using identity_type = type_identity_interface;
+        // Batch process have some advantage in inference but can't speed up preprocess and postprocess
+        // TODO: implement
+        //std::vector<std::vector<face_info>> detectBatchImages(std::vector<cv::Mat> imgs, float threshold = 0.5);
+        //Test in GTX1060:
+        // | model | speed | input size | preprocess time | inference | postprocess time |
+        //	| :------ : | : ---- : | : -------- : | : ------------ - : | : ------ - : | : -------------- : |
+        //	|  caffe | ????ms | 1920x1080 | ????ms | 61ms | ????ms      |
+        //	|  caffe | ????ms | 1280��720 | ????ms | 44ms | ????ms      |
+        //	|  caffe | 17.3ms | 640��480 | 3.9ms | 13.4ms | 1.0ms |
+        virtual exposing::param_vector<face_info> detect(exposing::param_span<std::uint8_t> bitmap, int channels, int height, int width, int min_size = 16, float threshold = 0.5, int order = 0, bool do_attributing = false);
 
-		static constexpr guid id{ "725D32DB-75BA-46CF-8EB6-5F052816A5E6" };
+        virtual std::string version() const;
 
-		struct type : abi_unknown_object
-		{
-			virtual std::int32_t G6_ABI_CALL init(abi_in_t<param_string> models_directory, std::int32_t model_type, float nms, std::int32_t device) noexcept = 0;
-			virtual std::int32_t G6_ABI_CALL detect(abi_in_t<param_span<std::uint8_t>> bitmap, std::int32_t channels, std::int32_t height, std::int32_t width, std::int32_t min_size, float threshold, std::int32_t order, bool do_attributing, abi_out_t<param_vector<longinus::face_info>> result) noexcept = 0;
-			virtual std::int32_t G6_ABI_CALL single_trace(abi_in_t<longinus::face_info> face, abi_in_t<param_span<std::uint8_t>> bitmap, std::int32_t channels, std::int32_t height, std::int32_t width, std::int32_t order, abi_out_t<longinus::face_info> result) noexcept = 0;
-			virtual std::int32_t G6_ABI_CALL center_scale_align(abi_in_t<param_span<std::uint8_t>> bitmap, std::int32_t channels, std::int32_t height, std::int32_t width,
-				float scale, std::int32_t order, abi_out_t<param_vector< param_vector<std::uint8_t>>> result) noexcept = 0;
-			virtual std::int32_t G6_ABI_CALL version(abi_out_t<param_string> result) noexcept = 0;
-		};
-	};
+    private:
+#if defined(USE_RKNNAPI) || defined(USE_RKNN2API)
+        std::unique_ptr<rknnwrapper::rknn_wrapper> retina_;
+#else
+        std::unique_ptr<glasssix::excalibur::pipeline<float>> retina_;
+#endif
+        int model_type_;
+        float nms_threshold_;
+        std::vector<float> ratio_;
+        std::vector<anchor_cfg> cfg_;
 
-	template<typename Derived>
-	struct interface_vtable<Derived, longinus::retina_net> : interface_vtable_base<Derived, longinus::retina_net>
-	{
-		virtual std::int32_t G6_ABI_CALL init(abi_in_t<param_string> models_directory, std::int32_t model_type, float nms, std::int32_t device) noexcept override
-		{
-			return abi_safe_call([&] { this->self().init(create_from_abi<param_string>(models_directory), model_type, nms, device); });
-		}
-
-		virtual std::int32_t G6_ABI_CALL detect(abi_in_t<param_span<std::uint8_t>> bitmap, std::int32_t channels, std::int32_t height, std::int32_t width, std::int32_t min_size, float threshold, std::int32_t order, bool do_attributing, abi_out_t<param_vector<longinus::face_info>> result) noexcept override
-		{
-			return abi_safe_call([&] { *result = detach_abi(this->self().detect(create_from_abi<param_span<std::uint8_t>>(bitmap), channels, height, width, min_size, threshold, order, do_attributing)); });
-		}
-		virtual std::int32_t G6_ABI_CALL single_trace(abi_in_t<longinus::face_info> face, abi_in_t<param_span<std::uint8_t>> bitmap, std::int32_t channels, std::int32_t height, std::int32_t width, std::int32_t order, abi_out_t<longinus::face_info> result) noexcept override
-		{
-			return abi_safe_call([&] { *result = detach_abi(this->self().single_trace(create_from_abi<longinus::face_info>(face), create_from_abi<param_span<std::uint8_t>>(bitmap), channels, height, width, order)); });
-		}
-
-		virtual std::int32_t G6_ABI_CALL center_scale_align(abi_in_t<param_span<std::uint8_t>> bitmap, std::int32_t channels, std::int32_t height, std::int32_t width,
-			float scale, std::int32_t order, abi_out_t<param_vector< param_vector<std::uint8_t>>> result) noexcept override
-		{
-			return abi_safe_call([&] { *result = detach_abi(this->self().center_scale_align(create_from_abi<param_span<std::uint8_t>>(bitmap), channels, height, width,
-				scale, order)); });
-		}
-
-		virtual std::int32_t G6_ABI_CALL version(abi_out_t<param_string> result) noexcept override
-		{
-			return abi_safe_call([&] { *result = detach_abi(this->self().version()); });
-		}
-	};
-
-	template<> struct abi_adapter<longinus::retina_net>
-	{
-		template<typename Derived>
-		struct type : enable_self_abi_awareness<Derived, longinus::retina_net>
-		{
-			void init(const param_string& models_directory, std::int32_t model_type, float nms = 0.4, std::int32_t device = -1) const
-			{
-				check_abi_result(this->self_abi().init(get_abi(models_directory), get_abi(model_type), get_abi(nms), get_abi(device)));
-			}
-
-			param_vector<longinus::face_info> detect(param_span<std::uint8_t> bitmap, std::int32_t channels, std::int32_t height, std::int32_t width, std::int32_t min_size, float threshold, std::int32_t order, bool do_attributing) const
-			{
-				param_vector<longinus::face_info> result{ nullptr };
-
-				return (check_abi_result(this->self_abi().detect(get_abi(bitmap), get_abi(channels), get_abi(height), get_abi(width), get_abi(min_size), get_abi(threshold), get_abi(order), get_abi(do_attributing), put_abi(result))), result);
-			}
-
-			longinus::face_info single_trace(longinus::face_info face, param_span<std::uint8_t> bitmap, std::int32_t channels, std::int32_t height, std::int32_t width, std::int32_t order) const
-			{
-				longinus::face_info result{nullptr};
-
-				return (check_abi_result(this->self_abi().single_trace(get_abi(face), get_abi(bitmap), get_abi(channels), get_abi(height), get_abi(width), get_abi(order), put_abi(result))), result);
-			}
-
-			param_vector< param_vector<std::uint8_t>> center_scale_align(param_span<std::uint8_t> bitmap, std::int32_t channels, std::int32_t height, std::int32_t width,
-				float scale, std::int32_t order) const
-			{
-				param_vector< param_vector<std::uint8_t>> result{ nullptr };
-				return (check_abi_result(this->self_abi().center_scale_align(get_abi(bitmap), channels, height, width, scale, order, put_abi(result))), result);
-			}
-
-			param_string version() const
-			{
-				param_string result{ nullptr };
-
-				return (check_abi_result(this->self_abi().version(put_abi(result))), result);
-			}
-		};
-	};
-}
-
-namespace glasssix::longinus
-{
-	struct retina_net : exposing::inherits<retina_net>
-	{
-		using inherits::inherits;
-	};
+        std::vector<int> feat_stride_fpn_;
+        //each layer anchor shape of fpn
+        std::map<std::string, std::vector<anchor_box>> anchors_fpn_;
+        //each layer anchor of every points
+        std::map<std::string, std::vector<anchor_box>> anchors_;
+        //each layer's fpn has how many shapes of anchor = number of ratio * number of scales
+        std::map<std::string, int> num_anchors_;
+    };
 }
