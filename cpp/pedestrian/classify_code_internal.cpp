@@ -144,58 +144,57 @@ namespace glasssix::pedestrian
 
             float *dest_ptr = dest->mutable_cpu_data();
 
-            int dim_2 = dest->count() / 8400;
+            int dim_2 = dest->count() / 33600;
 
             for (int i = 0; i < dim_2; i++)
             {
-                for (int j = 0; j < 8400; j++)
+                for (int j = 0; j < 33600; j++)
                 {
-                    dest_ptr[j * dim_2 + i] = sour_ptr[i * 8400 + j];
+                    dest_ptr[j * dim_2 + i] = sour_ptr[i * 33600 + j];
                 }
             }
         }
-
-        std::shared_ptr<glasssix::memory::tensor<float>> Concat(std::vector<std::shared_ptr<memory::tensor<float>>> &outs, float conf_thres)
+        std::shared_ptr<glasssix::memory::tensor<float>> Concat(std::vector<std::shared_ptr<memory::tensor<float>>>& outs, float conf_thres)
         {
-            // 20 40 80
-            std::vector<float> cat(65 * 8400); // 1*65*8400 = 64*8400 + 1*8400
-            const float *data80 = outs[2]->cpu_data();
-            const float *data40 = outs[1]->cpu_data();
-            const float *data20 = outs[0]->cpu_data();
+            // 40 80 160
+            std::vector<float> cat(65 * 33600); // 1*65*33600 = 64*33600 + 1*33600
+            const float* data80 = outs[2]->cpu_data();
+            const float* data40 = outs[1]->cpu_data();
+            const float* data20 = outs[0]->cpu_data();
             // int i=0;
-            int Candidate = 8400;
+            int Candidate = 33600;
             for (int i = 0; i < 65; i++)
             {
                 int j = 0;
-                for (; j < 6400; j++)
+                for (; j < 25600; j++)
                 {
-                    cat[i * Candidate + j] = data80[i * 6400 + j];
+                    cat[i * Candidate + j] = data80[i * 25600 + j];
                 }
-                for (; j < 8000; j++)
+                for (; j < 32000; j++)
                 {
-                    cat[i * Candidate + j] = data40[i * 1600 + j - 6400];
+                    cat[i * Candidate + j] = data40[i * 6400 + j - 25600];
                 }
 
-                for (; j < 8400; j++)
+                for (; j < 33600; j++)
                 {
-                    cat[i * Candidate + j] = data20[i * 400 + j - 8000];
+                    cat[i * Candidate + j] = data20[i * 1600 + j - 32000];
                 }
             }
 
-            // boxes cat[0:64*8400]
+            // boxes cat[0:64*33600]
 
-            std::vector<float> reshape_box(8400 * 64);
+            std::vector<float> reshape_box(33600 * 64);
             // tranpose and softmax
             for (int i = 0; i < 64; i++)
             {
-                for (int j = 0; j < 8400; j++)
+                for (int j = 0; j < 33600; j++)
                 {
-                    reshape_box[j * 64 + i] = cat[i * 8400 + j];
+                    reshape_box[j * 64 + i] = cat[i * 33600 + j];
                 }
             }
 
             int index = 0;
-            for (int i = 0; i < 8400; i++)
+            for (int i = 0; i < 33600; i++)
             {
                 for (int j = 0; j < 4; j++)
                 {
@@ -204,25 +203,25 @@ namespace glasssix::pedestrian
                 }
             }
 
-            // reshape and tranpose  64*8400 ->8400*64
-            std::vector<float> reshape_box2(16 * 4 * 8400);
+            // reshape and tranpose  64*33600 ->33600*64
+            std::vector<float> reshape_box2(16 * 4 * 33600);
 
             std::array<float, 64> temp;
 
-            for (int i = 0; i < 8400; i++)
+            for (int i = 0; i < 33600; i++)
             {
                 for (int j = 0; j < 4; j++)
                 {
                     for (int k = 0; k < 16; k++)
                     {
-                        reshape_box2[k * 4 * 8400 + j * 8400 + i] = reshape_box[i * 16 * 4 + j * 16 + k];
+                        reshape_box2[k * 4 * 33600 + j * 33600 + i] = reshape_box[i * 16 * 4 + j * 16 + k];
                     }
                 }
             }
 
-            std::vector<float> conv(4 * 8400);
+            std::vector<float> conv(4 * 33600);
 
-            for (int i = 0; i < 4 * 8400; i++)
+            for (int i = 0; i < 4 * 33600; i++)
             {
                 conv[i] = 0.f;
             }
@@ -230,9 +229,9 @@ namespace glasssix::pedestrian
             // 16个通道 1*1卷积
             for (int i = 0; i < 16; i++)
             {
-                for (int j = 0; j < 4 * 8400; j++)
+                for (int j = 0; j < 4 * 33600; j++)
                 {
-                    int location = 4 * 8400;
+                    int location = 4 * 33600;
                     reshape_box2[i * location + j] = reshape_box2[i * location + j] * i;
                     conv[j] = conv[j] + reshape_box2[i * location + j];
                 }
@@ -240,90 +239,93 @@ namespace glasssix::pedestrian
 
             // slice and function operator
 
-            std::vector<float> sub_add(8400 * 2);
+            std::vector<float> sub_add(33600 * 2);
 
+            for (int i = 0; i < 25600; i++)
+            {
+                sub_add[i] = i % 160 - 0.5f + 1.f;
+            }
             for (int i = 0; i < 6400; i++)
             {
-                sub_add[i] = i % 80 - 0.5f + 1.f;
+                sub_add[25600 + i] = i % 80 - 0.5f + 1.f;
             }
             for (int i = 0; i < 1600; i++)
             {
-                sub_add[6400 + i] = i % 40 - 0.5f + 1.f;
-            }
-            for (int i = 0; i < 400; i++)
-            {
-                sub_add[8000 + i] = i % 20 - 0.5f + 1.f;
+                sub_add[32000 + i] = i % 40 - 0.5f + 1.f;
             }
 
+            for (int i = 0; i < 25600; i++)
+            {
+                sub_add[33600 + i] = i / 160 - 0.5f + 1.f;
+            }
             for (int i = 0; i < 6400; i++)
             {
-                sub_add[8400 + i] = i / 80 - 0.5f + 1.f;
+                sub_add[33600 + 25600 + i] = i / 80 - 0.5f + 1.f;
             }
             for (int i = 0; i < 1600; i++)
             {
-                sub_add[8400 + 6400 + i] = i / 40 - 0.5f + 1.f;
-            }
-            for (int i = 0; i < 400; i++)
-            {
-                sub_add[8400 + 8000 + i] = i / 20 - 0.5f + 1.f;
+                sub_add[33600 + 32000 + i] = i / 40 - 0.5f + 1.f;
             }
 
             // 2次sub and add   此处应该是xyxy2xywh
-            std::vector<float> sub_data(8400 * 2);
-            std::vector<float> add_data(8400 * 2);
-            for (int i = 0; i < 8400 * 2; i++)
+            std::vector<float> sub_data(33600 * 2);
+            std::vector<float> add_data(33600 * 2);
+            for (int i = 0; i < 33600 * 2; i++)
             {
                 sub_data[i] = sub_add[i] - conv[i];
-                add_data[i] = conv[i + 8400 * 2] + sub_add[i];
+                add_data[i] = conv[i + 33600 * 2] + sub_add[i];
             }
 
-            std::vector<float> add2_data(8400 * 2);
-            std::vector<float> sub2_data(8400 * 2);
+            std::vector<float> add2_data(33600 * 2);
+            std::vector<float> sub2_data(33600 * 2);
 
-            for (int i = 0; i < 8400 * 2; i++)
+            for (int i = 0; i < 33600 * 2; i++)
             {
                 add2_data[i] = sub_data[i] + add_data[i];
                 sub2_data[i] = add_data[i] - sub_data[i];
             }
 
             // div concat
-            std::vector<float> concat(8400 * 24);
-            for (int i = 0; i < 8400 * 2; i++)
+            std::vector<float> concat(33600 * 24);
+            for (int i = 0; i < 33600 * 2; i++)
             {
                 concat[i] = add2_data[i] / 2.f;
-                concat[i + 8400 * 2] = sub2_data[i];
+                concat[i + 33600 * 2] = sub2_data[i];
             }
 
-            std::vector<float> MUL(8400);
+            std::vector<float> MUL(33600);
 
-            for (int i = 0; i < 6400; i++)
+            for (int i = 0; i < 25600; i++)
             {
                 MUL[i] = 8;
+                if (i < 6400)
+                {
+                    MUL[i + 25600] = 16;
+                }
                 if (i < 1600)
                 {
-                    MUL[i + 6400] = 16;
-                }
-                if (i < 400)
-                {
-                    MUL[i + 8000] = 32;
+                    MUL[i + 32000] = 32;
                 }
             }
 
-            std::shared_ptr<glasssix::memory::tensor<float>> output0(new memory::tensor<float>(std::vector<int>{1, 5, 8400}, -1, memory::NCHW));
-            // std::vector<float> output(5*8400);
-            float *output = output0->mutable_cpu_data();
-            for (int i = 0; i < 8400; i++)
+            std::shared_ptr<glasssix::memory::tensor<float>> output0(new memory::tensor<float>(std::vector<int>{1, 5, 33600}, -1, memory::NCHW));
+            // std::vector<float> output(5*33600);
+            float* output = output0->mutable_cpu_data();
+            for (int i = 0; i < 33600; i++)
             {
-                concat[8400 * 0 + i] = concat[8400 * 0 + i] * MUL[i];
-                concat[8400 * 1 + i] = concat[8400 * 1 + i] * MUL[i];
-                concat[8400 * 2 + i] = concat[8400 * 2 + i] * MUL[i];
-                concat[8400 * 3 + i] = concat[8400 * 3 + i] * MUL[i];
+                concat[33600 * 0 + i] = concat[33600 * 0 + i] * MUL[i];
+                concat[33600 * 1 + i] = concat[33600 * 1 + i] * MUL[i];
+                concat[33600 * 2 + i] = concat[33600 * 2 + i] * MUL[i];
+                concat[33600 * 3 + i] = concat[33600 * 3 + i] * MUL[i];
 
-                output[8400 * 0 + i] = concat[8400 * 0 + i];
-                output[8400 * 1 + i] = concat[8400 * 1 + i];
-                output[8400 * 2 + i] = concat[8400 * 2 + i];
-                output[8400 * 3 + i] = concat[8400 * 3 + i];
-                output[8400 * 4 + i] = sigmoid_x(cat[8400 * 64 + i]);
+                output[33600 * 0 + i] = concat[33600 * 0 + i];
+                output[33600 * 1 + i] = concat[33600 * 1 + i];
+                output[33600 * 2 + i] = concat[33600 * 2 + i];
+                output[33600 * 3 + i] = concat[33600 * 3 + i];
+				output[33600 * 4 + i] = sigmoid_x(cat[33600 * 64 + i]);
+				//if (i % 100 == 0)
+				//	printf("%f,  %f,  %f,  %f | %f\n",
+				//		output[33600 * 0 + i], output[33600 * 1 + i], output[33600 * 2 + i], output[33600 * 3 + i], output[33600 * 4 + i]);
             }
 
             return output0;
@@ -375,8 +377,8 @@ namespace glasssix::pedestrian
         {
             std::vector<std::vector<float>> output;
 
-            int dim_2 = net_result->count() / 8400;
-            std::shared_ptr<glasssix::memory::tensor<float>> dest(new glasssix::memory::tensor<float>(8400, dim_2, -1, glasssix::memory::NCHW, nullptr));
+            int dim_2 = net_result->count() / 33600; //5
+            std::shared_ptr<glasssix::memory::tensor<float>> dest(new glasssix::memory::tensor<float>(33600, dim_2, -1, glasssix::memory::NCHW, nullptr));
 
             tranpose(net_result, dest);
 
@@ -390,7 +392,7 @@ namespace glasssix::pedestrian
             std::vector<int> indices_body; // 候选框顺序
 
             int count = 0;
-            for (int i = 0; i < 8400; i++)
+            for (int i = 0; i < 33600; i++)
             {
                 if (dest_ptr[dim_2 * i + 4] > 0.450)
                 {
@@ -410,6 +412,7 @@ namespace glasssix::pedestrian
                     }
                 }
             }
+
 
             std::vector<int> indices_body_copy(indices_body.size());
 
@@ -471,7 +474,7 @@ namespace glasssix::pedestrian
             float iou_threshold = iou_thres;
 
 
-            auto new_shape = cv::Size(640, 640);
+            auto new_shape = cv::Size(1280, 1280);
 
             cv::Mat blob;
             float ratio = 0;
@@ -497,7 +500,7 @@ namespace glasssix::pedestrian
 
             // std::shared_ptr<memory::tensor<float>> real_output = yolov8s_complement(network_results);
 
-            auto real_output = Concat(forwards, conf_threshold); // 5*8400
+            auto real_output = Concat(forwards, conf_threshold); // 5*longline
 
             //auto nms_result = post_process(real_output, blob, pad_h, pad_w, 1.f / ratio);
 
