@@ -50,7 +50,6 @@ namespace glasssix::onphone
 
 			phone_instance = std::make_unique<RknnYolov8Wrapper>(exposing::to_narrow_string(model_directory) + "/" + "onphone_v8_cut" + ".rknn", device);
 
-
 			head_instance_ = glasssix::exposing::make_exported_interface<head::detect_code>(model_directory, device);
 		}
 

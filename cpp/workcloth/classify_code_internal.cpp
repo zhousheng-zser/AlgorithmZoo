@@ -43,13 +43,14 @@ namespace glasssix::workcloth
 	class classify_code_internal::impl
 	{
 	public:
+		impl(int device) noexcept : device_{ device } {}
 		impl(std::string_view model_directory, int device)
-			: model_directory_{ std::string(model_directory) }, device_{ device }
+			: impl(device)
 		{
+			model_directory_ = std::string(model_directory);
 #if defined(USE_RKNNAPI) || defined(USE_RKNN2API)
 			classify_instance_ = std::make_unique<rknnwrapper::rknn_wrapper>(get_model_params("workcloth_cls"), std::string(model_directory) + "/" + "workcloth_cls" + ".rknn", device);
 #endif
-			static bool ready = glasssix::exposing::get_component_loader().add_module_by_name("posture");
 			posture_instance_ = glasssix::exposing::make_exported_interface<posture::detect_code>(model_directory, device,1);
 			posture_param_abi = exposing::make_param_hash_map<exposing::param_string, float>();
 			posture_param_abi.add_or_update("conf_thres", 0.70f);
