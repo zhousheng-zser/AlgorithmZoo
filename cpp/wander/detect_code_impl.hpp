@@ -24,6 +24,7 @@ namespace glasssix::wander
         exposing::param_string version() const;
 
         exposing::param_string remove_library(std::int32_t device) const;
+        exposing::param_string remove_person_by_index(std::int32_t device_id, std::int32_t id)const;
 
         exposing::param_vector<wander::box_info> detect(exposing::param_span<std::uint8_t> bitmap, int channels, int height, int width, int roi_x, int roi_y, int roi_width, int roi_height,
            const exposing::param_hash_map<exposing::param_string, double>& param_map_abi) const;
