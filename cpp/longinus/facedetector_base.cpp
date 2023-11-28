@@ -186,7 +186,7 @@ namespace glasssix::longinus
 
         cv::Mat similarity;
         cv::Mat match_roi;
-        facedetector_base::safty_cut(gray, match_roi, search_window);
+        facedetector_base::mat_safty_cut(gray, match_roi, search_window);
         matchTemplateCpu(match_roi, gray_model, similarity);
         cv::Point minpoint;
         //find min-distance point
@@ -584,7 +584,7 @@ namespace glasssix::longinus
             throw exposing::abi_invalid_argument("track_box.h * track_box.w <= 0");
 
         cv::Mat face_in_prev_frame;
-        safty_cut(cache1_, face_in_prev_frame, track_box);
+        mat_safty_cut(cache1_, face_in_prev_frame, track_box);
 
         cv::Mat cache_temp(height, width, CV_8UC3, bitmap.data());
 
@@ -595,7 +595,7 @@ namespace glasssix::longinus
 
         tracking_corrfilter(cache_temp, face_in_prev_frame, track_box, scale);
         cv::Mat faceROI_in_frame;
-        safty_cut(cache_temp, faceROI_in_frame, track_box);
+        mat_safty_cut(cache_temp, faceROI_in_frame, track_box);
         face_info_internal face_internal;
         face_internal.headpose[0] = face_internal.headpose[1] = face_internal.headpose[2] = std::numeric_limits<float>::min();
         face_internal.clarity = std::numeric_limits<float>::min();
@@ -706,7 +706,7 @@ namespace glasssix::longinus
 
         cv::Rect ori_rect(ori_face.rect.x, ori_face.rect.y, ori_face.rect.w, ori_face.rect.h);
         cv::Mat ori_img;
-        safty_cut(img, ori_img, ori_rect);
+        mat_safty_cut(img, ori_img, ori_rect);
 
         ori_face.headpose[0] = ori_face.headpose[1] = ori_face.headpose[2] = std::numeric_limits<float>::min();
         ori_face.clarity = std::numeric_limits<float>::min();
@@ -725,7 +725,7 @@ namespace glasssix::longinus
             ori_face.rect.w * 1.0f,
             ori_face.rect.h * 1.0f);
 
-        safty_cut(img, ROI, MarginRect);
+        mat_safty_cut(img, ROI, MarginRect);
         float min_edge = std::min(MarginRect.width, MarginRect.height);
         float ROI_scale = 160.f / min_edge;
         if (ROI_scale < 1.0f)
@@ -761,7 +761,7 @@ namespace glasssix::longinus
         cv::Rect2f final_rect((new_center_eye.x - distance * 1.25f) * ROI_scale,
             (new_center_eye.y - distance * 0.75f) * ROI_scale,
             distance * 2.5f * ROI_scale, distance * 2.5f * ROI_scale);
-        safty_cut(rotated_ROI, final_mat, final_rect);
+        mat_safty_cut(rotated_ROI, final_mat, final_rect);
 
         cv::resize(final_mat, resized_color_img, cv::Size(128, 128));
         std::vector<cv::Mat> img_channel_vec;
