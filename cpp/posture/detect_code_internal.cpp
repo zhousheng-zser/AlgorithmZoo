@@ -11,9 +11,7 @@
 #include <opencv2/imgproc.hpp>
 #include <opencv2/dnn.hpp>
 #include "hardcode.hpp"
-#include "Excalibur/pipeline.hpp"
-#include "Excalibur/operation_rotate.hpp"
-#include "Primitives/tensor_conversions.hpp"
+
 
 #include "general.hpp"
 #if defined(USE_RKNNAPI) || defined(USE_RKNN2API)
@@ -36,25 +34,35 @@ namespace glasssix::posture
            
            if(model_type_==1)
            {              
-                net_detect_ = std::make_unique<rknnwrapper::rknn_wrapper>(get_model_params("posture", false),
-                    std::string(model_directory) + "/" +"posture17.rknn", device);     
+                net_detect640_ = std::make_unique<rknnwrapper::rknn_wrapper>(get_model_params("posture", false),
+                    std::string(model_directory) + "/" +"posture640_17.rknn", device);     
+                net_detect1280_single_branch_ = std::make_unique<rknnwrapper::rknn_wrapper>(get_model_params("posture", false),  
+                    std::string(model_directory) + "/" +"posture1280_17.rknn", device);  
            }
            else
            {
-                net_detect_ = std::make_unique<rknnwrapper::rknn_wrapper>(get_model_params("posture", false),
+                net_detect640_ = std::make_unique<rknnwrapper::rknn_wrapper>(get_model_params("posture", false),
                     std::string(model_directory) + "/" +"posture12.rknn", device);     
+
+                net_detect1280_single_branch_ = std::make_unique<rknnwrapper::rknn_wrapper>(get_model_params("posture", false),  
+                    std::string(model_directory) + "/" +"posture1280_12.rknn", device); 
            }
            
 #else
             if(model_type_==1)
             {
-                net_detect_ = std::make_unique<glasssix::excalibur::pipeline<float>>(get_model_params("posture", false),
-                std::string(model_directory) + "/" +"posture17.racy", device);      
+                net_detect640_ = std::make_unique<glasssix::excalibur::pipeline<float>>(get_model_params("posture", false),
+                    std::string(model_directory) + "/" +"posture640_17.racy", device);   
+                net_detect1280_single_branch_ = std::make_unique<glasssix::excalibur::pipeline<float>>(get_model_params("posture", false),
+                    std::string(model_directory) + "/" +"posture1280_17.racy", device);      
+
             }
             else
             {
-                net_detect_ = std::make_unique<glasssix::excalibur::pipeline<float>>(get_model_params("posture", false),
-                std::string(model_directory) + "/" +"posture12.racy", device);   
+                net_detect640_ = std::make_unique<glasssix::excalibur::pipeline<float>>(get_model_params("posture", false),
+                    std::string(model_directory) + "/" +"posture12.racy", device); 
+                net_detect1280_single_branch_ = std::make_unique<glasssix::excalibur::pipeline<float>>(get_model_params("posture", false),
+                    std::string(model_directory) + "/" +"posture1280_12.racy", device);   
             }
     #endif
             init_data();
@@ -65,9 +73,9 @@ std::string version()
 			const std::string algo_module_version = "3.0.0";
 
 #if defined(USE_RKNNAPI) || defined(USE_RKNN2API)
-			std::string nn_frame_version = net_detect_->version();
+			std::string nn_frame_version = net_detect640_->version();
 #else
-			std::string nn_frame_version = net_detect_->version();
+			std::string nn_frame_version = net_detect640_->version();
 #endif
 			return fmt::format(R"({{"nn_frame_version":"{}", "algo_module_version":"{}"}})", nn_frame_version, algo_module_version);
 
@@ -77,8 +85,7 @@ std::string version()
         exposing::param_vector<posture::box_info> detect(const exposing::param_span<std::uint8_t>& bitmap, int channels, int height, int width,
             int roi_x, int roi_y, int roi_width, int roi_height, std::map<std::string, float>& param_map)
         {
-            // std::cout<<"in posture\n";
-            float con_thres = param_map.count("conf_thres") ? param_map["conf_thres"] : 0.5f;
+            float con_thres = param_map.count("conf_thres") ? param_map["conf_thres"] : 0.2f;
             float iou_thres = param_map.count("nms_thres") ? param_map["nms_thres"] : 0.6f;
 
             if (bitmap.empty())
@@ -93,59 +100,101 @@ std::string version()
             std::memcpy(image.data, bitmap.data(), sizeof(uint8_t) * channels * height * width);
 
             if (roi_x<0 || roi_x>width || roi_y > height || roi_y < 0 || roi_height<0 || (roi_height + roi_y) >height || roi_width<0 || (roi_width + roi_x) > width)
-            {
                 throw exposing::abi_invalid_argument("incorrect roi in posture");
-            }
 
             cv::Mat cropped_image = image(cv::Range(roi_y, roi_y + roi_height), cv::Range(roi_x, roi_x + roi_width));
 
-            auto new_shape = cv::Size(640,  640);
+            auto new_shape640 = cv::Size(640,  640);
+            auto new_shape1280 = cv::Size(1280,  1280);
 
-            cv::Mat blob;
-            float ratio = 0;
-            int pad_h=0;  
-            int pad_w=0;
+            cv::Mat blob640;
+            cv::Mat blob1280;
+            float ratio640 = 0;
+            float ratio1280 = 0;
+            int pad_h640=0;  
+            int pad_w640=0;
+            int pad_h1280=0;  
+            int pad_w1280=0;
 
-            std::tie(blob, ratio) = preprocess_detection( cropped_image,pad_h,pad_w, new_shape ) ;
+            std::tie(blob640, ratio640) = preprocess_detection( cropped_image,pad_h640, pad_w640, new_shape640 ) ;
+            std::tie(blob1280, ratio1280) = preprocess_detection( cropped_image,pad_h1280, pad_w1280, new_shape1280 ) ;
 
-            std::vector<std::shared_ptr<memory::tensor<float>>> forwards;
-            auto network_result = net_detect_->forward(blob.data, { 1, blob.rows, blob.cols,blob.channels() }, RKNN_TENSOR_NHWC);
+            std::vector<std::shared_ptr<memory::tensor<float>>> forwards640;
+            std::vector<std::shared_ptr<memory::tensor<float>>> forwards1280;
+            auto network_result = net_detect640_->forward(blob640.data, { 1, blob640.rows, blob640.cols,blob640.channels() }, RKNN_TENSOR_NHWC);
+            auto network_result_1280_single = net_detect1280_single_branch_->forward(blob1280.data, { 1, blob1280.rows, blob1280.cols,blob1280.channels() }, RKNN_TENSOR_NHWC);
            
-            for (size_t i=0;i< out_names.size(); i++)
-            {
-                forwards.push_back(network_result[out_names[i]]);
-            }
+            for (size_t i=0;i< out_names640.size(); i++)
+                forwards640.push_back(network_result[out_names640[i]]);
 
-            auto real_output = Posture_Concat(forwards, keypoint_num);
+            for (size_t i=0;i< out_names1280.size(); i++)
+                forwards1280.push_back(network_result_1280_single[out_names1280[i]]);
 
-            auto nms_result = post_process(real_output,pad_h,pad_w, 1.f/ratio,keypoint_num, con_thres,iou_thres);
+            int candicate_num640=0;
+            int candicate_num1280=0;
+
+            auto real_output640 = Posture_Concat640(forwards640, keypoint_num,con_thres,candicate_num640,posture_add_weight,posture_mul_weight);
+            auto real_output1280 = Posture_Concat1280(forwards1280, keypoint_num,con_thres,candicate_num1280,posture_add_weight_1280single,posture_mul_weight_1280single);
+
+            auto nms_input640  = XYXY2WH(real_output640, image,pad_h640,pad_w640, 1.f/ratio640,keypoint_num,candicate_num640);
+            auto nms_input1280 = XYXY2WH(real_output1280, image,pad_h1280,pad_w1280, 1.f/ratio1280,keypoint_num,candicate_num1280);
+
+            // for(auto var : nms_input640)
+            // {
+            //     cv::rectangle(image,   cv::Point((int) var[0]  , (int)  var[1] ),
+            //                     cv::Point((int) (var[0] + var[2]  ) , (int) (var[1] + var[3]) ),  cv::Scalar(0, 255, 255), 2);   
+            //     for(int j=0;j<17;j++)
+            //     {
+            //         cv::circle(image,  cv::Point((int) var[3*j+5]  , (int) var[3*j+ 1 +5]  ), 2, cv::Scalar(0, 255, 255));
+            //     }
+            // }
+
+            // for(auto var : nms_input1280)
+            // {
+            //     cv::rectangle(image,   cv::Point((int) var[0]  , (int)  var[1] ),
+            //                     cv::Point((int) (var[0] + var[2]  ) , (int) (var[1] + var[3]) ),  cv::Scalar(255, 0, 255), 2);   
+            //     for(int j=0;j<17;j++)
+            //     {
+            //         cv::circle(image,  cv::Point((int) var[3*j+5]  , (int) var[3*j+ 1 +5]  ), 2, cv::Scalar(255, 0, 255));
+            //     }
+            // }
+            // cv::imwrite("../adsfsfsdpreocesdssds.jpg",image);
+
+
+            std::vector<std::vector<float>> nms_input( nms_input640.size() + nms_input1280.size() );
+            int index =0;
+            for(auto& var : nms_input640)
+                nms_input[index++] = var;
+            for(auto& var : nms_input1280)
+                nms_input[index++] = var;
+            auto nms_result_index = nms_process(nms_input,con_thres,iou_thres);
+
 
             auto fin_result= exposing::make_param_vector<box_info>();
 
             std::vector<box_info_internal> result;
 
-            for (auto& body : nms_result)
+            for (auto& id : nms_result_index)
             {
                 box_info_internal temp_result;
-                temp_result.x1=body[0]+ roi_x;
-                temp_result.y1=body[1]+ roi_y;
-                temp_result.x2=body[2]+ roi_x;
-                temp_result.y2=body[3]+ roi_y;
-                temp_result.score=body[4];
+
+                temp_result.x1 = nms_input[id][0];//       body[0]+ roi_x;
+                temp_result.y1 = nms_input[id][1]+ roi_y;
+                temp_result.x2 = nms_input[id][0] + nms_input[id][2]+roi_x;
+                temp_result.y2 = nms_input[id][1] + nms_input[id][3]+ roi_y;
+                temp_result.score = nms_input[id][4];
                 temp_result.key_points = exposing::make_param_vector<float>();
                 for(int j=0;j<keypoint_num;j++)
                 {
-                    temp_result.key_points.push_back(body[3*j+5] + roi_x);
-                    temp_result.key_points.push_back(body[3*j+5+1] + roi_y);
-                    temp_result.key_points.push_back(body[3*j+5+2]);
+                    temp_result.key_points.push_back(nms_input[id][3*j+5] + roi_x);
+                    temp_result.key_points.push_back(nms_input[id][3*j+5+1] + roi_y);
+                    temp_result.key_points.push_back(nms_input[id][3*j+5+2]);
                 }
                 result.push_back( temp_result  );
             }
   
             for (auto& i : result)
-            {
                 fin_result.push_back(exposing::make_as_first<box_info_impl> (i));
-            }
 
             return fin_result;
         }
@@ -156,66 +205,65 @@ std::string version()
         void init_data()
         {
             std::vector<std::string>  out_name_12keypoint={"413","398","output0", "368" };
-            std::vector<std::string>  out_name_17keypoint={  "417","402","output0","372"};
+            std::vector<std::string>  out_name_17keypoint={"417","402","output0", "372" };
+
+            std::vector<std::string>  out_name_12keypoint1280={"/model.22/Reshape_3_output_0","/model.22/Reshape_output_0" };
+            std::vector<std::string>  out_name_17keypoint1280={"/model.22/Reshape_3_output_0","/model.22/Reshape_output_0" };
 
             if(model_type_==0)
             {
-                out_names=out_name_12keypoint;
+                out_names640 = out_name_12keypoint;
+                out_names1280 = out_name_12keypoint1280;
                 keypoint_num=12;
             }
             else
             {
-                 out_names=out_name_17keypoint;
+                 out_names640 = out_name_17keypoint;
+                 out_names1280 = out_name_17keypoint1280;
                  keypoint_num=17;
             }
 
             posture_add_weight.resize(8400*2);
             posture_mul_weight.resize(8400);
+            posture_add_weight_1280single.resize(25600*2);
+            posture_mul_weight_1280single.resize(25600);
+
+            for(int i=0;i<25600;i++)
+            {
+                    posture_add_weight_1280single[i] = i%160;;
+                    posture_add_weight_1280single[i+25600] = i/160;
+                    posture_mul_weight_1280single[i] =8.f;
+            }
+
+
             for(int i=0;i<8400;i++)
             {
                 if( i<6400)
                 {
                     posture_add_weight[i]=i%80;
+                    posture_add_weight[i+8400]=i/80;
+                    posture_mul_weight[i]=8.f;
                 }
                 else if(i<8000)
                 {
                     posture_add_weight[i]=(i -6400)%40;
-                }
-                else
-                {
-                    posture_add_weight[i]=(i -8000)%20;
-                }
-
-                if( i<6400)
-                {
-                    posture_add_weight[i+8400]=i/80;
-                }
-                else if(i<8000)
-                {
                     posture_add_weight[i+8400]=(i -6400)/40;
-                }
-                else
-                {
-                    posture_add_weight[i+8400]=(i -8000)/20;
-                }
-
-                if(i<6400)
-                {
-                    posture_mul_weight[i]=8.f;
-                } 
-                else if(i<8000)
-                {
                     posture_mul_weight[i]=16.f;
                 }
                 else
                 {
+                    posture_add_weight[i]=(i -8000)%20;
+                    posture_add_weight[i+8400]=(i -8000)/20;
                     posture_mul_weight[i]=32.f;
                 }
+
+               
+
             }
         }
 
 
-        std::vector<std::vector<float>> post_process(std::shared_ptr<memory::tensor<float>>& net_result, int pad_h, int pad_w, 
+        std::vector<std::vector<float>> post_process(std::shared_ptr<memory::tensor<float>>& net_result, int pad_h640, int pad_w640,         
                                                                         float scale, int key_point_num, float threshold=0.7,float iou_thres=0.6 )
         {
             std::vector<std::vector<float>> output;
@@ -270,23 +318,23 @@ std::string version()
                 int index = indices_body_copy[i];
 
                 std::vector<float> temp_output( 5 + key_point_num*3);
-                temp_output[0]= (xywh_boxes[index].x - pad_w)*scale;
-                temp_output[1]= (xywh_boxes[index].y - pad_h)*scale;
-                temp_output[2]= (xywh_boxes[index].width + xywh_boxes[index].x - pad_w)*scale;
-                temp_output[3]= (xywh_boxes[index].height + xywh_boxes[index].y - pad_h)*scale;
+                temp_output[0]= (xywh_boxes[index].x - pad_w640)*scale;
+                temp_output[1]= (xywh_boxes[index].y - pad_h640)*scale;
+                temp_output[2]= (xywh_boxes[index].width + xywh_boxes[index].x - pad_w640)*scale;
+                temp_output[3]= (xywh_boxes[index].height + xywh_boxes[index].y - pad_h640)*scale;
                 temp_output[4]= scores[index];
 
                 for(int j=0;j<key_point_num;j++)
                 {
-                    temp_output[5+3*j+0] = (key_points[index][3*j]-pad_w)*scale;
-                    temp_output[5+3*j+1] = (key_points[index][3*j+1]-pad_h)*scale;
+                    temp_output[5+3*j+0] = (key_points[index][3*j]-pad_w640)*scale;
+                    temp_output[5+3*j+1] = (key_points[index][3*j+1]-pad_h640)*scale;
                     temp_output[5+3*j+2] = key_points[index][3*j+2];      
                 }
                 output.emplace_back(temp_output);
             }
             return output;
         }
-        std::tuple<cv::Mat, float> preprocess_detection(cv::Mat src,int& pad_h,int& pad_w,  cv::Size input_shape = cv::Size(640, 640) )
+        std::tuple<cv::Mat, float> preprocess_detection(cv::Mat& src,int& pad_h640,int& pad_w640,  cv::Size input_shape = cv::Size(640, 640) )
         {
             float scale = std::min((float)input_shape.width/(float)src.cols, (float)input_shape.height/(float)src.rows);
 
@@ -298,11 +346,11 @@ std::string version()
             {      
                 cv::resize(src, cut_image, cv::Size((int)(src.cols * scale), (int)(src.rows * scale)), cv::INTER_LINEAR);
 
-                pad_h = int((input_shape.height - cut_image.rows) /2 ) ; 
+                pad_h640 = int((input_shape.height - cut_image.rows) /2 ) ; 
 
-                pad_w = int((input_shape.width - cut_image.cols) /2 ) ; 
+                pad_w640 = int((input_shape.width - cut_image.cols) /2 ) ; 
 
-                cv::copyMakeBorder(cut_image, mask_image, pad_h, input_shape.height-cut_image.rows-pad_h, pad_w, input_shape.width-cut_image.cols-pad_w, cv::BORDER_CONSTANT, cv::Scalar{ 114,114,114 });
+                cv::copyMakeBorder(cut_image, mask_image, pad_h640, input_shape.height-cut_image.rows-pad_h640, pad_w640, input_shape.width-cut_image.cols-pad_w640, cv::BORDER_CONSTANT, cv::Scalar{ 114,114,114 });
             }
 
             else 
@@ -314,121 +362,32 @@ std::string version()
 
         }
 
-        std::shared_ptr<memory::tensor<float>> Posture_Concat(std::vector<std::shared_ptr<memory::tensor<float>>>& outs, int key_point_num)
+      
+        std::vector<int> nms_process(std::vector<std::vector<float>>& nms_input, float threshold=0.0,float iou_thres=0.9 )
         {
-            const int candidate_num=8400;
-            std::shared_ptr<glasssix::memory::tensor<float>> output0
-                (new memory::tensor<float>(std::vector<int>{1, 5+key_point_num*3, candidate_num}, -1, memory::NCHW));
+            
 
-            //20 40 80 keypoint
-            const float *data80=outs[2]->cpu_data();
-            const float *data40=outs[1]->cpu_data();
-            const float *data20=outs[0]->cpu_data();
-            const float *posture_ptr = outs[3]->cpu_data();
-           
-            //concat the 80*40 40*40 20*20 to  cat<vector>
-             std::vector<float> cat(65*candidate_num);//1*65*8400 = 64*8400 + 1*8400
-            for(int i=0;i<65;i++)
-            {   
-                int j=0;
-                for(; j<6400; j++)
-                {
-                    cat[ i*candidate_num + j] = data80[i*6400 + j];
-                }
-                for(; j<8000; j++)
-                {
-                    cat[ i*candidate_num + j] = data40[i*1600 + j-6400];
-                }              
-                for(; j<8400; j++)
-                {
-                    cat[ i*candidate_num + j] = data20[i*400 + j-8000 ];
-                }
-            }
+            std::vector<cv::Rect2d> xywh_boxes(nms_input.size());;
+            std::vector<float> scores(nms_input.size());
+            std::vector<int> indices_body(nms_input.size());;//候选框顺序
 
-            //process the candidate xywh begin  
-            //tranpose and softmax
-            std::vector<float> reshape_box(candidate_num*64);
-            tranpose(cat.data(),reshape_box.data(),64,8400 );
-
-            int index = 0;
-            for(int i=0; i<candidate_num; i++)
+            for (size_t i = 0; i < nms_input.size(); i++)
             {
-                for(int j=0; j<4; j++)
-                {
-                    Softmax(reshape_box.data()+ 16*index ,16 ) ;
-                    index++ ;
-                }
+                cv::Rect2d boxwh;
+                boxwh.x      =  nms_input[i][0];
+                boxwh.y      =  nms_input[i][1];
+                boxwh.width  =  nms_input[i][2];
+                boxwh.height =  nms_input[i][3];   
+                xywh_boxes[i]=boxwh;
+                scores[i] = nms_input[i][4];   
+                indices_body[i]=i;
             }
-
-            //reshape and tranpose  64*8400 ->8400*64
-            std::vector<float> reshape_box2(16*4*candidate_num);
-            for(int i=0; i<candidate_num; i++)
-            {
-                for(int j=0; j<4; j++)
-                {
-                    for(int k=0; k<16; k++)
-                    {
-                        reshape_box2[k*4*candidate_num +j*candidate_num +i ] = reshape_box[i*16*4 + j*16+k ];
-                    }
-                }
-            }
-
-            //16个通道 1*1卷积
-            std::vector<float> conv(4*candidate_num);
-            for(int i=0;i<4*candidate_num;i++)
-            {
-                conv[i]=0.f;
-            }
-            for(int i=0;i<16;i++)
-            {
-                for(int j=0;j<4*candidate_num;j++)
-                {
-                    int location = 4*candidate_num;
-                    conv[j] = conv[j] +reshape_box2[i*location+j ]*i  ; 
-                }
-            }
-
-            std::vector<float>  concat(candidate_num*24);
-            for(int i=0;i<candidate_num*2;i++)
-            {
-                concat[i]                 = (conv[i+candidate_num*2] - conv[i] )/2.f +posture_add_weight[i] + 0.5;     
-                concat[i+candidate_num*2] = (conv[i+candidate_num*2] + conv[i] );                 // add_data[i]-sub_data[i]) ;  
-            }
-            //process the candidate xywh end  
-        
-            //process the candidate keypoint begin  
-            std::vector<float> PostureXy_Conf(key_point_num*3*candidate_num);
-            for(int m=0;m<key_point_num;m++)
-            {
-                for (size_t j = 0; j <candidate_num ; j++)
-                {
-                    int index = m*candidate_num*3  +j;
-                    PostureXy_Conf[index]                   = ((posture_ptr[index]*2 + posture_add_weight[j])*posture_mul_weight[j]); 
-                    PostureXy_Conf[index+candidate_num]     = ((posture_ptr[index+candidate_num]*2 + posture_add_weight[candidate_num+j])*posture_mul_weight[j]); 
-                    PostureXy_Conf[index +candidate_num*2 ] = sigmoid_x(posture_ptr[index +candidate_num*2]) ;//最右侧sigmoid
-                }            
-            }   
-            //process the candidate keypoint end
-
-            //concat the output
-            float * output=output0->mutable_cpu_data();
-            for(int i=0;i<candidate_num;i++)
-            {
-                concat[candidate_num*0 +i] = concat[candidate_num*0 +i]*posture_mul_weight[i];
-                concat[candidate_num*1 +i] = concat[candidate_num*1 +i]*posture_mul_weight[i];
-                concat[candidate_num*2 +i] = concat[candidate_num*2 +i]*posture_mul_weight[i];
-                concat[candidate_num*3 +i] = concat[candidate_num*3 +i]*posture_mul_weight[i];
-
-                output[candidate_num*0 +i]= concat[candidate_num*0 +i];
-                output[candidate_num*1 +i]= concat[candidate_num*1 +i];
-                output[candidate_num*2 +i]= concat[candidate_num*2 +i];
-                output[candidate_num*3 +i]= concat[candidate_num*3 +i];
-
-                output[candidate_num*4 +i]=  sigmoid_x(cat[candidate_num*64 +i]);
-            }
-
-            std::memcpy(output+5*candidate_num, PostureXy_Conf.data(), key_point_num*3*candidate_num*sizeof(float));
-            return  output0;
+            std::vector<int> indices_body_copy( indices_body.size() );
+            for(int i=0;i<indices_body_copy.size();i++)           
+                indices_body_copy[i]=i;
+            cv::dnn::NMSBoxes(xywh_boxes, scores, threshold, iou_thres, indices_body_copy, 1.f, 0);
+          
+            return indices_body_copy;
         }
 
 
@@ -438,15 +397,20 @@ std::string version()
         int model_type_=1;
         int keypoint_num=17;
 
-        std::vector<std::string>  out_names;
+        std::vector<std::string>  out_names640;
+        std::vector<std::string>  out_names1280;
 
         std::vector<float> posture_add_weight;
         std::vector<float> posture_mul_weight;
+        std::vector<float> posture_add_weight_1280single;
+        std::vector<float> posture_mul_weight_1280single;
 
 #if defined(USE_RKNNAPI) || defined(USE_RKNN2API)
-       std::unique_ptr < rknnwrapper::rknn_wrapper> net_detect_;    
+       std::unique_ptr < rknnwrapper::rknn_wrapper> net_detect640_;    
+       std::unique_ptr < rknnwrapper::rknn_wrapper> net_detect1280_single_branch_;    
 #else
-       std::unique_ptr < glasssix::excalibur::pipeline<float>> net_detect_;  
+       std::unique_ptr < glasssix::excalibur::pipeline<float>> net_detect640_;  
+       std::unique_ptr < glasssix::excalibur::pipeline<float>> net_detect1280_single_branch_;  
 #endif
 
     };

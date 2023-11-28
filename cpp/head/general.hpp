@@ -7,12 +7,8 @@
     void tranpose(const float* sou, float* dest, int sourows, int soucols)
     {
         for(int i=0;i< sourows;i++)
-        {
             for(int j=0;j< soucols;j++)
-            {
                 dest[j*sourows+i]=sou[ i * soucols + j];    
-            }
-        }
     }
 
     void  Softmax(float* data, int num )
@@ -24,7 +20,12 @@
             L2_Sum +=  data[i];
         }
         for(size_t i=0; i<num; i++) 
-        {
             data[i] =  data[i] / L2_Sum ;
-        }       
+    }
+
+    inline float de_sigmoid(float x)
+    {
+        if(x>=1 ||x<0)
+            return NAN;
+        return static_cast<float> (log( x/(1-x)));
     }
