@@ -121,10 +121,8 @@ namespace glasssix::flame
         */
         void run_detect(std::vector<box_info_internal>& results, cv::Mat& image, std::map<std::string, float>& param_map)
         {
-            //float conf_threshold= param_map.count("conf_thres") ? param_map["conf_thres"] : 0.7f;
-            //float nms_threshold = param_map.count("nms_thres") ? param_map["nms_thres"] : 0.5f;
-            float conf_threshold= 0.4f;
-            float nms_threshold = 0.5f;
+            float conf_threshold= param_map.count("conf_thres") ? param_map["conf_thres"] : 0.4f;
+            float nms_threshold = param_map.count("nms_thres") ? param_map["nms_thres"] : 0.5f;
 
             int reShapeSide = 640;
             auto letter_img = imgPreProcess(image, reShapeSide, reShapeSide);
