@@ -14,17 +14,8 @@
 
 namespace glasssix::onphone
 {
-    struct box_info_internal
-    {
-        int x1;
-        int y1;
-        int x2;
-        int y2;
-        float category;
-        float confidence;
-    };
 
-	struct HeadBox {
+	struct ObjBox {
 		float xmin;
 		float ymin;
 		float xmax;
@@ -32,7 +23,9 @@ namespace glasssix::onphone
 		float score;
 		int cid = 0;
 
-		HeadBox(float cx, float cy, float w, float h, float the_score) {
+		ObjBox() = default;
+
+		ObjBox(float cx, float cy, float w, float h, float the_score) {
 			xmin = cx - w / 2;
 			xmax = cx + w / 2;
 			ymin = cy - h / 2;
@@ -43,6 +36,9 @@ namespace glasssix::onphone
 		cv::Rect DetPhoneRegion() {
 			int width = xmax - xmin;
 			int height = ymax - ymin;
+
+			int area = width * height;
+
 			int x1 = xmin - 0.25f * width;
 			int y1 = ymin + 0.50f * height;
 			return cv::Rect(x1, y1, width * 1.5, height * 0.75);
@@ -91,6 +87,27 @@ namespace glasssix::onphone
 
 		float get_area() {
 			return (xmax - xmin) * (ymax - ymin);
+		}
+	};
+
+
+	struct box_info_internal
+	{
+		int x1;
+		int y1;
+		int x2;
+		int y2;
+		float category;
+		float confidence;
+		exposing::param_vector<std::int32_t> phonelocal_list;
+		exposing::param_vector<float> phonescore_list;
+
+		void set(ObjBox& obj) {
+			x1 = obj.xmin;
+			y1 = obj.ymin;
+			x2 = obj.xmax;
+			y2 = obj.ymax;
+			confidence = obj.score;
 		}
 	};
 
