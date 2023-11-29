@@ -120,7 +120,6 @@ namespace glasssix::selene
 
 			CHECK_EQ(1, network_result.size());
 			auto node = *network_result.begin();
-			CHECK_EQ(256, node.second->count());
 			auto iter_conv5 = node.second->cpu_data();
 
 			for (std::size_t i = 0; i < count; i++)
