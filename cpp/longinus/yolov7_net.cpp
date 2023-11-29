@@ -336,7 +336,7 @@ namespace glasssix::longinus
         float ratio = 0;
         std::tie(blob, ratio) = preprocess_detection(cache_temp, cv::Size(img_size, img_size));
 
-        auto  network_result = yolov7_->forward(blob.data, { 1, blob.rows, blob.cols,blob.channels() }, RKNN_TENSOR_NHWC);
+        auto  network_result = yolov7_->forward(blob.data, { 1, blob.rows, blob.cols, blob.cols,blob.channels() }, RKNN_TENSOR_NHWC);
 
         std::vector<std::shared_ptr<memory::tensor<float>>> model_result;
         model_result.push_back(network_result["481"]);
