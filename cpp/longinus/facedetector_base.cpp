@@ -58,9 +58,7 @@ namespace glasssix::longinus
         {
             throw exposing::abi_invalid_argument("rv1106 supplement weight dat not find");
         }
-        while (fin.read((char*)matmul_weight_.data(), 208 * 14 * sizeof(float)))
-        {
-        }
+        fin.read((char*)matmul_weight_.data(), 208 * 14 * sizeof(float));
         fin.close();
 #endif
 #endif
