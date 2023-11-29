@@ -447,7 +447,7 @@ namespace glasssix::longinus
         if (cache_temp->height() != hs && cache_temp->width() != ws)
             excalibur::make_border(cache_forward, cache_forward, 0, hs - int(height / scale), 0, ws - int(width / scale), excalibur::border_type::border_constant, std::uint8_t(114));
 
-        //gbr2rgb
+        //bgr2rgb
         auto cache_bgr = cache_forward->clone();
         auto cache_bgr_data = cache_bgr.cpu_data();
         std::copy(cache_bgr_data, cache_bgr_data + ws * hs, cache_forward->mutable_cpu_data() + 2 * ws * hs);
