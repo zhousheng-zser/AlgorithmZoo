@@ -89,22 +89,31 @@ namespace glasssix::longinus
             return static_cast<float>(1.f / (1.f + exp(-x)));
         }
 
-        static inline std::vector<std::vector<float>> concat(std::vector<float*>& outs, float conf_thres)
+        static inline float de_sigmoid(float x)
         {
+            if (x >= 1)
+                x = 0.999999f;
+            else if (x <= 0)
+                x = 1e-6;
 
-            int img_size = 320;
-            int category = 6;
+            return static_cast<float> (log(x / (1 - x)));
+        }
+
+
+        static inline std::vector<std::vector<float>> concat(std::vector<std::vector<float>>& outs, float conf_thres, int width, int height)
+        {
+            conf_thres = de_sigmoid(conf_thres);
+            constexpr int category = 6;
             const float anchors[3][6] = { {4,5, 6,8, 10,12}, {15,19, 23,30, 39,52}, {72,97, 123,164, 209,297} };
             const float stride[3] = { 8.0, 16.0, 32.0 };//80 40 20 ->   30 15 60
             std::vector<std::vector<float>> result;
             for (int n = 0; n < 3; n++)
             {
-                int num_grid_x = (int)(img_size / stride[n]);
-                int num_grid_y = (int)(img_size / stride[n]);
+                int num_grid_x = (int)(width / stride[n]);
+                int num_grid_y = (int)(height / stride[n]);
 
-                int ind = 0;
-                float* ptr_out = outs[n];
-                for (int q = 0; q < 3; q++)
+                float* ptr_out = outs[n].data();
+                for (int ind = 0, q = 0; q < 3; q++)
                 {
                     const float anchor_w = anchors[n][q * 2];
                     const float anchor_h = anchors[n][q * 2 + 1];
@@ -113,16 +122,18 @@ namespace glasssix::longinus
                         for (int j = 0; j < num_grid_y; j++)
                         {
                             float* pdata = ptr_out + ind * category;
-                            float box_score = sigmoid_x(pdata[4]);
 
-                            float cx = (sigmoid_x(pdata[0]) * 2.f - 0.5f + j) * stride[n];  //cx
-                            float cy = (sigmoid_x(pdata[1]) * 2.f - 0.5f + i) * stride[n];  //cy
-                            float w = powf(sigmoid_x(pdata[2]) * 2.f, 2.f) * anchor_w;      //w
-                            float h = powf(sigmoid_x(pdata[3]) * 2.f, 2.f) * anchor_h;      //h
+                            //float box_score = sigmoid_x(pdata[4]);
+                            if (pdata[4] > conf_thres)
+                            {
+                                float cx = (sigmoid_x(pdata[0]) * 2.f - 0.5f + j) * stride[n];  //cx
+                                float cy = (sigmoid_x(pdata[1]) * 2.f - 0.5f + i) * stride[n];  //cy
+                                float w = powf(sigmoid_x(pdata[2]) * 2.f, 2.f) * anchor_w;      //w
+                                float h = powf(sigmoid_x(pdata[3]) * 2.f, 2.f) * anchor_h;      //h
 
-                            std::vector<float> element = { cx, cy, w, h, box_score, sigmoid_x(pdata[5]) };
-                            result.push_back(element);
-
+                                std::vector<float> element = { cx, cy, w, h, sigmoid_x(pdata[4]), sigmoid_x(pdata[5]) };
+                                result.push_back(element);
+                            }
                             ind++;
                         }
                     }
@@ -199,7 +210,7 @@ namespace glasssix::longinus
             return  resluts;
         }
 
-        static inline std::vector<Bbox> computeNmsInput(std::vector<boxes_conf>& src, int max_wh, float ratio, int pad_h, int pad_w)
+        static inline std::vector<Bbox> computeNmsInput(std::vector<boxes_conf>& src, float ratio, int pad_h, int pad_w)
         {
             std::vector<Bbox> boxes;
             std::vector<float> scores;
@@ -237,12 +248,11 @@ namespace glasssix::longinus
             auto compute_box = xywh2xyxy(prediction, conf_thres);
 
             // Batched NMS
-            int max_wh = 4096;
             std::vector<Bbox> boxes;
             std::vector<float> scores;
             std::vector<int> classes;
 
-            boxes = computeNmsInput(compute_box, max_wh, ratio, pad_h, pad_w);//此处做分类处理，因为有四类 而非以前的单类
+            boxes = computeNmsInput(compute_box, ratio, pad_h, pad_w);//此处做分类处理，因为有四类 而非以前的单类
 
             // std::cout<<"ori_size:"<<boxes.size()<<std::endl;
             std::vector<Bbox> class_work;
@@ -297,6 +307,7 @@ namespace glasssix::longinus
     {
     }
 
+#if defined(USE_RKNNAPI) || defined(USE_RKNN2API)
     exposing::param_vector<longinus::face_info> yolov7_net::detect(exposing::param_span<std::uint8_t> bitmap, int channels, int height, int width, int min_size, float threshold, int order, bool do_attributing)
     {
         int img_size = 320;
@@ -317,10 +328,6 @@ namespace glasssix::longinus
         CHECK_EQ(channels, 3);
         CHECK_EQ(bitmap.size(), channels * height * width);
 
-#if !defined(USE_RKNNAPI) || !defined(USE_RKNNAPI2)
-        std::shared_ptr<memory::tensor<std::uint8_t>> cache_temp;
-        init_cache(bitmap, channels, height, width, order, cache_temp);
-#endif
         cv::Mat cache_temp_mat(height, width, CV_8UC3, bitmap.data());
 
         cv::Mat blob;
@@ -334,37 +341,28 @@ namespace glasssix::longinus
         std::vector<std::string>  temp_out_names = { "481","495","509" };
         std::vector<std::shared_ptr<memory::tensor<float>>> model_result;
 
-#if defined(USE_RKNNAPI) || defined(USE_RKNN2API)
         auto  network_result = yolov7_->forward(blob.data, { 1, blob.rows, blob.cols,blob.channels() }, RKNN_TENSOR_NHWC);
-#else
-        auto input_tensor_u8 = std::make_shared<memory::tensor<std::uint8_t>>(blob.channels(), blob.rows, blob.cols, -1, memory::NHWC);
-        std::copy(blob.data, blob.data + blob.channels() * blob.rows * blob.cols, input_tensor_u8->mutable_cpu_data());
-        auto  network_result = yolov7_->forward(input_tensor_u8 | memory::tensor_convert_to<float>);
-#endif
 
         for (size_t i = 0; i < temp_out_names.size(); i++)
         {
             model_result.push_back(network_result[temp_out_names[i]]);
         }
 
-        std::shared_ptr<glasssix::memory::tensor<float>> tensor_stride8(new memory::tensor<float>(std::vector<int>{3, img_size / 8, img_size / 8, 6}, -1, memory::NCHW));
-        std::shared_ptr<glasssix::memory::tensor<float>> tensor_stride16(new memory::tensor<float>(std::vector<int>{3, img_size / 16, img_size / 16, 6}, -1, memory::NCHW));
-        std::shared_ptr<glasssix::memory::tensor<float>> tensor_stride32(new memory::tensor<float>(std::vector<int>{3, img_size / 32, img_size / 32, 6}, -1, memory::NCHW));
+        model_result.push_back(network_result["481"]);
+        model_result.push_back(network_result["495"]);
+        model_result.push_back(network_result["509"]);
 
-        std::vector<std::string>  real_out_names = { "output","508","522" };
-        std::vector<float*> transpose_result;
-        transpose_result.push_back(tensor_stride8->mutable_cpu_data());
-        transpose_result.push_back(tensor_stride16->mutable_cpu_data());
-        transpose_result.push_back(tensor_stride32->mutable_cpu_data());
-        for (size_t i = 0; i < real_out_names.size(); i++)//get output for concat operation
-        {
-            transpose(model_result[i]->cpu_data(), transpose_result[i], model_result[i]->count());
-        }
+        std::vector<std::vector<float>> transpose_result;
+        transpose_result.emplace_back(3 * img_size / 8 * img_size / 8 * 6, 0.f);
+        transpose_result.emplace_back(3 * img_size / 16 * img_size / 16 * 6, 0.f);
+        transpose_result.emplace_back(3 * img_size / 32 * img_size / 32 * 6, 0.f);
+        for (size_t i = 0; i < transpose_result.size(); i++)
+            transpose(model_result[i]->cpu_data(), transpose_result[i].data(), transpose_result[i].size());
 
         float conf_threshold = threshold;
         float iou_threshold = 0.45f;
 
-        auto result = concat(transpose_result, conf_threshold);
+        auto result = concat(transpose_result, conf_threshold, img_size, img_size);
 
         auto nms_result = non_max_suppression(result, conf_threshold, iou_threshold, 1 / ratio, pad_h, pad_w);
 
@@ -396,17 +394,10 @@ namespace glasssix::longinus
                 face.is_alive = false;
                 face.has_mask = std::numeric_limits<float>::min();
 
-#if defined(USE_RKNNAPI) || defined(USE_RKNNAPI2)
                 cv::Rect rect(face.rect.x, face.rect.y, face.rect.w, face.rect.h);
                 cv::Mat faceROI_in_frame_mat;
                 mat_safty_cut(cache_temp_mat, faceROI_in_frame_mat, rect);
                 tracking_landmark(faceROI_in_frame_mat, face, rect.x, rect.y);
-#else
-                excalibur::rectangle<float> rect(face.rect.x, face.rect.y, face.rect.h, face.rect.w);
-                std::shared_ptr<memory::tensor<std::uint8_t>> faceROI_in_frame;
-                excalibur::safty_cut_cpu(cache_temp, faceROI_in_frame, &rect);
-                tracking_landmark(faceROI_in_frame, face, rect.x, rect.y);
-#endif
                 //float score = face.score;
                 //face.score = score;
                 refine(face, height, width, true);
@@ -427,13 +418,8 @@ namespace glasssix::longinus
 
         if (temp_vec.size() > 0)
         {
-#if defined(USE_RKNNAPI) || defined(USE_RKNNAPI2)
             cache0_ = cache1_;
             cache1_ = cache_temp_mat.clone();
-#else
-            cache0_.swap(cache1_);
-            cache1_.swap(cache_temp);
-#endif
         }
 
         auto faces = exposing::make_param_vector<longinus::face_info>();
@@ -442,6 +428,118 @@ namespace glasssix::longinus
 
         return faces;
     }
+#else
+    exposing::param_vector<longinus::face_info> yolov7_net::detect(exposing::param_span<std::uint8_t> bitmap, int channels, int height, int width, int min_size, float threshold, int order, bool do_attributing)
+    {
+        if (bitmap.empty())
+        {
+            throw exposing::abi_invalid_argument("current frame is empty");
+        }
+
+        CHECK_EQ(channels, 3);
+        CHECK_EQ(bitmap.size(), channels * height * width);
+
+        std::shared_ptr<memory::tensor<std::uint8_t>> cache_temp;
+        init_cache(bitmap, channels, height, width, order, cache_temp);
+
+        if (min_size < 8)
+            min_size = 8;
+
+        float scale = min_size / 8.0f;
+        int ws = (int(width / scale) + 31) / 32 * 32;
+        int hs = (int(height / scale) + 31) / 32 * 32;
+
+        std::shared_ptr<memory::tensor<std::uint8_t>> cache_forward = cache_temp;
+        if(min_size != 8)
+            excalibur::resize_cpu(cache_temp, cache_forward, int(height / scale), int(width / scale));
+
+        if (cache_temp->height() != hs && cache_temp->width() != ws)
+            excalibur::make_border(cache_forward, cache_forward, 0, hs - int(height / scale), 0, ws - int(width / scale), excalibur::border_type::border_constant, std::uint8_t(114));
+
+        std::vector<std::shared_ptr<memory::tensor<float>>> model_result;
+        auto network_result = yolov7_->forward(cache_forward | memory::tensor_convert_to<float>);
+
+        model_result.push_back(network_result["481"]);
+        model_result.push_back(network_result["495"]);
+        model_result.push_back(network_result["509"]);
+
+        std::vector<std::vector<float>> transpose_result;
+        transpose_result.emplace_back(3 * ws / 8 * hs / 8 * 6, 0.f);
+        transpose_result.emplace_back(3 * ws / 16 * hs / 16 * 6, 0.f);
+        transpose_result.emplace_back(3 * ws / 32 * hs / 32 * 6, 0.f);
+        for (size_t i = 0; i < transpose_result.size(); i++)
+            transpose(model_result[i]->cpu_data(), transpose_result[i].data(), transpose_result[i].size());
+
+        float conf_threshold = threshold;
+        float iou_threshold = 0.45f;
+
+        auto result = concat(transpose_result, conf_threshold, ws, hs);
+
+        auto nms_result = non_max_suppression(result, conf_threshold, iou_threshold, scale, 0, 0);
+
+        std::vector<face_info_internal> face_infos;
+
+        for (auto it : nms_result)
+        {
+            face_info_internal temp_face_info;
+            temp_face_info.rect.x = it.x1;
+            temp_face_info.rect.y = it.y1;
+            temp_face_info.rect.w = it.x2 - it.x1;
+            temp_face_info.rect.h = it.y2 - it.y1;
+            temp_face_info.score = it.confidence;
+            face_infos.push_back(temp_face_info);
+        }
+
+        std::vector<face_info_internal> temp_vec;
+        for (auto& face : face_infos)
+        {
+            refine(face, height, width, true);
+
+            if (do_attributing)
+            {
+                if (face.rect.h * face.rect.w <= 0)
+                    throw exposing::abi_invalid_argument("face.rect.h * face.rect.w <= 0");
+
+                face.headpose[0] = face.headpose[1] = face.headpose[2] = std::numeric_limits<float>::min();
+                face.clarity = std::numeric_limits<float>::min();
+                face.is_alive = false;
+                face.has_mask = std::numeric_limits<float>::min();
+
+                excalibur::rectangle<float> rect(face.rect.x, face.rect.y, face.rect.h, face.rect.w);
+                std::shared_ptr<memory::tensor<std::uint8_t>> faceROI_in_frame;
+                excalibur::safty_cut_cpu(cache_temp, faceROI_in_frame, &rect);
+                tracking_landmark(faceROI_in_frame, face, rect.x, rect.y);
+                //float score = face.score;
+                //face.score = score;
+                refine(face, height, width, true);
+            }
+
+            excalibur::point<float> center_eye = excalibur::point<float>((face.pts.x[0] + face.pts.x[1]) / 2, (face.pts.y[0] + face.pts.y[1] / 2));
+            excalibur::point<float> center_mouth = excalibur::point<float>((face.pts.x[3] + face.pts.x[4]) / 2, (face.pts.y[3] + face.pts.y[4]) / 2);
+            double distance = std::sqrt((center_eye.x - center_mouth.x) * (center_eye.x - center_mouth.x) + (center_eye.y - center_mouth.y) * (center_eye.y - center_mouth.y));
+
+            if (face.score > threshold && distance > std::numeric_limits<double>::epsilon())
+            {
+                temp_vec.push_back(face);
+            }
+        }
+
+        std::sort(temp_vec.begin(), temp_vec.end(), [](const face_info_internal& a, const face_info_internal& b)
+            { return a.rect.h * a.rect.w > b.rect.h * b.rect.w; });
+
+        if (temp_vec.size() > 0)
+        {
+            cache0_.swap(cache1_);
+            cache1_.swap(cache_temp);
+        }
+
+        auto faces = exposing::make_param_vector<longinus::face_info>();
+        for (auto& i : temp_vec)
+            faces.push_back(exposing::make_as_first<face_info_impl>(i));
+
+        return faces;
+    }
+#endif
 
     std::string yolov7_net::version() const
     {

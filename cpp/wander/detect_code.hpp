@@ -8,6 +8,8 @@ namespace glasssix::wander
     struct detect_code;
 }
 
+
+
 namespace glasssix::exposing::impl
 {
     template <>
@@ -38,6 +40,8 @@ namespace glasssix::exposing::impl
             virtual std::int32_t G6_ABI_CALL version(abi_out_t<param_string> result) noexcept = 0;
 
             virtual std::int32_t G6_ABI_CALL remove_library(  std::int32_t id, abi_out_t<param_string> result ) noexcept = 0;
+
+            virtual std::int32_t G6_ABI_CALL remove_person_by_index( std::int32_t device_id, std::int32_t id, abi_out_t<param_string> result ) noexcept = 0;
         };
     };
 
@@ -82,12 +86,22 @@ namespace glasssix::exposing::impl
         }
 
 
-         virtual std::int32_t G6_ABI_CALL remove_library(std::int32_t id, abi_out_t<param_string> result) noexcept override
+        virtual std::int32_t G6_ABI_CALL remove_library(std::int32_t id, abi_out_t<param_string> result) noexcept override
         {
             return abi_safe_call(
                 [&]
                 {
                     *result = detach_abi(this->self().remove_library(id));
+                }
+                );
+        }
+
+        virtual std::int32_t G6_ABI_CALL remove_person_by_index(std::int32_t device_id,std::int32_t id, abi_out_t<param_string> result) noexcept override
+        {
+            return abi_safe_call(
+                [&]
+                {
+                    *result = detach_abi(this->self().remove_person_by_index(device_id,id));
                 }
                 );
         }
@@ -151,6 +165,13 @@ namespace glasssix::exposing::impl
                 param_string result{ nullptr };
 
                 return (check_abi_result(this->self_abi().remove_library(id, put_abi(result))), result);
+            }
+
+            param_string remove_person_by_index(std::int32_t device_id,std::int32_t id) const
+            {
+                param_string result{ nullptr };
+
+                return (check_abi_result(this->self_abi().remove_person_by_index(device_id, id, put_abi(result))), result);
             }
 
         };

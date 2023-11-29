@@ -10,9 +10,37 @@
 #include <abi/param_span.hpp>
 
 #include "box_info.hpp"
-
+#include "../pedestrian/box_info.hpp"
+#include <opencv2/opencv.hpp>
 namespace glasssix::wander
 {
+    struct PostureInfo
+    {
+        PostureInfo(pedestrian::box_info& b_info) {
+            x1 = b_info.x1();
+            x2 = b_info.x2();
+            y1 = b_info.y1();
+            y2 = b_info.y2();
+            score = b_info.score();
+            category = b_info.category();
+
+        }
+
+        cv::Rect get_rect() {
+            return cv::Rect{
+                cv::Point(std::round(x1), std::round(y1)),
+                cv::Point(std::round(x2), std::round(y2)) };
+        }
+
+		std::int32_t x1;
+		std::int32_t y1;
+		std::int32_t x2;
+		std::int32_t y2;
+		float score;
+		int category;
+    };
+
+
     struct box_info_internal
     {
         int x1;
@@ -47,6 +75,8 @@ namespace glasssix::wander
         std::string version();
 
         std::string remove_library(int id);
+
+        std::string remove_person_by_index(int device_id,int id);
    
         exposing::param_vector<wander::box_info> detect(exposing::param_span<std::uint8_t> bitmap, int channels, int height, int width, int roi_x, int roi_y, int roi_width, int roi_height, std::map<std::string, double>& param_map) const;
         //成员函数
