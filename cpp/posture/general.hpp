@@ -87,8 +87,6 @@
             std::vector<float> reshape_box(candidate_num*64);
             tranpose(cat.data(),reshape_box.data(),64,candidate_num );
             candidate_num = match_index.size();
-
-               std::cout<<"2\n";
             candicate_num = candidate_num;
             std::vector<float> reshape_boxtmp(candidate_num*64);
             std::shared_ptr<glasssix::memory::tensor<float>> output0
@@ -105,7 +103,6 @@
                     index++ ;
                 }
 
-               std::cout<<"3\n";
             //reshape and tranpose  64*8400 ->8400*64
             std::vector<float> reshape_box2(16*4*candidate_num);
                 for(int i=0; i<candidate_num; i++)
@@ -206,7 +203,6 @@
                         for(int k=0; k<16; k++)
                             reshape_box2[k*4*candidate_num +j*candidate_num +i ] = reshape_boxtmp[i*16*4 + j*16+k ];
 
-            //16个通道 1*1卷积
             std::vector<float> conv(4*candidate_num,0);
             for(int i=0;i<16;i++)
                 for(int j=0;j<4*candidate_num;j++)
@@ -219,7 +215,7 @@
                 if(i>=candidate_num  )              
                     index = match_index[i - candidate_num ]+totol_size;
                 concat[i]                 = (conv[i+candidate_num*2] - conv[i] )/2.f + posture_add_weight_1280single[ index] + 0.5;     
-                concat[i+candidate_num*2] = (conv[i+candidate_num*2] + conv[i] );      // add_data[i]-sub_data[i]) ;  
+                concat[i+candidate_num*2] = (conv[i+candidate_num*2] + conv[i] );    
             }
             //process the candidate keypoint begin  
             std::vector<float> PostureXy_Conf(key_point_num*3*candidate_num);
