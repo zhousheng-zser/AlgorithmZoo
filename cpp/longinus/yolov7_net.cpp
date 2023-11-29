@@ -40,25 +40,22 @@ namespace glasssix::longinus
             float confidence;
         };
 
-        static inline std::tuple<cv::Mat, float> preprocess_detection(cv::Mat& src, int& pad_h, int& pad_w, cv::Size input_shape = cv::Size(640, 640))
+        static inline std::tuple<cv::Mat, float> preprocess_detection(cv::Mat& src, cv::Size input_shape = cv::Size(640, 640))
         {
             float scale = std::min((float)input_shape.width / (float)src.cols, (float)input_shape.height / (float)src.rows);
-            cv::Mat cut_image;
-            cv::Mat mask_image(input_shape, CV_8UC3, cv::Scalar(114, 114, 114));
+            cv::Mat dst;
             if (src.rows != input_shape.height || src.cols != input_shape.width)
             {
-                cv::resize(src, cut_image, cv::Size((int)(src.cols * scale), (int)(src.rows * scale)), cv::INTER_LINEAR);
+                cv::resize(src, dst, cv::Size((int)(src.cols * scale), (int)(src.rows * scale)));
 
-                pad_h = int((input_shape.height - cut_image.rows) / 2);
-                pad_w = int((input_shape.width - cut_image.cols) / 2);
-                cv::copyMakeBorder(cut_image, mask_image, pad_h, input_shape.height - cut_image.rows - pad_h, pad_w, input_shape.width - cut_image.cols - pad_w, cv::BORDER_CONSTANT, cv::Scalar{ 114,114,114 });
+                cv::copyMakeBorder(dst, dst, 0, input_shape.height - dst.rows, 0, input_shape.width - dst.cols, cv::BORDER_CONSTANT, cv::Scalar{ 114,114,114 });
             }
             else
             {
-                src.copyTo(mask_image);
+                dst = src;
             }
-            cv::cvtColor(mask_image, mask_image, cv::COLOR_BGR2RGB);
-            return { mask_image,scale };
+            cv::cvtColor(dst, dst, cv::COLOR_BGR2RGB);
+            return { dst, scale };
         }
 
         //transpose  1*18*h*w -> 1*3*h*w*6
@@ -80,8 +77,6 @@ namespace glasssix::longinus
                     }
                 }
             }
-
-            int l = 0;
         }
 
         static inline float sigmoid_x(float x)
@@ -117,9 +112,9 @@ namespace glasssix::longinus
                 {
                     const float anchor_w = anchors[n][q * 2];
                     const float anchor_h = anchors[n][q * 2 + 1];
-                    for (int i = 0; i < num_grid_x; i++)
+                    for (int i = 0; i < num_grid_y; i++)
                     {
-                        for (int j = 0; j < num_grid_y; j++)
+                        for (int j = 0; j < num_grid_x; j++)
                         {
                             float* pdata = ptr_out + ind * category;
 
@@ -311,10 +306,17 @@ namespace glasssix::longinus
     exposing::param_vector<longinus::face_info> yolov7_net::detect(exposing::param_span<std::uint8_t> bitmap, int channels, int height, int width, int min_size, float threshold, int order, bool do_attributing)
     {
         int img_size = 320;
-
-        if (model_type_ == 1)
+        switch (model_type_)
         {
+        case 0:
+            img_size = 320;
+            break;
+        case 1:
             img_size = 640;
+            break;
+        default:
+            throw exposing::abi_invalid_argument("Invalid model_type param!");
+            break;
         }
 
         if (bitmap.empty())
@@ -328,26 +330,15 @@ namespace glasssix::longinus
         CHECK_EQ(channels, 3);
         CHECK_EQ(bitmap.size(), channels * height * width);
 
-        cv::Mat cache_temp_mat(height, width, CV_8UC3, bitmap.data());
+        cv::Mat cache_temp(height, width, CV_8UC3, bitmap.data());
 
         cv::Mat blob;
-        int pad_h = 0;
-        int pad_w = 0;
         float ratio = 0;
-        auto new_shape = cv::Size(img_size, img_size);
-        std::tie(blob, ratio) = preprocess_detection(cache_temp_mat, pad_h, pad_w, new_shape);
-
-
-        std::vector<std::string>  temp_out_names = { "481","495","509" };
-        std::vector<std::shared_ptr<memory::tensor<float>>> model_result;
+        std::tie(blob, ratio) = preprocess_detection(cache_temp, cv::Size(img_size, img_size));
 
         auto  network_result = yolov7_->forward(blob.data, { 1, blob.rows, blob.cols,blob.channels() }, RKNN_TENSOR_NHWC);
 
-        for (size_t i = 0; i < temp_out_names.size(); i++)
-        {
-            model_result.push_back(network_result[temp_out_names[i]]);
-        }
-
+        std::vector<std::shared_ptr<memory::tensor<float>>> model_result;
         model_result.push_back(network_result["481"]);
         model_result.push_back(network_result["495"]);
         model_result.push_back(network_result["509"]);
@@ -364,7 +355,7 @@ namespace glasssix::longinus
 
         auto result = concat(transpose_result, conf_threshold, img_size, img_size);
 
-        auto nms_result = non_max_suppression(result, conf_threshold, iou_threshold, 1 / ratio, pad_h, pad_w);
+        auto nms_result = non_max_suppression(result, conf_threshold, iou_threshold, 1 / ratio, 0, 0);
 
         std::vector<face_info_internal> face_infos;
 
@@ -396,7 +387,7 @@ namespace glasssix::longinus
 
                 cv::Rect rect(face.rect.x, face.rect.y, face.rect.w, face.rect.h);
                 cv::Mat faceROI_in_frame_mat;
-                mat_safty_cut(cache_temp_mat, faceROI_in_frame_mat, rect);
+                mat_safty_cut(cache_temp, faceROI_in_frame_mat, rect);
                 tracking_landmark(faceROI_in_frame_mat, face, rect.x, rect.y);
                 //float score = face.score;
                 //face.score = score;
@@ -419,7 +410,7 @@ namespace glasssix::longinus
         if (temp_vec.size() > 0)
         {
             cache0_ = cache1_;
-            cache1_ = cache_temp_mat.clone();
+            cache1_ = cache_temp;
         }
 
         auto faces = exposing::make_param_vector<longinus::face_info>();
@@ -455,6 +446,12 @@ namespace glasssix::longinus
 
         if (cache_temp->height() != hs && cache_temp->width() != ws)
             excalibur::make_border(cache_forward, cache_forward, 0, hs - int(height / scale), 0, ws - int(width / scale), excalibur::border_type::border_constant, std::uint8_t(114));
+
+        //bgr2rgb
+        auto cache_bgr = cache_forward->clone();
+        auto cache_bgr_data = cache_bgr.cpu_data();
+        std::copy(cache_bgr_data, cache_bgr_data + ws * hs, cache_forward->mutable_cpu_data() + 2 * ws * hs);
+        std::copy(cache_bgr_data + 2 * ws * hs, cache_bgr_data + 3 * ws * hs, cache_forward->mutable_cpu_data());
 
         std::vector<std::shared_ptr<memory::tensor<float>>> model_result;
         auto network_result = yolov7_->forward(cache_forward | memory::tensor_convert_to<float>);

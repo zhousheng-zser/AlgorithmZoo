@@ -497,6 +497,20 @@ namespace glasssix::longinus
 #if defined(USE_RKNNAPI) || defined(USE_RKNN2API)
     exposing::param_vector<face_info> retina_net::detect(exposing::param_span<std::uint8_t> bitmap, int channels, int height, int width, int min_size, float threshold, int order, bool do_attributing)
     {
+        int fix_size = 320;
+        switch (model_type_)
+        {
+        case 0:
+            fix_size = 320;
+            break;
+        case 1:
+            fix_size = 640;
+            break;
+        default:
+            throw exposing::abi_invalid_argument("Invalid model_type param!");
+            break;
+        }
+
         if (bitmap.empty())
         {
             throw exposing::abi_invalid_argument("current frame is empty");
@@ -508,11 +522,7 @@ namespace glasssix::longinus
         CHECK_EQ(channels, 3);
         CHECK_EQ(bitmap.size(), channels * height * width);
 
-        //#if 0
         cv::Mat cache_temp(height, width, CV_8UC3, bitmap.data());
-        int fix_size = 320;
-        if (model_type_ == 1)
-            fix_size = 640;
 
         int max_edge = std::max(width, height);
         float scale = max_edge * 1.0f / fix_size;
@@ -668,7 +678,7 @@ namespace glasssix::longinus
         if (temp_vec.size() > 0)
         {
             cache0_ = cache1_;
-            cache1_ = cache_temp.clone();
+            cache1_ = cache_temp;
         }
 
         auto faces = exposing::make_param_vector<face_info>();
