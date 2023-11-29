@@ -72,37 +72,24 @@ namespace glasssix::smoke
             {
                 PostureInfo postureInfo{ pinfo };
 
+                // for(auto var : postureInfo.Kpoints)
+                // {
+                //     // cv::circle(image,  cv::Point(int( var.first.x ), int(var.first.y  ) ), 3, CV_RGB(125, 255, 0), 10);     
+                // }
                 Smoke_Point smoke_point(postureInfo.x1,postureInfo.y1,postureInfo.x2,postureInfo.y2,postureInfo.score,postureInfo.Kpoints );
-
-                float detect_x1 = 0.f;
-                float detect_x2 = 0.f;
-                float detect_y1 = 0.f;
-                float detect_y2 = 0.f;
-               
-                std::tie(detect_x1,detect_x2,detect_y1,detect_y2) = smoke_point.get_upper_body_area();
+                safe_crop_rect detect_rect = smoke_point.get_upper_body_area(image.cols,image.rows);
+                safe_crop_rect head_rect = smoke_point.get_head_area(image.cols,image.rows);
                 
-                        // cv::rectangle(image, cv::Point(detect_x1, detect_y1), cv::Point(detect_x2, detect_y2), cv::Scalar(0, 0, 255), 2);
+                // cv::rectangle(image, cv::Point(detect_rect.x1, detect_rect.y1), cv::Point(detect_rect.x2, detect_rect.y2), cv::Scalar(0, 0, 255), 2);
 
-                float head_x1 = 0.f;
-                float head_x2 = 0.f;
-                float head_y1 = 0.f;
-                float head_y2 = 0.f;
-                std::tie(head_x1,head_x2,head_y1,head_y2) = smoke_point.get_head_area();
-
-            
                 if(! smoke_point.is_detect())
                     continue;
 
-                // if(indexxx==0)
-                // {
-                //     cv::imwrite("../imagetetet.jpg",image);
-                // }
-
                 // cv::rectangle(image, cv::Point(head_x1, head_y1), cv::Point(head_x2, head_y2), cv::Scalar(255, 255, 0), 2);
 
-                cv::Mat cigarette_detect = image(cv::Range(detect_y1, detect_y2), cv::Range(detect_x1, detect_x2));
+                cv::Mat cigarette_detect = image(cv::Range(detect_rect.y1, detect_rect.y2), cv::Range(detect_rect.x1, detect_rect.x2));
                 auto smoke_detect_shape = cv::Size(640,  640);
-                
+
                 cv::Mat cigarette_detect_blob;
                 float smoke_ratio = 0;
                 int smoke_pad_h=0;  
@@ -119,19 +106,22 @@ namespace glasssix::smoke
                 int smoke_candicate_num=0;
                 auto smoke_output = Yovo8se_Concat_4B(smoke_forwards,0.45f,smoke_candicate_num,posture_add_weight,posture_mul_weight);//5*8400
                 auto nms_results = smoke_post_process(smoke_output, smoke_pad_h,smoke_pad_w, 1.f/smoke_ratio,smoke_candicate_num);
-                Cigrate_box b(head_x1,head_y1,head_x2,head_y2) ;
+                
+                Cigrate_box b(head_rect.x1,head_rect.y1,head_rect.x2,head_rect.y2) ;
 
                 for(auto& cigrate:nms_results)
                 {
-                    int cigratex1=std::round( cigrate[0] +detect_x1)>0?std::round( cigrate[0] +detect_x1):0  ;
-                    int cigratey1=std::round( cigrate[1] +detect_y1)>0?std::round( cigrate[1] +detect_y1):0  ;
-                    int cigratex2=std::round( cigrate[2] +detect_x1)<image.cols?std::round( cigrate[2] +detect_x1):image.cols ;
-                    int cigratey2=std::round( cigrate[3] +detect_y1)<image.rows?std::round( cigrate[3] +detect_y1):image.rows ;
+                    int cigratex1=std::round( cigrate[0] +detect_rect.x1)>0?std::round( cigrate[0] +detect_rect.x1):0  ;
+                    int cigratey1=std::round( cigrate[1] +detect_rect.y1)>0?std::round( cigrate[1] +detect_rect.y1):0  ;
+                    int cigratex2=std::round( cigrate[2] +detect_rect.x1)<image.cols?std::round( cigrate[2] +detect_rect.x1):image.cols ;
+                    int cigratey2=std::round( cigrate[3] +detect_rect.y1)<image.rows?std::round( cigrate[3] +detect_rect.y1):image.rows ;
 
                     // if(indexxx==0)
                     // { 
                         // cv::rectangle(image, cv::Point(cigratex1, cigratey1), cv::Point(cigratex2, cigratey2), cv::Scalar(0, 255, 0), 2);
                     // }
+
+                    //  cv::imwrite("../smoke.jpg",image);
                     Cigrate_box a(cigratex1,cigratey1,cigratex2,cigratey2);
                     float iou = IOU_compute(a, b);
                     if(iou>0.f)
@@ -158,7 +148,7 @@ namespace glasssix::smoke
                     }
                 }
                 indexxx++;
-                cv::imwrite("../smoke.jpg",image);
+                // cv::imwrite("../smoke.jpg",image);
             }
 
 
@@ -191,97 +181,12 @@ namespace glasssix::smoke
          * @return nms_bbox
          */
       
-        /**
-         * @fun reset
-         * @param x, size
-         * @return reset(x) into cv::Size
-        */
-        int reset(float x, int size)
-        {
-            if(x < 0)
-                return 0;
-            else if (x > size)
-                return x;
-            else 
-                return static_cast<int>(x);
-        }
 
         /**
          * @fun run_detect
          * @param image, param_map
          * @return bbox
          */
-        std::vector<std::array<float,5>> run_detect(cv::Mat& image, std::map<std::string, float>& param_map)
-        {
-            
-            // float conf_threshold= param_map.count("conf_thres") ? param_map["conf_thres"] : 0.75f;
-            // float iou_threshold = param_map.count("nms_thres") ? param_map["nms_thres"] : 0.45f;      
-
-            // // preprocess
-            // auto input_shape = cv::Size(640,  640);
-
-            // auto output_shape = cv::Size(image.cols, image.rows);
-            
-            // cv::Mat blobs;
-            // float ratio = 0;
-            // std::tie (blobs, ratio) = letterbox(image, 640);
-
-            // cv::cvtColor(blobs, blobs, cv::COLOR_BGR2RGB);
-
-            // std::vector<std::shared_ptr<glasssix::memory::tensor<float>>> forwards;
-            // std::vector<std::string>  phais;
-
-            // auto  network_results = cigarette_detect_instance_.forward(blobs.data, { 1, blobs.rows, blobs.cols,blobs.channels() }, RKNN_TENSOR_NHWC);
-
-            // forwards.push_back(network_results["output0"]);
-            // forwards.push_back(network_results["340"]);
-            // forwards.push_back(network_results["355"]);
-
-            // auto concat_output = concat(forwards, conf_threshold);
-
-            // if(concat_output.empty())
-            // {
-                return  std::vector<std::array<float,5>>();
-            // } 
-            // else
-            // {
-            //     // post_process
-            //     auto nms_result = post_process(concat_output, conf_threshold, iou_threshold);
-
-            //     // scale_coords
-            //     std::vector<std::array<float, 5>> detect_result;
-
-            //     // for(auto &it: nms_result)
-            //     // {
-            //     //     std::array<float, 5> box_info;
-
-            //     //     auto scale_coords = scale_coord(it, input_shape, output_shape);
-
-            //     //     box_info[0] = reset(scale_coords[0], image.cols); 
-            //     //     box_info[1] = reset(scale_coords[1], image.rows); 
-            //     //     box_info[2] = reset(scale_coords[2], image.cols);
-            //     //     box_info[3] = reset(scale_coords[3], image.rows);
-            //     //     box_info[4] = scale_coords[4];
-
-            //     //     detect_result.push_back(box_info);
-            //     // }
-                
-            //     return detect_result;
-            // }
-        }
-        
-        /**
-         * @fun is_rect_cross
-         * @param box1_x1, box1_y1, box1_x2, box1_y2, box2_x1, box2_y1, box2_x2, box2_y2, 
-         * 
-         */
-        bool is_rect_cross(int box1_x1, int box1_y1, int box1_x2, int box1_y2, int box2_x1, int box2_y1, int box2_x2, int box2_y2) {
-            // 判断矩形是否相交
-            if (std::max(box1_x1, box2_x1) > std::min(box1_x2, box2_x2) || std::max(box1_y1, box2_y1) > std::min(box1_y2, box2_y2))
-                return false;
-            else
-                return true;
-        }
 
 
         void init_data()

@@ -6,10 +6,7 @@
 using namespace glasssix;
 
     
-    void check_border(int x1,int x2,int y1,int y2,int width,int height)
-    {
-
-    }
+  
 
     void tranpose(const float* sou,
                         float* dest,int sourows,int soucols)
@@ -72,6 +69,27 @@ using namespace glasssix;
 		float score;
 		int category;
         std::vector<std::pair<cv::Point, float>> Kpoints;
+    };
+
+    struct safe_crop_rect 
+    {
+        int x1;
+        int x2;
+        int y1;
+        int y2;
+        safe_crop_rect(int x11,int x22,int y11,int y22,int width,int height)
+        {
+            x1 = x11>0 ? x11:0;
+            x2 = x22>0 ? x22:0;
+            y1 = y11>0 ? y11:0;
+            y2 = y22>0 ? y22:0;
+
+            x1 = x1 <width? x1 : width;
+            x2 = x2 <width? x2 : width;
+            y1 = y1 <height? y1 : height;
+            y2 = y2 <height? y2 : height;
+        }
+
     };
 
     struct Cigrate_box
@@ -139,42 +157,6 @@ using namespace glasssix;
 
         }
 
-        Smoke_Point(std::vector<float>& point_set)
-        {
-            x1 = std::round(point_set[0]);
-            y1 = std::round(point_set[1]);
-            x2 = std::round(point_set[2]);
-            y2 = std::round(point_set[3]);
-            score = point_set[4];
-            int key_point_size = (point_set.size()-5)/3;
-
-
-            for (size_t i = 0; i < 5; i++) 
-            {
-                std::pair<cv::Point, float> key_p;
-                key_p.first.x = std::round(point_set[5 + i * 3]);
-                key_p.first.y = std::round(point_set[5 + i * 3 + 1]);
-                key_p.second = point_set[5 + i * 3 + 2];
-                nose_eye_ear.push_back(key_p);
-            }
-
-            std::pair<cv::Point, float> key_p;
-            key_p.first.x = point_set[0+5];
-            key_p.first.y = point_set[1+5];
-            key_p.second = point_set[2+5];
-            shoulder_elbow_wrist.push_back(key_p);
-
-
-            for (size_t i = 5; i < 9; i++) 
-            {
-                std::pair<cv::Point, float> key_p;
-                key_p.first.x =std::round(point_set[5 + i * 3]);
-                key_p.first.y = std::round(point_set[5 + i * 3 + 1]);
-                key_p.second = point_set[5 + i * 3 + 2];
-                shoulder_elbow_wrist.push_back(key_p);
-            }
-        }
-
         bool is_detect()
         {
             int count = 0;
@@ -212,7 +194,7 @@ using namespace glasssix;
             return  {x_min , x_max ,x_max-x_min};
         }
 
-        std::tuple<float,float,float,float>  get_head_area()
+        safe_crop_rect  get_head_area(int widths,int heights)
         {
             float head_x1;
             float head_x2;
@@ -226,20 +208,24 @@ using namespace glasssix;
             head_x2 = nose_eye_ear[0].first.x + width/3.5;
             head_y1 = head_y2 ;
             head_y2 = head_y2 +   height*2.5;
-            return {head_x1,head_x2,head_y1,head_y2 };
+
+            safe_crop_rect rect(head_x1,head_x2,head_y1,head_y2,widths,heights );
+            return rect;
         }
 
-        std::tuple<float,float,float,float> get_upper_body_area()
+        safe_crop_rect get_upper_body_area(int width,int height)
         {
             float upper_body_x1;
             float upper_body_x2;
             float upper_body_y1;
             float upper_body_y2;
-            float height;
+            float heights;
             upper_body_x1 = x1;
             upper_body_x2 = x2;
-            std::tie(upper_body_y1, upper_body_y2, height) = get_height(shoulder_elbow_wrist);
-            return {upper_body_x1,upper_body_x2,upper_body_y1,upper_body_y2 };
+            std::tie(upper_body_y1, upper_body_y2, heights) = get_height(shoulder_elbow_wrist);
+            safe_crop_rect rect(upper_body_x1,upper_body_x2,upper_body_y1,upper_body_y2,width,height );
+
+            return rect;
         }   
 };
 
