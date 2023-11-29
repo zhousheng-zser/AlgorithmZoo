@@ -444,7 +444,7 @@ namespace glasssix::longinus
         if(min_size != 8)
             excalibur::resize_cpu(cache_temp, cache_forward, int(height / scale), int(width / scale));
 
-        if (cache_temp->height() != hs && cache_temp->width() != ws)
+        if (cache_temp->height() != hs || cache_temp->width() != ws)
             excalibur::make_border(cache_forward, cache_forward, 0, hs - int(height / scale), 0, ws - int(width / scale), excalibur::border_type::border_constant, std::uint8_t(114));
 
         //bgr2rgb
