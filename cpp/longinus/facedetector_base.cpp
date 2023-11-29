@@ -4,7 +4,6 @@
 #include "Excalibur/operation_make_border.hpp"
 #include "Excalibur/operation_safty_cut.hpp"
 #include "Excalibur/operation_resize.hpp"
-#include "Excalibur/operation_rgb2gray.hpp"
 #include "Excalibur/operation_rotate.hpp"
 #include "Primitives/tensor_conversions.hpp"
 #include "hardcode.hpp"

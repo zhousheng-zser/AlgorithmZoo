@@ -1,6 +1,6 @@
 ﻿#pragma once
-#ifndef RKNNWRAPPER_HPP
-#define RKNNWRAPPER_HPP
+#ifndef _RKNNWRAPPER_HPP_
+#define _RKNNWRAPPER_HPP_
 
 #include <exception>
 #include <unordered_map>
