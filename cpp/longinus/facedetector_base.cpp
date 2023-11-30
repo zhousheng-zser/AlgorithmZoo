@@ -374,27 +374,24 @@ namespace glasssix::longinus
         const float* glass_data = res["157"]->cpu_data();
         const float* mask_data = res["161"]->cpu_data();
 #if defined(USE_RKNN2API) && defined(BUILD_RV1106) 
-        std::vector<std::string> intermediate_out{ "185","199","212","114","118","122","126" };
-        std::vector<float> concat(208, 0.f);
-        float* concat_data = concat.data();
+        std::array<std::string, 7> intermediate_out{ "185","199","212","114","118","122","126" };
+        float concat_data[208] = { 0.f };
+        float* ptr = concat_data;
         for (size_t i = 0; i < intermediate_out.size(); i++)
         {
-            std::memcpy(concat_data, res[intermediate_out[i]]->cpu_data(), res[intermediate_out[i]]->count() * sizeof(float));
-            concat_data += res[intermediate_out[i]]->count();
+            std::memcpy(ptr, res[intermediate_out[i]]->cpu_data(), res[intermediate_out[i]]->count() * sizeof(float));
+            ptr += res[intermediate_out[i]]->count();
         }
 
-        auto result_215 = std::make_shared<glasssix::memory::tensor<float>>(14, 1, 1, -1, glasssix::memory::NCHW);
-
-        float* landmark_data = result_215->mutable_cpu_data();
-
+        float landmark_data[14] = { 0.f };
         excalibur::juliusblas::cblas_sgemv_AnoTrans(14, 208, 1.f, matmul_weight_.data(), 208, concat_data, 1, 0.f, landmark_data, 1);
         //for (size_t i = 0; i < 14; i++)
         //{   
-        //    landmark_data[i] = 0.f;
+        //    float lmrk = 0.f;
         //    for (size_t j = 0; j < 208; j++)
         //    {
-        //        landmark_data[i] += (matmul_weight_[i*208+j]*concat[j]);
-        //    }  
+        //        lmrk += (matmul_weight_[i*208+j]*concat_data[j]);
+        //    }
         //}
 #else
         const float* landmark_data = res["215"]->cpu_data();
