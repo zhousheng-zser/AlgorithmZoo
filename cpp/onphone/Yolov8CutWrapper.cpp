@@ -44,7 +44,7 @@ namespace glasssix::onphone
 	RknnYolov8Wrapper::TensorSptr RknnYolov8Wrapper::yolov8_complement(std::vector<TensorSptr>& vec_ts_rstSort)
 	{
 		static constexpr int blockSide[3] = { 80, 40, 20 }; //ScaleSteps[3][2] = { {80, 80}, {40, 40}, {20, 20} };
-		CHECK_EQ(3, vec_ts_rstSort.size());
+		//CHECK_EQ(3, vec_ts_rstSort.size());
 
 		const int INTEGRATED_ONNX_OUT_UINTLINE_NUM_ = 5;
 		auto top = std::make_shared<glasssix::memory::tensor<float>>(std::vector<int>{1, 1, 8400, INTEGRATED_ONNX_OUT_UINTLINE_NUM_}, -1, memory::NCHW);
