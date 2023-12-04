@@ -223,6 +223,14 @@ namespace glasssix::tumble
             }
         }
 
+        inline float de_sigmoid(float x)
+        {
+            if(x>=1 ||x<0)
+                return NAN;
+            return static_cast<float> (log( x/(1-x)));
+        }
+
+
         void tranpose(const float* sou,
                             float* dest,int sourows,int soucols)
         {
@@ -238,8 +246,12 @@ namespace glasssix::tumble
 
         std::shared_ptr<memory::tensor<float>> Yovo8se_Concat_Test2(std::vector<std::shared_ptr<memory::tensor<float>>>& outs,float conf,int& candicate_num)
         {
+            conf =de_sigmoid(conf);
             int candidate_num=33600;
             int class_num = 65;        
+            int stride_8=160;
+            int stride_16=80;
+            int stride_32=40;
             //20 40 80 
             const float *data160 = outs[2]->cpu_data();
             const float *data80 = outs[1]->cpu_data();
@@ -247,52 +259,32 @@ namespace glasssix::tumble
 
             std::vector<int> match_index;
 
-            const float* data160_conf = data160+160*160*65;
-            for (size_t i = 0; i < 160*160; i++)
-            {
-                if(sigmoid_x( data160_conf[i] )>conf  )
-                {
+            const float* data160_conf = data160+stride_8*stride_8*65;
+            for (size_t i = 0; i < stride_8*stride_8; i++)
+                if(data160_conf[i] >conf  )             
                     match_index.push_back(i);
-                }
-            }
-            const float* data80_conf = data80+80*80*65;
-            for (size_t i = 0; i < 80*80; i++)
-            {
-                if(sigmoid_x( data80_conf[i] )>conf )
-                {
-                    match_index.push_back(i+25600);
-                }
-            }
-            const float* data40_conf = data40+40*40*65;
-            for (size_t i = 0; i < 40*40; i++)
-            {
-                if(sigmoid_x( data40_conf[i] )>conf  )
-                {
-                    match_index.push_back(i+32000);
-                }
-            }
 
-            int stride_8=160;
-            int stride_16=80;
-            int stride_32=40;
+            const float* data80_conf = data80+stride_16*stride_16*65;
+            for (size_t i = 0; i < stride_16*stride_16; i++)
+                if( data80_conf[i] >conf )
+                    match_index.push_back(i+25600);
+
+            const float* data40_conf = data40+stride_32*stride_32*65;
+            for (size_t i = 0; i < stride_32*stride_32; i++)
+                if( data40_conf[i] >conf  )
+                    match_index.push_back(i+32000);
 
             //concat the 80*40 40*40 20*20 
             std::vector<float> cat(66*candidate_num);//1*65*8400 = 64*8400 + 1*8400
             for(int i=0;i<66;i++)
-            {   
+            {
                 int j=0;
                 for(; j<stride_8*stride_8; j++)
-                {
                     cat[ i*candidate_num + j] = data160[i*stride_8*stride_8 + j];
-                }
                 for(; j<stride_16*stride_16+stride_8*stride_8; j++)
-                {
-                    cat[ i*candidate_num + j] = data80[i*stride_16*stride_16 + j-25600];
-                }              
+                    cat[ i*candidate_num + j] = data80[i*stride_16*stride_16 + j-25600];     
                 for(; j<stride_32*stride_32+stride_16*stride_16+stride_8*stride_8; j++)
-                {
                     cat[ i*candidate_num + j] = data40[i*stride_32*stride_32 + j-32000 ];
-                }
             }
 
             //process the candidate xywh begin  
@@ -308,10 +300,8 @@ namespace glasssix::tumble
                 (new memory::tensor<float>(std::vector<int>{1, 5, candidate_num}, -1, memory::NCHW));
 
         
-            for (size_t i = 0; i < match_index.size(); i++)
-            {
+            for (size_t i = 0; i < match_index.size(); i++)         
                 std::copy(reshape_box.data()+match_index[i]*64,reshape_box.data()+match_index[i]*64+64,reshape_boxtmp.data()+i*64);
-            }
 
             int index = 0;
             for(int i=0; i<candidate_num; i++)
@@ -325,15 +315,10 @@ namespace glasssix::tumble
 
             std::vector<float> reshape_box2(16*4*candidate_num);
             for(int i=0; i<candidate_num; i++)
-            {
                 for(int j=0; j<4; j++)
-                {
                     for(int k=0; k<16; k++)
-                    {
                         reshape_box2[k*4*candidate_num +j*candidate_num +i ] = reshape_boxtmp[i*16*4 + j*16+k ];
-                    }
-                }
-            }
+
             //16个通道 1*1卷积
             std::vector<float> conv(4*candidate_num,0);
             
@@ -346,15 +331,12 @@ namespace glasssix::tumble
                 }
             }
 
-
             std::vector<float>  concat(candidate_num*4);
             for(int i=0;i<candidate_num*2;i++)
             {              
                 int index = match_index[i];
-                if(i>=candidate_num  )
-                {
+                if(i>=candidate_num  )          
                     index = match_index[i - candidate_num ]+33600;
-                }
                 concat[i]                 = (conv[i+candidate_num*2] - conv[i] )/2.f + posture_add_weight_1280[ index] + 0.5;     
                 concat[i+candidate_num*2] = (conv[i+candidate_num*2] + conv[i] );      // add_data[i]-sub_data[i]) ;  
             }
@@ -363,16 +345,10 @@ namespace glasssix::tumble
             float * output = output0->mutable_cpu_data();
             for(int i=0;i<candidate_num;i++)
             {
-                concat[candidate_num*0 +i] = concat[candidate_num*0 +i]*posture_mul_weight_1280[ match_index[i]];    
-                concat[candidate_num*1 +i] = concat[candidate_num*1 +i]*posture_mul_weight_1280[ match_index[i]];
-                concat[candidate_num*2 +i] = concat[candidate_num*2 +i]*posture_mul_weight_1280[ match_index[i]];
-                concat[candidate_num*3 +i] = concat[candidate_num*3 +i]*posture_mul_weight_1280[ match_index[i]];
-
-                output[candidate_num*0 +i]  = concat[candidate_num*0 +i];
-                output[candidate_num*1 +i]  = concat[candidate_num*1 +i];
-                output[candidate_num*2 +i]  = concat[candidate_num*2 +i];
-                output[candidate_num*3 +i]  = concat[candidate_num*3 +i];
-
+                output[candidate_num*0 +i] = concat[candidate_num*0 +i]*posture_mul_weight_1280[ match_index[i]];    
+                output[candidate_num*1 +i] = concat[candidate_num*1 +i]*posture_mul_weight_1280[ match_index[i]];
+                output[candidate_num*2 +i] = concat[candidate_num*2 +i]*posture_mul_weight_1280[ match_index[i]];
+                output[candidate_num*3 +i] = concat[candidate_num*3 +i]*posture_mul_weight_1280[ match_index[i]];
                 output[candidate_num*4 +i] =  sigmoid_x(cat[33600*65 +match_index[i]]);
             }          
             return  output0;

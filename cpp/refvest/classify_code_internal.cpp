@@ -33,9 +33,7 @@ namespace glasssix::refvest
         {
             static bool ready = glasssix::exposing::get_component_loader().add_module_by_name("posture");
             posture_instance_ = glasssix::exposing::make_exported_interface<posture::detect_code>(exposing::param_string(model_directory), device,1);
-            posture_param_abi = exposing::make_param_hash_map<exposing::param_string, float>();
-			posture_param_abi.add_or_update("conf_thres", 0.0f);
-			posture_param_abi.add_or_update("nms_thres", 0.30f);
+   
         }       
 
         exposing::param_vector<refvest::box_info> detect(const exposing::param_span<std::uint8_t>& bitmap, int channels, int height, int width, int roi_x, int roi_y, int roi_width, int roi_height, std::map<std::string, float>& param_map)
@@ -58,13 +56,18 @@ namespace glasssix::refvest
                   throw exposing::abi_invalid_argument("incorrect roi in refvest");
             }
 
+            posture_param_abi = exposing::make_param_hash_map<exposing::param_string, float>();
+			posture_param_abi.add_or_update("conf_thres", 0.65f);
+			posture_param_abi.add_or_update("nms_thres", 0.90f);
+
             auto empty_map_abi = exposing::make_param_hash_map<exposing::param_string, float>();
             exposing::param_vector<posture::box_info> posture_info_list = posture_instance_.detect(bitmap, channels, height, width, 0, 0, width, height, posture_param_abi);
-            
+                    // std::cout<<"persons_info size():  "<<posture_info_list.size()<<std::endl;
             std::vector<PostureInfo> persons_info;
 
-            for (auto pinfo : posture_info_list) {
-                    
+         
+            for (auto pinfo : posture_info_list) 
+            {    
                 PostureInfo postureInfo{ pinfo };
 
                 // get key 5 - key 13 min xy max xy

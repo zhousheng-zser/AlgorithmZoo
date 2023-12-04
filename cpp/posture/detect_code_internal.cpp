@@ -121,6 +121,7 @@ std::string version()
 
             std::vector<std::shared_ptr<memory::tensor<float>>> forwards640;
             std::vector<std::shared_ptr<memory::tensor<float>>> forwards1280;
+
             auto network_result = net_detect640_->forward(blob640.data, { 1, blob640.rows, blob640.cols,blob640.channels() }, RKNN_TENSOR_NHWC);
             auto network_result_1280_single = net_detect1280_single_branch_->forward(blob1280.data, { 1, blob1280.rows, blob1280.cols,blob1280.channels() }, RKNN_TENSOR_NHWC);
            
@@ -365,9 +366,7 @@ std::string version()
       
         std::vector<int> nms_process(std::vector<std::vector<float>>& nms_input, float threshold=0.0,float iou_thres=0.9 )
         {
-            
-
-            std::vector<cv::Rect2d> xywh_boxes(nms_input.size());;
+                        std::vector<cv::Rect2d> xywh_boxes(nms_input.size());;
             std::vector<float> scores(nms_input.size());
             std::vector<int> indices_body(nms_input.size());;//候选框顺序
 
