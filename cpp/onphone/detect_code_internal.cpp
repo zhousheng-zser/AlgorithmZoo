@@ -232,7 +232,7 @@ namespace glasssix::onphone
 				//dbg(area_ratio > 0.1);
 				//dbg(phone_head_relative_distance < phone_distance_thres);
 
-				if (iou_head_phone >= 0.025 && area_ratio > 0.1 && phone_head_relative_distance < phone_distance_thres) {
+				if (iou_head_phone >= 0.025 && area_ratio > 0.08 && phone_head_relative_distance < phone_distance_thres) {
 					phone_list_fliter_sort.push_back(phonebox);
 				}
 			}

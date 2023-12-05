@@ -2,7 +2,12 @@
 #ifndef _AUTOMATIC_OUTPUTS_MAP_HPP_
 #define _AUTOMATIC_OUTPUTS_MAP_HPP_
 #include "Excalibur/pipeline.hpp"
+#ifdef USE_RKNNAPI
+//#if 0
 #include "RKNNWrapper/rknn_wrapper.hpp"
+#elif defined(USE_RKNN2API)
+#include "RKNN2Wrapper/rknn2_wrapper.hpp"
+#endif
 #include "Primitives/tensor_conversions.hpp"
 #include <opencv2/opencv.hpp>
 #include <map>

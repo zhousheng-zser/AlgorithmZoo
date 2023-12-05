@@ -138,6 +138,7 @@ namespace glasssix::wander
             auto empty_map_abi = exposing::make_param_hash_map<exposing::param_string, float>();
             empty_map_abi.add_or_update("conf_thres", conf_threshold);
             empty_map_abi.add_or_update("nms_thres", iou_threshold);
+            empty_map_abi.add_or_update("wander", 1.f);
 
             exposing::param_vector<pedestrian::box_info> pedestrian_info_list = pedestrain_instance_.detect(bitmap, 3, height, width, roi_x, roi_y, roi_width, roi_height, empty_map_abi);
             std::vector<PostureInfo> pedestrain_info; 
