@@ -96,7 +96,7 @@ namespace glasssix::longinus
         if (order == memory::NHWC)
             cache->convert_order();
     }
-
+#if defined(USE_RKNNAPI) || defined(USE_RKNN2API)
     void facedetector_base::mat_safty_cut(cv::Mat& img, cv::Mat& dst, cv::Rect roi)
     {
         int width = roi.width;
@@ -130,6 +130,7 @@ namespace glasssix::longinus
         img(cv::Rect(_x, _y, _width, _height)).copyTo(mat(cv::Rect(_x - x, _y - y, _width, _height)));
         dst = mat;
     }
+#endif
 
 #if defined(USE_RKNNAPI) || defined(USE_RKNN2API)
     inline void matchTemplateCpu(const cv::Mat& img, const cv::Mat& templ, cv::Mat& result)
