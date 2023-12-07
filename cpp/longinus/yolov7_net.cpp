@@ -339,9 +339,15 @@ namespace glasssix::longinus
         auto  network_result = yolov7_->forward(blob.data, { 1, blob.rows, blob.cols, blob.channels() }, RKNN_TENSOR_NHWC);
 
         std::vector<std::shared_ptr<memory::tensor<float>>> model_result;
+#ifdef(USE_RKNNAPI)
         model_result.push_back(network_result["Conv_Conv_155/out0_2"]);
         model_result.push_back(network_result["Conv_Conv_158/out0_1"]);
         model_result.push_back(network_result["Conv_Conv_161/out0_0"]);
+#else
+        model_result.push_back(network_result["481"]);
+        model_result.push_back(network_result["495"]);
+        model_result.push_back(network_result["509"]);
+#endif
 
         std::vector<std::vector<float>> transpose_result;
         transpose_result.emplace_back(3 * img_size / 8 * img_size / 8 * 6, 0.f);
