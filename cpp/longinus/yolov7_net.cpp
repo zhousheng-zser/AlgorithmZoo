@@ -339,9 +339,9 @@ namespace glasssix::longinus
         auto  network_result = yolov7_->forward(blob.data, { 1, blob.rows, blob.cols, blob.channels() }, RKNN_TENSOR_NHWC);
 
         std::vector<std::shared_ptr<memory::tensor<float>>> model_result;
-        model_result.push_back(network_result["481"]);
-        model_result.push_back(network_result["495"]);
-        model_result.push_back(network_result["509"]);
+        model_result.push_back(network_result["Conv_Conv_155/out0_2"]);
+        model_result.push_back(network_result["Conv_Conv_158/out0_1"]);
+        model_result.push_back(network_result["Conv_Conv_161/out0_0"]);
 
         std::vector<std::vector<float>> transpose_result;
         transpose_result.emplace_back(3 * img_size / 8 * img_size / 8 * 6, 0.f);
@@ -351,7 +351,7 @@ namespace glasssix::longinus
             transpose(model_result[i]->cpu_data(), transpose_result[i].data(), transpose_result[i].size());
 
         float conf_threshold = threshold;
-        float iou_threshold = 0.45f;
+        float iou_threshold = 0.5f;
 
         auto result = concat(transpose_result, conf_threshold, img_size, img_size);
 
