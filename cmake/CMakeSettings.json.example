@@ -1,12 +1,12 @@
 ﻿{
   "configurations": [
     {
-      "name": "x64-Debug",
+      "name": "x64-Debug-face-sdk",
       "generator": "Ninja",
       "configurationType": "Debug",
       "inheritEnvironments": [ "msvc_x64_x64" ],
-      "buildRoot": "${projectDir}\\out\\build\\${name}",
-      "installRoot": "${projectDir}\\out\\install\\${name}",
+      "buildRoot": "${projectDir}\\build\\build_windows_x64\\build_face_sdk\\${configurationType}",
+      "installRoot": "${projectDir}\\install\\windows_x64\\face_sdk\\${configurationType}",
       "cmakeCommandArgs": "",
       "buildCommandArgs": "",
       "ctestCommandArgs": "",
@@ -18,7 +18,7 @@
         },
         {
           "name": "COMMON_LIBRARY_DIRS",
-          "value": "E:/Research/Source/Repos/Excalibur/cmake/out/build/x64-Debug/lib",
+          "value": "E:/Research/Source/Repos/Excalibur/cmake/build/build_windows_x64/${configurationType}/lib",
           "type": "STRING"
         },
         {
@@ -28,7 +28,7 @@
         },
         {
           "name": "BUILD_MATIERIAL_OCR_SDK",
-          "value": "True",
+          "value": "False",
           "type": "BOOL"
         },
         {
@@ -38,17 +38,17 @@
         },
         {
           "name": "BUILD_GENERAL_CV_SDK",
-          "value": "True",
+          "value": "False",
           "type": "BOOL"
         }
       ]
     },
     {
-      "name": "x64-Release",
+      "name": "x64-Release-face-sdk",
       "generator": "Ninja",
       "configurationType": "Release",
-      "buildRoot": "${projectDir}\\out\\build\\${name}",
-      "installRoot": "${projectDir}\\out\\install\\${name}",
+      "buildRoot": "${projectDir}\\build\\build_windows_x64\\build_face_sdk\\${configurationType}",
+      "installRoot": "${projectDir}\\install\\windows_x64\\face_sdk\\${configurationType}",
       "cmakeCommandArgs": "",
       "buildCommandArgs": "",
       "ctestCommandArgs": "",
@@ -61,7 +61,7 @@
         },
         {
           "name": "COMMON_LIBRARY_DIRS",
-          "value": "E:/Research/Source/Repos/Excalibur/cmake/out/build/x64-Release/lib",
+          "value": "E:/Research/Source/Repos/Excalibur/cmake/build/build_windows_x64/${configurationType}/lib",
           "type": "STRING"
         },
         {
@@ -71,7 +71,7 @@
         },
         {
           "name": "BUILD_MATIERIAL_OCR_SDK",
-          "value": "True",
+          "value": "False",
           "type": "BOOL"
         },
         {
@@ -81,17 +81,17 @@
         },
         {
           "name": "BUILD_GENERAL_CV_SDK",
-          "value": "True",
+          "value": "False",
           "type": "BOOL"
         }
       ]
     },
     {
-      "name": "x86-Release",
+      "name": "x86-Release-face-sdk",
       "generator": "Ninja",
       "configurationType": "Release",
-      "buildRoot": "${projectDir}\\out\\build\\${name}",
-      "installRoot": "${projectDir}\\out\\install\\${name}",
+      "buildRoot": "${projectDir}\\build\\build_windows_x86\\build_face_sdk\\${configurationType}",
+      "installRoot": "${projectDir}\\install\\windows_x86\\face_sdk\\${configurationType}",
       "cmakeCommandArgs": "",
       "buildCommandArgs": "",
       "ctestCommandArgs": "",
@@ -104,7 +104,93 @@
         },
         {
           "name": "COMMON_LIBRARY_DIRS",
-          "value": "E:/Research/Source/Repos/Excalibur/cmake/out/build/x86-Release/lib",
+          "value": "E:/Research/Source/Repos/Excalibur/cmake/build/build_windows_x86-cpu-only/${configurationType}/lib",
+          "type": "STRING"
+        },
+        {
+          "name": "BUILD_DEBUG_INFO",
+          "value": "False",
+          "type": "BOOL"
+        },
+        {
+          "name": "BUILD_MATIERIAL_OCR_SDK",
+          "value": "False",
+          "type": "BOOL"
+        },
+        {
+          "name": "BUILD_FACE_SDK",
+          "value": "True",
+          "type": "BOOL"
+        },
+        {
+          "name": "BUILD_GENERAL_CV_SDK",
+          "value": "False",
+          "type": "BOOL"
+        }
+      ]
+    },
+    {
+      "name": "x64-Release-general-cv-sdk",
+      "generator": "Ninja",
+      "configurationType": "Release",
+      "buildRoot": "${projectDir}\\build\\build_windows_x64\\build_general_cv_sdk\\${configurationType}",
+      "installRoot": "${projectDir}\\install\\windows_x64\\general_cv_sdk\\${configurationType}",
+      "cmakeCommandArgs": "",
+      "buildCommandArgs": "",
+      "ctestCommandArgs": "",
+      "inheritEnvironments": [ "msvc_x64_x64" ],
+      "variables": [
+        {
+          "name": "Boost_INCLUDE_DIRS",
+          "value": "",
+          "type": "STRING"
+        },
+        {
+          "name": "COMMON_LIBRARY_DIRS",
+          "value": "E:/Research/Source/Repos/Excalibur/cmake/build/build_windows_x64/${configurationType}/lib",
+          "type": "STRING"
+        },
+        {
+          "name": "BUILD_DEBUG_INFO",
+          "value": "False",
+          "type": "BOOL"
+        },
+        {
+          "name": "BUILD_MATIERIAL_OCR_SDK",
+          "value": "False",
+          "type": "BOOL"
+        },
+        {
+          "name": "BUILD_FACE_SDK",
+          "value": "False",
+          "type": "BOOL"
+        },
+        {
+          "name": "BUILD_GENERAL_CV_SDK",
+          "value": "True",
+          "type": "BOOL"
+        }
+      ]
+    },
+    {
+      "name": "x64-Release-matierial-ocr-sdk",
+      "generator": "Ninja",
+      "configurationType": "Release",
+      "buildRoot": "${projectDir}\\build\\build_windows_x64\\build_matierial_ocr_sdk\\${configurationType}",
+      "installRoot": "${projectDir}\\install\\windows_x64\\matierial_ocr_sdk\\${configurationType}",
+      "cmakeCommandArgs": "",
+      "buildCommandArgs": "",
+      "ctestCommandArgs": "",
+      "inheritEnvironments": [ "msvc_x64_x64" ],
+      "variables": [
+        {
+          "name": "Boost_INCLUDE_DIRS",
+          "value": "",
+          "type": "STRING"
+        },
+        {
+          "name": "COMMON_LIBRARY_DIRS",
+          "value": "E:/Research/Source/Repos/Excalibur/cmake/build/build_windows_x64/${configurationType}/lib",
           "type": "STRING"
         },
         {
@@ -119,12 +205,12 @@
         },
         {
           "name": "BUILD_FACE_SDK",
-          "value": "True",
+          "value": "False",
           "type": "BOOL"
         },
         {
           "name": "BUILD_GENERAL_CV_SDK",
-          "value": "True",
+          "value": "False",
           "type": "BOOL"
         }
       ]

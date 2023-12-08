@@ -11,14 +11,22 @@
 #include <abi/param_vector.hpp>
 #include <utility>
 
-#include <RKNN2Wrapper/rknn2_wrapper.hpp>
+#include <Primitives/tensor_conversions.hpp>
+
+#ifdef USE_RKNNAPI
+//#if 0
+#include "../../common/include/RKNNWrapper/rknn_wrapper.hpp"
+#elif defined(USE_RKNN2API)
+#include "../../common/include/RKNN2Wrapper/rknn2_wrapper.hpp"
+#endif
+#include "RknnYolov8Wrapper.hpp"
+
+#include <opencv2/opencv.hpp>
 #include <opencv2/core.hpp>
 #include <opencv2/imgproc.hpp>
 #include <opencv2/dnn.hpp>
 
-//YHC
-// #include <opencv2/highgui/highgui.hpp>
-#include "flame_function.hpp"
+
 
 namespace glasssix::flame
 {
@@ -26,14 +34,10 @@ namespace glasssix::flame
     {
     public:
         impl(const exposing::param_string model_directory, int device = -1)
-                : impl{get_model_params("flame", false),  exposing::to_narrow_string(model_directory), device}
         {
+            detect_instance_ = std::make_unique<RknnYolov8Wrapper>(exposing::to_narrow_string(model_directory) + "/" + "flame_v8_cut" + ".rknn", device);
         }
 
-        impl(const std::vector<std::string> &phai, std::string model_directory, int device)
-                :net_instance_(phai,  model_directory + std::string("/flame.rknn"), device)
-        {
-        }
 
         exposing::param_vector<flame::box_info> detect(const exposing::param_span<std::uint8_t>& bitmap, int channels, int height, int width, int roi_x, int roi_y, int roi_width, int roi_height, std::map<std::string, float>& param_map)
         {
@@ -51,12 +55,12 @@ namespace glasssix::flame
             {
                   throw exposing::abi_invalid_argument("incorrect roi in flame");
             }
-            cv::Mat cropped_image = image(cv::Range(roi_y,roi_y+roi_height), cv::Range(roi_x,roi_x+roi_width));
+            cv::Mat cropped_image = image(cv::Range(roi_y,roi_y+roi_height), cv::Range(roi_x,roi_x+roi_width)).clone();
 
 			std::vector<box_info_internal> results;
 			auto result = exposing::make_param_vector<flame::box_info>();
 
-			run_detect(results, cropped_image, roi_x, roi_y, roi_width, roi_height, param_map);
+			run_detect(results, cropped_image, param_map);
 
 			for (auto& i : results)
 			{
@@ -67,27 +71,22 @@ namespace glasssix::flame
 
         std::string version()
         {
-			const std::string algo_module_version = "2.0.1";
+			const std::string algo_module_version = "3.0.0";
 
-#if defined(USE_RKNNAPI) || defined(USE_RKNN2API)
-			//#if 0
-			std::string nn_frame_version = net_instance_.version();
-#else
-			std::string nn_frame_version = net_instance_.version();
-#endif
+			std::string nn_frame_version = detect_instance_->version();
+
 			return fmt::format(R"({{"nn_frame_version":"{}", "algo_module_version":"{}"}})", nn_frame_version, algo_module_version);
-
         }
 
     private:
 
         /**
-         * @fun preprocess
+         * @fun imgPreProcess
          * @param src, new_shape
          * @return tensor(preprocess(image))
          * @details image preprocess and make tensor from images
          */
-        cv::Mat preprocess(cv::Mat img, int hope_w = 640, int hope_h = 640)
+        cv::Mat imgPreProcess(cv::Mat img, int hope_w = 640, int hope_h = 640)
         {
             int H = img.rows;
             int W = img.cols;
@@ -115,59 +114,77 @@ namespace glasssix::flame
             return resize_img;
         }
 
-
-        template<typename Dtype>
-        std::vector<std::shared_ptr<memory::tensor<Dtype>>> sort_yolo_rst(const std::unordered_map<std::string, std::shared_ptr<memory::tensor<Dtype>>>& result) {
-            std::vector<std::shared_ptr<memory::tensor<Dtype>>> outRst;
-            for (auto& out : result) {
-                outRst.push_back(out.second);
-            }
-            std::sort(outRst.begin(), outRst.end(), [](const std::shared_ptr<memory::tensor<float>>& A, const std::shared_ptr<memory::tensor<float>>& B) {
-                auto countA = A->count();
-                auto countB = B->count();
-                return countA > countB;
-                });
-            return outRst;
-        }
-
-
         /**
            * @fun run_detect
            * @param image param_map
            * @details run detect (maybe in multithreading)
         */
-        void run_detect(std::vector<box_info_internal>& results, cv::Mat& image, int roi_x, int roi_y, int roi_width, int roi_height, std::map<std::string, float>& param_map)
+        void run_detect(std::vector<box_info_internal>& results, cv::Mat& image, std::map<std::string, float>& param_map)
         {
-            float conf_threshold= param_map.count("conf_thres") ? param_map["conf_thres"] : 0.8f;
-            float nms_threshold = param_map.count("nms_thres") ? param_map["nms_thres"] : 0.5f;      
-			
-            float mapping_ratio = float(std::max(image.cols, image.rows)) / 640;
+            float conf_threshold= param_map.count("conf_thres") ? param_map["conf_thres"] : 0.4f;
+            float nms_threshold = param_map.count("nms_thres") ? param_map["nms_thres"] : 0.5f;
 
-            cv::Mat blob = preprocess(image, 640, 640);
-            cv::cvtColor(blob, blob, cv::COLOR_BGR2RGB);
+            int reShapeSide = 640;
+            auto letter_img = imgPreProcess(image, reShapeSide, reShapeSide);
+            cv::cvtColor(letter_img, letter_img, cv::COLOR_BGR2RGB);
 
-            auto network_result = net_instance_.forward(blob.data, { 1, blob.rows, blob.cols,blob.channels() }, RKNN_TENSOR_NHWC);
-            auto rstSort = sort_yolo_rst(network_result);
+#if defined(USE_RKNNAPI) || defined(USE_RKNN2API)
+            auto det_rst_map = detect_instance_->forward(letter_img);
+            auto tensor_out = det_rst_map.begin()->second;
+#else
+            auto input_tensor = matConverTensor(letter_img);
+            // normalization
+            auto data = input_tensor->mutable_cpu_data();
+            for (int i = 0; i < input_tensor->count(); i++) {
+                data[i] = data[i] / 255;
+            }
+            auto det_rst_map = detect_instance_->forward(input_tensor);
+            auto tensor_out = det_rst_map.begin()->second;
+#endif
+            // transepose
+            if (tensor_out->width() == 8400) {
+                printf("tensor_transpose_0132\n");
+                tensor_out = tensor_transpose_0132(tensor_out); // interagte
+            }
 
-            std::vector<Bbox> sub_bboxes = concat_yolo(rstSort, conf_threshold);
+            //dbg(tensor_out->data_shape());
+            std::vector<FlameBox> flame_list;
 
-            int pad = std::abs(image.cols - image.rows)/2;
-            bool is_vertical_pad = image.cols > image.rows;
-            for (auto& bbox : sub_bboxes) {
-                bbox.mul_ratio(mapping_ratio);
-                if(is_vertical_pad){
-                    bbox.ymin -= pad;
-                    bbox.ymax -= pad;
-                }
-                else{
-                    bbox.xmin -= pad;
-                    bbox.xmax -= pad; 
+            int targetnum = tensor_out->height();
+            int infonum = tensor_out->width();
+            for (size_t idx = 0; idx < targetnum; idx++) {
+                float* pdata = tensor_out->mutable_cpu_data() + idx * infonum;
+                float conf = pdata[4];
+                float flame_tag= pdata[5];
+
+				if (conf > conf_threshold && flame_tag < 0.1) {
+                    //dbg(conf);
+                    //std::cout << "pdata m640: " << pdata[0] * 640 << " " << pdata[1] * 640 << " " << pdata[1] * 640 << " " << pdata[1] * 640 << std::endl;
+
+                    FlameBox flamebox(pdata[0] * 640, pdata[1] * 640, pdata[2] * 640, pdata[3] * 640, conf);
+                    flame_list.push_back(flamebox);
                 }
             }
 
-            nms_cpu(sub_bboxes, nms_threshold);
+            int pad = std::abs(image.cols - image.rows) / 2;
+            bool is_vertical_pad = image.cols > image.rows;
+            float mapping_ratio = static_cast<float>(std::max(image.cols, image.rows)) / reShapeSide;
 
-            for (auto box : sub_bboxes) {
+            for (auto& bbox : flame_list) {
+                bbox.mul_ratio(mapping_ratio);
+                if (is_vertical_pad) {
+                    bbox.ymin -= pad;
+                    bbox.ymax -= pad;
+                }
+                else {
+                    bbox.xmin -= pad;
+                    bbox.xmax -= pad;
+                }
+            }
+
+            nms_cpu(flame_list, nms_threshold);
+
+            for (auto box : flame_list) {
                 box_info_internal in_box_info;
                 in_box_info.x1 = box.xmin;
                 in_box_info.y1 = box.ymin;
@@ -180,11 +197,49 @@ namespace glasssix::flame
             }
         }
 
+        std::shared_ptr<glasssix::memory::tensor<float>> matConverTensor(cv::Mat input_image) {
+            std::shared_ptr<glasssix::memory::tensor<uint8_t>> input_tensor_u8(new glasssix::memory::tensor<uint8_t>(std::vector<int>{1, input_image.rows, input_image.cols, 3}, -1, glasssix::memory::NHWC));
+            std::copy(input_image.data, input_image.data + input_image.step[0] * input_image.rows, input_tensor_u8->mutable_cpu_data());
+            input_tensor_u8->convert_order();
+            auto input_tensor = input_tensor_u8 | glasssix::memory::tensor_convert_to<float>;
+            return input_tensor;
+        }
+
+        void nms_cpu(std::vector<FlameBox>& bboxes, float iou_thres) {
+            if (bboxes.empty()) return;
+            std::sort(bboxes.begin(), bboxes.end(), [&](FlameBox b1, FlameBox b2) {return b1.score > b2.score; });
+            std::vector<float> area(bboxes.size());
+            for (int i = 0; i < bboxes.size(); ++i) {
+                area[i] = (bboxes[i].xmax - bboxes[i].xmin + 1) * (bboxes[i].ymax - bboxes[i].ymin + 1);
+            }
+            for (int i = 0; i < bboxes.size(); ++i) {
+                for (int j = i + 1; j < bboxes.size(); ) {
+                    float left = std::max(bboxes[i].xmin, bboxes[j].xmin);
+                    float right = std::min(bboxes[i].xmax, bboxes[j].xmax);
+                    float top = std::max(bboxes[i].ymin, bboxes[j].ymin);
+                    float bottom = std::min(bboxes[i].ymax, bboxes[j].ymax);
+                    float width = std::max(right - left + 1, 0.f);
+                    float height = std::max(bottom - top + 1, 0.f);
+                    float u_area = height * width;
+                    float iou = (u_area) / (area[i] + area[j] - u_area);
+                    if (iou >= iou_thres) {
+                        bboxes.erase(bboxes.begin() + j);
+                        area.erase(area.begin() + j);
+                    }
+                    else {
+                        ++j;
+                    }
+                }
+            }
+            if (bboxes.size() < 2) return;
+            std::sort(bboxes.begin(), bboxes.end(), [&](FlameBox b1, FlameBox b2) {return b1.score > b2.score; });
+        }
 
     private:
         std::string model_directory_;
         int device_;
-        rknnwrapper::rknn_wrapper net_instance_;
+
+        std::unique_ptr<RknnYolov8Wrapper> detect_instance_;
 
     };
 

@@ -11,8 +11,21 @@
 
 #include "box_info.hpp"
 
+
+
 namespace glasssix::smoke
 {
+   
+  
+    // struct Smoke_point:PostureInfo
+    // {
+    //     Smoke_point(PostureInfo& b_info)
+    //     {
+
+    //     }
+
+    // };
+
     struct box_info_internal
     {
         int x1;

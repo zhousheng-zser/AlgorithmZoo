@@ -1,7 +1,7 @@
 #pragma once
 
 #include "face_info.hpp"
-#include "retina_net_internal.hpp"
+#include "facedetector_base.hpp"
 
 #include <abi/consumer.hpp>
 

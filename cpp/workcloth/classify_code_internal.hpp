@@ -12,16 +12,17 @@
 #include "box_info.hpp"
 
 #include "../posture/box_info.hpp"
+// #include "dbg.h"
 
 namespace glasssix::workcloth
 {
 	struct PostureInfo
 	{
 		PostureInfo(posture::box_info& b_info) {
-			x1 = b_info.x1();
-			x2 = b_info.x2();
-			y1 = b_info.y1();
-			y2 = b_info.y2();
+			//x1 = b_info.x1();
+			//x2 = b_info.x2();
+			//y1 = b_info.y1();
+			//y2 = b_info.y2();
 			score = b_info.score();
 			category = b_info.category();
 
@@ -34,8 +35,6 @@ namespace glasssix::workcloth
 				Kpoints.push_back(key_p);
 			}
 
-
-
 			std::vector<cv::Point> cls_Kpoints{ Kpoints[5],Kpoints[6],Kpoints[7],Kpoints[8],Kpoints[9],Kpoints[10],Kpoints[11],Kpoints[12] };
 			auto cls_rect = cv::minAreaRect(cls_Kpoints);
 			cls_cut = cls_rect.boundingRect();
@@ -46,10 +45,28 @@ namespace glasssix::workcloth
 			cls_cut.height = cls_H * 1.05;
 			cls_cut.width = cls_W * 1.3;
 
+			auto myboundingRect = [](std::vector<cv::Point>& points_list) {
+				cv::Point top_left{ 99999,99999 };
+				cv::Point bottom_right{ 0,0 };
+				for (auto p : points_list) {
+					if (p.x < top_left.x)top_left.x = p.x;
+					if (p.y < top_left.y)top_left.y = p.y;
+					if (p.x > bottom_right.x)bottom_right.x = p.x;
+					if (p.y > bottom_right.y)bottom_right.y = p.y;
+				}
+				return cv::Rect(top_left, bottom_right);
+			};
 			std::vector<cv::Point> color_Kpoints{ Kpoints[5],Kpoints[6],Kpoints[11],Kpoints[12] };
-			auto color_rect = cv::minAreaRect(color_Kpoints);
-			color_cut = color_rect.boundingRect();
+			color_cut = myboundingRect(color_Kpoints);
 
+			cls_Kpoints.push_back(Kpoints[13]);
+			cls_Kpoints.push_back(Kpoints[14]);
+			iou_body_nms = myboundingRect(cls_Kpoints);
+
+			x1 = iou_body_nms.x;
+			y1 = iou_body_nms.y;
+			x2 = iou_body_nms.x + iou_body_nms.width;
+			y2 = iou_body_nms.y + iou_body_nms.height;
 		}
 
 		cv::Rect get_rect() {
@@ -68,6 +85,7 @@ namespace glasssix::workcloth
 		std::vector<float> Kpoints_score;
 		cv::Rect cls_cut;
 		cv::Rect color_cut;
+		cv::Rect iou_body_nms;
 	};
 
 	struct box_info_internal

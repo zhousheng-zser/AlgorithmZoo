@@ -108,7 +108,8 @@ namespace glasssix::sleep
             int category;
             float confidence;
         };
-        static bool sort_score(Bbox box1,Bbox box2) {
+        static bool sort_score(Bbox box1,Bbox box2) 
+        {
             return box1.score > box2.score ? true : false;
         }
 
@@ -162,43 +163,26 @@ namespace glasssix::sleep
          * @details image preprocess and make tensor from images
          */
 
-        std::tuple<cv::Mat, float> preprocess_detection(cv::Mat& src, const cv::Size& input_shape = cv::Size(640, 640))
-    {
-        bool fullcon = 0;
-        float scale = std::min((float)input_shape.width / (float)src.cols, (float)input_shape.height / (float)src.rows);
-        cv::Mat cut_image;
-        cv::Mat mask_image(input_shape, CV_8UC3, cv::Scalar(114, 114, 114));
-
-        if (src.rows != input_shape.height || src.cols != input_shape.width)
+        std::tuple<cv::Mat, float> preprocess_detection(cv::Mat& src,int& pad_h,int& pad_w,  cv::Size input_shape = cv::Size(640, 640) )
         {
-            cv::resize(src, cut_image, cv::Size((int)(src.cols * scale), (int)(src.rows * scale)), cv::INTER_LINEAR);
+            float scale = std::min((float)input_shape.width/(float)src.cols, (float)input_shape.height/(float)src.rows);
+            cv::Mat cut_image;
+            cv::Mat mask_image(input_shape, CV_8UC3, cv::Scalar(114, 114, 114));
+            if( src.rows != input_shape.height || src.cols != input_shape.width)
+            {      
+                cv::resize(src, cut_image, cv::Size((int)(src.cols * scale), (int)(src.rows * scale)), cv::INTER_LINEAR);
 
-            int pad_h = int((input_shape.height - cut_image.rows) / 2);
-            int pad_w = int((input_shape.width - cut_image.cols) / 2);
-            if (fullcon)
-            {
-                int auto_width = ((cut_image.cols + 31) / 32) * 32;
-                int auto_height = ((cut_image.rows + 31) / 32) * 32;
-
-                cv::resize(mask_image, mask_image, cv::Size(auto_width, auto_height), cv::INTER_LINEAR);
-
-                pad_h = (((cut_image.rows + 31) / 32) * 32 - cut_image.rows) / 2;
-                pad_w = (((cut_image.cols + 31) / 32) * 32 - cut_image.cols) / 2;
-                cv::copyMakeBorder(cut_image, mask_image, pad_h, auto_height - pad_h - cut_image.rows, pad_w, auto_width - pad_w - cut_image.cols, cv::BORDER_CONSTANT, cv::Scalar{ 114, 114, 114 });
+                pad_h = int((input_shape.height - cut_image.rows) /2 ) ; 
+                pad_w = int((input_shape.width - cut_image.cols) /2 ) ; 
+                cv::copyMakeBorder(cut_image, mask_image, pad_h, input_shape.height-cut_image.rows-pad_h, pad_w, input_shape.width-cut_image.cols-pad_w, cv::BORDER_CONSTANT, cv::Scalar{ 114,114,114 });
             }
-            else
+            else 
             {
-                cv::copyMakeBorder(cut_image, mask_image, 0, input_shape.height  - cut_image.rows, 0, input_shape.width  - cut_image.cols, cv::BORDER_CONSTANT, cv::Scalar{ 114, 114, 114 });
+                src.copyTo(mask_image);     
             }
-
+            cv::cvtColor(mask_image, mask_image, cv::COLOR_BGR2RGB);
+            return {mask_image,scale};
         }
-        else
-        {
-            src.copyTo(mask_image);
-        }
-        cv::cvtColor(mask_image, mask_image, cv::COLOR_BGR2RGB);
-        return {mask_image,scale };
-    }
 
        
 		/**
@@ -276,7 +260,7 @@ namespace glasssix::sleep
 
        
 
-        static std::vector<boxes_conf> yolo2xyxy(std::vector<std::vector<float>>& src, float conf_thres=0.f)
+       static std::vector<boxes_conf> yolo2xyxy(std::vector<std::vector<float>>& src, float conf_thres=0.f)
         {
             std::vector<boxes_conf> res;
             for(auto it: src)
@@ -294,7 +278,7 @@ namespace glasssix::sleep
                     temp.top_y = top_y;
                     temp.bot_x = bot_x;
                     temp.bot_y = bot_y;
-                    temp.conf = conf;
+                    temp.conf = it[maxPosition] * conf;
                     temp.category =  maxPosition - 5;
                     // std::cout<<"class: "<< temp.category<<std::endl;
                     //if (temp.category == 0)
@@ -349,7 +333,7 @@ namespace glasssix::sleep
 		 * @return std::pair<bboxes, confidence>
 		 * @details slice src into bboxes and confidence, which need by dnn::NMS
 		 */
-		static std::vector<Bbox> computeNmsInput(std::vector<boxes_conf>& src, int max_wh,float ratio)
+		static std::vector<Bbox> computeNmsInput(std::vector<boxes_conf>& src, int max_wh,float ratio,int pad_h,int pad_w)
         {
             std::vector<Bbox> boxes;
             std::vector<float> scores;
@@ -359,8 +343,8 @@ namespace glasssix::sleep
          
                 int c = max_wh * it.conf;
                 Bbox temp;
-                temp.x      = static_cast<double>(it.top_x )*ratio;
-                temp.y      = static_cast<double>(it.top_y)*ratio;
+                temp.x      = static_cast<double>(it.top_x-pad_w )*ratio;
+                temp.y      = static_cast<double>(it.top_y-pad_h)*ratio;
                 temp.w  = static_cast<double>(it.bot_x - it.top_x)*ratio;
                 temp.h  = static_cast<double>(it.bot_y - it.top_y)*ratio;
                 temp.score=it.conf;
@@ -380,7 +364,7 @@ namespace glasssix::sleep
 		 * @return std::vector(boxes, classes)
 		 * @details Non-Maximum Suppression (NMS) on inference results
 		 */
-		static std::vector<location_char> non_max_suppression(std::vector<std::vector<float>>& prediction, float conf_thres, float iou_thres, float ratio)
+		static std::vector<location_char> non_max_suppression(std::vector<std::vector<float>>& prediction, float conf_thres, float iou_thres, float ratio,int pad_h,int pad_w)
         {
             // std::cout<<"nms inpu size "<<prediction.size()<<std::endl;
             //std::cout<<ratio<<std::endl;
@@ -392,7 +376,7 @@ namespace glasssix::sleep
             std::vector<float> scores;
             std::vector<int> classes;
 
-            boxes= computeNmsInput(compute_box, max_wh,ratio);//此处做分类处理，因为有四类 而非以前的单类
+            boxes= computeNmsInput(compute_box, max_wh,ratio,pad_h,pad_w );//此处做分类处理，因为有四类 而非以前的单类
             std::vector<Bbox> class_work;
             std::vector<Bbox> class_other;
             for (auto &box:boxes)
@@ -454,9 +438,11 @@ namespace glasssix::sleep
 
             cv::Mat blob;
             float ratio = 0;
+            int pad_h=0;
+            int pad_w=0;
 
-            // std::tie(blob, ratio) = preprocess(image,new_shape);
-            std::tie(blob, ratio) = preprocess_detection(image,new_shape);
+            std::tie(blob, ratio) = preprocess_detection(image,pad_h,pad_w,new_shape);
+
             std::vector<std::shared_ptr<memory::tensor<float>>> forwards;
 
             auto  network_result = net_instance_.forward(blob.data, { 1, blob.rows, blob.cols,blob.channels() }, RKNN_TENSOR_NHWC);
@@ -474,7 +460,7 @@ namespace glasssix::sleep
 
 			auto result = concat(forwards, conf_threshold);
 
-			auto nms_result = non_max_suppression(result, conf_threshold, iou_threshold, 1/ratio);
+            auto nms_result =  non_max_suppression(result, conf_threshold, iou_threshold, 1/ratio,pad_h,pad_w);
             // std::cout<<"nms_size:"<<nms_result.size()<<std::endl;
             std::vector<box_info_internal> output;
 

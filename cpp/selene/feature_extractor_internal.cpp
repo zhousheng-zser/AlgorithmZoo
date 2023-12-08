@@ -85,7 +85,7 @@ namespace glasssix::selene
 #ifdef USE_RKNNAPI
 
 			auto network_result = (*feature_extractor_instance_).forward(bitmaps.data(), { static_cast<int>(count), single_bitmap_channels, single_bitmap_height, single_bitmap_width }, static_cast<rknn_tensor_format>(order));
-			std::string output_name = model_type_ == 3 ? "Conv_Conv_71/out0_0" : "conv5_dw_83_84";
+			//std::string output_name = model_type_ == 3 ? "Conv_Conv_71/out0_0" : "conv5_dw_83_84";
 #else
 			//rknn2 can't transform order, so manual transform is needed
 			std::unordered_map<std::string, std::shared_ptr<memory::tensor<float>>> network_result;
@@ -110,27 +110,26 @@ namespace glasssix::selene
 			else
 				network_result = (*feature_extractor_instance_).forward(bitmaps.data(), { static_cast<int>(count), single_bitmap_height, single_bitmap_width, single_bitmap_channels }, rknn_tensor_format::RKNN_TENSOR_NHWC);
 
-			std::string output_name = model_type_ == 3 ? "predict" : "conv5_dw";
+			//std::string output_name = model_type_ == 3 ? "predict" : "conv5_dw";
 #endif
 #else
 			init_cache(bitmaps, count, order);
 			auto network_result = (*feature_extractor_instance_).forward(cache_ | memory::tensor_convert_to<float>);
-			std::string output_name = model_type_ == 3 ? "predict" : "conv5_dw";
+			//std::string output_name = model_type_ == 3 ? "predict" : "conv5_dw";
 #endif
-			if (auto iter = network_result.find(output_name); iter != network_result.end())
+
+			CHECK_EQ(1, network_result.size());
+			auto node = *network_result.begin();
+			auto iter_conv5 = node.second->cpu_data();
+
+			for (std::size_t i = 0; i < count; i++)
 			{
-				auto iter_conv5 = iter->second->cpu_data();
+				std::vector<float> feature(feature_size);
 
-				for (std::size_t i = 0; i < count; i++)
-				{
-					std::vector<float> feature(feature_size);
-
-					std::copy(iter_conv5, iter_conv5 + feature_size, feature.data());
-					iter_conv5 += feature_size;
-					result.emplace_back(feature);
-				}
+				std::copy(iter_conv5, iter_conv5 + feature_size, feature.data());
+				iter_conv5 += feature_size;
+				result.emplace_back(feature);
 			}
-
 			return result;
 		}
 

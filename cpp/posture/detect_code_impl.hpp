@@ -18,7 +18,7 @@ namespace glasssix::posture
         detect_code_impl();
         ~detect_code_impl();
 
-        void init(const exposing::param_string& model_directory, std::int32_t device);
+        void init(const exposing::param_string& model_directory, std::int32_t device, std::int32_t model_type);
 
         exposing::param_string version() const;
 

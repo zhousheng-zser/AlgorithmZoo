@@ -155,172 +155,110 @@ namespace glasssix::smog
 		 * @return source
 		 * @details concat 3 into 1
 		 */
-        std::vector<std::array<float, 5>> concat(std::vector<std::shared_ptr<glasssix::memory::tensor<float>>>& prediction, float conf_thres, cv::Mat& blobs)
+        std::vector<NMSBox> concat(std::vector<std::shared_ptr<glasssix::memory::tensor<float>>>& prediction, float conf_thres, cv::Mat& blobs)
         {
-            std::vector<std::array<float, 5>> concat_result;
+            std::vector<NMSBox> bboxes_result;
 
-            // ["onnx::Sigmoid_380"] = NCHW
-            int channels = 1;
-            int width    = 1;
-            int height   = 8400;
-            int num      = 1;
-            const float *thres_data_ptr = prediction[1]->cpu_data();
+            const float *score_data_ptr = prediction[1]->cpu_data(); // ["onnx::Sigmoid_380"] = 1*1*8400*1
 
-            std::vector<int>   select_vec;
-            std::vector<float> score_vec;
+            const float * pt_data_ptr = prediction[0]->cpu_data();
 
-            int stride = channels * width;
-            
-            for(int i = 0; i < 8400; i++)
+            for(int index = 0; index < 8400; index++)
             {
-                float score = sigmoid(thres_data_ptr[0]);
-                
-                if(score > conf_thres)
-                {
-                    select_vec.push_back(i);
-                    score_vec.push_back(score);
-                }
+                float cx = 0;
+                float cy = 0;
+                float w = 0;
+                float h = 0;
 
-                thres_data_ptr += stride;
+                float score = sigmoid(score_data_ptr[index]);
+                if (score > conf_thres) 
+                {
+					if (index < 6400)
+					{
+                        constexpr int scale = 8;
+                        cx = pt_data_ptr[index + 0 * 8400] * scale;
+						cy = pt_data_ptr[index + 1 * 8400] * scale;
+						w = pt_data_ptr[index + 2 * 8400] * scale;
+						h = pt_data_ptr[index + 3 * 8400] * scale;
+
+					}
+					else if ((6399 < index) && (index < 8000))
+					{
+						constexpr int scale = 16;
+                        cx = pt_data_ptr[index + 0 * 8400] * scale;
+						cy = pt_data_ptr[index + 1 * 8400] * scale;
+						w = pt_data_ptr[index + 2 * 8400] * scale;
+						h = pt_data_ptr[index + 3 * 8400] * scale;
+					}
+					else if ((8000 < index) && (index < 8399))
+					{
+                        constexpr int scale = 32;
+                        cx = pt_data_ptr[index + 0 * 8400] * scale;
+                        cy = pt_data_ptr[index + 1 * 8400] * scale;
+						w = pt_data_ptr[index + 2 * 8400] * scale;
+						h = pt_data_ptr[index + 3 * 8400] * scale;
+					}
+
+                    NMSBox _box{ cx,cy,w,h,score };
+					bboxes_result.push_back(_box);
+                }
             }
 
-            if(select_vec.size() == 0)
-            {   
-                std::array<float, 5> zero = {0,0,0,0,0};
-                concat_result.push_back(zero);
-                return concat_result;
-            } 
-
-            // use for position data ["onnx::Mul_423"]
-            channels = 4;
-
-            stride = channels * width;
-
-
-            for(int i = 0; i < select_vec.size(); i++)
-            {
-                const float *pt_data_ptr = prediction[0]->cpu_data();
-                
-                std::array<float, 5> pt = {0, 0, 0, 0, 0};
-                
-                int index = select_vec[i];
-
-                pt_data_ptr = pt_data_ptr + index;
-
-                if(index < 6400)
-                {
-                    int scale = 8;
-                    pt[0] = pt_data_ptr[0 + 0 * 8400] * scale;
-                    pt[1] = pt_data_ptr[0 + 1 * 8400] * scale;
-                    pt[2] = pt_data_ptr[0 + 2 * 8400] * scale;
-                    pt[3] = pt_data_ptr[0 + 3 * 8400] * scale;
-
-                } else if ((6399 < index) && ( index < 8000))
-                {
-                    int scale = 16;
-                    pt[0] = pt_data_ptr[0 + 0 * 8400] * scale;
-                    pt[1] = pt_data_ptr[0 + 1 * 8400] * scale;
-                    pt[2] = pt_data_ptr[0 + 2 * 8400] * scale;
-                    pt[3] = pt_data_ptr[0 + 3 * 8400] * scale;
-                }
-                else if ((8000 < index)&&( index < 8399))
-                {   
-                    int scale = 32;
-                    pt[0] = pt_data_ptr[0 + 0 * 8400] * scale;
-                    pt[1] = pt_data_ptr[0 + 1 * 8400] * scale;
-                    pt[2] = pt_data_ptr[0 + 2 * 8400] * scale;
-                    pt[3] = pt_data_ptr[0 + 3 * 8400] * scale;
-                }
-
-                pt[4] = score_vec[i];
-
-                concat_result.push_back(pt);
-            }
-
-            return concat_result;
+            return bboxes_result;
         }   
         
-        std::vector<std::array<float, 5>> non_max_suppression(std::vector<std::array<float, 5>> pred, float conf_thres, float iou_thres)
-        {
-            // generate NMS data
-            std::vector<cv::Rect2d> boxes;
-            std::vector<float>      scores;
-            for(auto &it : pred)
-            {
-                cv::Rect2d rect;
-                rect.x = it[0] - it[2] / 2;
-                rect.y = it[1] - it[3] / 2;
-                rect.width = it[2];
-                rect.height = it[3];
-                boxes.push_back(rect);
-                scores.push_back(it[4]);
+
+        void nms_cpu(std::vector<NMSBox>& bboxes, float iou_thres) {
+            if (bboxes.empty()) return;
+            std::sort(bboxes.begin(), bboxes.end(), [&](NMSBox b1, NMSBox b2) {return b1.score > b2.score; });
+            std::vector<float> area(bboxes.size());
+            for (int i = 0; i < bboxes.size(); ++i) {
+                area[i] = (bboxes[i].xmax - bboxes[i].xmin + 1) * (bboxes[i].ymax - bboxes[i].ymin + 1);
             }
-
-            // opencv dnn nms
-            std::vector<int> indices;
-            cv::dnn::NMSBoxes(boxes, scores, conf_thres, iou_thres, indices, 1.f, 1);
-
-            // select indices 
-            std::vector<std::array<float, 5>> bboxes;
-
-            for(int i = 0; i < indices.size(); i++)
-            {
-                std::array<float, 5> box;
-
-                box[0] = pred[indices[i]][0] - pred[indices[i]][2] / 2;
-                box[1] = pred[indices[i]][1] - pred[indices[i]][3] / 2;
-
-                box[2] = pred[indices[i]][0] + pred[indices[i]][2] / 2;
-                box[3] = pred[indices[i]][1] + pred[indices[i]][3] / 2;
-
-                box[4] = pred[indices[i]][4];
-
-                bboxes.push_back(box);
+            for (int i = 0; i < bboxes.size(); ++i) {
+                for (int j = i + 1; j < bboxes.size(); ) {
+                    float left = std::max(bboxes[i].xmin, bboxes[j].xmin);
+                    float right = std::min(bboxes[i].xmax, bboxes[j].xmax);
+                    float top = std::max(bboxes[i].ymin, bboxes[j].ymin);
+                    float bottom = std::min(bboxes[i].ymax, bboxes[j].ymax);
+                    float width = std::max(right - left + 1, 0.f);
+                    float height = std::max(bottom - top + 1, 0.f);
+                    float u_area = height * width;
+                    float iou = (u_area) / (area[i] + area[j] - u_area);
+                    if (iou >= iou_thres) {
+                        bboxes.erase(bboxes.begin() + j);
+                        area.erase(area.begin() + j);
+                    }
+                    else {
+                        ++j;
+                    }
+                }
             }
-
-            return bboxes;
+            if (bboxes.size() < 2) return;
+            std::sort(bboxes.begin(), bboxes.end(), [&](NMSBox b1, NMSBox b2) {return b1.score > b2.score; });
         }
 
-
-        std::array<float, 5> scale_coord(const std::array<float, 5>& coords, cv::Size& input_shape, cv::Size& output_shape)
+        void scale_coord(NMSBox& bbox, int reShapeSide, cv::Size origin_shape)
         {
+            int pad = std::abs(origin_shape.width- origin_shape.height) / 2;
+            bool is_vertical_pad = origin_shape.width > origin_shape.height;
+            float mapping_ratio = static_cast<float>(std::max(origin_shape.width , origin_shape.height)) / reShapeSide;
+
+			bbox.mul_ratio(mapping_ratio);
+			if (is_vertical_pad) {
+				bbox.ymin -= pad;
+				bbox.ymax -= pad;
+			}
+			else {
+				bbox.xmin -= pad;
+				bbox.xmax -= pad;
+			}
 
             auto clamp = [](int x, int min, int max) {if (x < min) return min; else if (x > max) return max; else return x; };
-
-            // gain
-            float gain = std::min(input_shape.width / (float)output_shape.width, input_shape.height / (float)output_shape.height);
-
-            // pad
-            float pad_w = (input_shape.width - output_shape.width * gain) / 2.0;
-            float pad_h = (input_shape.height - output_shape.height * gain) / 2.0;
-
-            // x padding
-            // y padding
-
-            float x1 = (coords[0] - pad_w) / gain;
-            float y1 = (coords[1] - pad_h) / gain;
-            float x2 = (coords[2] - pad_w) / gain;
-            float y2 = (coords[3] - pad_h) / gain;
-
-
-            clamp(x1, 0, output_shape.width);
-            clamp(y1, 0, output_shape.height);
-            clamp(x2, 0, output_shape.width);
-            clamp(y2, 0, output_shape.height);
-
-            std::array<float, 5> scale_pt = { x1, y1, x2, y2, coords[4]};
-
-            return scale_pt;
-        }
-
-        int reset(float x, int size)
-        {
-            if(x < 0)
-                return 0;
-            else if (x > size)
-                return x;
-            else 
-                return static_cast<int>(x);
+			bbox.xmin = clamp(bbox.xmin, 0, origin_shape.width - 1);
+			bbox.xmax = clamp(bbox.xmax, 0, origin_shape.width - 1);
+			bbox.ymin = clamp(bbox.ymin, 0, origin_shape.height - 1);
+			bbox.ymax = clamp(bbox.ymax, 0, origin_shape.height - 1);
         }
         
         /**
@@ -333,17 +271,15 @@ namespace glasssix::smog
         {   
             std::vector<smog::box_info_internal> detect_result;
 
-            float smog_thres = param_map.count("smog_thres") ? param_map["smog_thres"] : 0.65f;
+            float conf_thres = param_map.count("smog_thres") ? param_map["smog_thres"] : 0.65f;
             float iou_thres = param_map.count("nms_thres") ? param_map["nms_thres"] : 0.65f;
 
             // preprocess
-            auto input_shape = cv::Size(640,  640);
-
-            auto output_shape = cv::Size(image.cols, image.rows);
+            constexpr int reShapeSide = 640;
             
             cv::Mat blobs;
             float ratio = 0;
-            std::tie (blobs, ratio) = letterbox(image, 640);
+            std::tie (blobs, ratio) = letterbox(image, reShapeSide);
 
             cv::cvtColor(blobs, blobs, cv::COLOR_BGR2RGB);
 
@@ -354,41 +290,25 @@ namespace glasssix::smog
             forwards.push_back(network_results["onnx::Mul_423"]);
             forwards.push_back(network_results["onnx::Sigmoid_380"]);
 
-            int conf_thres = 0.25f;
-
-            auto concat_result = concat(forwards, conf_thres, blobs);
-            
-            // select which bigger than smog_thres
-            std::vector<std::array<float, 5>> select_result;
-            for(auto & it: concat_result)
-            {
-                if(it[4] > smog_thres)
-                {
-                    select_result.push_back(it);
-                }
-            }
-            
-            if(select_result.size() == 0)
-            {
-                return detect_result;
-            }
+            auto bboxes_list = concat(forwards, conf_thres, blobs);
 
             // NMS
-            auto nms_result = non_max_suppression(select_result, conf_thres, iou_thres);
+            nms_cpu(bboxes_list, iou_thres);
 
-            // scale_coords
-            for(auto &it: nms_result)
+            for(auto &bbox : bboxes_list)
             {   
-                auto scale_coords = scale_coord(it, input_shape, output_shape);
+				scale_coord(bbox, reShapeSide, cv::Size(image.cols, image.rows));
+                if (bbox.xmin >= bbox.xmax) continue;
+                if (bbox.ymin >= bbox.ymax) continue;
 
                 smog::box_info_internal box_info;
 
-                box_info.x1 = reset(scale_coords[0], image.cols); 
-                box_info.y1 = reset(scale_coords[1], image.rows); 
-                box_info.x2 = reset(scale_coords[2], image.cols);
-                box_info.y2 = reset(scale_coords[3], image.rows);
+                box_info.x1 = bbox.xmin;
+                box_info.y1 = bbox.ymin;
+                box_info.x2 = bbox.xmax;
+                box_info.y2 = bbox.ymax;
                 box_info.category = 1;
-                box_info.confidence = scale_coords[4];
+                box_info.confidence = bbox.score;
 
                 detect_result.push_back(box_info);
             }
