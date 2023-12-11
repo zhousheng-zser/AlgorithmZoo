@@ -18,7 +18,7 @@
 #include <opencv2/opencv.hpp>
 
 #include "../posture/detect_code.hpp"
-
+#include "climb_assisant.hpp"
 namespace glasssix::climb
 {
     class detect_code_internal::impl
@@ -75,67 +75,64 @@ namespace glasssix::climb
             contours[3].x=static_cast<int>(x4);
             contours[3].y=static_cast<int>(y4);
 
-            for (size_t i = 0; i < 4; i++)
-            {
-                cv::circle(image,  contours[i], 20, cv::Scalar(0, 0, 255));
-            }
-
-           cv::imwrite("../plypoint.jpg",image);
+    
 
             auto empty_map_abi = exposing::make_param_hash_map<exposing::param_string, float>();
 
 
             float con_thres = param_map.count("conf_thres") ? param_map["conf_thres"] : 0.5f;
             float nms_thres = param_map.count("nms_thres") ? param_map["nms_thres"] : 0.6f;
+            float little_target_conf_thres  = param_map.count("little_target_conf_thres") ? param_map["little_target_conf_thres"] : 0.2f;
 
-            empty_map_abi.add_or_update("conf_thres", con_thres);
+            empty_map_abi.add_or_update("conf_thres",con_thres);
             empty_map_abi.add_or_update("nms_thres", nms_thres);
+            empty_map_abi.add_or_update("little_target_conf_thres",little_target_conf_thres);
 
-            exposing::param_vector<posture::box_info> posture_info_list = posture_instance_.detect(bitmap, channels, height, width, roi_x, roi_y, roi_width, roi_height, empty_map_abi);
-            std::vector<PostureInfo> persons_info; 
 
+            exposing::param_vector<posture::box_info> posture_info_list = posture_instance_.detect(bitmap, channels, height, width, 0, 0, width, height, empty_map_abi);
+            
             std::vector<std::vector<float>> nms_result;
 
+            std::vector<PostureInfo> person_infos; 
+            std::vector<climb::box_info_internal> boxs;
             for (auto pinfo : posture_info_list) 
             {
-                PostureInfo postureInfo{ pinfo };
-                persons_info.push_back(postureInfo);
-            }
-
-            std::vector<climb::box_info_internal> boxs;
-
-            for(int i=0; i<persons_info.size(); i++)
-            {
-                climb::box_info_internal box;
-                PostureInfo postureInfo=persons_info[i];
+                PostureInfo person_info(pinfo); 
+                person_infos.push_back(pinfo);
                 std::vector<float> temp(4);
-                temp[0]=postureInfo.x1;
-                temp[1]=postureInfo.y1;
-                temp[2]=postureInfo.x2;
-                temp[3]=postureInfo.y2;
-                temp[4]=postureInfo.score;
+                temp[0]=person_info.x1;
+                temp[1]=person_info.y1;
+                temp[2]=person_info.x2;
+                temp[3]=person_info.y2;
+                temp[4]=person_info.score;
 
-                box.x1=postureInfo.x1;
-                box.y1=postureInfo.y1;
-                box.x2=postureInfo.x2;
-                box.y2=postureInfo.y2;
-                box.confidence=postureInfo.score;
+    // for (size_t i = 0; i < person_info.Kpoints.size(); i++)
+    // {   
+    //     cv::circle(image,  cv::Point(int( person_info.Kpoints[i].first.x ), int(person_info.Kpoints[i].first.y ) ), 3, cv::Scalar(0, 0, 255));
+    // }
 
                 nms_result.push_back(temp);
+
+                climb::box_info_internal box;
+                box.x1=person_info.x1;
+                box.y1=person_info.y1;
+                box.x2=person_info.x2;
+                box.y2=person_info.y2;
+                box.confidence=person_info.score;
                 boxs.push_back(box);
             }
 
+            // cv::imwrite("../plypoint.jpg",image);
 
-            auto category_vector=is_climb(nms_result, contours  );
+            auto in_region_labels = in_region(nms_result, contours  );
 
             auto results = exposing::make_param_vector<climb::box_info>();
 
-            for(int i=0;i<category_vector.size();i++) 
+            for(int i=0;i<in_region_labels.size();i++) 
             {
-
-                boxs[i].category=category_vector[i];
+                // std::cout<<in_region_labels[i]<<"  "<<person_infos[i].is_climb_posture()<<std::endl;
+                boxs[i].category = in_region_labels[i] * person_infos[i].is_climb_posture() ;
                 results.push_back(glasssix::exposing::make_as_first<box_info_impl>(boxs[i]));
-           
             }
 
             return results;
@@ -143,7 +140,7 @@ namespace glasssix::climb
 
         std::string version()
 		{
-			const std::string algo_module_version = "1.0.0";
+			const std::string algo_module_version = "1.1.0";
 
 #if defined(USE_RKNNAPI) || defined(USE_RKNN2API)
 
@@ -162,41 +159,7 @@ namespace glasssix::climb
          *   @return letterbox(image)
          *   @details Resize and pad image while meeting stride-multiple constrain
          */
-        std::vector<float> get_human_lowest_point(std::vector<float>& body_point)
-        {
-            std::vector<float> out(2);
-            float offset=0.03f;
-            float  x_top_left  = body_point[0];
-            float  y_top_left  = body_point[1];
-            float  x_low_right = body_point[2];
-            float  y_low_right = body_point[3];
-            y_low_right = y_low_right - offset * (y_low_right - y_top_left);
-            
-            out[0] = (x_top_left + x_low_right ) / 2.f;
-            out[1] = y_low_right;
-            return out;
 
-        }
-
-        std::vector<int> is_climb( std::vector<std::vector<float>>& nms_result,std::vector<cv::Point>&contours  )
-        {
-            
-            std::vector<int> output(nms_result.size());
-            // float slope = (y2 - y1) / (x2 - x1);    
-            // float intercept = y1 - slope * x1;
-
-            for(int i=0; i<nms_result.size(); i++)
-            {       
-                std::vector<float> Human_lowest_point=get_human_lowest_point(nms_result[i]);
-                float x=Human_lowest_point[0];
-                float y=Human_lowest_point[1];
-
-                output[i]=pointPolygonTest(contours, cv::Point2f(x, y),false)>0?1:0;
-
-            }
-
-            return output;
-        }
 
     private:
     

@@ -246,7 +246,7 @@
             return  output0;
         }
 
-        std::vector<std::vector<float>> XYXY2WH(std::shared_ptr<memory::tensor<float>>& net_result, cv::Mat & blob, int pad_h, int pad_w, float scale, int key_point_num,int candicate_num, float threshold=0.4,float iou_thres=0.8 )
+        std::vector<std::vector<float>> XYXY2WH(std::shared_ptr<memory::tensor<float>>& net_result, cv::Mat & blob, int pad_h, int pad_w, float scale, int key_point_num,int candicate_num, float threshold=0.0,float iou_thres=0.8 )
         {
             std::vector<std::vector<float>> output;
             int shape = 5 + key_point_num*3;
