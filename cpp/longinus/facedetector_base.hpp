@@ -3,8 +3,10 @@
 #include "face_info.hpp"
 #include <vector>
 
+#if defined(USE_RKNNAPI) || defined(USE_RKNN2API)
 #include <opencv2/opencv.hpp>
 #include <opencv2/imgproc/types_c.h>
+#endif
 
 #ifdef USE_RKNNAPI
 #include "RKNNWrapper/rknn_wrapper.hpp"
@@ -91,8 +93,9 @@ namespace glasssix::longinus
 		exposing::param_vector<exposing::param_vector<std::uint8_t>> center_scale_align(exposing::param_span<std::uint8_t> bitmap, std::int32_t channels, std::int32_t height, std::int32_t width, float scale, std::int32_t order = 1);
 
 		virtual std::string version() const = 0;
-
+#if defined(USE_RKNNAPI) || defined(USE_RKNN2API)
         static void mat_safty_cut(cv::Mat& img, cv::Mat& dst, cv::Rect roi);
+#endif
 
     protected:
         void refine(face_info_internal& face, const int& height, const int& width, bool square);

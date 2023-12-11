@@ -24,6 +24,13 @@ namespace glasssix::onphone
 		{
 			auto det_rst_map = base_instance_->forward(letter_img.data, { 1, letter_img.rows, letter_img.cols, letter_img.channels() }, RKNN_TENSOR_NHWC);
 			auto det_rst_vec = sort_yolo_rst(det_rst_map);
+
+			if (det_rst_vec.size() == 6) {
+				det_rst_vec[0] = sp_concat_tensor(det_rst_vec[0], det_rst_vec[3]);
+				det_rst_vec[1] = sp_concat_tensor(det_rst_vec[1], det_rst_vec[4]);
+				det_rst_vec[2] = sp_concat_tensor(det_rst_vec[2], det_rst_vec[5]);
+			}
+
 			TensorSptr concat_tensor_ptr = yolov8_complement(det_rst_vec);
 
 			std::unordered_map<std::string, TensorSptr> result_map;
@@ -36,6 +43,26 @@ namespace glasssix::onphone
 		std::unique_ptr<rknnwrapper::rknn_wrapper> base_instance_;
 		std::vector<TensorSptr> sort_yolo_rst(const std::unordered_map<std::string, TensorSptr>&);
 		TensorSptr yolov8_complement(std::vector<TensorSptr>&);
+
+		TensorSptr sp_concat_tensor(TensorSptr& A, TensorSptr& B) {
+			auto A_shape = A->data_shape();
+			auto B_shape = B->data_shape();
+			CHECK_EQ(A_shape[2], B_shape[2]);
+			CHECK_EQ(A_shape[3], B_shape[3]);
+			CHECK_EQ(A_shape[2], A_shape[3]);
+			CHECK_GT(A_shape[1], 1);
+			CHECK_EQ(B_shape[1], 1);
+			int sideLength = A_shape[2];
+
+			auto top = std::make_shared<glasssix::memory::tensor<float>>(std::vector<int>{1, A_shape[1] + B_shape[1], sideLength, sideLength}, -1, memory::NCHW);
+			CHECK_EQ(top->count(), A->count() + B->count());
+
+			std::copy(A->mutable_cpu_data(), A->mutable_cpu_data() + A->count(), top->mutable_cpu_data());
+			std::copy(B->mutable_cpu_data(), B->mutable_cpu_data() + B->count(), top->mutable_cpu_data() + A->count());
+
+			return top;
+		}
+
 	};
 
 	static inline float sigmoid_x(float x) {

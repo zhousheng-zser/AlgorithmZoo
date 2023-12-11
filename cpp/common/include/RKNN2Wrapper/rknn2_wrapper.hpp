@@ -1,6 +1,6 @@
 ﻿#pragma once
-#ifndef RKNNWRAPPER_HPP
-#define RKNNWRAPPER_HPP
+#ifndef _RKNN2WRAPPER_HPP_
+#define _RKNN2WRAPPER_HPP_
 
 #include <exception>
 #include <unordered_map>
@@ -152,7 +152,7 @@ namespace glasssix
 			}
 		}
 
-		void tensorf16_2_f32(const uint16_t *source ,float* dst,int length)
+		static void tensorf16_2_f32(const uint16_t *source ,float* dst,int length)
 		{
 			for(int i=0;i<length;i++)
 			{

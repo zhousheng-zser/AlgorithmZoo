@@ -48,10 +48,9 @@ namespace glasssix::pedestrian
         }
                 exposing::param_vector<pedestrian::box_info> detect(const exposing::param_span<std::uint8_t> &bitmap, int channels, int height, int width, int roi_x, int roi_y, int roi_width, int roi_height, std::map<std::string, float> &param_map)
         {
-
-            float MIN_HEAD = param_map.count("min_size") ? param_map["min_size"] : 48.f;
             float con_thres = param_map.count("conf_thres") ? param_map["conf_thres"] : 0.5f;
             float iou_thres = param_map.count("nms_thres") ? param_map["nms_thres"] : 0.6f;
+            bool is_wander_call = param_map.count("wander") ? param_map["wander"] : 0.f;
 
             if (bitmap.empty())
             {
@@ -70,15 +69,12 @@ namespace glasssix::pedestrian
 
             cv::Mat cropped_image = image(cv::Range(roi_y, roi_y + roi_height), cv::Range(roi_x, roi_x + roi_width));
 
-            std::vector<pedestrian::box_info_internal> result = universal_pedestrian_detect(cropped_image, con_thres, iou_thres);
-            // std::cout<<"ok\n";
-            // std::cout<<result[0].x1<<" "<<result[0].x2<<std::endl;
+            std::vector<pedestrian::box_info_internal> result = universal_pedestrian_detect(cropped_image, con_thres, iou_thres, is_wander_call);
 
             auto results = exposing::make_param_vector<pedestrian::box_info>();
 
             for (auto &it : result)
             {
-                // std::cout<<it.x1<<std::endl;
                 it.x1 += roi_x;
                 it.x2 += roi_x;
                 it.y1 += roi_y;
@@ -91,7 +87,7 @@ namespace glasssix::pedestrian
 
         std::string version()
         {
-            const std::string algo_module_version = "1.0.0";
+            const std::string algo_module_version = "3.1.0";
 
 #if defined(USE_RKNNAPI) || defined(USE_RKNN2API)
             // #if 0
@@ -467,15 +463,41 @@ namespace glasssix::pedestrian
             return {mask_image, scale};
         }
 
-        std::vector<pedestrian::box_info_internal> universal_pedestrian_detect(cv::Mat &image, float con_thres, float iou_thres )
+        std::vector<pedestrian::box_info_internal> universal_pedestrian_detect(cv::Mat &image, float con_thres, float iou_thres, bool is_wander_call)
         {
             std::vector<box_info_internal> output;
             float conf_threshold = con_thres;
             float iou_threshold = iou_thres;
 
+            if (is_wander_call)
+            {
+                cv::Mat hsv_image;
+                cv::Mat red_mask;
+
+                cv::cvtColor(image, hsv_image, cv::COLOR_BGR2HSV);
+
+                cv::Scalar lower_red = cv::Scalar{ 0, 50, 50 };
+                cv::Scalar upper_red = cv::Scalar{ 5, 200, 200 };
+                cv::inRange(hsv_image, lower_red, upper_red, red_mask);
+
+                for (int row = 0; row < red_mask.rows; ++row)
+                {
+                    for (int col = 0; col < red_mask.cols; ++col)
+                    {
+                        auto& hsv = hsv_image.at<cv::Vec3b>(row, col);
+                        if (red_mask.at<uchar>(row, col) > 0)
+                        {
+                            hsv = { 120, 255, 255 };
+                        }
+                    }
+                }
+
+                cv::cvtColor(hsv_image, image, cv::COLOR_HSV2BGR);
+            }
+
+
 
             auto new_shape = cv::Size(1280, 1280);
-
             cv::Mat blob;
             float ratio = 0;
             int pad_h = 0;

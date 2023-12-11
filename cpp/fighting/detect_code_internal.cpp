@@ -35,10 +35,14 @@ namespace glasssix::fighting
         impl(std::string_view model_directory, int device, int batch) :BATCH_(batch)
         {
             std::vector<std::string> empty_hold;
-            if (BATCH_ == 12)
+            if (BATCH_ == 12) {
                 instance_ = std::make_unique<rknnwrapper::rknn_wrapper>(empty_hold, std::string(model_directory) + "/" + "fight_12b" + ".rknn", device);
-            else if (BATCH_ == 8)
+                CROP_SIZE_ = 384;
+            }
+            else if (BATCH_ == 8) {
                 instance_ = std::make_unique<rknnwrapper::rknn_wrapper>(empty_hold, std::string(model_directory) + "/" + "fight_8b" + ".rknn", device);
+                CROP_SIZE_ = 256;
+            }
             else
                 throw exposing::abi_invalid_argument("incorrect BATCH_ param");
         }
@@ -99,7 +103,7 @@ namespace glasssix::fighting
 
             cv::transpose(inputMat, inputMat);
 
-            auto inpuTensor = std::make_shared<glasssix::memory::tensor<uint8_t>>(std::vector{ 1, 256, 256, BATCH_ * 9 }, -1, memory::NCHW);
+            auto inpuTensor = std::make_shared<glasssix::memory::tensor<uint8_t>>(std::vector{ 1, CROP_SIZE_, CROP_SIZE_, BATCH_ * 9 }, -1, memory::NCHW);
             std::copy(inputMat.data, inputMat.data + inputMat.step[0] * inputMat.rows, inpuTensor->mutable_cpu_data());
 
             return inpuTensor;
@@ -113,12 +117,12 @@ namespace glasssix::fighting
         }
 
 
-        std::array<cv::Mat, 3> threecrop(cv::Mat InteImage, int size = 256) {
+        std::array<cv::Mat, 3> threecrop(cv::Mat InteImage, int size) {
             std::array<cv::Mat, 3> rst;
             int H = InteImage.rows;
             int W = InteImage.cols;
             if (H == W) {
-                cv::resize(InteImage, InteImage, { 256,256 });
+                cv::resize(InteImage, InteImage, { size,size });
                 rst[0] = InteImage;
                 rst[1] = InteImage;
                 rst[2] = InteImage;
@@ -133,9 +137,9 @@ namespace glasssix::fighting
                     cv::resize(InteImage, InteImage, { new_W,new_H }); //cv::Size{W,H}
 
                     CHECK_GT(new_W, new_H);
-                    rst[0] = safty_cut(InteImage, cv::Rect(0, 0, 256, 256));
-                    rst[1] = safty_cut(InteImage, cv::Rect((new_W - size) / 2, 0, 256, 256));
-                    rst[2] = safty_cut(InteImage, cv::Rect(new_W - size, 0, 256, 256));
+                    rst[0] = safty_cut(InteImage, cv::Rect(0, 0, size, size));
+                    rst[1] = safty_cut(InteImage, cv::Rect((new_W - size) / 2, 0, size, size));
+                    rst[2] = safty_cut(InteImage, cv::Rect(new_W - size, 0, size, size));
                 }
             }
 
@@ -180,7 +184,7 @@ namespace glasssix::fighting
     private:
         std::unique_ptr<rknnwrapper::rknn_wrapper> instance_;
         int BATCH_;
-        const int CROP_SIZE_ = 256;
+        int CROP_SIZE_;
     };
 
     detect_code_internal::detect_code_internal(std::string_view model_directory, int device, int BATCH_)
