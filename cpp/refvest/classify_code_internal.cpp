@@ -56,9 +56,15 @@ namespace glasssix::refvest
                   throw exposing::abi_invalid_argument("incorrect roi in refvest");
             }
 
-            posture_param_abi = exposing::make_param_hash_map<exposing::param_string, float>();
-			posture_param_abi.add_or_update("conf_thres", 0.65f);
-			posture_param_abi.add_or_update("nms_thres", 0.90f);
+
+            float posture_conf_thres = param_map.count("conf_thres")?param_map["conf_thres"]:0.65;
+            float posture_little_target_conf_thres = param_map.count("little_target_conf_thres")?param_map["little_target_conf_thres"]:0.15;
+            float posture_nms_thres = param_map.count("iou_thres")?param_map["iou_thres"]:0.8;
+
+            posture_param_abi = exposing::make_param_hash_map<exposing::param_string, float>();//conf_thres
+			posture_param_abi.add_or_update("conf_thres", posture_conf_thres);
+			posture_param_abi.add_or_update("nms_thres", posture_nms_thres);
+            posture_param_abi.add_or_update("little_target_conf_thres", posture_little_target_conf_thres);
 
             auto empty_map_abi = exposing::make_param_hash_map<exposing::param_string, float>();
             exposing::param_vector<posture::box_info> posture_info_list = posture_instance_.detect(bitmap, channels, height, width, 0, 0, width, height, posture_param_abi);
