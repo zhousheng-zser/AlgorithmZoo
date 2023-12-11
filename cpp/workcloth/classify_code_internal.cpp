@@ -57,7 +57,8 @@ namespace glasssix::workcloth
 			posture_param_abi.add_or_update("nms_thres", 0.70f);
 		}
 
-		exposing::param_vector<workcloth::box_info> detect(const exposing::param_span<std::uint8_t>& bitmap, int channels, int height, int width, int roi_x, int roi_y, int roi_width, int roi_height, std::map<std::string, float>& param_map)
+		exposing::param_vector<workcloth::box_info> detect(const exposing::param_span<std::uint8_t>& bitmap, int channels, int height, int width, int roi_x, int roi_y, int roi_width, int roi_height, std::map<std::string, float>& param_map, 
+			std::unordered_map<int, std::vector<cv::Scalar>>& color_hsv_cfg)
 		{
 			if (bitmap.empty())
 			{
@@ -93,8 +94,8 @@ namespace glasssix::workcloth
 
 			body_nms_cpu(posture_info_list, 0.5);
 
-			//run_workcloth(results, image, persons_info, param_map);
-			run_workcloth2(results, image, posture_info_list, param_map);
+			//run_workcloth(results, image, persons_info, param_map, color_hsv_cfg);
+			run_workcloth2(results, image, posture_info_list, param_map, color_hsv_cfg);
 
 
 			for (auto& i : results)
@@ -106,7 +107,7 @@ namespace glasssix::workcloth
 
 		std::string version()
 		{
-			const std::string algo_module_version = "2.7.0";
+			const std::string algo_module_version = "2.7.1";
 
 #if defined(USE_RKNNAPI) || defined(USE_RKNN2API)
 			//#if 0
@@ -245,49 +246,34 @@ namespace glasssix::workcloth
 			black = 0, grey, white, red, orange, yellow, green, cyan, blue, purple
 		};
 
-		std::map<Color, std::pair<cv::Scalar, cv::Scalar>> color_hsv_cfg{
-		{Color::black,{cv::Scalar{0, 0, 0},cv::Scalar{180, 255, 45}}},
-		{Color::grey,{cv::Scalar{0, 0, 46},cv::Scalar{180, 42, 220}}},
-		{Color::white,{cv::Scalar{0, 0, 221},cv::Scalar{180, 30, 255}}},
 
-		{Color::orange,{cv::Scalar{11, 43, 46},cv::Scalar{25, 255, 255}}},
-		{Color::yellow,{cv::Scalar{26, 43, 46},cv::Scalar{34, 255, 255}}},
 
-		{Color::green,{cv::Scalar{35, 43, 46},cv::Scalar{77, 255, 255}}},
-		{Color::cyan,{cv::Scalar{78, 43, 46},cv::Scalar{99, 255, 255}}},
-		{Color::blue,{cv::Scalar{100, 43, 46},cv::Scalar{124, 255, 255}}},
-		{Color::purple,{cv::Scalar{125, 43, 46},cv::Scalar{155, 255, 255}}},
-		};
-
-		int calculate_singglehsv_method(cv::Mat image, Color mode) {
+		int calculate_singglehsv_method(cv::Mat image, Color mode, const std::vector<cv::Scalar>& color_hsv_cfg_val ) {
 			cv::Mat color_mask;
 			cv::Mat hsv_img;
 			cv::cvtColor(image, hsv_img, cv::COLOR_BGR2HSV);
 			if (mode != Color::red) {
-				cv::Scalar hsv_lower = color_hsv_cfg.at(mode).first;
-				cv::Scalar hsv_upper = color_hsv_cfg.at(mode).second;
-
+				cv::Scalar hsv_lower = color_hsv_cfg_val[0];
+				cv::Scalar hsv_upper = color_hsv_cfg_val[1];
 				cv::inRange(hsv_img, hsv_lower, hsv_upper, color_mask);
 			}
 			else {
 				// detect red mode
-				cv::Mat mask1;
-				cv::Scalar red_lower1 = cv::Scalar{ 0, 43, 46 };
-				cv::Scalar red_upper1 = cv::Scalar{ 10, 255, 255 };
+				cv::Mat mask1, mask2;
+				cv::Scalar red_lower1 = color_hsv_cfg_val[0];
+				cv::Scalar red_upper1 = color_hsv_cfg_val[1];
+				cv::Scalar red_lower2 = color_hsv_cfg_val[2];
+				cv::Scalar red_upper2 = color_hsv_cfg_val[3];
 				cv::inRange(hsv_img, red_lower1, red_upper1, mask1);
-
-				cv::Mat mask2;
-				cv::Scalar red_lower2 = cv::Scalar{ 156, 43, 46 };
-				cv::Scalar red_upper2 = cv::Scalar{ 180, 255, 255 };
 				cv::inRange(hsv_img, red_lower2, red_upper2, mask2);
 				color_mask = mask1 + mask2;
 			}
-
 			int color_pixels = cv::countNonZero(color_mask);
 			return color_pixels;
 		}
 
-		void run_workcloth(std::vector<box_info_internal>& results, cv::Mat& image, std::vector<PostureInfo>& persons, std::map<std::string, float>& param_map)
+		void run_workcloth(std::vector<box_info_internal>& results, cv::Mat& image, std::vector<PostureInfo>& persons, std::map<std::string, float>& param_map,
+			std::unordered_map<int, std::vector<cv::Scalar>>& color_hsv_cfg)
 		{
 			float W = image.cols;
 			float H = image.rows;
@@ -329,7 +315,7 @@ namespace glasssix::workcloth
 				int total_pixels = color_image.rows * color_image.cols;
 				auto color_ratios_abi = exposing::make_param_vector<float>();
 				for (int i = 0; i < 10; i++) {
-					float ratio = (float)calculate_singglehsv_method(color_image, static_cast<Color>(i)) / total_pixels;
+					float ratio = (float)calculate_singglehsv_method(color_image, static_cast<Color>(i), color_hsv_cfg[i]) / total_pixels;
 					color_ratios_abi.push_back(ratio);
 				}
 
@@ -353,7 +339,8 @@ namespace glasssix::workcloth
 				// cv::imwrite("/home/firefly/yhc/bdh.png",image);
 		}
 
-		void run_workcloth2(std::vector<box_info_internal>& results, cv::Mat& image, std::vector<PostureInfo>& persons, std::map<std::string, float>& param_map)
+		void run_workcloth2(std::vector<box_info_internal>& results, cv::Mat& image, std::vector<PostureInfo>& persons, std::map<std::string, float>& param_map,
+			std::unordered_map<int, std::vector<cv::Scalar>>& color_hsv_cfg)
 		{
 			float W = image.cols;
 			float H = image.rows;
@@ -434,7 +421,7 @@ namespace glasssix::workcloth
 
 				auto push_hsv_ratio = [&](cv::Mat region_img) {
 					for (int i = 0; i < 10; i++) {
-						int _color_pixels = calculate_singglehsv_method(region_img, static_cast<Color>(i));
+						int _color_pixels = calculate_singglehsv_method(region_img, static_cast<Color>(i),color_hsv_cfg[i]);
 						int _total_pixels = region_img.cols * region_img.rows;
 						float ratio = static_cast<float>(_color_pixels) / static_cast<float>(_total_pixels);
 						color_ratios_abi.push_back(ratio);
@@ -454,21 +441,6 @@ namespace glasssix::workcloth
 				in_box_info.y2 = person.y2;
 
 				results.push_back(in_box_info);
-
-				// cv::rectangle(draw_image, rc_img_center, { 0,170,0 }, 2);
-				// cv::rectangle(draw_image, rc_img_left, { 170,170,0 }, 2);
-				// cv::rectangle(draw_image, rc_img_right, { 0,170,170 }, 2);
-				// cv::rectangle(draw_image, person.color_cut, { 0,0,0 }, 2);
-				// for (auto kp : person.Kpoints) {
-				// 	cv::circle(draw_image, kp, 2, { 255,255,255 }, 2);
-				// }
-				// cv::circle(draw_image, person.Kpoints[5], 3, { 0,0,150}, 3);
-				// cv::circle(draw_image, person.Kpoints[6], 3, { 0,0,180}, 3);
-				// cv::circle(draw_image, person.Kpoints[11], 3, { 0,0,210}, 3);
-				// cv::circle(draw_image, person.Kpoints[12], 3, { 0,0,250}, 3);
-				// cv::circle(draw_image, person.Kpoints[7], 2, { 0,255,0}, 2);
-				// cv::circle(draw_image, person.Kpoints[8], 2, { 0,255,0}, 2);
-
 			}
 			// cv::imwrite("/home/firefly/yhc/bdh.png", draw_image);
 		}
@@ -501,8 +473,8 @@ namespace glasssix::workcloth
 		return impl_->version();
 	}
 
-	exposing::param_vector<workcloth::box_info> classify_code_internal::detect(exposing::param_span<std::uint8_t> bitmap, int channels, int height, int width, int roi_x, int roi_y, int roi_width, int roi_height, std::map<std::string, float>& param_map) const
+	exposing::param_vector<workcloth::box_info> classify_code_internal::detect(exposing::param_span<std::uint8_t> bitmap, int channels, int height, int width, int roi_x, int roi_y, int roi_width, int roi_height, std::map<std::string, float>& param_map, std::unordered_map<int, std::vector<cv::Scalar>>& color_hsv_cfg) const
 	{
-		return impl_->detect(bitmap, channels, height, width, roi_x, roi_y, roi_width, roi_height, param_map);
+		return impl_->detect(bitmap, channels, height, width, roi_x, roi_y, roi_width, roi_height, param_map, color_hsv_cfg);
 	}
 }
