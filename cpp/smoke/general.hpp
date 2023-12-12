@@ -223,7 +223,9 @@ using namespace glasssix;
             upper_body_x1 = x1;
             upper_body_x2 = x2;
             std::tie(upper_body_y1, upper_body_y2, heights) = get_height(shoulder_elbow_wrist);
-            safe_crop_rect rect(upper_body_x1,upper_body_x2,upper_body_y1,upper_body_y2,width,height );
+            upper_body_y1-=20;
+            upper_body_y2+=20;
+            safe_crop_rect rect(upper_body_x1,upper_body_x2,upper_body_y1,upper_body_y2,width,height);
 
             return rect;
         }   
@@ -306,6 +308,13 @@ using namespace glasssix;
                 if( data20_conf[i] >conf  )
                     match_index.push_back(i+stride_num4*stride_num4+stride_num8*stride_num8+stride_num16*stride_num16);
 
+            // std::cout<<"var:\n";
+            // for(auto var : match_index)
+            // {
+            //     std::cout<<var<<"\t";
+            // }
+            // std::cout<<"\n";
+            
             //concat the 80*40 40*40 20*20 
             std::vector<float> cat(65*candidate_num);//1*65*8400 = 64*8400 + 1*8400
             for(int i=0;i<65;i++)
@@ -378,17 +387,12 @@ using namespace glasssix;
             float * output = output0->mutable_cpu_data();
             for(int i=0;i<candidate_num;i++)
             {
-                concat[candidate_num*0 +i] = concat[candidate_num*0 +i]*posture_mul_weight[ match_index[i]];    
-                concat[candidate_num*1 +i] = concat[candidate_num*1 +i]*posture_mul_weight[ match_index[i]];
-                concat[candidate_num*2 +i] = concat[candidate_num*2 +i]*posture_mul_weight[ match_index[i]];
-                concat[candidate_num*3 +i] = concat[candidate_num*3 +i]*posture_mul_weight[ match_index[i]];
+                output[candidate_num*0 +i] = concat[candidate_num*0 +i]*posture_mul_weight[ match_index[i]];    
+                output[candidate_num*1 +i] = concat[candidate_num*1 +i]*posture_mul_weight[ match_index[i]];
+                output[candidate_num*2 +i] = concat[candidate_num*2 +i]*posture_mul_weight[ match_index[i]];
+                output[candidate_num*3 +i] = concat[candidate_num*3 +i]*posture_mul_weight[ match_index[i]];
+                output[candidate_num*4 +i] = sigmoid_x(cat[34000*64 +match_index[i]]);
 
-                output[candidate_num*0 +i]  = concat[candidate_num*0 +i];
-                output[candidate_num*1 +i]  = concat[candidate_num*1 +i];
-                output[candidate_num*2 +i]  = concat[candidate_num*2 +i];
-                output[candidate_num*3 +i]  = concat[candidate_num*3 +i];
-
-                output[candidate_num*4 +i] =  sigmoid_x(cat[34000*64 +match_index[i]]);
             }          
             return  output0;
 
