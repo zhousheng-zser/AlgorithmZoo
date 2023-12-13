@@ -158,6 +158,8 @@ namespace glasssix::wander
 
             // std::cout<<"before:  "<<last_location_info.size()<<std::endl;
             // std::cout<< pedestrain_info.size()<<"pedestrain_info\n";
+
+            std::map<int,int> allocate_id_current_frame;
             for(auto& head:pedestrain_info)
             {
                 bbox tmp_bbox;
@@ -202,7 +204,10 @@ namespace glasssix::wander
                 }
                 auto sqrt_xx=sqrt(xx);
                 std::lock_guard<std::mutex> lock(Feature_Table_Mutex);
-                auto person_info = feature_match(data1, sqrt_xx,current_time, std::round(device_id), feature_tables, last_location_info, tmp_bbox , feature_table_size, feature_match_threshold  );
+
+                // std::vector<int> allocate_id_current_frame;//当前帧已经分配的id
+               
+                auto person_info = feature_match(data1, sqrt_xx,current_time, std::round(device_id), feature_tables, last_location_info, tmp_bbox,allocate_id_current_frame, feature_table_size, feature_match_threshold );
              
                 box_info_internal result;
                     result.x1=x1>0?x1:0 ;
@@ -221,21 +226,8 @@ namespace glasssix::wander
             }
 
             last_location_info.clear();
-            // std::cout<<"after :  "<<last_location_info.size()<<std::endl;
             last_location_info = temp_last_location_info;
 
-            // for (auto x: last_location_info)
-            // {
-            //     std::cout<<x.x1<<" "<<x.x2<<" "<<x.y1<<" "<<x.y2<<std::endl;
-            // }
-            
-            // for(auto& head:pedestrain_info)
-            // {
-            //     int x1=std::round( head.x1)>0?std::round( head.x1):0  ;
-            //     int y1=std::round( head.y1)>0?std::round( head.y1):0  ;
-            //     int x2=std::round( head.x2)<width ? std::round( head.x2):width ;
-            //     int y2=std::round( head.y2)<height? std::round( head.y2):height ;
-            // }
 
             return l_c;
         }
