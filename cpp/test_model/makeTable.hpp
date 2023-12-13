@@ -14,10 +14,11 @@ public:
         pt.AddColumn("less90");
         pt.AddColumn("less85");
         pt.AddColumn("less80");
+        pt.AddColumn("less70");
         pt.AddColumn("min_cos");
 	}
 
-	void rowPushLine(std::string output_name, std::array<int,6> less_vec,float min_cos,int infr_count) {
+	void rowPushLine(std::string output_name, std::array<int,7> less_vec,float min_cos,int infr_count) {
 		std::vector<std::string> line{ output_name };
 		for (auto v : less_vec) {
 			std::string ratioInfo = std::to_string(v) + ", " + std::to_string(v * 1.f / infr_count);

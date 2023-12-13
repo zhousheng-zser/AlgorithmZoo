@@ -473,19 +473,24 @@ namespace glasssix::pedestrian
             {
                 cv::Mat hsv_image;
                 cv::Mat red_mask;
+                cv::Mat blue_mask;
 
                 cv::cvtColor(image, hsv_image, cv::COLOR_BGR2HSV);
+
+                cv::Scalar lower_blue = cv::Scalar{ 110, 50, 50 };
+                cv::Scalar upper_blue = cv::Scalar{ 115, 255, 255 };
 
                 cv::Scalar lower_red = cv::Scalar{ 0, 50, 50 };
                 cv::Scalar upper_red = cv::Scalar{ 5, 200, 200 };
                 cv::inRange(hsv_image, lower_red, upper_red, red_mask);
+                cv::inRange(hsv_image, lower_blue, upper_blue, blue_mask);
 
                 for (int row = 0; row < red_mask.rows; ++row)
                 {
                     for (int col = 0; col < red_mask.cols; ++col)
                     {
                         auto& hsv = hsv_image.at<cv::Vec3b>(row, col);
-                        if (red_mask.at<uchar>(row, col) > 0)
+                        if (red_mask.at<uchar>(row, col) > 0 || blue_mask.at<uchar>(row, col) > 0)
                         {
                             hsv = { 120, 255, 255 };
                         }
@@ -494,8 +499,6 @@ namespace glasssix::pedestrian
 
                 cv::cvtColor(hsv_image, image, cv::COLOR_HSV2BGR);
             }
-
-
 
             auto new_shape = cv::Size(1280, 1280);
             cv::Mat blob;
