@@ -162,32 +162,21 @@ namespace glasssix::wander
             std::map<int,int> allocate_id_current_frame;
             for(auto& head:pedestrain_info)
             {
+
+                safe_crop_rect person_bbox(head.x1,head.x2,head.y1,head.y2,width,height);
+                auto body = person_bbox.feature_fetch_regionof_body();
                 bbox tmp_bbox;
                 int x1=std::round( head.x1)>0?std::round( head.x1):0  ;
                 int y1=std::round( head.y1)>0?std::round( head.y1):0  ;
                 int x2=std::round( head.x2)<width ? std::round( head.x2):width ;
                 int y2=std::round( head.y2)<height? std::round( head.y2):height ;
 
-                tmp_bbox.x1 = x1;
-                tmp_bbox.x2 = x2;
-                tmp_bbox.y1 = y1;
-                tmp_bbox.y2 = y2;
+                tmp_bbox.x1 =  person_bbox.x1;
+                tmp_bbox.x2 =  person_bbox.x2;
+                tmp_bbox.y1 =  person_bbox.y1;
+                tmp_bbox.y2 =  person_bbox.y2;
 
-                int centre_x = (x1+x2)/2;
-                int centre_y = (y1+y2)/2;
-                int width  = abs(x2- x1)*0.7;
-                int height = abs(y2- y1)*0.85;
-                int x11 = centre_x - width/2;
-                int x22 = centre_x + width/2;
-                int y11 = centre_y - height/2;
-                int y22 = centre_y + height/2;
-
-                if( (y2-y1)<0 ||(x2-x1)<0 )
-                {
-                    continue;
-                }
-
-                cv::Mat crop = image(cv::Range( std::round(y11), std::round(y22) ), cv::Range( std::round(x11), std::round(x22)));
+                cv::Mat crop = image(cv::Range( std::round(body.y1), std::round(body.y2) ), cv::Range( std::round(body.x1), std::round(body.x2)));
 
                 cv::Mat headimg;
                 // cv::cvtColor(crop, crop, cv::COLOR_BGR2RGB);
@@ -205,15 +194,13 @@ namespace glasssix::wander
                 auto sqrt_xx=sqrt(xx);
                 std::lock_guard<std::mutex> lock(Feature_Table_Mutex);
 
-                // std::vector<int> allocate_id_current_frame;//当前帧已经分配的id
-               
-                auto person_info = feature_match(data1, sqrt_xx,current_time, std::round(device_id), feature_tables, last_location_info, tmp_bbox,allocate_id_current_frame, feature_table_size, feature_match_threshold );
+                auto person_info = feature_match(data1, sqrt_xx,current_time, std::round(device_id), feature_tables, person_bbox.get_bbox(), allocate_id_current_frame, feature_table_size, feature_match_threshold );
              
                 box_info_internal result;
-                    result.x1=x1>0?x1:0 ;
-                    result.y1=y1>0?y1:0 ;
-                    result.x2=x2<image.cols ?x2:image.cols ;
-                    result.y2=y2<image.rows ?y2:image.rows ;                 
+                    result.x1=person_bbox.x1 ;
+                    result.y1=person_bbox.y1 ;
+                    result.x2=person_bbox.x2 ;
+                    result.y2=person_bbox.y2 ;                 
                     result.confidence = head.score ;
 
                     result.id = person_info.id;
