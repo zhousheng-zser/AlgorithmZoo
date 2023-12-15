@@ -71,6 +71,9 @@ using namespace glasssix;
         std::vector<std::pair<cv::Point, float>> Kpoints;
     };
 
+
+
+
     struct safe_crop_rect 
     {
         int x1;
@@ -107,7 +110,19 @@ using namespace glasssix;
             m_width = x2 - x1;
             m_height = y2 - y1;
         }
+
+        int area()
+        {
+            return m_width*m_height;
+        }
+
     };
+
+
+    bool is_filterated(Cigrate_box & head, Cigrate_box & cigrate )
+    {
+        return head.area()<cigrate.area();
+    }
     
     float IOU_compute(const Cigrate_box b1, const Cigrate_box b2)
     {
