@@ -57,8 +57,8 @@ namespace glasssix::smoke
             std::vector<smoke::box_info_internal> results;
             auto result = exposing::make_param_vector<box_info>();
 
-            auto empty_map_abi = exposing::make_param_hash_map<exposing::param_string, float>();
-            float conf_threshold           = param_map.count("conf_thres") ? param_map["conf_thres"] : 0.6f;
+            auto  empty_map_abi             = exposing::make_param_hash_map<exposing::param_string, float>();
+            float conf_threshold            = param_map.count("conf_thres") ? param_map["conf_thres"] : 0.6f;
             float smoke_conf_thres          = param_map.count("smoke_conf_thres") ? param_map["smoke_conf_thres"] : 0.45f;
             float little_target_conf_thres  = param_map.count("little_target_conf_thres") ? param_map["little_target_conf_thres"] : 0.2f;
 
@@ -138,27 +138,28 @@ namespace glasssix::smoke
                     // }
                  
                     Cigrate_box a(cigratex1,cigratey1,cigratex2,cigratey2);
+
+                    if(is_filterated( b,a ) )
+                    {
+                        continue;
+                    }
+
                     float iou = IOU_compute(a, b);
                     // std::cout<<"iou: "<<iou<<std::endl;
-                    if(iou>0.f)
-                    {
-                        smoke::box_info_internal temp_box;
+                    smoke::box_info_internal temp_box;
                         temp_box.x1 = cigratex1;
                         temp_box.x2 = cigratex2;
                         temp_box.y1 = cigratey1;
                         temp_box.y2 = cigratey2;
                         temp_box.confidence = cigrate[4];
+
+                    if(iou>0.f)
+                    {
                         temp_box.category = 0;
                         results.push_back(temp_box);
                     }
                     else
                     {
-                        smoke::box_info_internal temp_box;
-                        temp_box.x1 = cigratex1;
-                        temp_box.x2 = cigratex2;
-                        temp_box.y1 = cigratey1;
-                        temp_box.y2 = cigratey2;
-                        temp_box.confidence = cigrate[4];
                         temp_box.category = 1;
                         results.push_back(temp_box);
                     }
