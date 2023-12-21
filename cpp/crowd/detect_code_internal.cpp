@@ -5,6 +5,7 @@
 #include "detect_code_internal.hpp"
 #include "box_info_impl.hpp"
 #include "logger.hpp"
+#include "find_cluster_num.hpp"
 
 #include "hardcode.hpp"
 
@@ -43,8 +44,12 @@ namespace glasssix::crowd
 
         }
 
-        exposing::param_vector<crowd::box_info> detect(const exposing::param_span<std::uint8_t>& bitmap, int channels, int height, int width, int roi_x, int roi_y, int roi_width, int roi_height, std::map<std::string, float>& param_map)
+        exposing::param_vector<crowd::box_info> detect(const exposing::param_span<std::uint8_t>& bitmap, int channels, int height, int width, int roi_x, int roi_y, int roi_width, int roi_height, int min_cluster_size, std::map<std::string, float>& param_map)
         {
+            if (min_cluster_size <= 0)
+            {
+                throw exposing::abi_invalid_argument("min_cluster_size < = 0");
+            }
 
             if (bitmap.empty())
             {
@@ -87,8 +92,7 @@ namespace glasssix::crowd
             cropheight = cropped_image.rows;
 
             // int index = 0;
-
-            auto results = exposing::make_param_vector<crowd::box_info>();
+            std::vector<cluster_info> detection_points;
             for(int i=0;i< yslice;i++)
             {
                 for (size_t j = 0; j < xslice; j++)
@@ -112,21 +116,19 @@ namespace glasssix::crowd
                         it.x2+=roi_x;
                         it.y1+=roi_y;
                         it.y2+=roi_y;
-                        results.push_back(glasssix::exposing::make_as_first<box_info_impl>(it));
+                        detection_points.push_back(cluster_info{ .x1 = it.x1 ,.y1 = it.y1 ,.x2 = it.x2 ,
+                        .y2 = it.y2 ,.x=(it.x1+ it.x2)*0.5,.y= (it.y1 + it.y2) * 0.5 });
                     }
 
                 }
             }
-
             
-
-            
-            return results;
+            return find_cluster_num(detection_points, min_cluster_size);
         }
 
         std::string version()
         {
-			const std::string algo_module_version = "2.0.0";
+			const std::string algo_module_version = "2.1.0";
 
 #if defined(USE_RKNNAPI) || defined(USE_RKNN2API)
 			//#if 0
@@ -156,6 +158,30 @@ namespace glasssix::crowd
             int category;
         };
 
+        exposing::param_vector<crowd::box_info> find_cluster_num(const std::vector<cluster_info>& detection_points, int min_cluster_size)
+        {
+            auto results = exposing::make_param_vector<crowd::box_info>();
+            if (detection_points.size() == 0)
+                return results;
+            cluster_num scaler;
+            std::vector<int> cluster_num = scaler.find_cluster_num(detection_points, min_cluster_size);
+
+            //crowd::box_info_internal
+            //results.push_back(glasssix::exposing::make_as_first<box_info_impl>(it));
+            for ( int i = 0 ;i< detection_points.size();++i)
+            {
+                if (cluster_num[i] == 0)
+                    continue;
+                crowd::box_info_internal temp;
+                temp.x1= detection_points[i].x1;     
+                temp.y1= detection_points[i].y1;     
+                temp.x2= detection_points[i].x2;     
+                temp.y2= detection_points[i].y2;     
+                temp.category= cluster_num[i]-1;
+                results.push_back(glasssix::exposing::make_as_first<box_info_impl>(temp));
+            }
+            return results;
+        }
         void resize_nearst(const float *source,float *dst ,int sou_height,int sou_width,int dst_height,int dst_width,int channel )
         {
             for(int c=0;c < channel;c++)
@@ -353,8 +379,8 @@ namespace glasssix::crowd
         return impl_->version();
     }
 
-    exposing::param_vector<crowd::box_info> detect_code_internal::detect(exposing::param_span<std::uint8_t> bitmap, int channels, int height, int width, int roi_x, int roi_y, int roi_width, int roi_height, std::map<std::string, float>& param_map) const
+    exposing::param_vector<crowd::box_info> detect_code_internal::detect(exposing::param_span<std::uint8_t> bitmap, int channels, int height, int width, int roi_x, int roi_y, int roi_width, int roi_height, int min_cluster_size, std::map<std::string, float>& param_map) const
     {
-        return impl_->detect(bitmap, channels, height, width, roi_x, roi_y, roi_width, roi_height, param_map);
+        return impl_->detect(bitmap, channels, height, width, roi_x, roi_y, roi_width, roi_height, min_cluster_size, param_map);
     }
 }
