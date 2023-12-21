@@ -159,12 +159,12 @@ public:
         // 对k-距离进行排序
         std::sort(k_distances.begin(), k_distances.end());
         // 寻找最优eps值
-        double eps = find_optimal_eps(k_distances) * 0.7;
+        double eps = find_optimal_eps(k_distances) * 1.5;
         // 打印结果
         //  std::cout << "eps: " << eps << std::endl;
         std::vector<int> labels;
         // 执行 DBSCAN 聚类
-        dbscan(scaled_data, eps, k + 1, labels);
+        dbscan(scaled_data, eps, k - 1, labels);
         // 打印结果
         //std::cout << "Cluster labels: ";
         //for (int label : labels) {
