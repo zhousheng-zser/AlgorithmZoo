@@ -23,7 +23,7 @@ namespace glasssix::crowd
         exposing::param_string version() const;
 
         exposing::param_vector<crowd::box_info> detect(exposing::param_span<std::uint8_t> bitmap, int channels, int height, int width, int roi_x, int roi_y,
-         int roi_width, int roi_height,const exposing::param_hash_map<exposing::param_string, float>& param_map_abi) const;
+         int roi_width, int roi_height, int min_cluster_size, const exposing::param_hash_map<exposing::param_string, float>& param_map_abi) const;
 
     private:
         std::unique_ptr<detect_code_internal> impl_;
