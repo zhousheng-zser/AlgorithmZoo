@@ -46,4 +46,32 @@ namespace glasssix::posture
 	{
 		return internal_.key_points;
 	}
+	void box_info_impl::set_x1(float input)
+	{
+		internal_.x1 = input;
+	}
+	void box_info_impl::set_y1(float input)
+	{
+		internal_.y1 = input;
+	}
+	void box_info_impl::set_x2(float input)
+	{
+		internal_.x2 = input;
+	}
+	void box_info_impl::set_y2(float input)
+	{
+		internal_.y2 = input;
+	}
+	void box_info_impl::set_score(float input)
+	{
+		internal_.score = input;
+	}
+	void box_info_impl::set_category(int input)
+	{
+		internal_.category = input;
+	}
+	void box_info_impl::set_key_points(exposing::param_vector<float> pts)
+	{
+		internal_.key_points = pts;
+	}
 }

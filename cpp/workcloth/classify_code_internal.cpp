@@ -51,13 +51,13 @@ namespace glasssix::workcloth
 #if defined(USE_RKNNAPI) || defined(USE_RKNN2API)
 			classify_instance_ = std::make_unique<rknnwrapper::rknn_wrapper>(get_model_params("workcloth_cls"), std::string(model_directory) + "/" + "workcloth_cls" + ".rknn", device);
 #endif
-			posture_instance_ = glasssix::exposing::make_exported_interface<posture::detect_code>(model_directory, device,1);
-			posture_param_abi = exposing::make_param_hash_map<exposing::param_string, float>();
-			posture_param_abi.add_or_update("conf_thres", 0.70f);
-			posture_param_abi.add_or_update("nms_thres", 0.70f);
+			// posture_instance_ = glasssix::exposing::make_exported_interface<posture::detect_code>(model_directory, device,1);
+			// posture_param_abi = exposing::make_param_hash_map<exposing::param_string, float>();
+			// posture_param_abi.add_or_update("conf_thres", 0.70f);
+			// posture_param_abi.add_or_update("nms_thres", 0.70f);
 		}
 
-		exposing::param_vector<workcloth::box_info> detect(const exposing::param_span<std::uint8_t>& bitmap, int channels, int height, int width, int roi_x, int roi_y, int roi_width, int roi_height, std::map<std::string, float>& param_map, 
+		exposing::param_vector<workcloth::box_info> detect(const exposing::param_span<std::uint8_t>& bitmap, int channels, int height, int width, int roi_x, int roi_y, int roi_width, int roi_height, exposing::param_vector<posture::box_info> posture_info_list_raw, std::map<std::string, float>& param_map, 
 			std::unordered_map<int, std::vector<cv::Scalar>>& color_hsv_cfg)
 		{
 			if (bitmap.empty())
@@ -80,7 +80,7 @@ namespace glasssix::workcloth
 			std::vector<box_info_internal> results;
 			auto result = exposing::make_param_vector<box_info>();
 
-			exposing::param_vector<posture::box_info> posture_info_list_raw = posture_instance_.detect(bitmap, channels, height, width, 0, 0, width, height, posture_param_abi);
+			// exposing::param_vector<posture::box_info> posture_info_list_raw = posture_instance_.detect(bitmap, channels, height, width, 0, 0, width, height, posture_param_abi);
 			std::vector<PostureInfo> posture_info_list;
 			// std::vector<PostureInfo> persons_info;
 
@@ -107,7 +107,7 @@ namespace glasssix::workcloth
 
 		std::string version()
 		{
-			const std::string algo_module_version = "2.7.1";
+			const std::string algo_module_version = "2.8.0";
 
 #if defined(USE_RKNNAPI) || defined(USE_RKNN2API)
 			//#if 0
@@ -473,8 +473,8 @@ namespace glasssix::workcloth
 		return impl_->version();
 	}
 
-	exposing::param_vector<workcloth::box_info> classify_code_internal::detect(exposing::param_span<std::uint8_t> bitmap, int channels, int height, int width, int roi_x, int roi_y, int roi_width, int roi_height, std::map<std::string, float>& param_map, std::unordered_map<int, std::vector<cv::Scalar>>& color_hsv_cfg) const
+	exposing::param_vector<workcloth::box_info> classify_code_internal::detect(exposing::param_span<std::uint8_t> bitmap, int channels, int height, int width, int roi_x, int roi_y, int roi_width, int roi_height, exposing::param_vector<posture::box_info> posture_info_list, std::map<std::string, float>& param_map, std::unordered_map<int, std::vector<cv::Scalar>>& color_hsv_cfg) const
 	{
-		return impl_->detect(bitmap, channels, height, width, roi_x, roi_y, roi_width, roi_height, param_map, color_hsv_cfg);
+		return impl_->detect(bitmap, channels, height, width, roi_x, roi_y, roi_width, roi_height, posture_info_list, param_map, color_hsv_cfg);
 	}
 }

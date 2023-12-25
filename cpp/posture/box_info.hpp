@@ -26,6 +26,13 @@ namespace glasssix::exposing::impl
             virtual std::int32_t G6_ABI_CALL score(abi_out_t<float> result) noexcept = 0;
 			virtual std::int32_t G6_ABI_CALL category(abi_out_t<int> result) noexcept = 0;
             virtual std::int32_t G6_ABI_CALL key_points(abi_out_t<param_vector<float>> result) noexcept = 0;
+            virtual std::int32_t G6_ABI_CALL set_x1(abi_in_t<int> result) noexcept = 0;
+            virtual std::int32_t G6_ABI_CALL set_y1(abi_in_t<int> result) noexcept = 0;
+            virtual std::int32_t G6_ABI_CALL set_x2(abi_in_t<int> result) noexcept = 0;
+            virtual std::int32_t G6_ABI_CALL set_y2(abi_in_t<int> result) noexcept = 0;
+            virtual std::int32_t G6_ABI_CALL set_score(abi_in_t<float> result) noexcept = 0;
+			virtual std::int32_t G6_ABI_CALL set_category(abi_in_t<int> result) noexcept = 0;
+            virtual std::int32_t G6_ABI_CALL set_key_points(abi_in_t<param_vector<float>> result) noexcept = 0;
         };
     };
 
@@ -71,6 +78,46 @@ namespace glasssix::exposing::impl
         {
             return abi_safe_call([&]
                 { *result = detach_abi(this->self().key_points()); });
+        }
+
+        virtual std::int32_t G6_ABI_CALL set_x1(abi_in_t<int> input) noexcept override
+        {
+            return abi_safe_call([&]
+                { this->self().set_x1(create_from_abi<int>(input)); });
+        }
+
+        virtual std::int32_t G6_ABI_CALL set_y1(abi_in_t<int> input) noexcept override
+        {
+            return abi_safe_call([&]
+                { this->self().set_y1(create_from_abi<int>(input)); });
+        }
+
+        virtual std::int32_t G6_ABI_CALL set_x2(abi_in_t<int> input) noexcept override
+        {
+            return abi_safe_call([&]
+                { this->self().set_x2(create_from_abi<int>(input)); });
+        }
+
+        virtual std::int32_t G6_ABI_CALL set_y2(abi_in_t<int> input) noexcept override
+        {
+            return abi_safe_call([&]
+                { this->self().set_y2(create_from_abi<int>(input)); });
+        }
+        virtual std::int32_t G6_ABI_CALL set_score(abi_in_t<float> input) noexcept override
+        {
+            return abi_safe_call([&]
+                { this->self().set_score(create_from_abi<float>(input)); });
+        }
+        virtual std::int32_t G6_ABI_CALL set_category(abi_in_t<int> input) noexcept override
+        {
+            return abi_safe_call([&]
+                { this->self().set_category(create_from_abi<int>(input)); });
+        }
+
+        virtual std::int32_t G6_ABI_CALL set_key_points(abi_in_t<param_vector<float>>  input) noexcept override
+        {
+            return abi_safe_call([&]
+                { this->self().set_key_points(create_from_abi<param_vector<float>> (input)); });
         }
 
     };
@@ -124,6 +171,36 @@ namespace glasssix::exposing::impl
 
                 return (check_abi_result(this->self_abi().key_points(put_abi(result))), result);
             }
+
+            void set_x1(int input)
+            {
+                check_abi_result(this->self_abi().set_x1(get_abi(input)));
+            }
+            void set_y1(int input)
+            {
+                check_abi_result(this->self_abi().set_y1(get_abi(input)));
+            }
+            void set_x2(int input)
+            {
+                check_abi_result(this->self_abi().set_x2(get_abi(input)));
+            }
+            void set_y2(int input)
+            {
+                check_abi_result(this->self_abi().set_y2(get_abi(input)));
+            }
+            void set_score(float input)
+            {
+                check_abi_result(this->self_abi().set_score(get_abi(input)));
+            }
+            void set_category(int input)
+            {
+                check_abi_result(this->self_abi().set_category(get_abi(input)));
+            }
+            void set_key_points(param_vector<float> input)
+            {
+                check_abi_result(this->self_abi().set_key_points(get_abi(input)));
+            }
+
         };
     };
 }

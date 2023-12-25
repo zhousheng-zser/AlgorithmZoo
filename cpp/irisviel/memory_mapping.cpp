@@ -153,7 +153,7 @@ namespace glasssix
 			}
 
 			// Sets the size of the file.
-			size_ = std::max(static_cast<std::size_t>(file_size.QuadPart), size);
+			size_ = (std::max)(static_cast<std::size_t>(file_size.QuadPart), size);
 			file_size.QuadPart = size_;
 
 			if (!SetFilePointerEx(file_handle_, file_size, nullptr, FILE_BEGIN))

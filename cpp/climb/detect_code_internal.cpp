@@ -31,11 +31,11 @@ namespace glasssix::climb
 
         impl(const std::vector<std::string> &phai, std::string model_directory, int device)
         {
-            static bool ready = glasssix::exposing::get_component_loader().add_module_by_name("posture");
-            posture_instance_ = glasssix::exposing::make_exported_interface<posture::detect_code>(exposing::param_string(model_directory), device,1);
+            // static bool ready = glasssix::exposing::get_component_loader().add_module_by_name("posture");
+            // posture_instance_ = glasssix::exposing::make_exported_interface<posture::detect_code>(exposing::param_string(model_directory), device,1);
         }
 
-        exposing::param_vector<climb::box_info> detect(const exposing::param_span<std::uint8_t>& bitmap, int channels, int height, int width, int roi_x, int roi_y, int roi_width, int roi_height, std::map<std::string, float>& param_map)
+        exposing::param_vector<climb::box_info> detect(const exposing::param_span<std::uint8_t>& bitmap, int channels, int height, int width, int roi_x, int roi_y, int roi_width, int roi_height, exposing::param_vector<posture::box_info> posture_info_list_raw, std::map<std::string, float>& param_map)
         {
             if (bitmap.empty())
             {
@@ -89,13 +89,13 @@ namespace glasssix::climb
             empty_map_abi.add_or_update("little_target_conf_thres",little_target_conf_thres);
 
 
-            exposing::param_vector<posture::box_info> posture_info_list = posture_instance_.detect(bitmap, channels, height, width, 0, 0, width, height, empty_map_abi);
+            // exposing::param_vector<posture::box_info> posture_info_list = posture_instance_.detect(bitmap, channels, height, width, 0, 0, width, height, empty_map_abi);
             
             std::vector<std::vector<float>> nms_result;
 
             std::vector<PostureInfo> person_infos; 
             std::vector<climb::box_info_internal> boxs;
-            for (auto pinfo : posture_info_list) 
+            for (auto pinfo : posture_info_list_raw) 
             {
                 PostureInfo person_info(pinfo); 
                 person_infos.push_back(pinfo);
@@ -153,7 +153,7 @@ namespace glasssix::climb
 
         std::string version()
 		{
-			const std::string algo_module_version = "1.1.0";
+			const std::string algo_module_version = "1.2.0";
 
 #if defined(USE_RKNNAPI) || defined(USE_RKNN2API)
 
@@ -189,9 +189,9 @@ namespace glasssix::climb
 
     detect_code_internal::~detect_code_internal() = default;
 
-    exposing::param_vector<climb::box_info> detect_code_internal::detect(exposing::param_span<std::uint8_t> bitmap, int channels, int height, int width, int roi_x, int roi_y, int roi_width, int roi_height, std::map<std::string, float>& param_map) const
+    exposing::param_vector<climb::box_info> detect_code_internal::detect(exposing::param_span<std::uint8_t> bitmap, int channels, int height, int width, int roi_x, int roi_y, int roi_width, int roi_height, exposing::param_vector<posture::box_info> posture_info_list, std::map<std::string, float>& param_map) const
     {
-        return impl_->detect(bitmap, channels, height, width, roi_x, roi_y, roi_width, roi_height, param_map);
+        return impl_->detect(bitmap, channels, height, width, roi_x, roi_y, roi_width, roi_height, posture_info_list, param_map);
     }
 
     std::string detect_code_internal::version()
