@@ -106,10 +106,23 @@ namespace glasssix::climb
                 temp[3]=person_info.y2;
                 temp[4]=person_info.score;
 
-    // for (size_t i = 0; i < person_info.Kpoints.size(); i++)
-    // {   
-    //     cv::circle(image,  cv::Point(int( person_info.Kpoints[i].first.x ), int(person_info.Kpoints[i].first.y ) ), 3, cv::Scalar(0, 0, 255));
-    // }
+
+    for (size_t i = 5; i <7; i++)//shoulder
+    {   
+        cv::circle(image,  cv::Point(int( person_info.Kpoints[i].first.x ), int(person_info.Kpoints[i].first.y ) ), 3, cv::Scalar(0, 0, 255));
+    }
+
+
+    for (size_t i = 9; i <11; i++)//hands
+    {   
+        cv::circle(image,  cv::Point(int( person_info.Kpoints[i].first.x ), int(person_info.Kpoints[i].first.y ) ), 3, cv::Scalar(0, 255, 255));
+    }
+
+    for (size_t i = 0; i <17; i++)
+    {   
+        // std::cout<<person_info.Kpoints[i].first.x<<" "<<person_info.Kpoints[i].first.y<<std::endl;
+        // cv::circle(image,  cv::Point(int( person_info.Kpoints[i].first.x ), int(person_info.Kpoints[i].first.y ) ), 3, cv::Scalar(255, 255, 0));
+    }
 
                 nms_result.push_back(temp);
 
@@ -122,7 +135,7 @@ namespace glasssix::climb
                 boxs.push_back(box);
             }
 
-            // cv::imwrite("../plypoint.jpg",image);
+            cv::imwrite("../plypoint.jpg",image);
 
             auto in_region_labels = in_region(nms_result, contours  );
 
@@ -131,7 +144,7 @@ namespace glasssix::climb
             for(int i=0;i<in_region_labels.size();i++) 
             {
                 // std::cout<<in_region_labels[i]<<"  "<<person_infos[i].is_climb_posture()<<std::endl;
-                boxs[i].category = in_region_labels[i] * person_infos[i].is_climb_posture() ;
+                boxs[i].category = in_region_labels[i] * person_infos[i].is_climb_posture(height, width) ;
                 results.push_back(glasssix::exposing::make_as_first<box_info_impl>(boxs[i]));
             }
 
