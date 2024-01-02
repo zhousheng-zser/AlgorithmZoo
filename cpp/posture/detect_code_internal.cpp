@@ -70,7 +70,7 @@ namespace glasssix::posture
 
 std::string version()
         {
-			const std::string algo_module_version = "3.0.0";
+			const std::string algo_module_version = "3.1.0";
 
 #if defined(USE_RKNNAPI) || defined(USE_RKNN2API)
 			std::string nn_frame_version = net_detect640_->version();

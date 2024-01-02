@@ -31,12 +31,12 @@ namespace glasssix::refvest
         impl(const std::vector<std::string> &phai, std::string model_directory, int device) 
             :classify_instance_(phai,  model_directory + std::string("/refvest_cls.rknn"), device), model_directory_(model_directory)
         {
-            static bool ready = glasssix::exposing::get_component_loader().add_module_by_name("posture");
-            posture_instance_ = glasssix::exposing::make_exported_interface<posture::detect_code>(exposing::param_string(model_directory), device,1);
+            // static bool ready = glasssix::exposing::get_component_loader().add_module_by_name("posture");
+            // posture_instance_ = glasssix::exposing::make_exported_interface<posture::detect_code>(exposing::param_string(model_directory), device,1);
    
         }       
 
-        exposing::param_vector<refvest::box_info> detect(const exposing::param_span<std::uint8_t>& bitmap, int channels, int height, int width, int roi_x, int roi_y, int roi_width, int roi_height, std::map<std::string, float>& param_map)
+        exposing::param_vector<refvest::box_info> detect(const exposing::param_span<std::uint8_t>& bitmap, int channels, int height, int width, int roi_x, int roi_y, int roi_width, int roi_height, exposing::param_vector<posture::box_info> posture_info_list, std::map<std::string, float>& param_map)
         {
             if (bitmap.empty())
             {
@@ -67,7 +67,7 @@ namespace glasssix::refvest
             posture_param_abi.add_or_update("little_target_conf_thres", posture_little_target_conf_thres);
 
             auto empty_map_abi = exposing::make_param_hash_map<exposing::param_string, float>();
-            exposing::param_vector<posture::box_info> posture_info_list = posture_instance_.detect(bitmap, channels, height, width, 0, 0, width, height, posture_param_abi);
+            // exposing::param_vector<posture::box_info> posture_info_list = posture_instance_.detect(bitmap, channels, height, width, 0, 0, width, height, posture_param_abi);
                     // std::cout<<"persons_info size():  "<<posture_info_list.size()<<std::endl;
             std::vector<PostureInfo> persons_info;
 
@@ -198,7 +198,7 @@ namespace glasssix::refvest
 
         std::string version()
         {
-			const std::string algo_module_version = "1.0.1";
+			const std::string algo_module_version = "1.1.0";
 
 #if defined(USE_RKNNAPI) || defined(USE_RKNN2API)
 			//#if 0
@@ -291,8 +291,8 @@ namespace glasssix::refvest
         return impl_->version();
     }
 
-    exposing::param_vector<refvest::box_info> classify_code_internal::detect(exposing::param_span<std::uint8_t> bitmap, int channels, int height, int width, int roi_x, int roi_y, int roi_width, int roi_height, std::map<std::string, float>& param_map) const
+    exposing::param_vector<refvest::box_info> classify_code_internal::detect(exposing::param_span<std::uint8_t> bitmap, int channels, int height, int width, int roi_x, int roi_y, int roi_width, int roi_height, exposing::param_vector<posture::box_info> posture_info_list, std::map<std::string, float>& param_map) const
     {
-        return impl_->detect(bitmap, channels, height, width, roi_x, roi_y, roi_width, roi_height, param_map);
+        return impl_->detect(bitmap, channels, height, width, roi_x, roi_y, roi_width, roi_height, posture_info_list, param_map);
     }
 }

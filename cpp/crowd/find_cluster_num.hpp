@@ -1,6 +1,7 @@
 #include <iostream>
 #include <vector>
 #include <cmath>
+#include <map>
 
 struct cluster_info
 {
@@ -148,13 +149,13 @@ public:
         // 对数据进行标准化
         std::vector<cluster_info> scaled_data = scaler.transform(detection_points);
         int  k = 3;
-        std::vector<std::vector<int>> neighborIndices;
+        std::vector<std::vector<int>> neighbor_indices;
         std::vector<double> k_distances;
         // 为每个点找到k个最近邻
-        find_nearest_neighbors(scaled_data, k, neighborIndices);
+        find_nearest_neighbors(scaled_data, k, neighbor_indices);
         // 计算k-距离
         for (unsigned int i = 0; i < scaled_data.size(); ++i) {
-            k_distances.push_back(calculate_distance(scaled_data[i], scaled_data[neighborIndices[i][k - 1]]));
+            k_distances.push_back(calculate_distance(scaled_data[i], scaled_data[neighbor_indices[i][k - 1]]));
         }
         // 对k-距离进行排序
         std::sort(k_distances.begin(), k_distances.end());
@@ -165,6 +166,17 @@ public:
         std::vector<int> labels;
         // 执行 DBSCAN 聚类
         dbscan(scaled_data, eps, k - 1, labels);
+        
+        std::map<int, int>temp;
+        temp.clear();
+        for (int label : labels) {
+            temp[label]++;
+        }
+        for (int &label : labels) {
+            if (temp[label] < min_cluster_size)
+                label = 0; 
+        }
+
         // 打印结果
         //std::cout << "Cluster labels: ";
         //for (int label : labels) {
