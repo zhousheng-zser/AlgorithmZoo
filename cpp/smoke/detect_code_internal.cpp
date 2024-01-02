@@ -115,7 +115,7 @@ namespace glasssix::smoke
                 int smoke_candicate_num=0;
                 auto smoke_output = Yovo8se_Concat_4B(smoke_forwards,smoke_conf_thres,smoke_candicate_num,posture_add_weight,posture_mul_weight);//5*8400
                 auto nms_results = smoke_post_process(smoke_output, smoke_pad_h,smoke_pad_w, 1.f/smoke_ratio,smoke_candicate_num);
-                 std::cout<<"nms_results: "<<nms_results.size()<<" "<<std::endl;
+                //  std::cout<<"nms_results: "<<nms_results.size()<<" "<<std::endl;
                 Cigrate_box b(head_rect.x1,head_rect.y1,head_rect.x2,head_rect.y2) ;
 
 
@@ -173,7 +173,7 @@ namespace glasssix::smoke
         
         std::string version()
         {
-            const std::string algo_module_version = "1.0.0";
+            const std::string algo_module_version = "3.0.2";
 
 #if defined(USE_RKNNAPI) || defined(USE_RKNN2API)
         //#if 0

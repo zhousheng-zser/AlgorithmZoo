@@ -39,7 +39,7 @@ namespace glasssix::helmet
         impl(const std::vector<std::string> &phai, std::string model_directory, int device)
                  :net_class_(phai,  model_directory + std::string("/helmet_sim.rknn"), device)
         {
-                static bool ready = glasssix::exposing::get_component_loader().add_module_by_name("pedestrian");
+                static bool ready = glasssix::exposing::get_component_loader().add_module_by_name("head");
                 head_instance_ = glasssix::exposing::make_exported_interface<head::detect_code>(exposing::param_string(model_directory), device);
 
         }
@@ -88,7 +88,7 @@ namespace glasssix::helmet
 
         std::string version()
         {
-			const std::string algo_module_version = "2.0.0";
+			const std::string algo_module_version = "2.0.6";
 
 #if defined(USE_RKNNAPI) || defined(USE_RKNN2API)
 			//#if 0

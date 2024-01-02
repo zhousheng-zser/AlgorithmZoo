@@ -140,7 +140,7 @@ namespace glasssix::climb
 
         std::string version()
 		{
-			const std::string algo_module_version = "1.1.0";
+			const std::string algo_module_version = "1.2.0";
 
 #if defined(USE_RKNNAPI) || defined(USE_RKNN2API)
 

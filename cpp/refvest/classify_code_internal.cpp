@@ -198,7 +198,7 @@ namespace glasssix::refvest
 
         std::string version()
         {
-			const std::string algo_module_version = "1.1.0";
+			const std::string algo_module_version = "2.2.0";
 
 #if defined(USE_RKNNAPI) || defined(USE_RKNN2API)
 			//#if 0
