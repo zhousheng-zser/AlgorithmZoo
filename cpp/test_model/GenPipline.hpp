@@ -12,6 +12,7 @@
 #include <Primitives/tensor.hpp>
 #include "postprocessing_register.hpp"
 #include "numpy_extensor/numpyExtensor.hpp"
+#include "test_model.hpp"
 #ifdef EXPERIMENTAL_FILESYSTEM
 #include <experimental/filesystem>
 //using namespace fs std::experimental::filesystem;
@@ -58,6 +59,8 @@ private:
 	bool if_use_ppfunc= false;
 	postprocessing_function ppfunc_;
 
+	int infer_time_count = 0;
+
 public:
 
 	using TensorSptr = std::shared_ptr<glasssix::memory::tensor<float>>;
@@ -95,6 +98,7 @@ public:
 					base_instance_onnx_->read_exbr_hardcode_params_file(model_name + ".phai");
 				}
 
+				base_instance_onnx_->set_normalization_param({ {0,0,0},{0.003921568,0.003921568,0.003921568} });
 				//base_instance_onnx_->set_normalization_param({ {0,0,0},{0.0078125,0.0078125,0.0078125} });//{104,117,123},{0.0078125,0.0078125,0.0078125} 
 				pipType_ = PipType::onnx;
 #else
@@ -105,6 +109,10 @@ public:
 		}
 	}
 
+
+	void set_inference_time_cost(bool flag) {
+		infer_time_count += flag;
+	}
 
 	std::unordered_map<std::string, TensorSptr> forward(cv::Mat image)
 	{
@@ -121,7 +129,21 @@ public:
 		{
 		case GenPipline::PipType::rknn:
 #ifdef USE_RKNN
+			if (infer_time_count > 0) {
+				std::cout << "\n[infer_time_count] ####" << std::endl;
+				for (int i = 0; i < 10; i++)
+					base_instance_rknn_->forward(img.data, { 1, img.rows, img.cols, img.channels() }, RKNN_TENSOR_NHWC);
+				int loop = 100;
+				auto timer_start = std::chrono::system_clock::now(); //timer
+				for (int i = 0; i < loop; i++)
+					base_instance_rknn_->forward(img.data, { 1, img.rows, img.cols, img.channels() }, RKNN_TENSOR_NHWC);
+				int det_inference = std::chrono::duration_cast<std::chrono::milliseconds>(std::chrono::system_clock::now() - timer_start).count(); //timer
+				std::cout << "loop " << loop << " avg cost = " << det_inference * 1.f / loop << std::endl;
+				std::cout << "#######################" << std::endl;
+				infer_time_count--;
+			}
 			rst_map = base_instance_rknn_->forward(img.data, { 1, img.rows, img.cols, img.channels() }, RKNN_TENSOR_NHWC);
+
 #endif // USE_RKNN
 			break;
 		case GenPipline::PipType::excalibur:

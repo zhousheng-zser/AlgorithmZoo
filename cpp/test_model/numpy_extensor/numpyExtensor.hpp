@@ -1,6 +1,7 @@
 #ifndef _NUMPYEXTENSOR_HPP_
 #define _NUMPYEXTENSOR_HPP_
 #include "numpy.hpp"
+#include <numeric>
 #include <Primitives/tensor.hpp>
 
 namespace npy {
@@ -35,6 +36,14 @@ static inline void SAVE_TENSOR_TO_NUMPY(const std::shared_ptr<glasssix::memory::
     const bool fortran_order{ false };
     std::vector<float> out_data(input_tensor->count());
     std::copy(input_tensor->cpu_data(), input_tensor->cpu_data() + input_tensor->count(), out_data.data());
+    npy::SaveArrayAsNumpy(path, fortran_order, shape.size(), shape.data(), out_data);
+}
+
+static inline void SAVE_ARRAY_TO_NUMPY(float* input_tensor, std::vector<unsigned long> shape,std::string path = "xclbr_tensor.npy") {
+    auto count = std::accumulate(std::begin(shape), std::end(shape), 1, std::multiplies<unsigned long>());
+    const bool fortran_order{ false };
+    std::vector<float> out_data(count);
+    std::copy(input_tensor, input_tensor + count, out_data.data());
     npy::SaveArrayAsNumpy(path, fortran_order, shape.size(), shape.data(), out_data);
 }
 

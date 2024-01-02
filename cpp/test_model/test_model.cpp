@@ -72,6 +72,8 @@ int main(int argc, char* argv[])
 	std::vector<std::string> phai;
 	GenPipline pipline_A(runConfig.net_A);
 	GenPipline pipline_B(runConfig.net_B);
+	pipline_A.set_inference_time_cost(false);
+	pipline_B.set_inference_time_cost(false);
 	pipline_A.set_image_preprocess(runConfig.imgReSize, runConfig.convertBGR);
 	pipline_B.set_image_preprocess(runConfig.imgReSize, runConfig.convertBGR);
 	pipline_A.set_postprocessing(runConfig.net_A_postprocess, postprocessing_market);
@@ -117,16 +119,16 @@ int main(int argc, char* argv[])
 
 		for (auto& x : output_map)
 		{
-			const float* B_out = results_pip_B[x.first]->cpu_data();
-			const float* A_out = results_pip_A[x.second]->cpu_data();
+			float* B_out = results_pip_B[x.first]->mutable_cpu_data();
+			float* A_out = results_pip_A[x.second]->mutable_cpu_data();
 			CHECK_EQ(results_pip_B[x.first]->count(), results_pip_A[x.second]->count());
 			int count = results_pip_B[x.first]->count();
 
 
 			if (x.first == "score_out") {
-				float cos = fliter_socre_CosineSimilarity(B_out, A_out, count, 0.2f, diffStatistics);
+				float cos = fliter_socre_CosineSimilarity(B_out, A_out, count, 0.1f, diffStatistics);
 				score_map[x.first].push_back(cos);
-				printf("[%d/%d]-> fcos:%f : score_out[>0.2] | %s\n", idx, img_list.size(), cos, img_list[idx].c_str());
+				printf("[%d/%d]-> fcos:%f : score_out[>0.1] | %s\n", idx, img_list.size(), cos, img_list[idx].c_str());
 
 			}
 			else {
