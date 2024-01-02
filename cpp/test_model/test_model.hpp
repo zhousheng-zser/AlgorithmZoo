@@ -93,6 +93,8 @@ struct DiffStatistics
 
 	void set(double v) {
 		int idx = (v + 0.5)*100;
+		idx = std::min(idx, 99);
+		idx = std::max(idx, 0);
 		step_table[idx]++;
 		count++;
 	}
@@ -122,7 +124,7 @@ struct DiffStatistics
 };
 
 
-static inline float fliter_socre_CosineSimilarity(const float* emb1, const float* emb2, int len, float thresh, DiffStatistics& diffStatistics)
+static inline float fliter_socre_CosineSimilarity(float* emb1, float* emb2, int len, float thresh, DiffStatistics& diffStatistics)
 {
 	std::vector<double> pos_dfs;
 	std::vector<double> ngt_dfs;

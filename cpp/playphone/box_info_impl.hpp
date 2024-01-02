@@ -19,9 +19,10 @@ namespace glasssix::playphone
         int y1() const;
         int x2() const;
         int y2() const;
-		float score() const;
         int category() const;
-        exposing::param_string version() const;
+        float confidence() const;
+        exposing::param_vector<std::int32_t> phonelocal_list() const;
+        exposing::param_vector<float> phonescore_list() const;
 
     private:
         box_info_internal internal_{};

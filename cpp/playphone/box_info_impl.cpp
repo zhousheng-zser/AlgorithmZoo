@@ -33,18 +33,23 @@ namespace glasssix::playphone
 		return internal_.y2;
 	}
 	
-	float box_info_impl::score() const
-	{
-		return internal_.score;
-	}
-
 	int box_info_impl::category() const
 	{
 		return internal_.category;
 	}
-	
-	exposing::param_string box_info_impl::version() const
+
+	float box_info_impl::confidence() const
 	{
-		return internal_.version;
+		return internal_.confidence;
+	}
+
+	exposing::param_vector<std::int32_t> box_info_impl::phonelocal_list() const
+	{
+		return internal_.phonelocal_list;
+	}
+
+	exposing::param_vector<float> box_info_impl::phonescore_list() const
+	{
+		return internal_.phonescore_list;
 	}
 }

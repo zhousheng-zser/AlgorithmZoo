@@ -185,7 +185,7 @@ class pp_pedestrian : public Postprocessing
         }
 
         std::unordered_map<std::string, std::shared_ptr<glasssix::memory::tensor<float>>> postprocessing_rstmap;
-        postprocessing_rstmap.try_emplace("pp_pedestrian_score_out", output0); // complement result 
+        postprocessing_rstmap.try_emplace("score_out", output0); // complement result 
         return postprocessing_rstmap;
 	}
 

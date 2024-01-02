@@ -23,9 +23,10 @@ namespace glasssix::exposing::impl
             virtual std::int32_t G6_ABI_CALL y1(abi_out_t<int> result) noexcept = 0;
             virtual std::int32_t G6_ABI_CALL x2(abi_out_t<int> result) noexcept = 0;
             virtual std::int32_t G6_ABI_CALL y2(abi_out_t<int> result) noexcept = 0;
-            virtual std::int32_t G6_ABI_CALL score(abi_out_t<float> result) noexcept = 0;
-			virtual std::int32_t G6_ABI_CALL category(abi_out_t<int> result) noexcept = 0;
-            virtual std::int32_t G6_ABI_CALL version(abi_out_t<param_string> result) noexcept = 0;
+            virtual std::int32_t G6_ABI_CALL category(abi_out_t<int> result) noexcept = 0;
+            virtual std::int32_t G6_ABI_CALL confidence(abi_out_t<float> result) noexcept = 0;
+            virtual std::int32_t G6_ABI_CALL phonelocal_list(abi_out_t<exposing::param_vector<std::int32_t>> result) noexcept = 0;
+            virtual std::int32_t G6_ABI_CALL phonescore_list(abi_out_t<exposing::param_vector<float>> result) noexcept = 0;
         };
     };
 
@@ -57,22 +58,40 @@ namespace glasssix::exposing::impl
                 { *result = detach_abi(this->self().y2()); });
         }
 		
-        virtual std::int32_t G6_ABI_CALL score(abi_out_t<float> result) noexcept override
-        {
-            return abi_safe_call([&]
-                                 { *result = detach_abi(this->self().score()); });
-        }
-		
+
         virtual std::int32_t G6_ABI_CALL category(abi_out_t<int> result) noexcept override
         {
             return abi_safe_call([&]
-                                 { *result = detach_abi(this->self().category()); });
+                { *result = detach_abi(this->self().category()); });
         }
 
-        virtual std::int32_t G6_ABI_CALL version(abi_out_t<param_string> result) noexcept override
+        virtual std::int32_t G6_ABI_CALL confidence(abi_out_t<float> result) noexcept override
         {
-            return abi_safe_call([&] { *result = detach_abi(this->self().version()); });
+            return abi_safe_call([&]
+                {
+                    *result = detach_abi(this->self().confidence());
+                }
+            );
         }
+
+        virtual std::int32_t G6_ABI_CALL phonelocal_list(abi_out_t<exposing::param_vector<std::int32_t>> result) noexcept override
+        {
+            return abi_safe_call([&]
+                {
+                    *result = detach_abi(this->self().phonelocal_list());
+                }
+            );
+        }
+
+        virtual std::int32_t G6_ABI_CALL phonescore_list(abi_out_t<exposing::param_vector<float>> result) noexcept override
+        {
+            return abi_safe_call([&]
+                {
+                    *result = detach_abi(this->self().phonescore_list());
+                }
+            );
+        }
+
     };
 
     template <>
@@ -106,24 +125,31 @@ namespace glasssix::exposing::impl
 
                 return (check_abi_result(this->self_abi().y2(put_abi(result))), result);
             }
-			float score() const
-            {
-                float result;
 
-                return (check_abi_result(this->self_abi().score(put_abi(result))), result);
-            }
-			int category() const
+            int category() const
             {
-                int result = 0;
-
+                int result;
                 return (check_abi_result(this->self_abi().category(put_abi(result))), result);
             }
-            param_string version() const
-            {
-                param_string result{ nullptr };
 
-                return (check_abi_result(this->self_abi().version(put_abi(result))), result);
+            float confidence() const
+            {
+                float result;
+                return (check_abi_result(this->self_abi().confidence(put_abi(result))), result);
             }
+
+            exposing::param_vector<std::int32_t> phonelocal_list() const
+            {
+                exposing::param_vector<std::int32_t> result{ nullptr };
+                return (check_abi_result(this->self_abi().phonelocal_list(put_abi(result))), result);
+            }
+
+            exposing::param_vector<float> phonescore_list() const
+            {
+                exposing::param_vector<float> result{ nullptr };
+                return (check_abi_result(this->self_abi().phonescore_list(put_abi(result))), result);
+            }
+
         };
     };
 }

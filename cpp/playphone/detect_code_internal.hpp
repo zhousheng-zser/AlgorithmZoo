@@ -8,21 +8,65 @@
 #include <cstddef>
 #include <cstdint>
 #include <abi/param_span.hpp>
-
+#include <opencv2/core.hpp>
 #include "box_info.hpp"
+#include "ObjBox.hpp"
 
 namespace glasssix::playphone
 {
-    struct box_info_internal
-    {
-        int x1;
-        int y1;
-        int x2;
-        int y2;
-		float score;
-        int category;
-        exposing::param_string version;
-    };
+	struct box_info_internal
+	{
+		int x1;
+		int y1;
+		int x2;
+		int y2;
+		int category = -1;//0 man with phone; 1 man; 2 man bodyerr; -1 unknow
+		float confidence;
+
+		exposing::param_vector<std::int32_t> phonelocal_list;
+		exposing::param_vector<float> phonescore_list;
+
+		box_info_internal() {
+			phonelocal_list = exposing::make_param_vector<std::int32_t>();
+			phonescore_list = exposing::make_param_vector<float>();
+		}
+
+		void set_man(PostureInfo& man) {
+			auto man_regio = man.get_rect();
+			x1 = man_regio.x;
+			y1 = man_regio.y;
+			x2 = man_regio.x + man_regio.width;
+			y2 = man_regio.y + man_regio.height;
+			confidence = man.score;
+			category = 1;
+		}
+
+		void set_phone(ObjBox& phone) {
+			phonelocal_list.clear();
+			phonescore_list.clear();
+			phonelocal_list.push_back(phone.xmin);
+			phonelocal_list.push_back(phone.ymin);
+			phonelocal_list.push_back(phone.xmax);
+			phonelocal_list.push_back(phone.ymax);
+			phonescore_list.push_back(phone.score);
+
+			category = 0;
+		}
+
+		void set_body_error(PostureInfo& man) {
+			phonelocal_list.clear();
+			phonescore_list.clear();
+			//face
+			phonescore_list.push_back(man.Kpoints_score[0]);
+			phonescore_list.push_back(man.Kpoints_score[1]);
+			phonescore_list.push_back(man.Kpoints_score[2]);
+			//hand
+			phonescore_list.push_back(man.Kpoints_score[9]);
+			phonescore_list.push_back(man.Kpoints_score[10]);
+			//set flag
+			category = 2;
+		}
+	};
 
     class detect_code_internal
     {
