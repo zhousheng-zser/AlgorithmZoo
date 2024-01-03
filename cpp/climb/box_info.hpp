@@ -21,7 +21,8 @@ namespace glasssix::exposing::impl
 
           struct type : abi_unknown_object
         {
-            virtual std::int32_t G6_ABI_CALL x1(abi_out_t<int> result) noexcept = 0;
+            virtual std::int32_t G6_ABI_CALL x1(abi_out_t<int> result) noexcept = 0;//get x值
+            // virtual std::int32_t G6_ABI_CALL set_x1(abi_in_t<int> result) noexcept = 0;  set x值
             virtual std::int32_t G6_ABI_CALL y1(abi_out_t<int> result) noexcept = 0;
             virtual std::int32_t G6_ABI_CALL x2(abi_out_t<int> result) noexcept = 0;
             virtual std::int32_t G6_ABI_CALL y2(abi_out_t<int> result) noexcept = 0;

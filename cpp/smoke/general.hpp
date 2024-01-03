@@ -285,11 +285,14 @@ using namespace glasssix;
         }
 
 
+
+
          std::shared_ptr<memory::tensor<float>> Yovo8se_Concat_4B(std::vector<std::shared_ptr<memory::tensor<float>>>& outs,float conf,int& candicate_num ,std::vector<float>& posture_add_weight,std::vector<float>& posture_mul_weight)
         {
             conf = de_sigmoid(conf);
-            int input_size = 640;
-            int candidate_num=34000;
+            int input_size = 320;
+            int candidate_num=8500;
+            const int total_num= 8500;
             int class_num = 65;        
             int stride_num4 = input_size/4;
             int stride_num8 = input_size/8;
@@ -393,7 +396,7 @@ using namespace glasssix;
             {              
                 int index = match_index[i];
                 if(i>=candidate_num  )
-                    index = match_index[i - candidate_num ]+34000;                
+                    index = match_index[i - candidate_num ]+total_num;                
                 concat[i]                 = (conv[i+candidate_num*2] - conv[i] )/2.f + posture_add_weight[ index] + 0.5;     
                 concat[i+candidate_num*2] = (conv[i+candidate_num*2] + conv[i] );      // add_data[i]-sub_data[i]) ;  
             }
@@ -406,7 +409,7 @@ using namespace glasssix;
                 output[candidate_num*1 +i] = concat[candidate_num*1 +i]*posture_mul_weight[ match_index[i]];
                 output[candidate_num*2 +i] = concat[candidate_num*2 +i]*posture_mul_weight[ match_index[i]];
                 output[candidate_num*3 +i] = concat[candidate_num*3 +i]*posture_mul_weight[ match_index[i]];
-                output[candidate_num*4 +i] = sigmoid_x(cat[34000*64 +match_index[i]]);
+                output[candidate_num*4 +i] = sigmoid_x(cat[total_num*64 +match_index[i]]);
 
             }          
             return  output0;
