@@ -33,11 +33,11 @@ namespace glasssix::smoke
             :net_smoke_detect_(phai,  model_directory + std::string("/cigarette_detect.rknn"), device), model_directory_(model_directory)
         {
             static bool ready = glasssix::exposing::get_component_loader().add_module_by_name("posture");
-            posture_instance_ = glasssix::exposing::make_exported_interface<posture::detect_code>(exposing::param_string(model_directory), device,1);
+            // posture_instance_ = glasssix::exposing::make_exported_interface<posture::detect_code>(exposing::param_string(model_directory), device,1);
             init_data();
         } 
 
-        exposing::param_vector<smoke::box_info> detect(const exposing::param_span<std::uint8_t>& bitmap, int channels, int height, int width, int roi_x, int roi_y, int roi_width, int roi_height, std::map<std::string, float>& param_map)
+        exposing::param_vector<smoke::box_info> detect(const exposing::param_span<std::uint8_t>& bitmap, int channels, int height, int width, int roi_x, int roi_y, int roi_width, int roi_height, exposing::param_vector<posture::box_info> posture_info_list, std::map<std::string, float>& param_map)
         {
             if (bitmap.empty())
             {
@@ -66,7 +66,7 @@ namespace glasssix::smoke
             empty_map_abi.add_or_update("nms_thres", 0.45);
             empty_map_abi.add_or_update("little_target_conf_thres",little_target_conf_thres);
 
-            exposing::param_vector<posture::box_info> posture_info_list = posture_instance_.detect(bitmap, channels, height, width, 0, 0, width, height, empty_map_abi);
+            // exposing::param_vector<posture::box_info> posture_info_list = posture_instance_.detect(bitmap, channels, height, width, 0, 0, width, height, empty_map_abi);
             
 
             int indexxx=0;
@@ -247,7 +247,7 @@ namespace glasssix::smoke
 		std::unique_ptr<excalibur::pipeline<float>> net_smoke_detect_;
 #endif
         std::string model_directory_;
-        posture::detect_code posture_instance_;
+        // posture::detect_code posture_instance_;
         exposing::param_hash_map<exposing::param_string, float> posture_param_abi;
         std::vector<float> posture_add_weight;
         std::vector<float> posture_mul_weight;
@@ -263,9 +263,9 @@ namespace glasssix::smoke
     detect_code_internal::~detect_code_internal() = default;
 
 
-    exposing::param_vector<smoke::box_info> detect_code_internal::detect(exposing::param_span<std::uint8_t> bitmap, int channels, int height, int width, int roi_x, int roi_y, int roi_width, int roi_height, std::map<std::string, float>& param_map) const
+    exposing::param_vector<smoke::box_info> detect_code_internal::detect(exposing::param_span<std::uint8_t> bitmap, int channels, int height, int width, int roi_x, int roi_y, int roi_width, int roi_height, exposing::param_vector<posture::box_info> posture_info_list, std::map<std::string, float>& param_map) const
     {
-        return impl_->detect(bitmap, channels, height, width, roi_x, roi_y, roi_width, roi_height, param_map);
+        return impl_->detect(bitmap, channels, height, width, roi_x, roi_y, roi_width, roi_height, posture_info_list, param_map);
     }
 
     std::string detect_code_internal::version()

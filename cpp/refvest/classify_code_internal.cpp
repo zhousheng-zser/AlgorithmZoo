@@ -276,7 +276,7 @@ namespace glasssix::refvest
         std::string model_directory_;
         int device_;
         glasssix::rknnwrapper::rknn_wrapper classify_instance_;
-        posture::detect_code posture_instance_;
+        // posture::detect_code posture_instance_;
     };
 
     classify_code_internal::classify_code_internal(std::string_view model_directory, int device)
