@@ -85,22 +85,19 @@ namespace glasssix::smoke
                 safe_crop_rect head_rect = smoke_point.get_head_area(image.cols,image.rows);
                 
                 // cv::rectangle(image, cv::Point(detect_rect.x1, detect_rect.y1), cv::Point(detect_rect.x2, detect_rect.y2), cv::Scalar(0, 0, 255), 2);
-
+                // std::cout<<"smoke_point.is_detect(): "<<smoke_point.is_detect()<<std::endl;
                 if(! smoke_point.is_detect())
                     continue;
                 cv::Mat output = image;
 
 
-                // cv::rectangle(output, cv::Point(detect_rect.x1, detect_rect.y1), cv::Point(detect_rect.x2, detect_rect.y2), cv::Scalar(0, 0, 255), 2);
-                // cv::rectangle(output, cv::Point(head_rect.x1, head_rect.y1), cv::Point(head_rect.x2, head_rect.y2), cv::Scalar(255, 255, 0), 2);
-                // cv::rectangle(image, cv::Point(head_rect.x1, head_rect.y1), cv::Point(head_rect.x2, head_rect.y2), cv::Scalar(255, 255, 0), 2);
-               
-                // cv::imwrite("..//" + std::to_string(detect_rect.x1)+".jpg",output);
+            //     cv::rectangle(output, cv::Point(detect_rect.x1, detect_rect.y1), cv::Point(detect_rect.x2, detect_rect.y2), cv::Scalar(0, 0, 255), 2);
+            //     cv::rectangle(output, cv::Point(head_rect.x1, head_rect.y1), cv::Point(head_rect.x2, head_rect.y2), cv::Scalar(255, 255, 0), 2);
+            //     cv::imwrite("..//" + std::to_string(detect_rect.x1)+".jpg",output);
 
-                // std::cout<<"detect: "<<detect_rect.x1;
 
                 cv::Mat cigarette_detect = image(cv::Range(detect_rect.y1, detect_rect.y2), cv::Range(detect_rect.x1, detect_rect.x2));
-                auto smoke_detect_shape = cv::Size(640,  640);
+                auto smoke_detect_shape = cv::Size(320,  320);
 
                 cv::Mat cigarette_detect_blob;
                 float smoke_ratio = 0;
@@ -117,13 +114,11 @@ namespace glasssix::smoke
                 
                 int smoke_candicate_num=0;
                 auto smoke_output = Yovo8se_Concat_4B(smoke_forwards,smoke_conf_thres,smoke_candicate_num,posture_add_weight,posture_mul_weight);//5*8400
-        // std::cout<<"smoke_conf_thres: "<<smoke_conf_thres<<std::endl;
                 auto nms_results = smoke_post_process(smoke_output, smoke_pad_h,smoke_pad_w, 1.f/smoke_ratio,smoke_candicate_num);
-                //  std::cout<<"nms_results: "<<nms_results.size()<<" "<<std::endl;
+                 std::cout<<"nms_results: "<<nms_results.size()<<" "<<std::endl;
                 Cigrate_box b(head_rect.x1,head_rect.y1,head_rect.x2,head_rect.y2) ;
 
-                // cv::imwrite("../smoke.jpg",image);
-                
+
                 for(auto& cigrate:nms_results)
                 {
                     // std::cout<<"cigr conf: "<<cigrate[4]<<" " <<std::endl;
@@ -145,7 +140,6 @@ namespace glasssix::smoke
                     }
 
                     float iou = IOU_compute(a, b);
-                    // std::cout<<"iou: "<<iou<<std::endl;
                     smoke::box_info_internal temp_box;
                         temp_box.x1 = cigratex1;
                         temp_box.x2 = cigratex2;
@@ -208,32 +202,37 @@ namespace glasssix::smoke
 
         void init_data()
         {
-            posture_add_weight.resize(34000*2);
-            posture_mul_weight.resize(34000);
-            for(int i=0;i<34000;i++)
+            int stride_sum = 8500;
+            int stride_4 = 80*80; 
+            int stride_8 = 40*40;
+            int stride_16 = 20*20;
+            int stride_32 = 10*10;
+            posture_add_weight.resize(stride_sum*2);
+            posture_mul_weight.resize(stride_sum);
+            for(int i=0;i<stride_sum;i++)
             {
-                if( i<25600)
+                if( i<stride_4)
                 {
-                    posture_add_weight[i]=i%160;
-                    posture_add_weight[i+34000]=i/160;
+                    posture_add_weight[i]=i%80;
+                    posture_add_weight[i+stride_sum]=i/80;
                     posture_mul_weight[i]=4.f;
                 }
-                else if(i<25600+6400)
+                else if(i<(stride_4+stride_8))
                 {
-                    posture_add_weight[i]=(i -25600)%80;
-                    posture_add_weight[i+34000]= (i-25600)/80;
+                    posture_add_weight[i]=(i -stride_4)%40;
+                    posture_add_weight[i+stride_sum]= (i-stride_4)/40;
                     posture_mul_weight[i]=8.f;
                 }
-                else if(i<25600+8000)
+                else if(i<(stride_4+stride_8 + stride_16))
                 {
-                    posture_add_weight[i]=(i -32000)%40;
-                    posture_add_weight[i+34000]=(i-32000)/40;
+                    posture_add_weight[i]=(i -stride_4-stride_8)%20;
+                    posture_add_weight[i+stride_sum]=(i-stride_4-stride_8)/20;
                     posture_mul_weight[i]=16.f;
                 }
                 else
                 {
-                    posture_add_weight[i]=(i -33600)%20;
-                    posture_add_weight[i+34000]=(i-33600)/20;
+                    posture_add_weight[i]=(i -stride_4-stride_8-stride_16)%10;
+                    posture_add_weight[i+stride_sum]=(i - stride_4-stride_8-stride_16)/10;
                     posture_mul_weight[i]=32.f;
                 }
             }

@@ -65,66 +65,13 @@ using namespace glasssix;
                 cv::Point(std::round(x2), std::round(y2)) };
         }
 
-        bool is_climb_posture(int pic_height,int pic_width)
+        bool is_climb_posture()
         {
-
-            // std::cout<<"pic_height: "<<pic_height<<"  pic_width: "<<pic_width<<std::endl;
-            if( is_exist_negative_point(pic_height,pic_width) )
-                return false;
-
-            // std::cout<<"\n";
-            bool hands_up_shoulder =  (hands_shoulders[0].first.y  > hands_shoulders[2].first.y) ||  (hands_shoulders[1].first.y  > hands_shoulders[3].first.y);//   (std::max(hands_shoulders[2].first.y , hands_shoulders[3].first.y) - std::min(hands_shoulders[0].first.y ,hands_shoulders[1].first.y) )>0 ;
-            bool root_distance = abs(roots[0].first.y - roots[1].first.y)> ((y2-y1)*0.08 ) ;
+            bool hands_up_shoulder = (std::max(hands_shoulders[0].first.y , hands_shoulders[1].first.y) - std::min(hands_shoulders[2].first.y ,hands_shoulders[3].first.y) )>0 ;
+            bool root_distance = abs(roots[0].first.y - roots[1].first.y)> ((y2-y1)*0.03 ) ;
             // std::cout<<abs(roots[0].first.y - roots[1].first.y)<<" "<<((y1-y1)*0.03 ) <<std::endl;
             // std::cout<<"root_distance: "<<root_distance<<std::endl;
-            if(hands_up_shoulder&&root_distance)
-            {
-                // std::cout<<" hands"<<std::endl;
-                // std::cout<<hands_shoulders[0].first.y<<" "<<hands_shoulders[2].first.y<<" "<<hands_shoulders[1].first.y<<" "<<hands_shoulders[3].first.y<<std::endl;
-                // std::cout<<" root "<<std::endl;
-                // std::cout<<roots[0].first.y <<" "<<roots[1].first.y <<std::endl;
-            
-            }
-
             return hands_up_shoulder&&root_distance;
-        }
-
-        bool not_in_pic(int pic_height,int pic_width,int x,int y)
-        {
-            // std::cout<<"pic_height: "<<pic_height<<"  pic_width: "<<pic_width<<" x: "<<x<<" y: "<<y<<std::endl;
-            if(x<0 || x > pic_width || y<0 ||y>pic_height)
-                return true;
-            return false;
-            
-        }
-
-        bool is_exist_negative_point(int pic_height,int pic_width)
-        {
-            // std::cout<<y1<<" -box- "<<y2<<std::endl;
-            bool state=false;
-            // std::cout<<" is_exist_negative_point\n";
-            for(auto var : hands_shoulders)
-            {
-                // std::cout<<var.first.x<<" "<<var.first.y<<std::endl;
-                if( not_in_pic(pic_height,pic_width,var.first.x,var.first.y) )
-                {
-                    // std::cout<< " state: "<<state<<std::endl;
-                    state=true;
-                   
-                }
-            }
-
-            for(auto var : roots)
-            {
-                // std::cout<<var.first.x<<" "<<var.first.y<<std::endl;
-                if( not_in_pic(pic_height,pic_width,var.first.x,var.first.y) )
-                {
-                    // std::cout<< " state: "<<state<<std::endl;
-                    state=true;                 
-                }
-            }        
-            // std::cout<< " state: "<<state<<std::endl;
-            return state;
         }
 
 		std::int32_t x1;
