@@ -31,12 +31,12 @@ namespace glasssix::refvest
         impl(const std::vector<std::string> &phai, std::string model_directory, int device) 
             :classify_instance_(phai,  model_directory + std::string("/refvest_cls.rknn"), device), model_directory_(model_directory)
         {
-            static bool ready = glasssix::exposing::get_component_loader().add_module_by_name("posture");
-            posture_instance_ = glasssix::exposing::make_exported_interface<posture::detect_code>(exposing::param_string(model_directory), device,1);
+            // static bool ready = glasssix::exposing::get_component_loader().add_module_by_name("posture");
+            // posture_instance_ = glasssix::exposing::make_exported_interface<posture::detect_code>(exposing::param_string(model_directory), device,1);
    
         }       
 
-        exposing::param_vector<refvest::box_info> detect(const exposing::param_span<std::uint8_t>& bitmap, int channels, int height, int width, int roi_x, int roi_y, int roi_width, int roi_height, std::map<std::string, float>& param_map)
+        exposing::param_vector<refvest::box_info> detect(const exposing::param_span<std::uint8_t>& bitmap, int channels, int height, int width, int roi_x, int roi_y, int roi_width, int roi_height, exposing::param_vector<posture::box_info> posture_info_list, std::map<std::string, float>& param_map)
         {
             if (bitmap.empty())
             {
@@ -56,12 +56,18 @@ namespace glasssix::refvest
                   throw exposing::abi_invalid_argument("incorrect roi in refvest");
             }
 
-            posture_param_abi = exposing::make_param_hash_map<exposing::param_string, float>();
-			posture_param_abi.add_or_update("conf_thres", 0.65f);
-			posture_param_abi.add_or_update("nms_thres", 0.90f);
+
+            float posture_conf_thres = param_map.count("conf_thres")?param_map["conf_thres"]:0.65;
+            float posture_little_target_conf_thres = param_map.count("little_target_conf_thres")?param_map["little_target_conf_thres"]:0.15;
+            float posture_nms_thres = param_map.count("iou_thres")?param_map["iou_thres"]:0.8;
+
+            posture_param_abi = exposing::make_param_hash_map<exposing::param_string, float>();//conf_thres
+			posture_param_abi.add_or_update("conf_thres", posture_conf_thres);
+			posture_param_abi.add_or_update("nms_thres", posture_nms_thres);
+            posture_param_abi.add_or_update("little_target_conf_thres", posture_little_target_conf_thres);
 
             auto empty_map_abi = exposing::make_param_hash_map<exposing::param_string, float>();
-            exposing::param_vector<posture::box_info> posture_info_list = posture_instance_.detect(bitmap, channels, height, width, 0, 0, width, height, posture_param_abi);
+            // exposing::param_vector<posture::box_info> posture_info_list = posture_instance_.detect(bitmap, channels, height, width, 0, 0, width, height, posture_param_abi);
                     // std::cout<<"persons_info size():  "<<posture_info_list.size()<<std::endl;
             std::vector<PostureInfo> persons_info;
 
@@ -192,7 +198,7 @@ namespace glasssix::refvest
 
         std::string version()
         {
-			const std::string algo_module_version = "1.0.1";
+			const std::string algo_module_version = "1.1.0";
 
 #if defined(USE_RKNNAPI) || defined(USE_RKNN2API)
 			//#if 0
@@ -211,56 +217,45 @@ namespace glasssix::refvest
         * @return tensor(preprocess(image))
         * @details image preprocess and make tensor from images
         */
-        std::tuple<cv::Mat, float> letterbox(cv::Mat img, int hope_size = 640)
+         std::tuple<cv::Mat, float> preprocess_detection(cv::Mat& src, int& pad_h640, int& pad_w640,  cv::Size input_shape = cv::Size(224, 224) )
         {
-            int H = img.rows;
-            int W = img.cols;
-            float ratio_w = (float)W / (float)hope_size;
-            float ratio_h = (float)H / (float)hope_size;
-            float ratio = ratio_w;
-            cv::Mat resize_img;
+            float scale = std::min((float)input_shape.width/(float)src.cols, (float)input_shape.height/(float)src.rows);
 
-            if(H==hope_size && W==hope_size )
-            {
-                resize_img=img;
-            }
-            else
-            {
-                if (ratio_w == ratio_h)
-                {
+            cv::Mat cut_image;
 
-                    cv::resize(img, resize_img, cv::Size2i{ hope_size, hope_size });}
+            cv::Mat mask_image(input_shape, CV_8UC3, cv::Scalar(114, 114, 114));
 
-                else if (ratio_w > ratio_h) {
+            if( src.rows != input_shape.height || src.cols != input_shape.width)
+            {      
+                cv::resize(src, cut_image, cv::Size((int)(src.cols * scale), (int)(src.rows * scale)), cv::INTER_LINEAR);
 
-                    int new_x = hope_size;
-                    int new_y = (int)(H / ratio_w);
-                    int pad1 = (int)((hope_size - new_y) / 2);
-                    int pad2 = hope_size - new_y - pad1;
-                    cv::resize(img, resize_img, cv::Size2i{ new_x, new_y });
-                    cv::copyMakeBorder(resize_img, resize_img, pad1, pad2, 0, 0, cv::BORDER_CONSTANT, cv::Scalar{ 114,114,114 });
-                }
-                else {
+                pad_h640 = int((input_shape.height - cut_image.rows) /2 ) ; 
 
-                    ratio = ratio_h;
-                    int new_y = hope_size;
-                    int new_x = (int)(W / ratio_h);
-                    int pad1 = (int)((hope_size - new_x) / 2);
-                    int pad2 = hope_size - new_x - pad1;
-                    cv::resize(img, resize_img, cv::Size2i{ new_x, new_y });
-                    cv::copyMakeBorder(resize_img, resize_img, 0, 0, pad1, pad2, cv::BORDER_CONSTANT, cv::Scalar{ 114,114,114 });
-                }
+                pad_w640 = int((input_shape.width - cut_image.cols) /2 ) ; 
+
+                cv::copyMakeBorder(cut_image, mask_image, pad_h640, input_shape.height-cut_image.rows-pad_h640, pad_w640, input_shape.width-cut_image.cols-pad_w640, cv::BORDER_CONSTANT, cv::Scalar{ 114,114,114 });
             }
 
-            return { resize_img, ratio };
+            else 
+            {
+                src.copyTo(mask_image);     
+            }
+            
+            cv::cvtColor(mask_image, mask_image, cv::COLOR_BGR2RGB);
+
+            return {mask_image,scale};
+
         }
 
         std::pair<float,float> run_classify(cv::Mat& image, std::map<std::string, float>& param_map)
         {   
             cv::Mat blobs;
-            // float ratio = 0;
-            // std::tie (blobs, ratio) = letterbox(image, 224);
-            cv::resize(image, blobs, cv::Size(224, 224));
+            float ratio = 0;
+            int pad_w=0;
+            int pad_h=0;
+
+            std::tie (blobs, ratio) = preprocess_detection(image, pad_h,pad_w);
+            // cv::resize(image, blobs, cv::Size(224, 224));
 
             std::vector<std::shared_ptr<glasssix::memory::tensor<float>>> forwards;
 
@@ -296,8 +291,8 @@ namespace glasssix::refvest
         return impl_->version();
     }
 
-    exposing::param_vector<refvest::box_info> classify_code_internal::detect(exposing::param_span<std::uint8_t> bitmap, int channels, int height, int width, int roi_x, int roi_y, int roi_width, int roi_height, std::map<std::string, float>& param_map) const
+    exposing::param_vector<refvest::box_info> classify_code_internal::detect(exposing::param_span<std::uint8_t> bitmap, int channels, int height, int width, int roi_x, int roi_y, int roi_width, int roi_height, exposing::param_vector<posture::box_info> posture_info_list, std::map<std::string, float>& param_map) const
     {
-        return impl_->detect(bitmap, channels, height, width, roi_x, roi_y, roi_width, roi_height, param_map);
+        return impl_->detect(bitmap, channels, height, width, roi_x, roi_y, roi_width, roi_height, posture_info_list, param_map);
     }
 }

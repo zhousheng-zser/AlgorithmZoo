@@ -1,11 +1,3 @@
-#ifdef USE_RKNNAPI
-//#if 0
-#include "RKNNWrapper/rknn_wrapper.hpp"
-#elif defined(USE_RKNN2API)
-#include "RKNN2Wrapper/rknn2_wrapper.hpp"
-#endif
-
-#include "Excalibur/pipeline.hpp"
 #include "Primitives/tensor_conversions.hpp"
 #include <fstream>
 #include <algorithm>
@@ -16,102 +8,151 @@
 #include "auto_infer_output_map.hpp"
 #include "makeTable.hpp"
 #include "test_model.hpp"
+#include "GenPipline.hpp"
+#include "postprocessing_register.hpp"
+#include "argparse/argparse.hpp"
 
-/*
-"modelTest":{
-	"rknn":"mt2/longinus320.rknn",
-	"phai":"mt2/longinus.phai",
-	"racy":"mt2/longinus.racy",
-	"dataset":"mt2/320.txt",
-	"outputMap":"mt2/retina_output_map.json",
-	# "imgReSize":"320" // selectable param, no force
-	# "convertBGR":"0"  // selectable param, no force
-}
-*/
+using namespace glasssix;
 
+
+struct RunConfig
+{
+	std::string net_A = "";
+	std::string net_B = "";
+	std::string net_A_postprocess = "";
+	std::string net_B_postprocess = "";
+	std::string dataset = "";
+	std::string outputMap ="";
+	bool convertBGR = false;
+	int imgReSize = -1;
+};
 
 int main(int argc, char* argv[])
 {
-	std::unordered_map<std::string, std::string> run_param_map;
+	std::map<std::string, postprocessing_function> postprocessing_market;
+	AddPostprocessing(postprocessing_market);
 
-	if (!parse_param(argc, argv, run_param_map)) return 1;
+	show_usage(argc);
+	printf("[INFO] POSTPROCESSING MARKET[%d]: { ", postprocessing_market.size());
+	for (auto& ppf : postprocessing_market) std::cout << ppf.first << ", ";
+	std::cout << "}" << std::endl;
+	if (argc < 2) return false;
+
+
+	ArgumentParser parser("RKNN MODEL TEST.");
+
+	parser.add_keyword_arg("-t", "--test_model", "", true, "", "test model compare with base model");
+	parser.add_keyword_arg("-tp", "--test_model_pp", "", false, "", "test model postprocessing");
+
+	parser.add_keyword_arg("-b", "--base_model", "", true, "", "base model for benchmark");
+	parser.add_keyword_arg("-bp", "--base_model_pp", "", false, "", "base model postprocessing");
+
+	parser.add_keyword_arg("-d", "--dataset", "", true, "dataset.txt", "test dataset.txt");
+	parser.add_keyword_arg("-m", "--output_map", "", false, "output_map.json", "model pair out nodes mapping");
+	parser.add_keyword_arg("-c", "--convert_bgr", "", false, "0", "if to convert BGR in image preprocessing");
+	parser.add_keyword_arg("-s", "--img_resize", "", false, "-1", "if to resize image in preprocessing");
+
+	ArgumentResult args = parser.parse_args(argc, argv);
+
+	RunConfig runConfig;
+	runConfig.net_A = args.args["test_model"];
+	runConfig.net_B = args.args["base_model"];
+	runConfig.net_A_postprocess = args.args["test_model_pp"];
+	runConfig.net_B_postprocess = args.args["base_model_pp"];
+
+	runConfig.dataset = args.args["dataset"];
+	runConfig.outputMap = args.args["output_map"];
+	runConfig.convertBGR = std::stoi(args.args["convert_bgr"]) == 1;
+	runConfig.imgReSize = std::stoi(args.args["img_resize"]);
+
+
 
 	std::map<std::string, std::string> output_map;
 
 	std::vector<std::string> phai;
-	glasssix::rknnwrapper::rknn_wrapper wrapper{ phai, run_param_map["rknn"] };
-	glasssix::excalibur::pipeline<float> pipe(run_param_map["phai"], run_param_map["racy"], -1);
+	GenPipline pipline_A(runConfig.net_A);
+	GenPipline pipline_B(runConfig.net_B);
+	pipline_A.set_inference_time_cost(false);
+	pipline_B.set_inference_time_cost(false);
+	pipline_A.set_image_preprocess(runConfig.imgReSize, runConfig.convertBGR);
+	pipline_B.set_image_preprocess(runConfig.imgReSize, runConfig.convertBGR);
+	pipline_A.set_postprocessing(runConfig.net_A_postprocess, postprocessing_market);
+	pipline_B.set_postprocessing(runConfig.net_B_postprocess, postprocessing_market);
+
 
 	std::map<std::string, std::vector<float>> score_map;
 	std::vector<std::string> img_list;
-	load_line_txt(run_param_map["dataset"], img_list);
+	load_line_txt(runConfig.dataset, img_list);
 
 	if (output_map.empty())
 	{
-		auto_infer_output_map(wrapper, pipe, img_list[0], output_map);
+		auto_infer_output_map(pipline_A, pipline_B, img_list[0], output_map);
 	}
 	else
 	{
-		if (!run_param_map["outputMap"].empty())
+		if (!runConfig.outputMap.empty())
 		{
-			nlohmann::json map_json = read_json(run_param_map["outputMap"]);
+			nlohmann::json map_json = read_json(runConfig.outputMap);
 			for (auto& x : map_json["output"].items())
 				output_map[x.key()] = x.value();
 		}
-		std::cout << "- specify output map regulation : " << run_param_map["outputMap"] << std::endl;
+		std::cout << "- specify output map regulation : " << runConfig.outputMap << std::endl;
 	}
 
-
+	DiffStatistics diffStatistics;
 	std::cout << std::endl;
 	for (int idx = 0; idx < img_list.size(); idx++)
 	{
 		cv::Mat img = cv::imread(img_list[idx]);
 
-		 if (run_param_map.count("convertBGR"))
-		 {
-			 int convertBGR = std::atoi(run_param_map["convertBGR"].c_str());
-			 if (convertBGR) cv::cvtColor(img, img, cv::COLOR_BGR2RGB);
-			 if (idx == 0) printf("- convert BGR order !\n");
-		 }
-
-		 if (run_param_map.count("imgReSize")&& !run_param_map["imgReSize"].empty())
-		 {
-			 int rSize = std::atoi(run_param_map["imgReSize"].c_str());
-			 cv::resize(img, img, { rSize ,rSize });
-			 if (idx == 0) {
-				 printf("- resize image to %d * %d !\n", rSize, rSize);
-				 printf("  if program crash, check size^2 EQ rknn input shape !\n");
-			 }
-		 }
-
-		std::shared_ptr<glasssix::memory::tensor<uint8_t>> input_tensor_u8(new glasssix::memory::tensor<uint8_t>(std::vector<int>{1, img.rows, img.cols, 3}, -1, glasssix::memory::NHWC));
-		std::copy(img.data, img.data + img.step[0] * img.rows, input_tensor_u8->mutable_cpu_data());
-		input_tensor_u8->convert_order();
-
-		auto results_wrapper = wrapper.forward(img.data, { 1, img.rows, img.cols, 3 }, RKNN_TENSOR_NHWC);
-		auto results_pipe = pipe.forward(input_tensor_u8 | glasssix::memory::tensor_convert_to<float>);
+		if (idx == 0)
+		{
+			if (runConfig.convertBGR) printf("- convert BGR order !\n");
+			if (runConfig.imgReSize > 0)
+			{
+				printf("- resize image to %d * %d !\n", runConfig.imgReSize, runConfig.imgReSize);
+				printf("  if program crash, check size^2 EQ rknn input shape !\n");
+			}
+		}
+		auto results_pip_A = pipline_A.forward(img);
+		auto results_pip_B = pipline_B.forward(img);
 
 		for (auto& x : output_map)
 		{
-			const float* f32_out = results_pipe[x.first]->cpu_data();
-			const float* i8_out = results_wrapper[x.second]->cpu_data();
-			CHECK_EQ(results_pipe[x.first]->count(), results_wrapper[x.second]->count());
-			int count = results_pipe[x.first]->count();
-			float cos = CosineSimilarity(f32_out, i8_out, count);
-			score_map[x.first].push_back(cos);
-			printf("\r[%d/%d]-> cos:%f  %s    ", idx, img_list.size(), cos, img_list[idx].c_str());
+			float* B_out = results_pip_B[x.first]->mutable_cpu_data();
+			float* A_out = results_pip_A[x.second]->mutable_cpu_data();
+			CHECK_EQ(results_pip_B[x.first]->count(), results_pip_A[x.second]->count());
+			int count = results_pip_B[x.first]->count();
+
+
+			if (x.first == "score_out") {
+				float cos = fliter_socre_CosineSimilarity(B_out, A_out, count, 0.1f, diffStatistics);
+				score_map[x.first].push_back(cos);
+				printf("[%d/%d]-> fcos:%f : score_out[>0.1] | %s\n", idx, img_list.size(), cos, img_list[idx].c_str());
+
+			}
+			else {
+				float cos = CosineSimilarity(B_out, A_out, count);
+				score_map[x.first].push_back(cos);
+				printf("[%d/%d]-> cos:%f : %s(%s) | %s\n", idx, img_list.size(), cos, x.second.c_str(), x.first.c_str(), img_list[idx].c_str());
+			}
+
+
 		}
+		printf("\n");
 	}
+
+	diffStatistics.print();
 
 	std::ofstream less80_out("less80_samples.txt");
 
-	TableMaker statistics_table_maker(run_param_map["rknn"]);
+	TableMaker statistics_table_maker(runConfig.net_A);
 
 	for (auto& x : score_map)
 	{
 
 		float min_cos = 1.f;
-		int less99 = 0, less98 = 0, less95 = 0, less90 = 0, less85 = 0, less80 = 0;
+		int less99 = 0, less98 = 0, less95 = 0, less90 = 0, less85 = 0, less80 = 0, less70 = 0;
 		for (int i = 0; i < x.second.size(); i++)
 		{
 			if (x.second[i] < 0.99f)
@@ -129,11 +170,13 @@ int main(int argc, char* argv[])
 				less80++;
 				less80_out << img_list[i] << " " << x.first << " " << x.second[i] << std::endl;
 			}
+			if (x.second[i] < 0.70f)
+				less70++;
 			if (x.second[i] < min_cos)
 				min_cos = x.second[i];
 		}
 
-		statistics_table_maker.rowPushLine(x.first, {less99 ,less98 ,less95,less90,less85,less80}, min_cos, x.second.size());
+		statistics_table_maker.rowPushLine(x.first, {less99 ,less98 ,less95,less90,less85,less80,less70}, min_cos, x.second.size());
 
 	}
 

@@ -129,7 +129,7 @@ namespace glasssix::onphone
 
 		std::string version()
 		{
-			const std::string algo_module_version = "3.0.0";
+			const std::string algo_module_version = "3.1.0";
 
 			std::string nn_frame_version = phone_instance->version();
 
@@ -150,20 +150,17 @@ namespace glasssix::onphone
 			int height = headbox.ymax - headbox.ymin;
 
 			int area = width * height;
-			auto center = headbox.get_center();
-			int cx = center.x;
-			int cy = center.y;
 			cv::Rect det_phone_region;
 
 			if (area <= 500) {
 				return phone_list;
 			}
 			else if (area > 500 && area < 8000) {
-				det_phone_region = cv::Rect(cx - width * 0.75f, cy - height * 0.375f, width * 3, height * 1.5);
+				det_phone_region = cv::Rect(headbox.xmin - width, headbox.ymin - height * 0.25f, width * 3, height * 1.5);
 			}
 			else {
-				det_phone_region = cv::Rect(cx - width * 0.5f, cy - height * 0.375f, width * 2, height * 1.5);
-				phone_conf_thres = std::min(0.9f, phone_conf_thres * phone_vivid_conf_ratio);
+				det_phone_region = cv::Rect(headbox.xmin - width * 0.5f, headbox.ymin - height * 0.25f, width * 2, height * 1.5);
+				phone_conf_thres = std::min(0.95f, phone_conf_thres * phone_vivid_conf_ratio);
 			}
 
 			const int reShapeSide = 640;

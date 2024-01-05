@@ -88,11 +88,12 @@ std::string version()
 
             for (auto& body : nms_result)
             {
+                safe_crop_rect head_rect(body[0]+ roi_x, body[2]+ roi_x, body[1]+ roi_y, body[3]+ roi_y, width, height);
                 box_info_internal temp_result;
-                temp_result.x1=body[0]+ roi_x;
-                temp_result.y1=body[1]+ roi_y;
-                temp_result.x2=body[2]+ roi_x;
-                temp_result.y2=body[3]+ roi_y;
+                temp_result.x1=head_rect.x1;
+                temp_result.y1=head_rect.y1;
+                temp_result.x2=head_rect.x2;
+                temp_result.y2=head_rect.y2;
                 temp_result.score=body[4];
                 temp_result.key_points = exposing::make_param_vector<float>();
            
@@ -134,7 +135,6 @@ std::string version()
                 forwards.push_back(network_results[out_names[i]]);
             }
 
-     
             int num =8400;
             auto real_output = Yovo8se_Concat(forwards,threshold,num);//5*8400
             return post_process(real_output,pad_h,pad_w, 1.f/ratio, num,threshold,iou_thres );
@@ -142,7 +142,7 @@ std::string version()
 
         }
 
-       void init_data()
+        void init_data()
         {
             posture_add_weight_1280.resize(33600*2);
             posture_mul_weight_1280.resize(33600);
@@ -253,8 +253,8 @@ std::string version()
             int stride_16_num = input / 16;
             int stride_32_num = input / 32;
 
-            int candidate_num= stride_8_num*stride_8_num + stride_16_num*stride_16_num + stride_32_num*stride_32_num ;
-            int class_num = 65;        
+            int candidate_num = stride_8_num*stride_8_num + stride_16_num*stride_16_num + stride_32_num*stride_32_num ;
+            int totol_size = stride_8_num*stride_8_num + stride_16_num*stride_16_num + stride_32_num*stride_32_num ;    
             //20 40 80 
             const float *data_stride_8 = outs[2]->cpu_data();
             const float *data_stride_16 = outs[1]->cpu_data();
@@ -276,10 +276,9 @@ std::string version()
                     match_index.push_back(i+ stride_8_num*stride_8_num + stride_16_num*stride_16_num );
 
             //concat the 80*40 40*40 20*20 
-            std::vector<float> cat(65*candidate_num);//1*65*8400 = 64*8400 + 1*8400
-            for(int i=0;i<65;i++)
+            std::vector<float> cat(65*candidate_num);//1*65*candidate_num = 64*candidate_num + 1*candidate_num
+            for(int i=0,j=0;i<65;i++,j=0)
             {   
-                int j=0;
                 for(; j<stride_8_num*stride_8_num; j++)             
                     cat[ i*candidate_num + j] = data_stride_8[i*stride_8_num*stride_8_num + j];
                 for(; j<stride_16_num*stride_16_num+stride_8_num*stride_8_num; j++)              
@@ -288,7 +287,6 @@ std::string version()
                     cat[ i*candidate_num + j] = data_stride_32[i*stride_32_num*stride_32_num + j-stride_8_num*stride_8_num  -stride_16_num*stride_16_num ];
             }
 
-            //process the candidate xywh begin  
             //tranpose and softmax
             std::vector<float> reshape_box(candidate_num*64);
             tranpose(cat.data(),reshape_box.data(),64,candidate_num );
@@ -306,30 +304,23 @@ std::string version()
             int index = 0;
             for(int i=0; i<candidate_num; i++)
                 for(int j=0; j<4; j++)
-                {
-                    Softmax(reshape_boxtmp.data()+ 16*index ,16 ) ;
-                    index++ ;
-                }
+                    Softmax(reshape_boxtmp.data()+ 16*index++ ,16 ) ;//inplace softamax
 
-            std::vector<float> reshape_box2(16*4*candidate_num);
             for(int i=0; i<candidate_num; i++)
                 for(int j=0; j<4; j++)
                     for(int k=0; k<16; k++)
-                        reshape_box2[k*4*candidate_num +j*candidate_num +i ] = reshape_boxtmp[i*16*4 + j*16+k ];
+                        cat[k*4*candidate_num +j*candidate_num +i ] = reshape_boxtmp[i*16*4 + j*16+k ];
 
             //16 channels 1*1convolution
             std::vector<float> conv(4*candidate_num,0);
             for(int i=0;i<16;i++)
                 for(int j=0;j<4*candidate_num;j++)
-                    conv[j] = conv[j] +reshape_box2[i*4*candidate_num+j ]*i  ; 
+                    conv[j] = conv[j] +cat[i*4*candidate_num+j ]*i  ; 
 
             std::vector<float>  concat(candidate_num*4);
-            for(int i=0;i<candidate_num*2;i++)
+            for(int i=0,index=match_index[0];i<candidate_num*2;i++)
             {              
-                int index = match_index[i];
-                if(i>=candidate_num  )              
-                    index = match_index[i - candidate_num ]+33600;
-                concat[i]                 = (conv[i+candidate_num*2] - conv[i] )/2.f + posture_add_weight_1280[ index] + 0.5;     
+                concat[i]                 = (conv[i+candidate_num*2] - conv[i] )/2.f + posture_add_weight_1280[ i<candidate_num? match_index[i]:(match_index[i - candidate_num ]+totol_size) ] + 0.5;     
                 concat[i+candidate_num*2] = (conv[i+candidate_num*2] + conv[i] );      // add_data[i]-sub_data[i]) ;  
             }
 
@@ -341,7 +332,7 @@ std::string version()
                 output[candidate_num*1 +i] = concat[candidate_num*1 +i]*posture_mul_weight_1280[ match_index[i]];
                 output[candidate_num*2 +i] = concat[candidate_num*2 +i]*posture_mul_weight_1280[ match_index[i]];
                 output[candidate_num*3 +i] = concat[candidate_num*3 +i]*posture_mul_weight_1280[ match_index[i]];
-                output[candidate_num*4 +i] =  sigmoid_x(cat[(stride_8_num*stride_8_num + stride_16_num*stride_16_num + stride_32_num*stride_32_num )*64 +match_index[i]]);
+                output[candidate_num*4 +i] =  sigmoid_x(cat[totol_size*64 +match_index[i]]);
             }          
             return  output0;
         }

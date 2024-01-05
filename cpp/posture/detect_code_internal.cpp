@@ -70,7 +70,7 @@ namespace glasssix::posture
 
 std::string version()
         {
-			const std::string algo_module_version = "3.0.0";
+			const std::string algo_module_version = "3.1.0";
 
 #if defined(USE_RKNNAPI) || defined(USE_RKNN2API)
 			std::string nn_frame_version = net_detect640_->version();
@@ -85,7 +85,8 @@ std::string version()
         exposing::param_vector<posture::box_info> detect(const exposing::param_span<std::uint8_t>& bitmap, int channels, int height, int width,
             int roi_x, int roi_y, int roi_width, int roi_height, std::map<std::string, float>& param_map)
         {
-            float con_thres = param_map.count("conf_thres") ? param_map["conf_thres"] : 0.2f;
+            float con_thres = param_map.count("conf_thres") ? param_map["conf_thres"] : 0.45f;
+            float little_target_conf_thres = param_map.count("little_target_conf_thres") ? param_map["little_target_conf_thres"] : 0.2f;
             float iou_thres = param_map.count("nms_thres") ? param_map["nms_thres"] : 0.6f;
 
             if (bitmap.empty())
@@ -135,7 +136,7 @@ std::string version()
             int candicate_num1280=0;
 
             auto real_output640 = Posture_Concat640(forwards640, keypoint_num,con_thres,candicate_num640,posture_add_weight,posture_mul_weight);
-            auto real_output1280 = Posture_Concat1280(forwards1280, keypoint_num,con_thres,candicate_num1280,posture_add_weight_1280single,posture_mul_weight_1280single);
+            auto real_output1280 = Posture_Concat1280(forwards1280, keypoint_num,little_target_conf_thres,candicate_num1280,posture_add_weight_1280single,posture_mul_weight_1280single);
 
             auto nms_input640  = XYXY2WH(real_output640, image,pad_h640,pad_w640, 1.f/ratio640,keypoint_num,candicate_num640);
             auto nms_input1280 = XYXY2WH(real_output1280, image,pad_h1280,pad_w1280, 1.f/ratio1280,keypoint_num,candicate_num1280);
@@ -206,7 +207,7 @@ std::string version()
         void init_data()
         {
             std::vector<std::string>  out_name_12keypoint={"413","398","output0", "368" };
-            std::vector<std::string>  out_name_17keypoint={"417","402","output0", "372" };
+            std::vector<std::string>  out_name_17keypoint={"413","398","output0", "368" };
 
             std::vector<std::string>  out_name_12keypoint1280={"/model.22/Reshape_3_output_0","/model.22/Reshape_output_0" };
             std::vector<std::string>  out_name_17keypoint1280={"/model.22/Reshape_3_output_0","/model.22/Reshape_output_0" };

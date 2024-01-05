@@ -1,8 +1,9 @@
 #include "yolo_net_internal.hpp"
 #include "hardcode.hpp"
+#include "../head/detect_code.hpp"
+#include "box_info_impl.hpp"
 
 #include <algorithm>
-#include "box_info_impl.hpp"
 #include <Excalibur/pipeline.hpp>
 #include <Primitives/pool_allocator.hpp>
 #include <Primitives/tensor_conversions.hpp>
@@ -42,15 +43,10 @@ namespace glasssix::leavepost
     class yolo_net_internal::impl
     {
     public:
-        impl(const exposing::param_string model_directory, int device = -1)
-                :impl{get_model_params("hat_simp", false),  exposing::to_narrow_string(model_directory), device}
-        {
-        }
-
-        impl(const std::vector<std::string> &phai, std::string model_directory, int device)
-                :net_instance_(phai,  model_directory + std::string("/hat_simp.rknn"), device)
-        {
-        }
+		impl(std::string_view model_directory, int device)
+		{
+			head_instance_ = glasssix::exposing::make_exported_interface<head::detect_code>(model_directory, device);
+		}
 
         exposing::param_vector<leavepost::box_info> detect(const exposing::param_span<std::uint8_t>& bitmap, int channels, int height, int width, int roi_x, int roi_y, int roi_width, int roi_height, std::map<std::string, float>& param_map)
         {
@@ -61,24 +57,31 @@ namespace glasssix::leavepost
             CHECK_EQ(channels, 3);
             CHECK_EQ(bitmap.size(), channels * height * width);
 
-            std::vector<box_info_internal> objects;
             cv::Mat image(cv::Size(width, height), CV_8UC3);
             std::memcpy(image.data, bitmap.data(), sizeof (uint8_t) * channels * height * width);
             if(roi_x<0 || roi_x>width || roi_y>height || roi_y<0 ||roi_height<0 || (roi_height+roi_y) >height || roi_width<0 || (roi_width+roi_x) > width)
             {
-                  throw exposing::abi_invalid_argument("incorrect roi in refvest");
+                throw exposing::abi_invalid_argument("incorrect roi in refvest");
             }
-            cv::Mat cropped_image = image(cv::Range(roi_y,roi_y+roi_height), cv::Range(roi_x,roi_x+roi_width));
-            detect_yolo(cropped_image, objects,param_map);
+			float head_conf_thres = param_map.count("conf_thres") ? param_map["conf_thres"] : 0.5f;
+			float head_nms_thres = param_map.count("nms_thres") ? param_map["nms_thres"] : 0.6f;
+			auto head_param_abi = exposing::make_param_hash_map<exposing::param_string, float>();
+			head_param_abi.add_or_update("conf_thres", head_conf_thres);
+			head_param_abi.add_or_update("nms_thres", head_nms_thres);
+			exposing::param_vector<head::box_info> head_info_list_raw = head_instance_.detect(bitmap, channels, height, width, 0, 0, width, height, head_param_abi);
+            std::vector<box_info_internal> objects;
 
             auto result = exposing::make_param_vector<box_info>();
-            for (auto &i : objects)
+            for (auto i : head_info_list_raw)
             {
-                auto x=i;
-                x.rect.x+=roi_x;
-                x.rect.y+=roi_y;
-
-                result.push_back(exposing::make_as_first<box_info_impl>(i));
+                box_info_internal box;
+                box.rect.x      = i.x1();
+                box.rect.y      = i.y1();
+                box.rect.height = i.x2() - i.x1();
+                box.rect.width  = i.y2() - i.y1();
+                box.label = 1;
+                box.confidence = i.score();
+                result.push_back(exposing::make_as_first<box_info_impl>(box));
                 // cv::rectangle(image, cv::Point(i.rect.x, i.rect.y), cv::Point(i.rect.x+i.rect.width, i.rect.y+i.rect.height),        cv::Scalar(0, 0, 255), 3);
             }
             // cv::imwrite("../detets.jpg",image);
@@ -89,7 +92,10 @@ namespace glasssix::leavepost
 		{
 			const std::string algo_module_version = "1.0.0";
 
-			std::string nn_frame_version = net_instance_.version();
+			// std::string nn_frame_version = net_instance_.version();
+
+            std::string nn_frame_version = "ref head";
+
 
 			return fmt::format(R"({{"nn_frame_version":"{}", "algo_module_version":"{}"}})", nn_frame_version, algo_module_version);
 		}
@@ -284,120 +290,10 @@ namespace glasssix::leavepost
         }
 
 
-        int detect_yolo(cv::Mat& image, std::vector<box_info_internal> &objects, std::map<std::string, float>& param_map)
-        {
-            /** Before processing **/
-            const int target_size = 640;
-            // const float prob_threshold = 0.5f;
-            // const float nms_threshold = 0.4f;
-
-            float prob_threshold= param_map.count("conf_thres") ? param_map["conf_thres"] : 0.52f;
-            float nms_threshold = param_map.count("nms_thres") ? param_map["nms_thres"] : 0.4f;      
-            cv::Mat blob;
-            int hpad=0;
-            int wpad=0;
-            float scale = 1.f;//scale是放缩系数
-            std::tie(blob,scale) = preprocess(image,hpad,wpad);
-
-            auto  out = net_instance_.forward(blob.data, { 1, blob.rows, blob.cols,blob.channels() }, RKNN_TENSOR_NHWC);
-
-
-
-            std::vector<box_info_internal> proposals;
-            {
-                std::vector<float> anchors(6);
-                anchors[0] = 10.f;
-                anchors[1] = 13.f;
-                anchors[2] = 16.f;
-                anchors[3] = 30.f;
-                anchors[4] = 33.f;
-                anchors[5] = 23.f;
-
-                std::vector<box_info_internal> objects8;
-
-                std::shared_ptr<memory::tensor<float>> temp_out(new memory::tensor<float>(3,6400, 8, -1, memory::NCHW, nullptr));
-                std::copy(out["751"]->mutable_cpu_data(), out["751"]->mutable_cpu_data() + 3*6400*8, temp_out->mutable_cpu_data());
-
-                generate_proposals(anchors, 8, temp_out, prob_threshold, objects8);
-                proposals.insert(proposals.end(), objects8.begin(), objects8.end());
-            }
-
-            // stride 16
-            {
-          std::vector<float> anchors(6);
-                anchors[0] = 30.f;
-                anchors[1] = 61.f;
-                anchors[2] = 62.f;
-                anchors[3] = 45.f;
-                anchors[4] = 59.f;
-                anchors[5] = 119.f;
-
-                std::vector<box_info_internal> objects16;
-
-                std::shared_ptr<memory::tensor<float>> temp_out(new memory::tensor<float>(3,1600, 8, -1, memory::NCHW, nullptr));
-                std::copy(out["1060"]->mutable_cpu_data(), out["1060"]->mutable_cpu_data() + 3*1600*8, temp_out->mutable_cpu_data());
-
-                generate_proposals(anchors, 16, temp_out, prob_threshold, objects16);
-                proposals.insert(proposals.end(), objects16.begin(), objects16.end());
-            }
-
-            // stride 32
-            {
-           std::vector<float> anchors(6);
-                anchors[0] = 116.f;
-                anchors[1] = 90.f;
-                anchors[2] = 156.f;
-                anchors[3] = 198.f;
-                anchors[4] = 373.f;
-                anchors[5] = 326.f;
-
-                std::vector<box_info_internal> objects32;
-
-                std::shared_ptr<memory::tensor<float>> temp_out(new memory::tensor<float>(3,400, 8, -1, memory::NCHW, nullptr));
-                std::copy(out["1369"]->mutable_cpu_data(), out["1369"]->mutable_cpu_data() + 3*400*8, temp_out->mutable_cpu_data());
-
-                generate_proposals(anchors, 32, temp_out, prob_threshold, objects32);
-                proposals.insert(proposals.end(), objects32.begin(), objects32.end());
-            }
-            // sort all proposals by score from highest to lowest
-            qsort_descent_inplace(proposals);
-
-            // apply nms with nms_threshold
-            std::vector<int> picked;
-            nms_sorted_bboxes(proposals, picked, nms_threshold);
-
-            int count = picked.size();
-
-            objects.resize(count);
-            for (int i = 0; i < count; i++)
-            {
-                objects[i] = proposals[picked[i]];
-
-                // adjust offset to original unpadded
-                float x0 = (objects[i].rect.x - (wpad / 2)) / scale;
-                float y0 = (objects[i].rect.y - (hpad / 2)) / scale;
-                float x1 = (objects[i].rect.x + objects[i].rect.width - (wpad / 2)) / scale;
-                float y1 = (objects[i].rect.y + objects[i].rect.height - (hpad / 2)) / scale;
-
-                // clip
-                x0 = std::max(std::min(x0, (float)(image.cols - 1)), 0.f);
-                y0 = std::max(std::min(y0, (float)(image.rows - 1)), 0.f);
-                x1 = std::max(std::min(x1, (float)(image.cols - 1)), 0.f);
-                y1 = std::max(std::min(y1, (float)(image.rows - 1)), 0.f);
-
-                objects[i].rect.x = x0;
-                objects[i].rect.y = y0;
-                objects[i].rect.width = x1 - x0;
-                objects[i].rect.height = y1 - y0;
-            }
-
-            return 0;
-        }
-    
     private:
         int device_;
-        rknnwrapper::rknn_wrapper  net_instance_;
         std::string model_directory_;
+		head::detect_code head_instance_;
         std::shared_ptr<memory::tensor<std::uint8_t>> cache_;
     };
 

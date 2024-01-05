@@ -158,28 +158,28 @@ namespace glasssix::tumble
             }
             cv::cvtColor(mask_image, mask_image, cv::COLOR_BGR2RGB);
 
-            cv::cvtColor(mask_image, mask_image, cv::COLOR_BGR2HSV);
+            // cv::cvtColor(mask_image, mask_image, cv::COLOR_BGR2HSV);
 
-            cv::Scalar lower_black(0, 0, 0); // 下限颜色 (B, G, R)
-            cv::Scalar upper_black(180, 255, 60); // 上限颜色 (B, G, R)
+            // cv::Scalar lower_black(0, 0, 0); // 下限颜色 (B, G, R)
+            // cv::Scalar upper_black(180, 255, 60); // 上限颜色 (B, G, R)
             
-            cv::Mat black_mask;
+            // cv::Mat black_mask;
 
-            cv::inRange(mask_image, lower_black, upper_black, black_mask);
+            // cv::inRange(mask_image, lower_black, upper_black, black_mask);
             
-            for (int i=0; i<mask_image.rows; i++)
-            {   
-                for (int j=0;j<mask_image.cols;j++)
-                {
-                    if(black_mask.at<uchar>(i,j)>0 )
-                    {
-                        mask_image.at<cv::Vec3b>(i,j)[0] = 0;
-                        mask_image.at<cv::Vec3b>(i,j)[1] = 0;
-                        mask_image.at<cv::Vec3b>(i,j)[2] = 62;//65
-                    }
-                }
-            }        
-            cv::cvtColor(mask_image,mask_image, cv::COLOR_HSV2BGR);
+            // for (int i=0; i<mask_image.rows; i++)
+            // {   
+            //     for (int j=0;j<mask_image.cols;j++)
+            //     {
+            //         if(black_mask.at<uchar>(i,j)>0 )
+            //         {
+            //             mask_image.at<cv::Vec3b>(i,j)[0] = 0;
+            //             mask_image.at<cv::Vec3b>(i,j)[1] = 0;
+            //             mask_image.at<cv::Vec3b>(i,j)[2] = 62;//65
+            //         }
+            //     }
+            // }        
+            // cv::cvtColor(mask_image,mask_image, cv::COLOR_HSV2BGR);
 
             return {mask_image,scale};
         }
