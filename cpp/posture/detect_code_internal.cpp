@@ -36,16 +36,11 @@ namespace glasssix::posture
            {              
                 net_detect640_ = std::make_unique<rknnwrapper::rknn_wrapper>(get_model_params("posture", false),
                     std::string(model_directory) + "/" +"posture640_17.rknn", device);     
-                net_detect1280_single_branch_ = std::make_unique<rknnwrapper::rknn_wrapper>(get_model_params("posture", false),  
-                    std::string(model_directory) + "/" +"posture1280_17.rknn", device);  
            }
            else
            {
                 net_detect640_ = std::make_unique<rknnwrapper::rknn_wrapper>(get_model_params("posture", false),
                     std::string(model_directory) + "/" +"posture12.rknn", device);     
-
-                net_detect1280_single_branch_ = std::make_unique<rknnwrapper::rknn_wrapper>(get_model_params("posture", false),  
-                    std::string(model_directory) + "/" +"posture1280_12.rknn", device); 
            }
            
 #else
@@ -53,16 +48,11 @@ namespace glasssix::posture
             {
                 net_detect640_ = std::make_unique<glasssix::excalibur::pipeline<float>>(get_model_params("posture", false),
                     std::string(model_directory) + "/" +"posture640_17.racy", device);   
-                net_detect1280_single_branch_ = std::make_unique<glasssix::excalibur::pipeline<float>>(get_model_params("posture", false),
-                    std::string(model_directory) + "/" +"posture1280_17.racy", device);      
-
             }
             else
             {
                 net_detect640_ = std::make_unique<glasssix::excalibur::pipeline<float>>(get_model_params("posture", false),
                     std::string(model_directory) + "/" +"posture12.racy", device); 
-                net_detect1280_single_branch_ = std::make_unique<glasssix::excalibur::pipeline<float>>(get_model_params("posture", false),
-                    std::string(model_directory) + "/" +"posture1280_12.racy", device);   
             }
     #endif
             init_data();
@@ -81,6 +71,55 @@ std::string version()
 
         }
 
+
+        std::vector<std::vector<float>> postrue_detect_yolo(cv::Mat &detect_img,float bias,bool horizontal, float ratio, int throw_right, int throw_left,  float con_thres)
+        {
+            bias = bias/ratio;
+            cv::Mat blob640;
+            auto new_shape640 = cv::Size(640,  640);
+            float ratio640 = 0;
+            int pad_h640=0;  
+            int pad_w640=0;
+
+            std::tie(blob640, ratio640) = preprocess_detection( detect_img,pad_h640, pad_w640, new_shape640);
+            ratio640 = ratio;
+            std::vector<std::shared_ptr<memory::tensor<float>>> forwards640;
+            auto network_result = net_detect640_->forward(blob640.data, { 1, blob640.rows, blob640.cols,blob640.channels() }, RKNN_TENSOR_NHWC);
+
+            for (size_t i=0;i< out_names640.size(); i++)
+                forwards640.push_back(network_result[out_names640[i]]);
+
+            int candicate_num640=0;
+
+            auto real_output640 = Posture_Concat640(forwards640, keypoint_num,con_thres,candicate_num640,posture_add_weight,posture_mul_weight);
+            auto nms_input640  = XYXY2WH(real_output640, pad_h640,pad_w640, 1.f/ratio640, keypoint_num, candicate_num640);
+
+
+            nms_input640 = throw_border_result( nms_input640, horizontal, throw_right,  throw_left,  640.f /ratio640);
+    
+            for(auto& xywh:nms_input640)
+            {
+                if( horizontal)
+                {
+                    xywh[0]=xywh[0]+bias;
+                    for (size_t i = 5; i < xywh.size(); i+=3)
+                    {
+                        xywh[i] = xywh[i]+bias;
+                    }
+                }
+                else
+                {
+                    xywh[1]=xywh[1]+bias;
+                    for (size_t i = 5; i < xywh.size(); i+=3)
+                    {
+                        xywh[i+1] = xywh[i+1]+bias;
+                    }
+                }
+            }
+            return nms_input640;
+        }
+
+        
 
         exposing::param_vector<posture::box_info> detect(const exposing::param_span<std::uint8_t>& bitmap, int channels, int height, int width,
             int roi_x, int roi_y, int roi_width, int roi_height, std::map<std::string, float>& param_map)
@@ -105,72 +144,21 @@ std::string version()
 
             cv::Mat cropped_image = image(cv::Range(roi_y, roi_y + roi_height), cv::Range(roi_x, roi_x + roi_width));
 
-            auto new_shape640 = cv::Size(640,  640);
-            auto new_shape1280 = cv::Size(1280,  1280);
+            slide_pics_params pics_and_bias  = Sliding_Cut_Pic(cropped_image);
 
-            cv::Mat blob640;
-            cv::Mat blob1280;
-            float ratio640 = 0;
-            float ratio1280 = 0;
-            int pad_h640=0;  
-            int pad_w640=0;
-            int pad_h1280=0;  
-            int pad_w1280=0;
+            std::vector<std::vector<float>> nms_input;
+            for (size_t i = 0; i < pics_and_bias.imgs.size(); i++)
+            {
+                auto results = postrue_detect_yolo(pics_and_bias.imgs[i], pics_and_bias.bias[i], pics_and_bias.horizontal, pics_and_bias.ratio, 
+                                                        pics_and_bias.throw_result_border[i*2],pics_and_bias.throw_result_border[i*2+1], con_thres );
+                for(auto& result:results )
+                {
+                    nms_input.push_back(result);
+                }
+            }
 
-            std::tie(blob640, ratio640) = preprocess_detection( cropped_image,pad_h640, pad_w640, new_shape640 ) ;
-            std::tie(blob1280, ratio1280) = preprocess_detection( cropped_image,pad_h1280, pad_w1280, new_shape1280 ) ;
-
-            std::vector<std::shared_ptr<memory::tensor<float>>> forwards640;
-            std::vector<std::shared_ptr<memory::tensor<float>>> forwards1280;
-
-            auto network_result = net_detect640_->forward(blob640.data, { 1, blob640.rows, blob640.cols,blob640.channels() }, RKNN_TENSOR_NHWC);
-            auto network_result_1280_single = net_detect1280_single_branch_->forward(blob1280.data, { 1, blob1280.rows, blob1280.cols,blob1280.channels() }, RKNN_TENSOR_NHWC);
-           
-            for (size_t i=0;i< out_names640.size(); i++)
-                forwards640.push_back(network_result[out_names640[i]]);
-
-            for (size_t i=0;i< out_names1280.size(); i++)
-                forwards1280.push_back(network_result_1280_single[out_names1280[i]]);
-
-            int candicate_num640=0;
-            int candicate_num1280=0;
-
-            auto real_output640 = Posture_Concat640(forwards640, keypoint_num,con_thres,candicate_num640,posture_add_weight,posture_mul_weight);
-            auto real_output1280 = Posture_Concat1280(forwards1280, keypoint_num,little_target_conf_thres,candicate_num1280,posture_add_weight_1280single,posture_mul_weight_1280single);
-
-            auto nms_input640  = XYXY2WH(real_output640, image,pad_h640,pad_w640, 1.f/ratio640,keypoint_num,candicate_num640);
-            auto nms_input1280 = XYXY2WH(real_output1280, image,pad_h1280,pad_w1280, 1.f/ratio1280,keypoint_num,candicate_num1280);
-
-            // for(auto var : nms_input640)
-            // {
-            //     cv::rectangle(image,   cv::Point((int) var[0]  , (int)  var[1] ),
-            //                     cv::Point((int) (var[0] + var[2]  ) , (int) (var[1] + var[3]) ),  cv::Scalar(0, 255, 255), 2);   
-            //     for(int j=0;j<17;j++)
-            //     {
-            //         cv::circle(image,  cv::Point((int) var[3*j+5]  , (int) var[3*j+ 1 +5]  ), 2, cv::Scalar(0, 255, 255));
-            //     }
-            // }
-
-            // for(auto var : nms_input1280)
-            // {
-            //     cv::rectangle(image,   cv::Point((int) var[0]  , (int)  var[1] ),
-            //                     cv::Point((int) (var[0] + var[2]  ) , (int) (var[1] + var[3]) ),  cv::Scalar(255, 0, 255), 2);   
-            //     for(int j=0;j<17;j++)
-            //     {
-            //         cv::circle(image,  cv::Point((int) var[3*j+5]  , (int) var[3*j+ 1 +5]  ), 2, cv::Scalar(255, 0, 255));
-            //     }
-            // }
-            // cv::imwrite("../adsfsfsdpreocesdssds.jpg",image);
-
-
-            std::vector<std::vector<float>> nms_input( nms_input640.size() + nms_input1280.size() );
-            int index =0;
-            for(auto& var : nms_input640)
-                nms_input[index++] = var;
-            for(auto& var : nms_input1280)
-                nms_input[index++] = var;
-            auto nms_result_index = nms_process(nms_input,con_thres,iou_thres);
-
+                      
+            auto nms_result_index = nms_process(nms_input,con_thres,iou_thres);//nms_input 对应原图结果
 
             auto fin_result= exposing::make_param_vector<box_info>();
 
@@ -180,8 +168,8 @@ std::string version()
             {
                 box_info_internal temp_result;
 
-                temp_result.x1 = nms_input[id][0];//       body[0]+ roi_x;
-                temp_result.y1 = nms_input[id][1]+ roi_y;
+                temp_result.x1 = nms_input[id][0] + roi_x; //body[0]+ roi_x;
+                temp_result.y1 = nms_input[id][1] + roi_y;
                 temp_result.x2 = nms_input[id][0] + nms_input[id][2]+roi_x;
                 temp_result.y2 = nms_input[id][1] + nms_input[id][3]+ roi_y;
                 temp_result.score = nms_input[id][4];
@@ -227,15 +215,15 @@ std::string version()
 
             posture_add_weight.resize(8400*2);
             posture_mul_weight.resize(8400);
-            posture_add_weight_1280single.resize(25600*2);
-            posture_mul_weight_1280single.resize(25600);
+            // posture_add_weight_1280single.resize(25600*2);
+            // posture_mul_weight_1280single.resize(25600);
 
-            for(int i=0;i<25600;i++)
-            {
-                    posture_add_weight_1280single[i] = i%160;;
-                    posture_add_weight_1280single[i+25600] = i/160;
-                    posture_mul_weight_1280single[i] =8.f;
-            }
+            // for(int i=0;i<25600;i++)
+            // {
+            //         posture_add_weight_1280single[i] = i%160;;
+            //         posture_add_weight_1280single[i+25600] = i/160;
+            //         posture_mul_weight_1280single[i] =8.f;
+            // }
 
 
             for(int i=0;i<8400;i++)
@@ -336,6 +324,7 @@ std::string version()
             }
             return output;
         }
+
         std::tuple<cv::Mat, float> preprocess_detection(cv::Mat& src,int& pad_h640,int& pad_w640,  cv::Size input_shape = cv::Size(640, 640) )
         {
             float scale = std::min((float)input_shape.width/(float)src.cols, (float)input_shape.height/(float)src.rows);
@@ -402,15 +391,15 @@ std::string version()
 
         std::vector<float> posture_add_weight;
         std::vector<float> posture_mul_weight;
-        std::vector<float> posture_add_weight_1280single;
-        std::vector<float> posture_mul_weight_1280single;
+        // std::vector<float> posture_add_weight_1280single;
+        // std::vector<float> posture_mul_weight_1280single;
 
 #if defined(USE_RKNNAPI) || defined(USE_RKNN2API)
        std::unique_ptr < rknnwrapper::rknn_wrapper> net_detect640_;    
-       std::unique_ptr < rknnwrapper::rknn_wrapper> net_detect1280_single_branch_;    
+    //    std::unique_ptr < rknnwrapper::rknn_wrapper> net_detect1280_single_branch_;    
 #else
        std::unique_ptr < glasssix::excalibur::pipeline<float>> net_detect640_;  
-       std::unique_ptr < glasssix::excalibur::pipeline<float>> net_detect1280_single_branch_;  
+    //    std::unique_ptr < glasssix::excalibur::pipeline<float>> net_detect1280_single_branch_;  
 #endif
 
     };
