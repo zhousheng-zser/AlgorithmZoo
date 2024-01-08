@@ -14,15 +14,15 @@
 #include <opencv2/opencv.hpp>
 namespace glasssix::wander
 {
-    struct PostureInfo
+    struct PedestrianInfo
     {
-        PostureInfo(pedestrian::box_info& b_info) {
+        PedestrianInfo(pedestrian::box_info& b_info) {
             x1 = b_info.x1();
             x2 = b_info.x2();
             y1 = b_info.y1();
             y2 = b_info.y2();
             score = b_info.score();
-            category = b_info.category();
+            //category = b_info.category();   
 
         }
 
@@ -37,7 +37,7 @@ namespace glasssix::wander
 		std::int32_t x2;
 		std::int32_t y2;
 		float score;
-		int category;
+		//int category;//徘徊没用到这个值  
     };
 
 
@@ -78,7 +78,8 @@ namespace glasssix::wander
 
         std::string remove_person_by_index(int device_id,int id);
    
-        exposing::param_vector<wander::box_info> detect(exposing::param_span<std::uint8_t> bitmap, int channels, int height, int width, int roi_x, int roi_y, int roi_width, int roi_height, std::map<std::string, double>& param_map) const;
+        exposing::param_vector<wander::box_info> detect(exposing::param_span<std::uint8_t> bitmap, int channels, int height, int width, 
+       int roi_x, int roi_y, int roi_width, int roi_height, std::map<std::string, double>& param_map, const std::vector<PedestrianInfo>& pedestrain_info) const;
         //成员函数
     private:
         std::unique_ptr<impl> impl_;
