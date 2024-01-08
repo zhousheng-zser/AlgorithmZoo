@@ -38,7 +38,7 @@ namespace glasssix::playphone
 		return resize_img;
 	}
 
-	static inline cv::Mat playphone_preprocess(cv::Mat img, int img_size) {
+	static inline cv::Mat playphone_HSVCover_preprocess(cv::Mat img) {
 
 		cv::Mat md_img;
 		cv::Mat hsv_image;
@@ -60,8 +60,7 @@ namespace glasssix::playphone
 			}
 		}
 		cv::cvtColor(hsv_image, md_img, cv::COLOR_HSV2RGB);// is RGB!
-		cv::Mat letter_img = letterbox(md_img, img_size, img_size);
-		return letter_img;
+		return md_img;
 	}
 
 }
