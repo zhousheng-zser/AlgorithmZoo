@@ -195,6 +195,6 @@ if(BUILD_MODULE_FRAME_GEN AND (CMAKE_CXX_COMPILER_ID STREQUAL "MSVC"))
 	#add_subdirectory(Noahcode)
 endif()
 
-if(BUILD_TEST_MODEL AND ${RKNNAPI_VERSION})
+if(BUILD_TEST_MODEL)
 	add_subdirectory(TestModel)
 endif()
