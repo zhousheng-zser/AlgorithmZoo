@@ -45,7 +45,7 @@ namespace glasssix::climb
 
         std::string version();
 
-        exposing::param_vector<climb::box_info> detect(exposing::param_span<std::uint8_t> bitmap, int channels, int height, int width, int roi_x, int roi_y, int roi_width, int roi_height, std::map<std::string, float>& param_map) const;
+        exposing::param_vector<climb::box_info> detect(exposing::param_span<std::uint8_t> bitmap, int channels, int height, int width, int roi_x, int roi_y, int roi_width, int roi_height, exposing::param_vector<posture::box_info> posture_info_list, std::map<std::string, float>& param_map) const;
 
     private:
         std::unique_ptr<impl> impl_;
