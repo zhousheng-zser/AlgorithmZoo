@@ -3,6 +3,7 @@
 #include "box_info_impl.hpp"
 #include <map>
 #include <utility>
+#include "../posture/detect_code.hpp"
 
 namespace glasssix::smoke
 {
@@ -21,7 +22,7 @@ namespace glasssix::smoke
 		return exposing::to_param_string(impl_->version());
 	}
 
-	exposing::param_vector<smoke::box_info> detect_code_impl::detect(exposing::param_span<std::uint8_t> bitmap, int channels, int height, int width,int roi_x, int roi_y, int roi_width, int roi_height,
+	exposing::param_vector<smoke::box_info> detect_code_impl::detect(exposing::param_span<std::uint8_t> bitmap, int channels, int height, int width,int roi_x, int roi_y, int roi_width, int roi_height, exposing::param_vector<posture::box_info> posture_info_list,
 		const exposing::param_hash_map<exposing::param_string, float>& param_map_abi) const
 	{
 		if (!impl_)
@@ -33,7 +34,7 @@ namespace glasssix::smoke
 			param_map.insert(std::make_pair(it.key(), it.value()));
 		}
 
-		return impl_->detect(std::move(bitmap), channels, height, width, roi_x, roi_y, roi_width, roi_height, param_map);
+		return impl_->detect(std::move(bitmap), channels, height, width, roi_x, roi_y, roi_width, roi_height, posture_info_list, param_map);
 	}
 
 }

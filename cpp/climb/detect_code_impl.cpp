@@ -3,6 +3,7 @@
 #include "box_info_impl.hpp"
 #include <map>
 #include <utility>
+#include "../posture/detect_code.hpp"
 
 namespace glasssix::climb
 {

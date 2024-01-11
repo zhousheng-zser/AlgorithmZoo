@@ -2,7 +2,7 @@
 #define _REFVEST_BOX_INFO_HPP_
 
 #include <abi/consumer.hpp>
-#include "../posture/detect_code.hpp"
+
 
 namespace glasssix::refvest
 {

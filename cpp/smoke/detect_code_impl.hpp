@@ -22,7 +22,7 @@ namespace glasssix::smoke
 
         exposing::param_string version() const;
 
-        exposing::param_vector<smoke::box_info> detect(exposing::param_span<std::uint8_t> bitmap, int channels, int height, int width, int roi_x, int roi_y, int roi_width, int roi_height,
+        exposing::param_vector<smoke::box_info> detect(exposing::param_span<std::uint8_t> bitmap, int channels, int height, int width, int roi_x, int roi_y, int roi_width, int roi_height, exposing::param_vector<posture::box_info> posture_info_list,
            const exposing::param_hash_map<exposing::param_string, float>& param_map_abi) const;
 
     private:
