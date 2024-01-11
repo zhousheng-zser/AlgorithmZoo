@@ -5,3 +5,9 @@ build*/
 /cmake/cross_compile_build/
 .idea/
 vs
+cmake/debug/
+# zhangjian_only
+.vscode/
+.history/
+
+/call
