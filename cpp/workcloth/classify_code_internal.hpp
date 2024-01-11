@@ -19,10 +19,13 @@ namespace glasssix::workcloth
 	struct PostureInfo
 	{
 		PostureInfo(posture::box_info& b_info) {
-			//x1 = b_info.x1();
-			//x2 = b_info.x2();
-			//y1 = b_info.y1();
-			//y2 = b_info.y2();
+			// integrated person Bbox
+			int i_x = b_info.x1();
+			int i_y = b_info.y1();
+			int i_w = std::abs(b_info.x2() - b_info.x1());
+			int i_h = std::abs(b_info.y2() - b_info.y1());
+			person_bbox = cv::Rect(i_x, i_y, i_w, i_h);
+
 			score = b_info.score();
 			category = b_info.category();
 
@@ -75,6 +78,9 @@ namespace glasssix::workcloth
 				cv::Point(std::round(x2), std::round(y2)) };
 		}
 
+		//integrated man for bodyerr judge
+		cv::Rect person_bbox;
+		//NOTICE! important bbox for greater nms, this region will smaller than person_bbox, details refer code
 		std::int32_t x1;
 		std::int32_t y1;
 		std::int32_t x2;

@@ -33,11 +33,11 @@ namespace glasssix::smoke
             :net_smoke_detect_(phai,  model_directory + std::string("/cigarette_detect.rknn"), device), model_directory_(model_directory)
         {
             static bool ready = glasssix::exposing::get_component_loader().add_module_by_name("posture");
-            posture_instance_ = glasssix::exposing::make_exported_interface<posture::detect_code>(exposing::param_string(model_directory), device,1);
+            // posture_instance_ = glasssix::exposing::make_exported_interface<posture::detect_code>(exposing::param_string(model_directory), device,1);
             init_data();
         } 
 
-        exposing::param_vector<smoke::box_info> detect(const exposing::param_span<std::uint8_t>& bitmap, int channels, int height, int width, int roi_x, int roi_y, int roi_width, int roi_height, std::map<std::string, float>& param_map)
+        exposing::param_vector<smoke::box_info> detect(const exposing::param_span<std::uint8_t>& bitmap, int channels, int height, int width, int roi_x, int roi_y, int roi_width, int roi_height, exposing::param_vector<posture::box_info> posture_info_list, std::map<std::string, float>& param_map)
         {
             if (bitmap.empty())
             {
@@ -66,7 +66,7 @@ namespace glasssix::smoke
             empty_map_abi.add_or_update("nms_thres", 0.45);
             empty_map_abi.add_or_update("little_target_conf_thres",little_target_conf_thres);
 
-            exposing::param_vector<posture::box_info> posture_info_list = posture_instance_.detect(bitmap, channels, height, width, 0, 0, width, height, empty_map_abi);
+            // exposing::param_vector<posture::box_info> posture_info_list = posture_instance_.detect(bitmap, channels, height, width, 0, 0, width, height, empty_map_abi);
             
 
             int indexxx=0;
@@ -115,7 +115,7 @@ namespace glasssix::smoke
                 int smoke_candicate_num=0;
                 auto smoke_output = Yovo8se_Concat_4B(smoke_forwards,smoke_conf_thres,smoke_candicate_num,posture_add_weight,posture_mul_weight);//5*8400
                 auto nms_results = smoke_post_process(smoke_output, smoke_pad_h,smoke_pad_w, 1.f/smoke_ratio,smoke_candicate_num);
-                 std::cout<<"nms_results: "<<nms_results.size()<<" "<<std::endl;
+                //  std::cout<<"nms_results: "<<nms_results.size()<<" "<<std::endl;
                 Cigrate_box b(head_rect.x1,head_rect.y1,head_rect.x2,head_rect.y2) ;
 
 
@@ -173,7 +173,7 @@ namespace glasssix::smoke
         
         std::string version()
         {
-            const std::string algo_module_version = "1.0.0";
+            const std::string algo_module_version = "3.0.2";
 
 #if defined(USE_RKNNAPI) || defined(USE_RKNN2API)
         //#if 0
@@ -247,7 +247,7 @@ namespace glasssix::smoke
 		std::unique_ptr<excalibur::pipeline<float>> net_smoke_detect_;
 #endif
         std::string model_directory_;
-        posture::detect_code posture_instance_;
+        // posture::detect_code posture_instance_;
         exposing::param_hash_map<exposing::param_string, float> posture_param_abi;
         std::vector<float> posture_add_weight;
         std::vector<float> posture_mul_weight;
@@ -263,9 +263,9 @@ namespace glasssix::smoke
     detect_code_internal::~detect_code_internal() = default;
 
 
-    exposing::param_vector<smoke::box_info> detect_code_internal::detect(exposing::param_span<std::uint8_t> bitmap, int channels, int height, int width, int roi_x, int roi_y, int roi_width, int roi_height, std::map<std::string, float>& param_map) const
+    exposing::param_vector<smoke::box_info> detect_code_internal::detect(exposing::param_span<std::uint8_t> bitmap, int channels, int height, int width, int roi_x, int roi_y, int roi_width, int roi_height, exposing::param_vector<posture::box_info> posture_info_list, std::map<std::string, float>& param_map) const
     {
-        return impl_->detect(bitmap, channels, height, width, roi_x, roi_y, roi_width, roi_height, param_map);
+        return impl_->detect(bitmap, channels, height, width, roi_x, roi_y, roi_width, roi_height, posture_info_list, param_map);
     }
 
     std::string detect_code_internal::version()

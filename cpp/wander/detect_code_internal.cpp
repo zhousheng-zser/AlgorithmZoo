@@ -12,7 +12,6 @@
 #include <utility>
 #include <RKNN2Wrapper/rknn2_wrapper.hpp>
 
-#include "../pedestrian/classify_code.hpp"
 #include "hardcode.hpp"
 #include <mutex>
 #include "general.hpp"
@@ -23,20 +22,20 @@ namespace glasssix::wander
     {
     public:
         impl(const exposing::param_string model_directory, int device = -1)
-            :impl{get_model_params("flame", false),  exposing::to_narrow_string(model_directory), device} 
+            :impl{get_model_params("wander", false),  exposing::to_narrow_string(model_directory), device} 
         {
         }
 
         impl(const std::vector<std::string> &phai, std::string model_directory, int device)
             : net_feature_(phai, model_directory + std::string("/people_feature.rknn"), device), model_directory_(model_directory)
         {   
-            static bool ready = glasssix::exposing::get_component_loader().add_module_by_name("pedestrian");
-            pedestrain_instance_ = glasssix::exposing::make_exported_interface<pedestrian::classify_code>(exposing::param_string(model_directory), device);
+            //static bool ready = glasssix::exposing::get_component_loader().add_module_by_name("pedestrian");
+            //pedestrain_instance_ = glasssix::exposing::make_exported_interface<pedestrian::classify_code>(exposing::param_string(model_directory), device);
         }
 
 
 
-        exposing::param_vector<wander::box_info> detect(const exposing::param_span<std::uint8_t>& bitmap, int channels, int height, int width, int roi_x, int roi_y, int roi_width, int roi_height, std::map<std::string, double>& param_map)
+        exposing::param_vector<wander::box_info> detect(const exposing::param_span<std::uint8_t>& bitmap, int channels, int height, int width, int roi_x, int roi_y, int roi_width, int roi_height, std::map<std::string, double>& param_map,const std::vector<PedestrianInfo> &pedestrain_info)
         {
             if (bitmap.empty())
             {
@@ -55,7 +54,7 @@ namespace glasssix::wander
 
             // cv::Mat cropped_image = image(cv::Range(roi_y,roi_y+roi_height), cv::Range(roi_x,roi_x+roi_width)).clone();
 
-            std::vector<wander::box_info_internal> cate_result = run_detect(bitmap,height,width, roi_x, roi_y, roi_width, roi_height, param_map);
+            std::vector<wander::box_info_internal> cate_result = run_detect(bitmap,height,width, roi_x, roi_y, roi_width, roi_height, param_map, pedestrain_info);
 
             auto results = exposing::make_param_vector<wander::box_info>();
 
@@ -74,16 +73,16 @@ namespace glasssix::wander
 
         std::string version()
 		{
-			const std::string algo_module_version = "1.1.0";
+			const std::string algo_module_version = "2.1.0";
 
-#if defined(USE_RKNNAPI) || defined(USE_RKNN2API)
-
-            exposing::param_string nn_frame_version_param= pedestrain_instance_.version();
-#else
-            exposing::param_string nn_frame_version_param = pedestrain_instance_.version();
-#endif
-            std::string nn_frame_version =  exposing::to_narrow_string(nn_frame_version_param);
-			return fmt::format(R"({{"nn_frame_version":"{}", "algo_module_version":"{}"}})", nn_frame_version, algo_module_version);
+//#if defined(USE_RKNNAPI) || defined(USE_RKNN2API)
+//
+//            exposing::param_string nn_frame_version_param= pedestrain_instance_.version();
+//#else
+//            exposing::param_string nn_frame_version_param = pedestrain_instance_.version();
+//#endif
+//            std::string nn_frame_version =  exposing::to_narrow_string(nn_frame_version_param);
+			return fmt::format(R"({{"nn_frame_version":"{}", "algo_module_version":"{}"}})", "", algo_module_version);
 		}
 
         std::string remove_library(int devices)
@@ -126,29 +125,21 @@ namespace glasssix::wander
             }
         }
 
-        std::vector<box_info_internal> run_detect(const exposing::param_span<std::uint8_t>& bitmap, int height,int width, int roi_x, int roi_y, int roi_width, int roi_height, std::map<std::string, double>& param_map)
+        std::vector<box_info_internal> run_detect(const exposing::param_span<std::uint8_t>& bitmap, int height, int width, int roi_x, int roi_y, int roi_width, int roi_height, 
+            std::map<std::string, double>& param_map, const std::vector<PedestrianInfo> &pedestrain_info)
         {
             double device_id               = param_map.count("device_id") ? param_map["device_id"] : 0;
             double feature_table_size      = param_map.count("feature_table_size") ? param_map["feature_table_size"] : 10000.f;      
             double current_time            = param_map.count("current_time") ? param_map["current_time"] : 0.f;
             float feature_match_threshold  = param_map.count("feature_match_threshold") ? param_map["feature_match_threshold"] : 0.92f;
-            float conf_threshold           = param_map.count("person_conf") ? param_map["person_conf"] : 0.7f;
-            float iou_threshold =  0.45f;   
+            //float conf_threshold           = param_map.count("person_conf") ? param_map["person_conf"] : 0.7f;   //在前面一层筛掉    
+            //float iou_threshold =  0.45f;      //前面一次调用行人检测 的时候筛掉   
 
-            auto empty_map_abi = exposing::make_param_hash_map<exposing::param_string, float>();
-            empty_map_abi.add_or_update("conf_thres", conf_threshold);
-            empty_map_abi.add_or_update("nms_thres", iou_threshold);
-            empty_map_abi.add_or_update("wander", 1.f);
+            //auto empty_map_abi = exposing::make_param_hash_map<exposing::param_string, float>();
+            //empty_map_abi.add_or_update("conf_thres", conf_threshold);
+            //empty_map_abi.add_or_update("nms_thres", iou_threshold);
 
-            exposing::param_vector<pedestrian::box_info> pedestrian_info_list = pedestrain_instance_.detect(bitmap, 3, height, width, roi_x, roi_y, roi_width, roi_height, empty_map_abi);
-            std::vector<PostureInfo> pedestrain_info; 
-
-
-            for (auto pinfo : pedestrian_info_list) 
-            {
-                PostureInfo postureInfo{ pinfo };
-                pedestrain_info.push_back(postureInfo);
-            }
+            //exposing::param_vector<pedestrian::box_info> pedestrian_info_list = pedestrain_instance_.detect(bitmap, 3, height, width, roi_x, roi_y, roi_width, roi_height, empty_map_abi);
 
             cv::Mat image(cv::Size(width, height), CV_8UC3);
             std::memcpy(image.data, bitmap.data(), sizeof (uint8_t) * 3 * height * width);
@@ -232,7 +223,7 @@ namespace glasssix::wander
         std::vector<float> posture_add_weight;
         std::vector<float> posture_mul_weight;
         std::string model_directory_;
-        pedestrian::classify_code pedestrain_instance_;
+        //pedestrian::classify_code pedestrain_instance_;
         int device_ ;
 
     public:
@@ -249,9 +240,9 @@ namespace glasssix::wander
 
     detect_code_internal::~detect_code_internal() = default;
 
-    exposing::param_vector<wander::box_info> detect_code_internal::detect(exposing::param_span<std::uint8_t> bitmap, int channels, int height, int width, int roi_x, int roi_y, int roi_width, int roi_height, std::map<std::string, double>& param_map) const
+    exposing::param_vector<wander::box_info> detect_code_internal::detect(exposing::param_span<std::uint8_t> bitmap, int channels, int height, int width, int roi_x, int roi_y, int roi_width, int roi_height, std::map<std::string, double>& param_map, const std::vector<PedestrianInfo>& pedestrain_info) const
     {
-        return impl_->detect(bitmap, channels, height, width, roi_x, roi_y, roi_width, roi_height, param_map);
+        return impl_->detect(bitmap, channels, height, width, roi_x, roi_y, roi_width, roi_height, param_map, pedestrain_info);
     }
 
     std::string detect_code_internal::version()

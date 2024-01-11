@@ -21,6 +21,12 @@ namespace glasssix::pedestrian
         int y2() const;
         float score() const;
         int category() const;
+        void set_x1(float input);
+        void set_y1(float input);
+        void set_x2(float input);
+        void set_y2(float input);
+        void set_score(float input);
+        void set_category(int input);
 
     private:
         box_info_internal internal_{};

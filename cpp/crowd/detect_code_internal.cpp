@@ -128,7 +128,7 @@ namespace glasssix::crowd
 
         std::string version()
         {
-			const std::string algo_module_version = "2.1.1";
+			const std::string algo_module_version = "2.1.2";
 
 #if defined(USE_RKNNAPI) || defined(USE_RKNN2API)
 			//#if 0
@@ -161,23 +161,23 @@ namespace glasssix::crowd
         exposing::param_vector<crowd::box_info> find_cluster_num(const std::vector<cluster_info>& detection_points, int min_cluster_size)
         {
             auto results = exposing::make_param_vector<crowd::box_info>();
-            if (detection_points.size() == 0)
+            if (detection_points.size() < 4)
                 return results;
             cluster_num scaler;
-            std::vector<int> cluster_num = scaler.find_cluster_num(detection_points, min_cluster_size);
+            std::vector<int> cluster_num_ans = scaler.find_cluster_num(detection_points, min_cluster_size);
 
             //crowd::box_info_internal
             //results.push_back(glasssix::exposing::make_as_first<box_info_impl>(it));
             for ( int i = 0 ;i< detection_points.size();++i)
             {
-                if (cluster_num[i] == 0)
+                if (cluster_num_ans[i] == 0)
                     continue;
                 crowd::box_info_internal temp;
                 temp.x1= detection_points[i].x1;     
                 temp.y1= detection_points[i].y1;     
                 temp.x2= detection_points[i].x2;     
                 temp.y2= detection_points[i].y2;     
-                temp.category= cluster_num[i]-1;
+                temp.category= cluster_num_ans[i]-1;
                 results.push_back(glasssix::exposing::make_as_first<box_info_impl>(temp));
             }
             return results;
