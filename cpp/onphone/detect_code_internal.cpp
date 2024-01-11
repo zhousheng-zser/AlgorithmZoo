@@ -129,7 +129,7 @@ namespace glasssix::onphone
 
 		std::string version()
 		{
-			const std::string algo_module_version = "3.1.0";
+			const std::string algo_module_version = "3.1.1";
 
 			std::string nn_frame_version = phone_instance->version();
 

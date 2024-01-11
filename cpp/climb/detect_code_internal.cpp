@@ -140,14 +140,15 @@ namespace glasssix::climb
 
         std::string version()
 		{
-			const std::string algo_module_version = "1.1.0";
+			const std::string algo_module_version = "1.2.0";
 
 #if defined(USE_RKNNAPI) || defined(USE_RKNN2API)
 
-            exposing::param_string nn_frame_version_param= posture_instance_.version();
+            // exposing::param_string nn_frame_version_param= posture_instance_.version();
 #else
-            exposing::param_string nn_frame_version_param = posture_instance_.version();
-#endif
+            // exposing::param_string nn_frame_version_param = posture_instance_.version();
+#endif      
+            exposing::param_string nn_frame_version_param ;
             std::string nn_frame_version =  exposing::to_narrow_string(nn_frame_version_param);
 			return fmt::format(R"({{"nn_frame_version":"{}", "algo_module_version":"{}"}})", nn_frame_version, algo_module_version);
 		}
@@ -165,7 +166,7 @@ namespace glasssix::climb
     
         std::string model_directory_;
         int device_;
-        posture::detect_code posture_instance_;
+        // posture::detect_code posture_instance_;
 
     };
 
