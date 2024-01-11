@@ -38,15 +38,16 @@ public:
         }
     }
 
-	static inline std::vector<TensorSptr> sort_yolo_rst(const std::unordered_map<std::string, TensorSptr>& result) {
+	// order=true count_sort{7,6,5,4..}; order=false count_sort{4,5,6..}
+	static inline std::vector<TensorSptr> sort_yolo_rst(const std::unordered_map<std::string, TensorSptr>& result, bool order = true) {
 		std::vector<TensorSptr> outRst;
 		for (auto& out : result) {
 			outRst.push_back(out.second);
 		}
-		std::sort(outRst.begin(), outRst.end(), [](const TensorSptr& A, const TensorSptr& B) {
+		std::sort(outRst.begin(), outRst.end(), [&order](const TensorSptr& A, const TensorSptr& B) {
 			auto countA = A->count();
 			auto countB = B->count();
-			return countA > countB;
+			return !((countA > countB) ^ order);
 			});
 		return outRst;
 	}
