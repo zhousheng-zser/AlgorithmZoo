@@ -107,7 +107,7 @@ namespace glasssix::workcloth
 
 		std::string version()
 		{
-			const std::string algo_module_version = "2.8.0";
+			const std::string algo_module_version = "2.9.0";
 
 #if defined(USE_RKNNAPI) || defined(USE_RKNN2API)
 			//#if 0
@@ -358,8 +358,14 @@ namespace glasssix::workcloth
 
 				box_info_internal in_box_info;
 				std::vector<float> Kpoints_vali_set{ person.Kpoints_score[5],person.Kpoints_score[6],person.Kpoints_score[11],person.Kpoints_score[12],person.Kpoints_score[7],person.Kpoints_score[8] };
-				// dbg(Kpoints_vali_set);
-				// dbg(person.color_cut.tl());
+				// find no-rotate-react inclu upperbody_keys
+				std::vector<cv::Point> upperbody_keys(person.Kpoints.begin() + 5, person.Kpoints.begin() + 13);
+				auto ho = std::minmax_element(upperbody_keys.begin(), upperbody_keys.end(), [](cv::Point& p1, cv::Point& p2) {return p1.x > p2.x; });
+				auto ve = std::minmax_element(upperbody_keys.begin(), upperbody_keys.end(), [](cv::Point& p1, cv::Point& p2) {return p1.y > p2.y; });
+				auto upperbody_img_area = std::abs(ho.first - ho.second) * std::abs(ve.first - ve.second);
+
+				static constexpr float upperbody_invalid_thres = 1.f / 6;
+				bool upperbody_invalid = (upperbody_img_area * 1.f / person.person_bbox.area()) < upperbody_invalid_thres;
 
 				int invalid_kpoints_counter = 0;
 
