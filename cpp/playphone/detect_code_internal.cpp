@@ -35,7 +35,7 @@ namespace glasssix::playphone
             : impl(device)
         {
             posture_instance_ = glasssix::exposing::make_exported_interface<posture::detect_code>(model_directory, device, 1);
-            phone_pipilne_ = std::make_unique<RknnYolov8Pipline>(exposing::to_narrow_string(model_directory) + "/" + "playphone_v8" + ".rknn", device);        
+            phone_pipilne_ = std::make_unique<RknnYolov8Pipline>(exposing::to_narrow_string(model_directory) + "/" + "playphone_4b" + ".rknn", device);        
         }
 
         exposing::param_vector<playphone::box_info> detect(const exposing::param_span<std::uint8_t>& bitmap, int channels, int height, int width, int roi_x, int roi_y, int roi_width, int roi_height, std::map<std::string, float>& param_map)
