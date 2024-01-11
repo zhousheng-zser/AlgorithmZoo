@@ -4,6 +4,7 @@
 #include "box_info.hpp"
 #include <abi/consumer.hpp>
 
+#include "../posture/detect_code.hpp"
 namespace glasssix::workcloth
 {
     struct classify_code;
