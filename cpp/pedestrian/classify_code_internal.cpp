@@ -50,7 +50,6 @@ namespace glasssix::pedestrian
         {
             float con_thres = param_map.count("conf_thres") ? param_map["conf_thres"] : 0.5f;
             float iou_thres = param_map.count("nms_thres") ? param_map["nms_thres"] : 0.6f;
-            bool is_wander_call = param_map.count("wander") ? param_map["wander"] : 0.f;
 
             if (bitmap.empty())
             {
@@ -69,7 +68,7 @@ namespace glasssix::pedestrian
 
             cv::Mat cropped_image = image(cv::Range(roi_y, roi_y + roi_height), cv::Range(roi_x, roi_x + roi_width));
 
-            std::vector<pedestrian::box_info_internal> result = universal_pedestrian_detect(cropped_image, con_thres, iou_thres, is_wander_call);
+            std::vector<pedestrian::box_info_internal> result = universal_pedestrian_detect(cropped_image, con_thres, iou_thres);
 
             auto results = exposing::make_param_vector<pedestrian::box_info>();
 
@@ -463,42 +462,42 @@ namespace glasssix::pedestrian
             return {mask_image, scale};
         }
 
-        std::vector<pedestrian::box_info_internal> universal_pedestrian_detect(cv::Mat &image, float con_thres, float iou_thres, bool is_wander_call)
+        std::vector<pedestrian::box_info_internal> universal_pedestrian_detect(cv::Mat &image, float con_thres, float iou_thres)
         {
             std::vector<box_info_internal> output;
             float conf_threshold = con_thres;
             float iou_threshold = iou_thres;
-
-            if (is_wander_call)
-            {
-                cv::Mat hsv_image;
-                cv::Mat red_mask;
-                cv::Mat blue_mask;
-
-                cv::cvtColor(image, hsv_image, cv::COLOR_BGR2HSV);
-
-                cv::Scalar lower_blue = cv::Scalar{ 110, 50, 50 };
-                cv::Scalar upper_blue = cv::Scalar{ 115, 255, 255 };
-
-                cv::Scalar lower_red = cv::Scalar{ 0, 50, 50 };
-                cv::Scalar upper_red = cv::Scalar{ 5, 200, 200 };
-                cv::inRange(hsv_image, lower_red, upper_red, red_mask);
-                cv::inRange(hsv_image, lower_blue, upper_blue, blue_mask);
-
-                for (int row = 0; row < red_mask.rows; ++row)
-                {
-                    for (int col = 0; col < red_mask.cols; ++col)
-                    {
-                        auto& hsv = hsv_image.at<cv::Vec3b>(row, col);
-                        if (red_mask.at<uchar>(row, col) > 0 || blue_mask.at<uchar>(row, col) > 0)
-                        {
-                            hsv = { 120, 255, 255 };
-                        }
-                    }
-                }
-
-                cv::cvtColor(hsv_image, image, cv::COLOR_HSV2BGR);
-            }
+            //换新模型后行人检测和徘徊检测都不做前处理 后续有新的依赖行人检测的可以根据情况修改
+            //if (true)
+            //{
+            //    cv::Mat hsv_image;
+            //    cv::Mat red_mask;
+            //    cv::Mat blue_mask;
+            //
+            //    cv::cvtColor(image, hsv_image, cv::COLOR_BGR2HSV);
+            //
+            //    cv::Scalar lower_blue = cv::Scalar{ 110, 50, 50 };
+            //    cv::Scalar upper_blue = cv::Scalar{ 115, 255, 255 };
+            //
+            //    cv::Scalar lower_red = cv::Scalar{ 0, 50, 50 };
+            //    cv::Scalar upper_red = cv::Scalar{ 5, 200, 200 };
+            //    cv::inRange(hsv_image, lower_red, upper_red, red_mask);
+            //    cv::inRange(hsv_image, lower_blue, upper_blue, blue_mask);
+            //
+            //    for (int row = 0; row < red_mask.rows; ++row)
+            //    {
+            //        for (int col = 0; col < red_mask.cols; ++col)
+            //        {
+            //            auto& hsv = hsv_image.at<cv::Vec3b>(row, col);
+            //            if (red_mask.at<uchar>(row, col) > 0 || blue_mask.at<uchar>(row, col) > 0)
+            //            {
+            //                hsv = { 120, 255, 255 };
+            //            }
+            //        }
+            //    }
+            //
+            //    cv::cvtColor(hsv_image, image, cv::COLOR_HSV2BGR);
+            //}
 
             auto new_shape = cv::Size(1280, 1280);
             cv::Mat blob;

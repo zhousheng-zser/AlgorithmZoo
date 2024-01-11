@@ -41,4 +41,28 @@ namespace glasssix::pedestrian
 	{
 		return internal_.category;
 	}
+	void box_info_impl::set_x1(float input)
+	{
+		internal_.x1 = input;
+	}
+	void box_info_impl::set_y1(float input)
+	{
+		internal_.y1 = input;
+	}
+	void box_info_impl::set_x2(float input)
+	{
+		internal_.x2 = input;
+	}
+	void box_info_impl::set_y2(float input)
+	{
+		internal_.y2 = input;
+	}
+	void box_info_impl::set_score(float input)
+	{
+		internal_.score = input;
+	}
+	void box_info_impl::set_category(int input)
+	{
+		internal_.category = input;
+	}
 }
