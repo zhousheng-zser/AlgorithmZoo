@@ -124,7 +124,7 @@ struct DiffStatistics
 };
 
 
-static inline float fliter_socre_CosineSimilarity(float* emb1, float* emb2, int len, float thresh, DiffStatistics& diffStatistics)
+static inline float fliter_score_CosineSimilarity(float* emb1, float* emb2, int len, float thresh, DiffStatistics& diffStatistics, size_t& vaild_counter)
 {
 	std::vector<double> pos_dfs;
 	std::vector<double> ngt_dfs;
@@ -134,7 +134,7 @@ static inline float fliter_socre_CosineSimilarity(float* emb1, float* emb2, int 
 	float emb2_sum = 0.f;
 	for (size_t i = 0; i < len; i++) {
 		if (thresh > emb1[i] && thresh > emb2[i])continue;
-
+		vaild_counter++; //greater than thresh, counter++
 		double df = emb2[i] - emb1[i];
 		//std::cout << "f=" << std::fixed << std::setprecision(3) << emb1[i] << ", i=" << emb2[i] << ", df=" << df << std::endl;
 		if (df > 0.0002f) {
