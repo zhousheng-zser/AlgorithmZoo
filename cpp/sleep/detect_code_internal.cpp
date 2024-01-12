@@ -70,7 +70,7 @@ namespace glasssix::sleep
 
         std::string version()
 		{
-			const std::string algo_module_version = "1.0.1";
+			const std::string algo_module_version = "2.0.0";
 
 #if defined(USE_RKNNAPI) || defined(USE_RKNN2API)
 			//#if 0
@@ -277,7 +277,10 @@ namespace glasssix::sleep
                 temp.y1 = current_sleep_infos[i].m_top;
                 temp.x2 = (current_sleep_infos[i].m_left+current_sleep_infos[i].m_width);
                 temp.y2 = (current_sleep_infos[i].m_top+current_sleep_infos[i].m_height);
-                temp.category = sleep_status[i] ;  
+                if(frame_count_thres<2)
+                    temp.category = 1 ;  
+                else
+                    temp.category = sleep_status[i] ;  
                 temp.confidence = current_sleep_infos[i].conf;//置信度需要解决一哈
                 output.push_back(temp);
             }
