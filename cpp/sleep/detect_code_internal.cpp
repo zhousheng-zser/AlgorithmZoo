@@ -299,7 +299,7 @@ namespace glasssix::sleep
                     temp.x2 = (nms_input640[index][0]+nms_input640[index][2]);
                     temp.y2 = (nms_input640[index][1]+nms_input640[index][3]);
                     temp.category = 0 ;   //1是睡岗 0是其他
-                    temp.confidence = nms_input640[index][0];
+                    temp.confidence = nms_input640[index][4];
                     output.push_back(temp);
                 }
             }
