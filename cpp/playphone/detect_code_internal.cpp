@@ -19,7 +19,8 @@
 #elif defined(USE_RKNN2API)
 #include "../../common/include/RKNN2Wrapper/rknn2_wrapper.hpp"
 #endif
-#include "../posture/detect_code.hpp"
+//#include "../posture/detect_code.hpp"
+#include "../posture/box_info.hpp"
 
 #include "Yolov8CutPipline.hpp"
 #include "ObjBox.hpp"
@@ -34,11 +35,11 @@ namespace glasssix::playphone
         impl(std::string_view model_directory, int device)
             : impl(device)
         {
-            posture_instance_ = glasssix::exposing::make_exported_interface<posture::detect_code>(model_directory, device, 1);
+            //posture_instance_ = glasssix::exposing::make_exported_interface<posture::detect_code>(model_directory, device, 1);
             phone_pipilne_ = std::make_unique<RknnYolov8Pipline>(exposing::to_narrow_string(model_directory) + "/" + "playphone_4b" + ".rknn", device);        
         }
 
-        exposing::param_vector<playphone::box_info> detect(const exposing::param_span<std::uint8_t>& bitmap, int channels, int height, int width, int roi_x, int roi_y, int roi_width, int roi_height, std::map<std::string, float>& param_map)
+        exposing::param_vector<playphone::box_info> detect(const exposing::param_span<std::uint8_t>& bitmap, int channels, int height, int width, int roi_x, int roi_y, int roi_width, int roi_height, exposing::param_vector<posture::box_info> posture_info_list_raw, std::map<std::string, float>& param_map)
         {
             if (bitmap.empty())
             {
@@ -54,15 +55,16 @@ namespace glasssix::playphone
             
             cv::Mat image(cv::Size(width, height), CV_8UC3);
             std::memcpy(image.data, bitmap.data(), sizeof (uint8_t) * channels * height * width);            
-
-            float man_conf_thres = param_map.count("man_conf_thres") ? param_map["man_conf_thres"] : 0.6f;
-            float man_nms_thres = param_map.count("man_nms_thres") ? param_map["man_nms_thres"] : 0.7f;
             float phone_conf_thres = param_map.count("phone_conf_thres") ? param_map["phone_conf_thres"] : 0.6f;
             float phone_nms_thres = param_map.count("phone_nms_thres") ? param_map["phone_nms_thres"] : 0.5f;
-            auto posture_param_abi = exposing::make_param_hash_map<exposing::param_string, float>();
-            posture_param_abi.add_or_update("conf_thres", man_conf_thres);
-            posture_param_abi.add_or_update("nms_thres", man_nms_thres);
-            exposing::param_vector<posture::box_info> posture_info_list_raw = posture_instance_.detect(bitmap, channels, height, width, 0, 0, width, height, posture_param_abi);
+
+            //// external common postrure det result will instead of playphone-self-call-posture-internal 
+            //float man_conf_thres = param_map.count("man_conf_thres") ? param_map["man_conf_thres"] : 0.6f;
+            //float man_nms_thres = param_map.count("man_nms_thres") ? param_map["man_nms_thres"] : 0.7f;
+            //auto posture_param_abi = exposing::make_param_hash_map<exposing::param_string, float>();
+            //posture_param_abi.add_or_update("conf_thres", man_conf_thres);
+            //posture_param_abi.add_or_update("nms_thres", man_nms_thres);
+            //exposing::param_vector<posture::box_info> posture_info_list_raw = posture_instance_.detect(bitmap, channels, height, width, 0, 0, width, height, posture_param_abi);
 
             for (auto pinfo : posture_info_list_raw)
             {
@@ -124,7 +126,7 @@ namespace glasssix::playphone
 
         std::string version()
         {
-			const std::string algo_module_version = "2.1.1";
+			const std::string algo_module_version = "2.2.1";
 
 #if defined(USE_RKNNAPI) || defined(USE_RKNN2API)
 			//#if 0
@@ -173,7 +175,7 @@ namespace glasssix::playphone
     private:
         std::string model_directory_;
         int device_;
-        posture::detect_code posture_instance_;
+        //posture::detect_code posture_instance_;
         std::unique_ptr<RknnYolov8Pipline> phone_pipilne_;
 
     };
@@ -190,8 +192,8 @@ namespace glasssix::playphone
         return impl_->version();
     }
 
-    exposing::param_vector<playphone::box_info> detect_code_internal::detect(exposing::param_span<std::uint8_t> bitmap, int channels, int height, int width, int roi_x, int roi_y, int roi_width, int roi_height, std::map<std::string, float>& param_map) const
+    exposing::param_vector<playphone::box_info> detect_code_internal::detect(exposing::param_span<std::uint8_t> bitmap, int channels, int height, int width, int roi_x, int roi_y, int roi_width, int roi_height, exposing::param_vector<posture::box_info> posture_info_list, std::map<std::string, float>& param_map) const
     {
-        return impl_->detect(bitmap, channels, height, width, roi_x, roi_y, roi_width, roi_height, param_map);
+        return impl_->detect(bitmap, channels, height, width, roi_x, roi_y, roi_width, roi_height, posture_info_list, param_map);
     }
 }

@@ -3,56 +3,59 @@
 #include <vector>
 
 /**
-*	yolov8_20_40_80_c1 will intead of by pp_yolov8_HEQW65, and yolov8_20_40_80_c1 be removed next version
+*	HEQW65:
+*		yolov8_complement vec_ts_rstSort asked input tensor H == W !,
+*		and each visual field raw info == 65£¬also CUT_MODEL_VISUALFIELD_RAW_INFO_ = 65; // include 4*BBoxlocaInfo(16 usually) + scores (64+N)
 */
 
-class pp_yolov8_20_40_80_c1 : public Postprocessing
+
+class pp_yolov8_HEQW65 : public Postprocessing
 {
-    static TensorSptr sp_concat_tensor(TensorSptr& A, TensorSptr& B) {
-        auto A_shape = A->data_shape();
-        auto B_shape = B->data_shape();
-        CHECK_EQ(A_shape[2], B_shape[2]);
-        CHECK_EQ(A_shape[3], B_shape[3]);
-        CHECK_EQ(A_shape[2], A_shape[3]);
-        CHECK_GT(A_shape[1], 1);
-        CHECK_EQ(B_shape[1], 1);
-        int sideLength = A_shape[2];
+	static TensorSptr sp_concat_tensor(TensorSptr& A, TensorSptr& B) {
+		auto A_shape = A->data_shape();
+		auto B_shape = B->data_shape();
+		CHECK_EQ(A_shape[2], B_shape[2]);
+		CHECK_EQ(A_shape[3], B_shape[3]);
+		CHECK_EQ(A_shape[2], A_shape[3]);
+		CHECK_GT(A_shape[1], 1);
+		CHECK_EQ(B_shape[1], 1);
+		int sideLength = A_shape[2];
 
-        auto top = std::make_shared<glasssix::memory::tensor<float>>(std::vector<int>{1, A_shape[1] + B_shape[1], sideLength, sideLength}, -1, memory::NCHW);
-        CHECK_EQ(top->count(), A->count() + B->count());
+		auto top = std::make_shared<glasssix::memory::tensor<float>>(std::vector<int>{1, A_shape[1] + B_shape[1], sideLength, sideLength}, -1, memory::NCHW);
+		CHECK_EQ(top->count(), A->count() + B->count());
 
-        std::copy(A->mutable_cpu_data(), A->mutable_cpu_data() + A->count(), top->mutable_cpu_data());
-        std::copy(B->mutable_cpu_data(), B->mutable_cpu_data() + B->count(), top->mutable_cpu_data() + A->count());
+		std::copy(A->mutable_cpu_data(), A->mutable_cpu_data() + A->count(), top->mutable_cpu_data());
+		std::copy(B->mutable_cpu_data(), B->mutable_cpu_data() + B->count(), top->mutable_cpu_data() + A->count());
 
-        return top;
-    }
+		return top;
+	}
 
-    static std::shared_ptr<glasssix::memory::tensor<float>> tensor_transpose_0132(const std::shared_ptr<glasssix::memory::tensor<float>>& bottom) {
-        int num = bottom->num();
-        int channels = bottom->channels();
-        int height = bottom->height();
-        int width = bottom->width();
-        //CHECK_EQ(bottom->channels(), D * C);
-        auto top = std::make_shared<glasssix::memory::tensor<float>>(std::vector<int>{num, channels, width, height}, -1, memory::NCHW);
+	static std::shared_ptr<glasssix::memory::tensor<float>> tensor_transpose_0132(const std::shared_ptr<glasssix::memory::tensor<float>>& bottom) {
+		int num = bottom->num();
+		int channels = bottom->channels();
+		int height = bottom->height();
+		int width = bottom->width();
+		//CHECK_EQ(bottom->channels(), D * C);
+		auto top = std::make_shared<glasssix::memory::tensor<float>>(std::vector<int>{num, channels, width, height}, -1, memory::NCHW);
 
-        int W_step = width; //8400
-        int countb = bottom->count();
+		int W_step = width; //8400
+		int countb = bottom->count();
 
-        for (int nc = 0; nc < num; nc++) {
-            const float* bottom_ptr = bottom->cpu_data() + countb * nc; // bottom_ptr -> D * HW
-            float* top_ptr = top->mutable_cpu_data() + countb * nc; // top_ptr -> HW * D
+		for (int nc = 0; nc < num; nc++) {
+			const float* bottom_ptr = bottom->cpu_data() + countb * nc; // bottom_ptr -> D * HW
+			float* top_ptr = top->mutable_cpu_data() + countb * nc; // top_ptr -> HW * D
 
-            for (int i = 0; i < W_step; i++) { //for 8400
-                for (int line = 0; line < height; line++) { //for 6
-                    top_ptr[i * height + line] = bottom_ptr[line * W_step + i];
-                }
-            }
-        }
-        return top;
-    }
+			for (int i = 0; i < W_step; i++) { //for 8400
+				for (int line = 0; line < height; line++) { //for 6
+					top_ptr[i * height + line] = bottom_ptr[line * W_step + i];
+				}
+			}
+		}
+		return top;
+	}
 
-    static TensorSptr yolov8_complement(std::vector<TensorSptr>& vec_ts_rstSort)
-    {
+	static TensorSptr yolov8_complement(std::vector<TensorSptr>& vec_ts_rstSort)
+	{
 		// VF means VISUAL FIELD
 		static constexpr int INTEGR_ONNX_OUT_STD_INFO_NUM_ = 5;
 		static constexpr int CUT_MODEL_VISUALFIELD_RAW_INFO_ = 65; // include 4*BBoxlocaInfo(16 usually) + scores (64+N)
@@ -139,14 +142,14 @@ class pp_yolov8_20_40_80_c1 : public Postprocessing
 			}
 		}
 		return top;
-    }
+	}
 
 	static std::unordered_map<std::string, std::shared_ptr<memory::tensor<float>>> pedestrian_concat_score(std::unordered_map<std::string, std::shared_ptr<memory::tensor<float>>>& input_tensor_map)
 	{
-        auto det_rst_vec = sort_yolo_rst(input_tensor_map);
-        if (det_rst_vec.size() == 6) {
-            det_rst_vec[0] = sp_concat_tensor(det_rst_vec[0], det_rst_vec[3]);
-            det_rst_vec[1] = sp_concat_tensor(det_rst_vec[1], det_rst_vec[4]);
+		auto det_rst_vec = sort_yolo_rst(input_tensor_map);
+		if (det_rst_vec.size() == 6) {
+			det_rst_vec[0] = sp_concat_tensor(det_rst_vec[0], det_rst_vec[3]);
+			det_rst_vec[1] = sp_concat_tensor(det_rst_vec[1], det_rst_vec[4]);
 			det_rst_vec[2] = sp_concat_tensor(det_rst_vec[2], det_rst_vec[5]);
 		}
 		TensorSptr concat_tensor_ptr = yolov8_complement(det_rst_vec);
@@ -167,17 +170,17 @@ class pp_yolov8_20_40_80_c1 : public Postprocessing
 			}
 		}
 
-        std::unordered_map<std::string, std::shared_ptr<glasssix::memory::tensor<float>>> postprocessing_rstmap;
+		std::unordered_map<std::string, std::shared_ptr<glasssix::memory::tensor<float>>> postprocessing_rstmap;
 
-        postprocessing_rstmap.try_emplace("inteyolo8", concat_tensor_ptr); // complement result 
-        postprocessing_rstmap.try_emplace("locat_out", output_locat); // complement result 
-        postprocessing_rstmap.try_emplace("score_out", output_score); // complement result 
+		postprocessing_rstmap.try_emplace("inteyolo8", concat_tensor_ptr); // complement result 
+		postprocessing_rstmap.try_emplace("locat_out", output_locat); // complement result 
+		postprocessing_rstmap.try_emplace("score_out", output_score); // complement result 
 
-        //npy::SAVE_TENSOR_TO_NUMPY(concat_tensor_ptr, "D:/concat_tensor_ptr.npy");
-        //npy::SAVE_TENSOR_TO_NUMPY(output_locat, "D:/output_locat.npy");
-        //npy::SAVE_TENSOR_TO_NUMPY(output_score, "D:/output_score.npy");
+		//npy::SAVE_TENSOR_TO_NUMPY(concat_tensor_ptr, "D:/concat_tensor_ptr.npy");
+		//npy::SAVE_TENSOR_TO_NUMPY(output_locat, "D:/output_locat.npy");
+		//npy::SAVE_TENSOR_TO_NUMPY(output_score, "D:/output_score.npy");
 
-        return postprocessing_rstmap;
+		return postprocessing_rstmap;
 	}
 
 
@@ -185,9 +188,9 @@ public:
 	virtual const std::map<std::string, postprocessing_function> parser_postprocessing_dump() const override
 	{
 		std::map<std::string, postprocessing_function> pp_map;
-		pp_map["yolov8_20_40_80_c1"] = &pedestrian_concat_score;
+		pp_map["yolov8_HEQW65"] = &pedestrian_concat_score;
 		return pp_map;
 	}
 };
 
-REGISTE_POSTPROCESSING(pp_yolov8_20_40_80_c1)
+REGISTE_POSTPROCESSING(pp_yolov8_HEQW65)
