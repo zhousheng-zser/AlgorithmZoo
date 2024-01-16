@@ -21,7 +21,8 @@ namespace glasssix::onphone
 		return exposing::to_param_string(impl_->version());
 	}
 
-	exposing::param_vector<onphone::box_info> detect_code_impl::detect(exposing::param_span<std::uint8_t> bitmap, int channels, int height, int width,int roi_x, int roi_y, int roi_width, int roi_height,
+	exposing::param_vector<onphone::box_info> detect_code_impl::detect(exposing::param_span<std::uint8_t> bitmap, int channels, int height, int width, int roi_x, int roi_y, int roi_width, int roi_height,
+		exposing::param_vector<head::box_info> head_info_list,
 		const exposing::param_hash_map<exposing::param_string, float>& param_map_abi) const
 	{
 		if (!impl_)
@@ -33,7 +34,23 @@ namespace glasssix::onphone
 			param_map.insert(std::make_pair(it.key(), it.value()));
 		}
 
-		return impl_->detect(std::move(bitmap), channels, height, width, roi_x, roi_y, roi_width, roi_height, param_map);
+		return impl_->detect(std::move(bitmap), channels, height, width, roi_x, roi_y, roi_width, roi_height, head_info_list, param_map);
+	}
+
+	exposing::param_vector<onphone::box_info> detect_code_impl::exdetect(exposing::param_span<std::uint8_t> bitmap, int channels, int height, int width, int roi_x, int roi_y, int roi_width, int roi_height,
+		exposing::param_vector<posture::box_info> posture_info_list,
+		const exposing::param_hash_map<exposing::param_string, float>& param_map_abi) const
+	{
+		if (!impl_)
+			throw exposing::abi_invalid_operation(u8"onphone internal object not initialized");
+
+		std::map<std::string, float> param_map;
+
+		for (auto it : param_map_abi) {
+			param_map.insert(std::make_pair(it.key(), it.value()));
+		}
+
+		return impl_->exdetect(std::move(bitmap), channels, height, width, roi_x, roi_y, roi_width, roi_height, posture_info_list, param_map);
 	}
 
 }
