@@ -4,42 +4,210 @@
 #include "Excalibur/pipeline.hpp"
 #include "Primitives/tensor_conversions.hpp"  
     
-    using namespace glasssix;
-    static inline float sigmoid_x(float x)
-    {
-        return static_cast<float>(1.f / (1.f + exp(-x)));
-    }
-
-    void tranpose(const float* sou,
-                            float* dest,int sourows,int soucols)
-    {
-        for(int i=0;i< sourows;i++)
-            for(int j=0;j< soucols;j++)
-                dest[j*sourows+i]=sou[ i * soucols + j];                   
-    }
-
-    void  Softmax(float* data, int num )
-    {             
-        double L2_Sum=0.f;
-        for(size_t i=0; i<num; i++) 
+        using namespace glasssix;
+        struct slide_pics_params
         {
-            data[i]= ( exp(data[i] ) );
-            L2_Sum +=  data[i];
+            std::vector<cv::Mat> imgs;
+            std::vector<float> bias;
+            std::vector<float> sou_mat_bias;
+            bool horizontal=true;
+            float ratio=1.f;
+            std::vector<int> throw_result_border;
+            bool detect=true;
+        };
+
+        void border_judgement(std::vector<std::vector<float>>& nms_input,int height,int width,bool horizontal=true, bool border=false)
+        {
+            if(horizontal) //检测左右两边 给出极大可能是边界数据
+            {
+                // nms_input
+
+            }         
         }
-        for(size_t i=0; i<num; i++) 
+    
+        slide_pics_params Sliding_Cut_Pic(cv::Mat& sou_img )
         {
-            data[i] =  data[i] / L2_Sum ;
-        }       
-    }
+            std::vector<cv::Mat> mats;
+            std::vector<float> bias;
+            slide_pics_params return_data;
 
-    inline float de_sigmoid(float x)
-    {
-        if(x>=1 ||x<0)
-            return NAN;
-        return static_cast<float> (log( x/(1-x)));
-    }
+            int pic_width  = sou_img.cols;
+            int pic_height = sou_img.rows;
+            bool horizontal = true;
+            float short_side;
+            float long_side;
+            float long_short_ratio;
+            if ( pic_width > pic_height)
+            {
+                short_side = pic_height;
+                long_side = pic_width;
+            }
+            else
+            {
+                short_side = pic_width;
+                long_side = pic_height;
+                horizontal = false;
+            }
+            return_data.horizontal = horizontal; 
+            bias.push_back(0);
+            // sou_mat_bias.push_back(0);
+            long_short_ratio = long_side/short_side;
 
-      std::shared_ptr<memory::tensor<float>> Posture_Concat640(std::vector<std::shared_ptr<memory::tensor<float>>>& outs, int key_point_num,float conf,int& candicate_num,std::vector<float>& posture_add_weight,std::vector<float>& posture_mul_weight)
+            float scale_ratio = short_side / 640.f;
+            
+            if((long_side/640.f) <=1.5) //长边放缩比小于1.5 直接返回原图
+            {
+                mats.push_back(sou_img);
+                return_data.imgs=mats;
+                return_data.bias=bias;
+                scale_ratio = long_side / 640.f;
+                return_data.ratio = 1.f / scale_ratio;
+                return_data.throw_result_border.resize(2);
+                return_data.throw_result_border[0]=0;
+                return_data.throw_result_border[1]=0;
+                return_data.detect = false;
+                return return_data;
+            }
+            return_data.ratio = 1.f / scale_ratio;
+            //以短边为基准 滑动窗口
+        
+            cv::Mat temp_pic;
+            cv::resize(sou_img, temp_pic, cv::Size(std::round(sou_img.cols / scale_ratio), std::round(sou_img.rows / scale_ratio)), cv::INTER_LINEAR);
+        
+            //若长宽比小于1.5 只分割两次
+        
+            if(long_short_ratio<1.3 )
+            {
+
+                cv::Mat blob1;
+                cv::Mat blob2;
+                //长大于宽
+                if(horizontal)
+                {
+                    blob1 = temp_pic(cv::Range(0, 640), cv::Range(0, 640));
+                    blob2 = temp_pic(cv::Range(0, 640), cv::Range(temp_pic.cols-640, temp_pic.cols));
+                    bias.push_back(temp_pic.cols-640);
+                }
+                else
+                {
+                    blob1 = temp_pic(cv::Range(0, 640), cv::Range(0, 640));
+                    blob2 = temp_pic(cv::Range(temp_pic.rows-640, temp_pic.rows), cv::Range(0, 640));
+                    bias.push_back(temp_pic.rows-640);
+                }
+            
+                mats.push_back(blob1);
+                mats.push_back(blob2);
+                return_data.imgs=mats;
+                return_data.bias=bias;
+                return_data.throw_result_border.resize(4);
+                return_data.throw_result_border[0]=0;
+                return_data.throw_result_border[1]=1;
+                return_data.throw_result_border[2]=1;
+                return_data.throw_result_border[3]=0;
+
+                return return_data;
+            }
+
+            cv::Mat blob1;
+            cv::Mat blob2;
+            cv::Mat blob3;
+            //长大于宽 分割三次
+            if(horizontal)
+            {
+                blob1 = temp_pic(cv::Range(0, 640), cv::Range(0, 640));
+                blob2 = temp_pic(cv::Range(0, 640), cv::Range(temp_pic.cols/2-320 ,temp_pic.cols/2+320));
+                blob3 = temp_pic(cv::Range(0, 640), cv::Range(temp_pic.cols-640, temp_pic.cols));
+                bias.push_back(temp_pic.cols/2-320);
+                bias.push_back(temp_pic.cols-640);
+            }
+            else
+            {
+                blob1 = temp_pic(cv::Range(0, 640), cv::Range(0, 640));
+                blob2 = temp_pic(cv::Range(temp_pic.rows/2-320 ,temp_pic.rows/2+320), cv::Range(0, 640));
+                blob3 = temp_pic(cv::Range(temp_pic.rows-640, temp_pic.rows), cv::Range(0, 640));
+                bias.push_back(temp_pic.rows/2-320);
+                bias.push_back(temp_pic.rows-640);
+            }
+            mats.push_back(blob1);
+            mats.push_back(blob2);
+            mats.push_back(blob3);
+            return_data.imgs=mats;
+            return_data.bias=bias;
+                return_data.throw_result_border.resize(6);
+                return_data.throw_result_border[0]=0;
+                return_data.throw_result_border[1]=1;
+                return_data.throw_result_border[2]=1;
+                return_data.throw_result_border[3]=1;
+                return_data.throw_result_border[4]=1;
+                return_data.throw_result_border[5]=0;
+            return return_data;
+
+        }
+
+        static inline float sigmoid_x(float x)
+        {
+            return static_cast<float>(1.f / (1.f + exp(-x)));
+        }
+
+        void tranpose(const float* sou,
+                                float* dest,int sourows,int soucols)
+        {
+            for(int i=0;i< sourows;i++)
+                for(int j=0;j< soucols;j++)
+                    dest[j*sourows+i]=sou[ i * soucols + j];                   
+        }
+
+        void  Softmax(float* data, int num )
+        {             
+            double L2_Sum=0.f;
+            for(size_t i=0; i<num; i++) 
+            {
+                data[i]= ( exp(data[i] ) );
+                L2_Sum +=  data[i];
+            }
+            for(size_t i=0; i<num; i++) 
+            {
+                data[i] =  data[i] / L2_Sum ;
+            }       
+        }
+
+        inline float de_sigmoid(float x)
+        {
+            if(x>=1 ||x<0)
+                return NAN;
+            return static_cast<float> (log( x/(1-x)));
+        }
+
+
+        std::vector<std::vector<float>> throw_border_result( std::vector<std::vector<float>> & input, bool horizontal, int right, int left, int square_len)
+        {
+            //x y w h
+            std::vector<std::vector<float>>  after_throw;
+            int x_y_bias=0;
+            if(!horizontal)//竖立图像
+            {
+                x_y_bias=1;
+            }
+            for (size_t i = 0; i < input.size(); i++)
+            {
+                if(input[i][x_y_bias]<square_len*0.02 && right )                         //左侧靠近边界
+                {
+                    continue;
+                }
+
+                if( (  (input[i][2+ x_y_bias] + input[i][x_y_bias])>square_len*0.98 ) && left )                         //右侧靠近边界
+                {
+                    continue;
+                }
+
+                after_throw.push_back(input[i]);        //未靠近边界的图像
+            }
+            
+            return after_throw;
+
+        }
+
+        std::shared_ptr<memory::tensor<float>> Posture_Concat640(std::vector<std::shared_ptr<memory::tensor<float>>>& outs, int key_point_num,float conf,int& candicate_num,std::vector<float>& posture_add_weight,std::vector<float>& posture_mul_weight)
         {
             conf = de_sigmoid(conf);
             int input = 640;   // input_size: 1280*1280, only support single class
@@ -246,7 +414,7 @@
             return  output0;
         }
 
-        std::vector<std::vector<float>> XYXY2WH(std::shared_ptr<memory::tensor<float>>& net_result, cv::Mat & blob, int pad_h, int pad_w, float scale, int key_point_num,int candicate_num, float threshold=0.4,float iou_thres=0.8 )
+        std::vector<std::vector<float>> XYXY2WH(std::shared_ptr<memory::tensor<float>>& net_result, int pad_h, int pad_w, float scale, int key_point_num,int candicate_num, float threshold=0.0,float iou_thres=0.8 )
         {
             std::vector<std::vector<float>> output;
             int shape = 5 + key_point_num*3;
