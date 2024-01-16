@@ -513,16 +513,21 @@ namespace glasssix::pedestrian
 
             auto network_results = net_detect_.forward(blob.data, {1, blob.rows, blob.cols, blob.channels()}, RKNN_TENSOR_NHWC);
 
-            std::vector<std::string> out_names = {"355", "340", "output0"};
+            //std::vector<std::string> out_names = {"355", "340", "output0"};
 
             std::vector<std::shared_ptr<memory::tensor<float>>> forwards;
 
-            for (size_t i = 0; i < out_names.size(); i++) // 对输出数据做处理
+            for (auto& node : network_results) // 对输出数据做处理
             {
-                forwards.push_back(network_results[out_names[i]]);
+                forwards.push_back(node.second);
             }
 
-            // std::shared_ptr<memory::tensor<float>> real_output = yolov8s_complement(network_results);
+			std::sort(forwards.begin(), forwards.end(), [](const std::shared_ptr<glasssix::memory::tensor<float>>& A,
+				const std::shared_ptr<glasssix::memory::tensor<float>>& B) {
+					auto countA = A->count();
+					auto countB = B->count();
+					return countA < countB;
+				});
 
             auto real_output = Concat(forwards, conf_threshold); // 5*longline
 
