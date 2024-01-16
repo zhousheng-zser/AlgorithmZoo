@@ -45,7 +45,7 @@ namespace glasssix::head
 
 std::string version()
         {
-			const std::string algo_module_version = "1.0.1";
+			const std::string algo_module_version = "1.1.0";
 
 #if defined(USE_RKNNAPI) || defined(USE_RKNN2API)
 			std::string nn_frame_version = net_detect_->version();
@@ -95,7 +95,7 @@ std::string version()
                 temp_result.x2=head_rect.x2;
                 temp_result.y2=head_rect.y2;
                 temp_result.score=body[4];
-                temp_result.key_points = exposing::make_param_vector<float>();
+                //temp_result.key_points = exposing::make_param_vector<float>();
            
                 result.push_back( temp_result  );
             }
