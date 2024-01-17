@@ -15,7 +15,7 @@
 #include <opencv2/core.hpp>
 #include <opencv2/imgproc.hpp>
 #include <opencv2/dnn.hpp>
-
+#include "general.hpp"
 
 namespace glasssix::sleep
 {
@@ -30,12 +30,11 @@ namespace glasssix::sleep
         impl(const std::vector<std::string> &phai, std::string model_directory, int device)
                 :net_instance_(phai,  model_directory + std::string("/sleeping.rknn"), device)
         {
-
+            init_data();
         }
 
         exposing::param_vector<sleep::box_info> detect(const exposing::param_span<std::uint8_t>& bitmap, int channels, int height, int width, int roi_x, int roi_y, int roi_width, int roi_height, std::map<std::string, float>& param_map)
         {
-            // std::cout<<"sleep\n";
             if (bitmap.empty())
             {
                 throw exposing::abi_invalid_argument("current frame is empty");
@@ -71,7 +70,7 @@ namespace glasssix::sleep
 
         std::string version()
 		{
-			const std::string algo_module_version = "1.0.1";
+			const std::string algo_module_version = "2.0.0";
 
 #if defined(USE_RKNNAPI) || defined(USE_RKNN2API)
 			//#if 0
@@ -89,6 +88,36 @@ namespace glasssix::sleep
          *   @return letterbox(image)
          *   @details Resize and pad image while meeting stride-multiple constrain
          */
+
+
+        void init_data()
+        {
+            posture_add_weight.resize(8400*2);
+            posture_mul_weight.resize(8400);
+            for(int i=0;i<8400;i++)
+            {
+                if( i<6400)
+                {
+                    posture_add_weight[i]=i%80;
+                    posture_add_weight[i+8400]=i/80;
+                    posture_mul_weight[i]=8.f;
+                }
+                else if(i<8000)
+                {
+                    posture_add_weight[i]=(i -6400)%40;
+                    posture_add_weight[i+8400]=(i -6400)/40;
+                    posture_mul_weight[i]=16.f;
+                }
+                else
+                {
+                    posture_add_weight[i]=(i -8000)%20;
+                    posture_add_weight[i+8400]=(i -8000)/20;
+                    posture_mul_weight[i]=32.f;
+                }
+            }
+        }
+
+
         typedef struct Bbox 
         {
             int x;
@@ -113,141 +142,60 @@ namespace glasssix::sleep
             return box1.score > box2.score ? true : false;
         }
 
-        static std::pair<cv::Mat, float> letterbox(cv::Mat& img, cv::Size new_shape)
-        {
-            int H = img.rows;
-            int W = img.cols;
-            float ratio_w = (float)W / (float)new_shape.width;
-            float ratio_h = (float)H / (float)new_shape.height;
-            float ratio = ratio_w;
 
-            cv::Mat resize_img;
-            if(H==new_shape.height && W==new_shape.width)
+        std::tuple<cv::Mat, float> preprocess_detection(cv::Mat src, int &pad_h, int &pad_w, cv::Size input_shape = cv::Size(640, 640))
+        {
+            float scale = std::min((float)input_shape.width / (float)src.cols, (float)input_shape.height / (float)src.rows);
+            cv::Mat cut_image;
+            cv::Mat mask_image(input_shape, CV_8UC3, cv::Scalar(114, 114, 114));
+            if (src.rows != input_shape.height || src.cols != input_shape.width)
             {
-                resize_img=img;
+                cv::resize(src, cut_image, cv::Size((int)(src.cols * scale), (int)(src.rows * scale)), cv::INTER_LINEAR);
+
+                pad_h = int((input_shape.height - cut_image.rows) / 2);
+                pad_w = int((input_shape.width - cut_image.cols) / 2);
+                cv::copyMakeBorder(cut_image, mask_image, pad_h, input_shape.height - cut_image.rows - pad_h, pad_w, input_shape.width - cut_image.cols - pad_w, cv::BORDER_CONSTANT, cv::Scalar{114, 114, 114});
             }
             else
             {
-                if (ratio_w == ratio_h)
-                {
-                    cv::resize(img, resize_img, cv::Size2i{ new_shape.width, new_shape.height });}
-                else if (ratio_w > ratio_h)
-                {
-
-                    int new_x = new_shape.width;
-                    int new_y = (int)(H / ratio_w);
-                    int pad1 = (int)((new_shape.height - new_y) / 2);
-                    int pad2 = new_shape.height - new_y - pad1;
-                    cv::resize(img, resize_img, cv::Size2i{ new_x, new_y });
-                    cv::copyMakeBorder(resize_img, resize_img, 0, pad1 + pad2, 0, 0, cv::BORDER_CONSTANT, cv::Scalar{ 114,114,114 });
-                }
-                else
-                {
-                    ratio = ratio_h;
-                    int new_y = new_shape.height;
-                    int new_x = (int)(W / ratio_h);
-                    int pad1 = (int)((new_shape.width - new_x) / 2);
-                    int pad2 = new_shape.width - new_x - pad1;
-                    cv::resize(img, resize_img, cv::Size2i{ new_x, new_y });
-                    cv::copyMakeBorder(resize_img, resize_img, 0, 0, 0, pad1 + pad2, cv::BORDER_CONSTANT, cv::Scalar{ 114,114,114 });
-                }
-            }
-
-            return { resize_img, ratio };
-        }
-
-        /**
-         * @fun preprocess
-         * @param src, new_shape
-         * @return tensor(preprocess(image))
-         * @details image preprocess and make tensor from images
-         */
-
-        std::tuple<cv::Mat, float> preprocess_detection(cv::Mat& src,int& pad_h,int& pad_w,  cv::Size input_shape = cv::Size(640, 640) )
-        {
-            float scale = std::min((float)input_shape.width/(float)src.cols, (float)input_shape.height/(float)src.rows);
-            cv::Mat cut_image;
-            cv::Mat mask_image(input_shape, CV_8UC3, cv::Scalar(114, 114, 114));
-            if( src.rows != input_shape.height || src.cols != input_shape.width)
-            {      
-                cv::resize(src, cut_image, cv::Size((int)(src.cols * scale), (int)(src.rows * scale)), cv::INTER_LINEAR);
-
-                pad_h = int((input_shape.height - cut_image.rows) /2 ) ; 
-                pad_w = int((input_shape.width - cut_image.cols) /2 ) ; 
-                cv::copyMakeBorder(cut_image, mask_image, pad_h, input_shape.height-cut_image.rows-pad_h, pad_w, input_shape.width-cut_image.cols-pad_w, cv::BORDER_CONSTANT, cv::Scalar{ 114,114,114 });
-            }
-            else 
-            {
-                src.copyTo(mask_image);     
+                src.copyTo(mask_image);
             }
             cv::cvtColor(mask_image, mask_image, cv::COLOR_BGR2RGB);
-            return {mask_image,scale};
+            return {mask_image, scale};
         }
 
-       
-		/**
-		 * @fun sigmoid_x
-		 * @param x
-		 * @return sigmoid(x)
-		 */
-		static inline float sigmoid_x(float x)
-		{
-			return static_cast<float>(1.f / (1.f + exp(-x)));
-		}
-
-		/**
-		 * @fun concat
-		 * @param infer_out, conf_thres
-		 * @return source
-		 * @details concat 3 into 1
-		 */
-       std::vector<std::vector<float>> concat(std::vector<std::shared_ptr<memory::tensor<float>>>& outs, float conf_thres)
-    {
-        const float anchors[3][6] = { {36,75, 76,55, 72,146}, {142,110, 192,243, 459,401}, {12,16, 19,36, 40,28} };
-        const float stride[3] = { 16.0, 32.0, 8.0 };//40 20 80->   30 15 60
-        std::vector<std::vector<float>> result;
-        for(int n = 0; n < 3; n++)
+        //input xywh location and the class, move different class to Disjoint region
+        void box_result_move_to_disjoint_region(std::vector<std::vector<float>>&sou_data, std::vector<int>& category_mask, int bias=100000 )
         {
-            int num_grid_x = (int)(640 / stride[n]);
-            int num_grid_y = (int)(640 / stride[n]);
-
-            int ind = 0;
-               const float *ptr_out=outs[n]->cpu_data();
-            // std::cout<<outs[n].size[4]<<"gdf"<<std::endl;
-            // channel
-            for(int q = 0; q < 3; q++)
-            {
-
-                const float anchor_w = anchors[n][q * 2];
-                const float anchor_h = anchors[n][q * 2 + 1];
-                for(int i = 0; i < num_grid_x; i++)
-                {
-                    for(int j = 0; j < num_grid_y; j++)
-                    {
-                        const float* pdata = ptr_out + ind *  9;
-                        float box_score = sigmoid_x(pdata[4]);
-
-                        float cx = (sigmoid_x(pdata[0]) * 2.f - 0.5f + j) * stride[n];  //cx
-                        float cy = (sigmoid_x(pdata[1]) * 2.f - 0.5f + i) * stride[n];  //cy
-                        float w = powf(sigmoid_x(pdata[2]) * 2.f, 2.f) * anchor_w;      //w
-                        float h = powf(sigmoid_x(pdata[3]) * 2.f, 2.f) * anchor_h;      //h
-
-                        std::vector<float> element = {cx, cy, w, h, box_score, sigmoid_x(pdata[5]), sigmoid_x(pdata[6]),sigmoid_x(pdata[7]), sigmoid_x(pdata[8])};
-                        result.push_back(element);
-
-                        ind++;
-                    }
-                }
-            }
+            for (size_t i = 0; i < sou_data.size(); i++)
+                sou_data[i][0] =  sou_data[i][0]+ category_mask[i]*bias;      
         }
-        return result;
-    }
-    /**
-        * @fun computeNx6
-        * @param anchor, conf_thres
-        * @return [box,confidence,category]
-        * @details concat xywh into nx6
-        */
+
+        std::vector<int> nms_process(std::vector<std::vector<float>>& nms_input, float threshold=0.0,float iou_thres=0.9 )
+        {
+            std::vector<cv::Rect2d> xywh_boxes(nms_input.size());;
+            std::vector<float> scores(nms_input.size());
+            std::vector<int> indices_body(nms_input.size());;//候选框顺序
+
+            for (size_t i = 0; i < nms_input.size(); i++)
+            {
+                cv::Rect2d boxwh;
+                boxwh.x      =  nms_input[i][0];
+                boxwh.y      =  nms_input[i][1];
+                boxwh.width  =  nms_input[i][2];
+                boxwh.height =  nms_input[i][3];   
+                xywh_boxes[i]=boxwh;
+                scores[i] = nms_input[i][4];   
+                indices_body[i]=i;
+            }
+            std::vector<int> indices_body_copy( indices_body.size() );
+            for(int i=0;i<indices_body_copy.size();i++)           
+                indices_body_copy[i]=i;
+            cv::dnn::NMSBoxes(xywh_boxes, scores, threshold, iou_thres, indices_body_copy, 1.f, 0);
+          
+            return indices_body_copy;
+        }
+
         struct boxes_conf
         {
             float top_x;
@@ -258,168 +206,6 @@ namespace glasssix::sleep
             int category;
         };
 
-       
-
-       static std::vector<boxes_conf> yolo2xyxy(std::vector<std::vector<float>>& src, float conf_thres=0.f)
-        {
-            std::vector<boxes_conf> res;
-            for(auto it: src)
-            {
-                float top_x = it[0] - it[2] / 2;
-                float top_y = it[1] - it[3] / 2;
-                float bot_x = it[0] + it[2] / 2;
-                float bot_y = it[1] + it[3] / 2;
-                float conf  = it[4];
-                int maxPosition = std::max_element(it.begin()+5, it.end()) - it.begin();
-                if(it[maxPosition] * conf > conf_thres)
-                {
-                    boxes_conf temp{};
-                    temp.top_x = top_x;
-                    temp.top_y = top_y;
-                    temp.bot_x = bot_x;
-                    temp.bot_y = bot_y;
-                    temp.conf = it[maxPosition] * conf;
-                    temp.category =  maxPosition - 5;
-                    // std::cout<<"class: "<< temp.category<<std::endl;
-                    //if (temp.category == 0)
-                    {
-                        res.push_back(temp);
-                    }
-
-                }
-            }
-            return res;
-        }
-
-        static float iou(Bbox box1, Bbox box2) 
-        {
-            int x1 = std::max(box1.x, box2.x);
-            int y1 = std::max(box1.y, box2.y);
-            int x2 = std::min(box1.x + box1.w, box2.x + box2.w);
-            int y2 = std::min(box1.y + box1.h, box2.y + box2.h);
-            int w = std::max(0, x2 - x1);
-            int h = std::max(0, y2 - y1);
-            float over_area = w * h;
-            return over_area / (box1.w*box1.h + box2.w*box2.h - over_area);
-        }
- 
-        static std::vector<Bbox> nms(std::vector<Bbox>&boxes, float threshold)
-        {
-            std::vector<Bbox>resluts;
-            std::sort(boxes.begin(), boxes.end(), sort_score);
-            while (boxes.size()> 0) 
-            {
-                resluts.push_back(boxes[0]);
-                int index = 1;
-                while (index < boxes.size()) {
-                    float iou_value = iou(boxes[0], boxes[index]);
-                    if (iou_value > threshold) {
-                        boxes.erase(boxes.begin() + index);
-                    }
-                    else {
-                        index++;
-                    }
-                }
-                boxes.erase(boxes.begin());
-            }
-            return  resluts;
-        }
-
-
-
-		/**
-		 * @fun computNmsInput
-		 * @param src, max_wh
-		 * @return std::pair<bboxes, confidence>
-		 * @details slice src into bboxes and confidence, which need by dnn::NMS
-		 */
-		static std::vector<Bbox> computeNmsInput(std::vector<boxes_conf>& src, int max_wh,float ratio,int pad_h,int pad_w)
-        {
-            std::vector<Bbox> boxes;
-            std::vector<float> scores;
-            std::vector<int> category;
-            for(auto const &it: src)
-            {
-         
-                int c = max_wh * it.conf;
-                Bbox temp;
-                temp.x      = static_cast<double>(it.top_x-pad_w )*ratio;
-                temp.y      = static_cast<double>(it.top_y-pad_h)*ratio;
-                temp.w  = static_cast<double>(it.bot_x - it.top_x)*ratio;
-                temp.h  = static_cast<double>(it.bot_y - it.top_y)*ratio;
-                temp.score=it.conf;
-                temp.category = it.category;
-                // std::cout<<it.top_x<<" "<< temp.x<<std::endl;
-                //if (temp.category == 0 || temp.category == 4)
-                //{
-                    boxes.push_back(temp);
-                //}
-            }
-            return boxes;
-        }
-
-		/**
-		 * @fun non_max_suppression
-		 * @param prediction, conf_thres, iou_thres
-		 * @return std::vector(boxes, classes)
-		 * @details Non-Maximum Suppression (NMS) on inference results
-		 */
-		static std::vector<location_char> non_max_suppression(std::vector<std::vector<float>>& prediction, float conf_thres, float iou_thres, float ratio,int pad_h,int pad_w)
-        {
-            // std::cout<<"nms inpu size "<<prediction.size()<<std::endl;
-            //std::cout<<ratio<<std::endl;
-            auto compute_box = yolo2xyxy(prediction, conf_thres);  
-
-            // Batched NMS
-            int max_wh = 4096;
-            std::vector<Bbox> boxes;
-            std::vector<float> scores;
-            std::vector<int> classes;
-
-            boxes= computeNmsInput(compute_box, max_wh,ratio,pad_h,pad_w );//此处做分类处理，因为有四类 而非以前的单类
-            std::vector<Bbox> class_work;
-            std::vector<Bbox> class_other;
-            for (auto &box:boxes)
-            {
-                if (box.category == 0) 
-                {
-                    class_work.emplace_back(box);
-                }
-                else 
-                {
-                    class_other.emplace_back(box);
-                }
-            }
-            auto bboxes_work=nms(class_work, iou_thres);
-            auto bboxes_other = nms(class_other, iou_thres);
-            std::vector<location_char> output;
-
-            for (auto it : bboxes_work)
-            {   
-                location_char temp;
-                temp.x1=it.x;
-                temp.x2=it.x+it.w;
-                temp.y1=it.y;
-                temp.y2=it.y+it.h;
-                temp.category = it.category;
-                temp.confidence=it.score;
-                output.emplace_back(temp);
-            }
-
-            for (auto it : bboxes_other)
-            {
-                location_char temp;
-                temp.x1 = it.x;
-                temp.x2 = it.x + it.w;
-                temp.y1 = it.y;
-                temp.y2 = it.y + it.h;
-                temp.category = it.category;
-                temp.confidence=it.score;
-                output.emplace_back(temp);
-            }
-
-            return output;
-        }
         /**
            * @fun run_detect
            * @param image param_map
@@ -429,8 +215,10 @@ namespace glasssix::sleep
         std::vector<sleep::box_info_internal> run_detect(cv::Mat& image, int roi_x, int roi_y, int roi_width, int roi_height, std::map<std::string, float>& param_map)
         {
 		
-            float conf_threshold= param_map.count("conf_thres") ? param_map["conf_thres"] : 0.25f;
+            float conf_threshold= param_map.count("conf_thres") ? param_map["conf_thres"] : 0.85f;
             float iou_threshold = param_map.count("nms_thres") ? param_map["nms_thres"] : 0.45f;      
+            int  device_id = std::round(param_map.count("device_id") ? param_map["device_id"] : 0.f);      
+            int frame_count_thres = std::round(param_map.count("frame_count_thres") ? param_map["frame_count_thres"] : 10.f);      
 
 			auto old_shape = cv::Size(roi_width, roi_height);
 
@@ -447,45 +235,86 @@ namespace glasssix::sleep
 
             auto  network_result = net_instance_.forward(blob.data, { 1, blob.rows, blob.cols,blob.channels() }, RKNN_TENSOR_NHWC);
 
-            std::vector<std::string>  out_names={"522","534","output"};
+            std::vector<std::string>  out_names={"onnx::Concat_439", "onnx::Concat_432", "onnx::Concat_425", "onnx::Mul_502"};
 
-
-            for (size_t i=0;i< 3; i++)//对输出数据做处理
+            for (size_t i=0;i< out_names.size(); i++)//对输出数据做处理
             {
                 forwards.push_back(network_result[out_names[i]]);
             }
 
-			// float conf_threshold = 0.25f;
-			// float iou_threshold = 0.45f;
+            int candicate_box_num = 0;
+            std::vector<int> category_mask;
+            auto real_forwards = Posture_Concat640(forwards,17, 0.01 ,candicate_box_num ,posture_add_weight, posture_mul_weight, category_mask);
 
-			auto result = concat(forwards, conf_threshold);
+            auto nms_input640  = XYXY2WH(real_forwards, pad_h, pad_w, 1.f/ratio, 17, candicate_box_num, category_mask);
 
-            auto nms_result =  non_max_suppression(result, conf_threshold, iou_threshold, 1/ratio,pad_h,pad_w);
-            // std::cout<<"nms_size:"<<nms_result.size()<<std::endl;
+            box_result_move_to_disjoint_region( nms_input640, category_mask, 100000);
+
+            auto nms_result_index = nms_process(nms_input640, conf_threshold, iou_threshold);
+
+            box_result_move_to_disjoint_region( nms_input640, category_mask, -100000);
+
+           
             std::vector<box_info_internal> output;
+            //获取当前帧判定为睡觉的丢到特征库去匹配
+            std::vector<Sleep_trace> current_sleep_infos;
+            for (size_t i = 0; i < nms_result_index.size(); i++)
+            {
+                int index = nms_result_index[i];
+                if(category_mask[index])
+                {
+                    Sleep_trace S_t( nms_input640[index][0], nms_input640[index][1], nms_input640[index][2], nms_input640[index][3],nms_input640[index][4] ,frame_count_thres );
+                    current_sleep_infos.push_back(S_t);
+                }
+            }
 
-            for(auto const &it: nms_result)
+            auto sleep_status = sleep_trace(sleep_trace_, device_id, current_sleep_infos);
+
+            for (size_t i = 0; i < sleep_status.size(); i++)
             {
                 box_info_internal temp;
-                temp.x1 = it.x1;
-                temp.y1 = it.y1;
-                temp.x2 = it.x2;
-                temp.y2 = it.y2;
-                // temp.category = std::get<2>(it);
-                temp.category=it.category;
-                temp.confidence=it.confidence;
-                // std::cout<< temp.category<<std::endl;
+                temp.x1 = current_sleep_infos[i].m_left;
+                temp.y1 = current_sleep_infos[i].m_top;
+                temp.x2 = (current_sleep_infos[i].m_left+current_sleep_infos[i].m_width);
+                temp.y2 = (current_sleep_infos[i].m_top+current_sleep_infos[i].m_height);
+                if(frame_count_thres<2)
+                    temp.category = 1 ;  
+                else
+                    temp.category = sleep_status[i] ;  
+                temp.confidence = current_sleep_infos[i].conf;//置信度需要解决一哈
                 output.push_back(temp);
             }
-            // std::cout<<"result_size:"<<output.size()<<std::endl;
+            
+
+            
+            //仅处理当前帧模型原生输出为未睡觉的
+            for (size_t i = 0; i < nms_result_index.size(); i++)
+            {   
+                int index = nms_result_index[i];
+                if( !category_mask[index] )
+                {
+                    box_info_internal temp;
+                    temp.x1 = nms_input640[index][0];
+                    temp.y1 = nms_input640[index][1];
+                    temp.x2 = (nms_input640[index][0]+nms_input640[index][2]);
+                    temp.y2 = (nms_input640[index][1]+nms_input640[index][3]);
+                    temp.category = 0 ;   //1是睡岗 0是其他
+                    temp.confidence = nms_input640[index][4];
+                    output.push_back(temp);
+                }
+            }
             return output;
         }
 
 
     private:
+        std::vector<float> posture_add_weight;
+        std::vector<float> posture_mul_weight;
         std::string model_directory_;
         int device_;
         rknnwrapper::rknn_wrapper net_instance_;
+
+        static std::map<int, std::vector<Sleep_trace>>  sleep_trace_;
 
     };
 
@@ -505,4 +334,7 @@ namespace glasssix::sleep
 	{
 		return impl_->version();
 	}
+    
+    std::map<int, std::vector<Sleep_trace>>  detect_code_internal::impl::sleep_trace_;
+
 }

@@ -43,25 +43,39 @@ namespace glasssix::onphone
 
 	RknnYolov8Wrapper::TensorSptr RknnYolov8Wrapper::yolov8_complement(std::vector<TensorSptr>& vec_ts_rstSort)
 	{
-		static constexpr int blockSide[3] = { 80, 40, 20 }; //ScaleSteps[3][2] = { {80, 80}, {40, 40}, {20, 20} };
-		//CHECK_EQ(3, vec_ts_rstSort.size());
+		// VF means VISUAL FIELD
+		static constexpr int INTEGR_ONNX_OUT_STD_INFO_NUM_ = 5; // rect + score
+		static constexpr int CUT_MODEL_VISUALFIELD_RAW_INFO_ = 65; // include 4*BBoxlocaInfo(16 usually) + scores (64+N)
 
-		const int INTEGRATED_ONNX_OUT_UINTLINE_NUM_ = 5;
-		auto top = std::make_shared<glasssix::memory::tensor<float>>(std::vector<int>{1, 1, 8400, INTEGRATED_ONNX_OUT_UINTLINE_NUM_}, -1, memory::NCHW);
+		int INTEGR_ONNX_OUT_LINES = 0;
+		std::vector<int> blockSide; // blockSide maybe  { ..., 80, 40, 20 }; or means visual field size
+		for (auto& node : vec_ts_rstSort) {
+			auto shape = node->data_shape();
+			CHECK_EQ(shape.size(), 4);
+			CHECK_EQ(shape[0], 1);
+			CHECK_EQ(shape[1], CUT_MODEL_VISUALFIELD_RAW_INFO_);
+			CHECK_EQ(shape[2], shape[3]);
+			blockSide.push_back(shape[3]);
+			INTEGR_ONNX_OUT_LINES += shape[2] * shape[3];
+		}
+
+		auto top = std::make_shared<glasssix::memory::tensor<float>>(std::vector<int>{1, 1, INTEGR_ONNX_OUT_LINES, INTEGR_ONNX_OUT_STD_INFO_NUM_}, -1, memory::NCHW);
 		float* top_data = top->mutable_cpu_data();
-		size_t top_line_counter = 0;
+		size_t top_visual_field_counter = 0;
 
-		for (int i = 0; i < 3; i++) {
+		for (int i = 0; i < vec_ts_rstSort.size(); i++) {
 
 			auto& Scaleblock = vec_ts_rstSort[i];
-			Scaleblock->reshape(std::vector<int>{1, 1, 65, blockSide[i] * blockSide[i]});
-			Scaleblock = tensor_transpose_0132(Scaleblock); // 1, 1, 65, 6400 -> 1, 1, 6400, 65
+			Scaleblock->reshape(std::vector<int>{1, 1, CUT_MODEL_VISUALFIELD_RAW_INFO_, blockSide[i] * blockSide[i]});
+			Scaleblock = tensor_transpose_0132(Scaleblock); // 1, 1, 65, 6400(if) -> 1, 1, 6400, 65
+			//YHC
+			const int visual_field_nums = Scaleblock->data_shape()[2]; // 1, 1, 6400(if), 65 -> [2]=6400(if)
+			const int per_raw_line_length = Scaleblock->data_shape()[3]; // 65
+			CHECK_EQ(CUT_MODEL_VISUALFIELD_RAW_INFO_, per_raw_line_length);//per_raw_line_length should EQ CUT_MODEL_VISUALFIELD_RAW_INFO_
 
-			int line_num = Scaleblock->data_shape()[2]; // 6400 + 1600 + 400 = 8400
-			int per_line_length = Scaleblock->data_shape()[3]; // 65
-			for (int line = 0; line < line_num; line++) // loop 6400 |
+			for (int visual_field_idx = 0; visual_field_idx < visual_field_nums; visual_field_idx++) // loop 6400 |
 			{
-				float* uintInfoLinePtrData = Scaleblock->mutable_cpu_data() + line * per_line_length;
+				float* uintInfoLinePtrData = Scaleblock->mutable_cpu_data() + visual_field_idx * per_raw_line_length;
 				// {65 = 64 + 2}, {64 = 16 * 4}, {16 * 4 conv 16 -> 4}, 4 means raw location
 
 				float raw_location[4] = { 0.f,0.f,0.f,0.f };
@@ -87,11 +101,11 @@ namespace glasssix::onphone
 				uintInfoLinePtrData[64] = sigmoid_x(uintInfoLinePtrData[64]);
 				// </score>
 
-				raw_location[0] = 0.5 + line % blockSide[i] - raw_location[0];
-				raw_location[1] = 0.5 + line / blockSide[i] - raw_location[1];
+				raw_location[0] = 0.5 + visual_field_idx % blockSide[i] - raw_location[0];
+				raw_location[1] = 0.5 + visual_field_idx / blockSide[i] - raw_location[1];
 
-				raw_location[2] = 0.5 + line % blockSide[i] + raw_location[2];
-				raw_location[3] = 0.5 + line / blockSide[i] + raw_location[3];
+				raw_location[2] = 0.5 + visual_field_idx % blockSide[i] + raw_location[2];
+				raw_location[3] = 0.5 + visual_field_idx / blockSide[i] + raw_location[3];
 
 				float loaction_0 = (raw_location[2] + raw_location[0]) / 2;
 				float loaction_1 = (raw_location[3] + raw_location[1]) / 2;
@@ -104,13 +118,14 @@ namespace glasssix::onphone
 				loaction_2 = loaction_2 / blockSide[i];
 				loaction_3 = loaction_3 / blockSide[i];
 
-				auto top_line_data = top_data + top_line_counter * INTEGRATED_ONNX_OUT_UINTLINE_NUM_;
+				auto top_line_data = top_data + top_visual_field_counter * INTEGR_ONNX_OUT_STD_INFO_NUM_;
 				top_line_data[0] = loaction_0;
 				top_line_data[1] = loaction_1;
 				top_line_data[2] = loaction_2;
 				top_line_data[3] = loaction_3;
 				top_line_data[4] = uintInfoLinePtrData[64];
-				top_line_counter++;
+
+				top_visual_field_counter++;
 			}
 		}
 		return top;

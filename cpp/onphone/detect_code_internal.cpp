@@ -20,6 +20,7 @@
 #endif
 
 #include "../head/detect_code.hpp"
+#include "../posture/detect_code.hpp"
 
 #include <opencv2/opencv.hpp>
 #include <opencv2/core.hpp>
@@ -36,7 +37,6 @@
 #define ShowResize(visual_img, showRatio) cv::resize(visual_img, visual_img, cv::Size(), showRatio, showRatio);
 #endif // BUILD_DEBUG_INFO
 
-
 namespace glasssix::onphone
 {
 	class detect_code_internal::impl
@@ -47,42 +47,17 @@ namespace glasssix::onphone
 			: impl(device)
 		{
 			model_directory_ = std::string(model_directory);
-
 			phone_instance = std::make_unique<RknnYolov8Wrapper>(exposing::to_narrow_string(model_directory) + "/" + "onphone_v8_cut" + ".rknn", device);
-
-			head_instance_ = glasssix::exposing::make_exported_interface<head::detect_code>(model_directory, device);
 		}
 
-
-		exposing::param_vector<onphone::box_info> detect(const exposing::param_span<std::uint8_t>& bitmap, int channels, int height, int width, int roi_x, int roi_y, int roi_width, int roi_height, std::map<std::string, float>& param_map)
+		exposing::param_vector<onphone::box_info> detect(const exposing::param_span<std::uint8_t>& bitmap, int channels, int height, int width, int roi_x, int roi_y, int roi_width, int roi_height,
+			exposing::param_vector<head::box_info> head_info_list_raw, std::map<std::string, float>& param_map)
 		{
-			if (bitmap.empty())
-			{
-				throw exposing::abi_invalid_argument("current frame is empty");
-			}
-			CHECK_EQ(channels, 3);
-			CHECK_EQ(bitmap.size(), channels * height * width);
-
-			cv::Mat image(cv::Size(width, height), CV_8UC3);
-			std::memcpy(image.data, bitmap.data(), sizeof(uint8_t) * channels * height * width);
-
-			if (roi_x<0 || roi_x>width || roi_y > height || roi_y < 0 || roi_height<0 || (roi_height + roi_y) >height || roi_width<0 || (roi_width + roi_x) > width)
-			{
-				throw exposing::abi_invalid_argument("incorrect roi in onphone");
-			}
-
-
-			float head_conf_thres = param_map.count("head_conf_thres") ? param_map["head_conf_thres"] : 0.3f;
-			float head_nms_thres = param_map.count("head_nms_thres") ? param_map["head_nms_thres"] : 0.6f;
-			auto head_param_abi = exposing::make_param_hash_map<exposing::param_string, float>();
-			head_param_abi.add_or_update("conf_thres", head_conf_thres);
-			head_param_abi.add_or_update("nms_thres", head_nms_thres);
-			exposing::param_vector<head::box_info> head_info_list_raw = head_instance_.detect(bitmap, channels, height, width, 0, 0, width, height, head_param_abi);
+			auto image = bitmap2cvMat(bitmap, channels, height, width);
 
 			std::vector<ObjBox> head_list;
 			for (auto hinfo : head_info_list_raw) {
 				ObjBox headInfo;
-				//dbg(pinfo.score());
 				headInfo.xmin = hinfo.x1();
 				headInfo.ymin = hinfo.y1();
 				headInfo.xmax = hinfo.x2();
@@ -92,12 +67,9 @@ namespace glasssix::onphone
 			}
 
 			std::vector<box_info_internal> detect_results;
-			cv::Mat cropped_image = image(cv::Range(roi_y, roi_y + roi_height), cv::Range(roi_x, roi_x + roi_width)).clone();
 
 			for (auto& head : head_list) {
-				//cv::rectangle(run_detect_visual, head.get_rect(), { 0,0,240 }, 5);
-				//cv::rectangle(run_detect_visual, head.DetPhoneRegion(), { 0,240,0 }, 5);
-				std::vector<ObjBox> phone_list = phone_detect(head, cropped_image, param_map);
+				std::vector<ObjBox> phone_list = phone_detect(head, image, param_map); // head loacte origin image before roi-cut in head_detect, shouldnt to roi_cut now.
 
 				box_info_internal head_box_info;
 				head_box_info.phonelocal_list = exposing::make_param_vector<std::int32_t>();
@@ -127,9 +99,92 @@ namespace glasssix::onphone
 			return result;
 		}
 
+		exposing::param_vector<onphone::box_info> exdetect(const exposing::param_span<std::uint8_t>& bitmap, int channels, int height, int width, int roi_x, int roi_y, int roi_width, int roi_height,
+			exposing::param_vector<posture::box_info> posture_info_list_raw, std::map<std::string, float>& param_map)
+		{
+			auto image = bitmap2cvMat(bitmap, channels, height, width);
+
+			struct onPhoneMan
+			{
+				cv::Rect phoneDetRegion;
+				cv::Rect manRegion;
+				float score;
+			};
+
+			std::vector<onPhoneMan> man_list;
+			// posture_info_list_raw 2 man_list
+			for (auto pinfo : posture_info_list_raw) {
+				std::pair<cv::Rect, float> man;
+				auto xmin = pinfo.x1();
+				auto ymin = pinfo.y1();
+				auto det_w = pinfo.x2() - pinfo.x1();
+
+				struct KpointsInfo {
+					cv::Point pt;
+					float score;
+				};
+
+				std::vector<KpointsInfo> Kpoints;
+				auto key_points = pinfo.key_points(); // 3 elems peer group : x, y, score
+				for (size_t i = 0; i < (int)key_points.size() / 3; i++) {
+					cv::Point key_p(key_points[i * 3], key_points[i * 3 + 1]);
+					Kpoints.push_back({ key_p, key_points[i * 3 + 2] });
+				}
+				int DetRegionBottom = std::max(Kpoints[9].pt.y, Kpoints[10].pt.y);
+				int det_h = DetRegionBottom - pinfo.y1();
+				int man_h = pinfo.y2() - pinfo.y1();
+
+				cv::Rect manRegion(xmin, ymin, det_w, man_h);
+				cv::Rect phoneDetRegion(xmin, ymin, det_w, det_h);
+
+				float score = pinfo.score();
+				man_list.push_back({ phoneDetRegion,manRegion, score });
+			}
+
+			std::vector<box_info_internal> detect_results;
+
+			for (auto& man : man_list)
+			{
+				/* head loacte origin image before roi - cut in head_detect, shouldnt to roi_cut now. */
+				std::vector<ObjBox> phone_list = phone_detect_exhib(man.phoneDetRegion, image, param_map);
+
+				box_info_internal rst_box_info;
+				rst_box_info.phonelocal_list = exposing::make_param_vector<std::int32_t>();
+				rst_box_info.phonescore_list = exposing::make_param_vector<float>();
+
+				rst_box_info.x1 = man.phoneDetRegion.x;
+				rst_box_info.y1 = man.phoneDetRegion.y;
+				rst_box_info.x2 = man.phoneDetRegion.x + man.phoneDetRegion.width;
+				rst_box_info.y2 = man.phoneDetRegion.y + man.phoneDetRegion.height;
+				rst_box_info.confidence = man.score;
+
+				if (phone_list.empty()) {
+					rst_box_info.category = 0.f;
+				}
+				else {
+					rst_box_info.category = 1.f;
+					for (auto& phoneBox : phone_list) {
+						rst_box_info.phonelocal_list.push_back(phoneBox.xmin);
+						rst_box_info.phonelocal_list.push_back(phoneBox.ymin);
+						rst_box_info.phonelocal_list.push_back(phoneBox.xmax);
+						rst_box_info.phonelocal_list.push_back(phoneBox.ymax);
+						rst_box_info.phonescore_list.push_back(phoneBox.score);
+					}
+				}
+
+				detect_results.push_back(rst_box_info);
+			}
+
+			auto result = exposing::make_param_vector<onphone::box_info>();
+			for (auto& i : detect_results) {
+				result.push_back(exposing::make_as_first<box_info_impl>(i));
+			}
+			return result;
+		}
+
 		std::string version()
 		{
-			const std::string algo_module_version = "3.1.1";
+			const std::string algo_module_version = "3.2.0";
 
 			std::string nn_frame_version = phone_instance->version();
 
@@ -140,8 +195,8 @@ namespace glasssix::onphone
 		std::vector<ObjBox> phone_detect(ObjBox& headbox, cv::Mat image, std::map<std::string,float>& param_map)
 		{
 			const float phone_vivid_conf_ratio = 1.25f; // 1.25 = 0.5 / 0.4
-			float phone_conf_thres = param_map.count("phone_conf_thres") ? param_map["phone_conf_thres"] : 0.4f;
-			float phone_nms_thres = param_map.count("phone_nms_thres") ? param_map["phone_nms_thres"] : 0.45f;
+			float phone_conf_thres = param_map.count("conf_thres") ? param_map["conf_thres"] : 0.4f;
+			float phone_nms_thres = param_map.count("nms_thres") ? param_map["nms_thres"] : 0.45f;
 			float phone_distance_thres = param_map.count("phone_distance_thres") ? param_map["phone_distance_thres"] : 1.0f;
 
 			std::vector<ObjBox> phone_list;
@@ -163,7 +218,7 @@ namespace glasssix::onphone
 				phone_conf_thres = std::min(0.95f, phone_conf_thres * phone_vivid_conf_ratio);
 			}
 
-			const int reShapeSide = 640;
+			static constexpr int reShapeSide = 320;
 			cv::Mat cls_img = safty_cut(image, det_phone_region);
 			auto letter_img = imgPreProcess(cls_img, reShapeSide, reShapeSide);
 
@@ -180,11 +235,10 @@ namespace glasssix::onphone
 
 				if (conf > phone_conf_thres)
 				{
-					ObjBox phonebox(pdata[0] * 640, pdata[1] * 640, pdata[2] * 640, pdata[3] * 640, conf);
+					ObjBox phonebox(pdata[0] * reShapeSide, pdata[1] * reShapeSide, pdata[2] * reShapeSide, pdata[3] * reShapeSide, conf);
 					phone_list.push_back(phonebox);
 				}
 			}
-
 
 			int pad = std::abs(cls_img.cols - cls_img.rows) / 2;
 			bool is_vertical_pad = cls_img.cols > cls_img.rows;
@@ -218,17 +272,6 @@ namespace glasssix::onphone
 				float phone_head_distance = get_points_distance(headbox.get_center(), phonebox.get_center());
 				float phone_head_relative_distance = (phone_head_distance * 2) / (headboxRect.width + headboxRect.height);
 
-				////YHC
-				//cv::rectangle(image, headbox.get_rect(), cv::Scalar{ 0,255,0 }, 3);
-				//cv::rectangle(image, phonebox.get_rect(), cv::Scalar{ 0,0,255 }, 3);
-
-				//dbg(iou_head_phone);
-				//dbg(area_ratio);
-				//dbg(phone_head_relative_distance);
-				//dbg(iou_head_phone >= 0.025);
-				//dbg(area_ratio > 0.1);
-				//dbg(phone_head_relative_distance < phone_distance_thres);
-
 				if (iou_head_phone >= 0.025 && area_ratio > 0.08 && phone_head_relative_distance < phone_distance_thres) {
 					phone_list_fliter_sort.push_back(phonebox);
 				}
@@ -251,6 +294,54 @@ namespace glasssix::onphone
 			return phone_list_fliter_sort;
 		}
 
+		std::vector<ObjBox> phone_detect_exhib(cv::Rect det_region, cv::Mat image, std::map<std::string, float>& param_map) {
+			float phone_conf_thres = param_map.count("conf_thres") ? param_map["conf_thres"] : 0.4f;
+			float phone_nms_thres = param_map.count("nms_thres") ? param_map["nms_thres"] : 0.45f;
+
+			std::vector<ObjBox> phone_list;
+
+			static constexpr int reShapeSide = 320;
+			cv::Mat cls_img = safty_cut(image, det_region);
+			auto letter_img = imgPreProcess(cls_img, reShapeSide, reShapeSide);
+			cv::cvtColor(letter_img, letter_img, cv::COLOR_BGR2RGB);
+
+			auto det_rst_map = phone_instance->forward(letter_img);
+			auto tensor_out = det_rst_map.begin()->second;
+
+			int targetnum = tensor_out->height();
+			int infonum = tensor_out->width();
+			for (size_t idx = 0; idx < targetnum; idx++) {
+				float* pdata = tensor_out->mutable_cpu_data() + idx * infonum;
+				float conf = pdata[4];
+				if (conf > phone_conf_thres)
+				{
+					ObjBox phonebox(pdata[0] * reShapeSide, pdata[1] * reShapeSide, pdata[2] * reShapeSide, pdata[3] * reShapeSide, conf);
+					phone_list.push_back(phonebox);
+				}
+			}
+
+			int pad = std::abs(cls_img.cols - cls_img.rows) / 2;
+			bool is_vertical_pad = cls_img.cols > cls_img.rows;
+			float mapping_ratio = static_cast<float>(std::max(cls_img.cols, cls_img.rows)) / reShapeSide;
+
+			for (auto& phonebox : phone_list) {
+				phonebox.mul_ratio(mapping_ratio);
+				if (is_vertical_pad) {
+					phonebox.ymin -= pad;
+					phonebox.ymax -= pad;
+				}
+				else {
+					phonebox.xmin -= pad;
+					phonebox.xmax -= pad;
+				}
+
+				phonebox.add(det_region.tl()); //mapping start
+			}
+
+			nms_cpu(phone_list, phone_nms_thres);
+
+			return phone_list;
+		}
 
 		cv::Mat imgPreProcess(cv::Mat img, int hope_w = 640, int hope_h = 640)
 		{
@@ -279,6 +370,19 @@ namespace glasssix::onphone
 			}
 			return resize_img;
 		}
+
+		static inline cv::Mat bitmap2cvMat(const exposing::param_span<std::uint8_t>& bitmap, int channels, int height, int width) {
+			if (bitmap.empty())
+			{
+				throw exposing::abi_invalid_argument("current frame is empty");
+			}
+			CHECK_EQ(channels, 3);
+			CHECK_EQ(bitmap.size(), channels * height * width);
+			cv::Mat image(cv::Size(width, height), CV_8UC3);
+			std::memcpy(image.data, bitmap.data(), sizeof(uint8_t) * channels * height * width);
+			return image;
+		}
+
 		static inline cv::Mat safty_cut(cv::Mat& img, cv::Rect roi)
 		{
 			int width = roi.width;
@@ -312,7 +416,6 @@ namespace glasssix::onphone
 			img(cv::Rect(_x, _y, _width, _height)).copyTo(mat(cv::Rect(_x - x, _y - y, _width, _height)));
 			return mat;
 		}
-
 
 		float get_points_distance(cv::Point2f pointO, cv::Point2f pointA)
 		{
@@ -376,10 +479,6 @@ namespace glasssix::onphone
 	private:
 		std::string model_directory_;
 		int device_;
-		//std::unique_ptr<rknnwrapper::rknn_wrapper> detect_instance_;
-
-		head::detect_code head_instance_;
-		//std::unique_ptr<rknnwrapper::rknn_wrapper> phone_instance;
 		std::unique_ptr<RknnYolov8Wrapper> phone_instance;
 	};
 
@@ -390,9 +489,14 @@ namespace glasssix::onphone
 
 	detect_code_internal::~detect_code_internal() = default;
 
-	exposing::param_vector<onphone::box_info> detect_code_internal::detect(exposing::param_span<std::uint8_t> bitmap, int channels, int height, int width, int roi_x, int roi_y, int roi_width, int roi_height, std::map<std::string, float>& param_map) const
+	exposing::param_vector<onphone::box_info> detect_code_internal::detect(exposing::param_span<std::uint8_t> bitmap, int channels, int height, int width, int roi_x, int roi_y, int roi_width, int roi_height, exposing::param_vector<head::box_info> head_info_list, std::map<std::string, float>& param_map) const
 	{
-		return impl_->detect(bitmap, channels, height, width, roi_x, roi_y, roi_width, roi_height, param_map);
+		return impl_->detect(bitmap, channels, height, width, roi_x, roi_y, roi_width, roi_height, head_info_list, param_map);
+	}
+
+	exposing::param_vector<onphone::box_info> detect_code_internal::exdetect(exposing::param_span<std::uint8_t> bitmap, int channels, int height, int width, int roi_x, int roi_y, int roi_width, int roi_height, exposing::param_vector<posture::box_info> posture_info_list, std::map<std::string, float>& param_map) const
+	{
+		return impl_->exdetect(bitmap, channels, height, width, roi_x, roi_y, roi_width, roi_height, posture_info_list, param_map);
 	}
 
 	std::string detect_code_internal::version()

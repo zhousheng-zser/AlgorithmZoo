@@ -67,11 +67,11 @@ using namespace glasssix;
 
         bool is_climb_posture()
         {
-            bool hands_up_shoulder = (std::max(hands_shoulders[0].first.y , hands_shoulders[1].first.y) - std::min(hands_shoulders[2].first.y ,hands_shoulders[3].first.y) )>0 ;
-            bool root_distance = abs(roots[0].first.y - roots[1].first.y)> ((y2-y1)*0.03 ) ;
+            //bool hands_up_shoulder = (std::max(hands_shoulders[0].first.y , hands_shoulders[1].first.y) - std::min(hands_shoulders[2].first.y ,hands_shoulders[3].first.y) )>0 ;
+            bool root_distance = abs(roots[0].first.y - roots[1].first.y)> ((y2-y1)*0.05 ) ;
             // std::cout<<abs(roots[0].first.y - roots[1].first.y)<<" "<<((y1-y1)*0.03 ) <<std::endl;
             // std::cout<<"root_distance: "<<root_distance<<std::endl;
-            return hands_up_shoulder&&root_distance;
+            return root_distance;
         }
 
 		std::int32_t x1;

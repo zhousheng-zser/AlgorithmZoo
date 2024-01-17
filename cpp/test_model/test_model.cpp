@@ -126,9 +126,10 @@ int main(int argc, char* argv[])
 
 
 			if (x.first == "score_out") {
-				float cos = fliter_socre_CosineSimilarity(B_out, A_out, count, 0.1f, diffStatistics);
+				size_t vaild_counter = 0;
+				float cos = fliter_score_CosineSimilarity(B_out, A_out, count, 0.1f, diffStatistics, vaild_counter);
 				score_map[x.first].push_back(cos);
-				printf("[%d/%d]-> fcos:%f : score_out[>0.1] | %s\n", idx, img_list.size(), cos, img_list[idx].c_str());
+				printf("[%d/%d]-> fcos:%f : score_out[>0.1]%d | %s\n", idx, img_list.size(), cos, vaild_counter, img_list[idx].c_str());
 
 			}
 			else {

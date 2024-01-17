@@ -11,6 +11,8 @@
 #include <opencv2/opencv.hpp>
 #include "box_info.hpp"
 
+#include "../posture/box_info.hpp"
+#include "../head/box_info.hpp"
 
 namespace glasssix::onphone
 {
@@ -130,7 +132,8 @@ namespace glasssix::onphone
 
         std::string version();
 
-        exposing::param_vector<onphone::box_info> detect(exposing::param_span<std::uint8_t> bitmap, int channels, int height, int width, int roi_x, int roi_y, int roi_width, int roi_height, std::map<std::string, float>& param_map) const;
+		exposing::param_vector<onphone::box_info> detect(exposing::param_span<std::uint8_t> bitmap, int channels, int height, int width, int roi_x, int roi_y, int roi_width, int roi_height, exposing::param_vector<head::box_info> head_info_list, std::map<std::string, float>& param_map) const;
+        exposing::param_vector<onphone::box_info> exdetect(exposing::param_span<std::uint8_t> bitmap, int channels, int height, int width, int roi_x, int roi_y, int roi_width, int roi_height, exposing::param_vector<posture::box_info> posture_info_list, std::map<std::string, float>& param_map) const;
 
     private:
         std::unique_ptr<impl> impl_;
