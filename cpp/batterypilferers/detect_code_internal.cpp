@@ -5,7 +5,7 @@
 #include "detect_code_internal.hpp"
 #include "box_info_impl.hpp"
 #include "logger.hpp"
-
+#include <chrono>#include <chrono>
 // #include <opencv2/highgui.hpp>
 // #include <opencv2/core.hpp>
 // #include <opencv2/imgproc.hpp>
@@ -130,6 +130,7 @@ namespace glasssix::batterypilferers
         exposing::param_vector<batterypilferers::box_info> detect(const exposing::param_span<std::uint8_t>& bitmap, int channels, int height, int width,
                                                         int roi_x, int roi_y, int roi_width, int roi_height, std::map<std::string, float>& param_map)
         {
+            std::cout<<"dsdsd\n";
             float con_thres = param_map.count("conf_thres") ? param_map["conf_thres"] : 0.3f;
             float iou_thres = param_map.count("nms_thres") ? param_map["nms_thres"] : 0.6f;
 
@@ -146,7 +147,7 @@ namespace glasssix::batterypilferers
             for (size_t i = 0; i < batch_size; i++)
             {
                 cv::Mat image(cv::Size(width, height), CV_8UC3);
-                std::memcpy(image.data, bitmap.data()+ pic_size, sizeof(uint8_t) * 3 * height * width);   
+                std::memcpy(image.data, bitmap.data()+ pic_size*i, sizeof(uint8_t) *pic_size);   
                 images.push_back(image);
             }
             
@@ -177,20 +178,22 @@ namespace glasssix::batterypilferers
             std::vector<float> scores(crop_rect.size());
             for (int i=0;i<crop_rect.size();i++) 
             {   
-                // std::cout<<crop_rect[0].x1<<" "<<crop_rect[0].x2<<" "<<crop_rect[0].y1<<" "<<crop_rect[0].y2<<std::endl;
                 for (size_t j = 0; j < batch_size; j++)
                 {
                     cv::Mat candicate_detect = images[j](cv::Range(crop_rect[0].y1, crop_rect[0].y2), cv::Range(crop_rect[0].x1, crop_rect[0].x2));
                     cv::resize(candicate_detect, candicate_detect, cv::Size(256, 256));
-                        candicate_images.push_back(candicate_detect);    
+                    candicate_images.push_back(candicate_detect);    
+                    // cv::imwrite( std::to_string(j)+".jpg" ,candicate_detect);
                 }
 
                 std::vector<float> candicate_steal(65536*24);
+
                 concat_pic(candicate_images,candicate_steal.data());
+ 
                 auto  network_result = net_classify_->forward(candicate_steal.data(), { 1, 256, 256, 3*batch_size}, RKNN_TENSOR_NHWC );
                 const float* batterypilferers_result = network_result["output"]->cpu_data();//0 -> steal  
                 is_battery_pilferers[i] = batterypilferers_result[0]>batterypilferers_result[1] ? 1 : 0 ;
-                scores[i]=batterypilferers_result[1-0];
+                scores[i]=batterypilferers_result[0];
 
             }
 
