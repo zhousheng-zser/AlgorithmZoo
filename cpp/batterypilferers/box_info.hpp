@@ -1,9 +1,9 @@
-#ifndef _HEAD_BOX_INFO_HPP_
-#define _HEAD_BOX_INFO_HPP_
+#ifndef _batterypilferers_BOX_INFO_HPP_
+#define _batterypilferers_BOX_INFO_HPP_
 
 #include <abi/consumer.hpp>
 
-namespace glasssix::head
+namespace glasssix::batterypilferers
 {
     struct box_info;
 }
@@ -11,11 +11,11 @@ namespace glasssix::head
 namespace glasssix::exposing::impl
 {
     template<>
-    struct abi<head::box_info>
+    struct abi<batterypilferers::box_info>
     {
         using identity_type = type_identity_interface;
 
-        static constexpr guid id{ "004C36B8-A53E-4DE1-820C-516075C703A4" };
+        static constexpr guid id{ "D85B45E5-6BF7-ADEA-755A-DC21DED8E887" };
 
         struct type : abi_unknown_object
         {
@@ -29,7 +29,7 @@ namespace glasssix::exposing::impl
     };
 
     template <typename Derived>
-    struct interface_vtable<Derived, head::box_info> : interface_vtable_base<Derived, head::box_info>
+    struct interface_vtable<Derived, batterypilferers::box_info> : interface_vtable_base<Derived, batterypilferers::box_info>
     {
 
         virtual std::int32_t G6_ABI_CALL x1(abi_out_t<int> result) noexcept override
@@ -70,10 +70,10 @@ namespace glasssix::exposing::impl
     };
 
     template <>
-    struct abi_adapter<head::box_info>
+    struct abi_adapter<batterypilferers::box_info>
     {
         template <typename Derived>
-        struct type : enable_self_abi_awareness<Derived, head::box_info>
+        struct type : enable_self_abi_awareness<Derived, batterypilferers::box_info>
         {
 
             int x1() const
@@ -117,7 +117,7 @@ namespace glasssix::exposing::impl
     };
 }
 
-namespace glasssix::head
+namespace glasssix::batterypilferers
 {
     struct box_info : exposing::inherits<box_info>
     {

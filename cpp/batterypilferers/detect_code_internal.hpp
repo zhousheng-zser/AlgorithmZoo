@@ -1,5 +1,5 @@
-#ifndef __head_DETECT_CODE_INTERNAL_HPP__
-#define __head_DETECT_CODE_INTERNAL_HPP__
+#ifndef __batterypilferers_DETECT_CODE_INTERNAL_HPP__
+#define __batterypilferers_DETECT_CODE_INTERNAL_HPP__
 
 #include <memory>
 #include <string>
@@ -11,7 +11,7 @@
 
 #include "box_info.hpp"
 
-namespace glasssix::head
+namespace glasssix::batterypilferers
 {
     struct box_info_internal
     {
@@ -43,7 +43,7 @@ namespace glasssix::head
 
         std::string version();
 
-        exposing::param_vector<head::box_info> detect(exposing::param_span<std::uint8_t> bitmap,
+        exposing::param_vector<batterypilferers::box_info> detect(exposing::param_span<std::uint8_t> bitmap,
             int channels, int height, int width, int roi_x, int roi_y, int roi_width, int roi_height, std::map<std::string, float>& param_map) const;
 
     private:

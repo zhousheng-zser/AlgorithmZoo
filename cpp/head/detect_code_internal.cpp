@@ -45,7 +45,7 @@ namespace glasssix::head
 
 std::string version()
         {
-			const std::string algo_module_version = "1.1.0";
+			const std::string algo_module_version = "1.0.1";
 
 #if defined(USE_RKNNAPI) || defined(USE_RKNN2API)
 			std::string nn_frame_version = net_detect_->version();
@@ -95,7 +95,7 @@ std::string version()
                 temp_result.x2=head_rect.x2;
                 temp_result.y2=head_rect.y2;
                 temp_result.score=body[4];
-                //temp_result.key_points = exposing::make_param_vector<float>();
+                temp_result.key_points = exposing::make_param_vector<float>();
            
                 result.push_back( temp_result  );
             }
@@ -126,7 +126,7 @@ std::string version()
 
             auto  network_results = net_detect_->forward(blob.data, { 1, blob.rows, blob.cols,blob.channels() }, RKNN_TENSOR_NHWC);
 
-            std::vector<std::string>  out_names={"onnx::Reshape_356","onnx::Reshape_341","onnx::Reshape_326"};
+            std::vector<std::string>  out_names={"355","340","output0"};
 
             std::vector<std::shared_ptr<memory::tensor<float>>> forwards;
 
@@ -167,7 +167,6 @@ std::string version()
                     posture_mul_weight_1280[i] = 32.f;
                 }
             }
-            
         }
 
         std::tuple<cv::Mat, float> preprocess_detection(cv::Mat& src,int& pad_h,int& pad_w,  cv::Size input_shape = cv::Size(640, 640) )

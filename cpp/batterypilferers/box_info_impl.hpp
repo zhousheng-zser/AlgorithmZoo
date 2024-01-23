@@ -1,14 +1,14 @@
-#ifndef __head_BOX_INFO_IMPL_HPP__
-#define __head_BOX_INFO_IMPL_HPP__
+#ifndef __batterypilferers_BOX_INFO_IMPL_HPP__
+#define __batterypilferers_BOX_INFO_IMPL_HPP__
 
 #include "box_info.hpp"
 #include "detect_code_internal.hpp"
 
-namespace glasssix::head
+namespace glasssix::batterypilferers
 {
-    inline constexpr exposing::utf8_string_view head_box_info_qualified_name{ u8"g6.head.boxInfo" };
+    inline constexpr exposing::utf8_string_view batterypilferers_box_info_qualified_name{ u8"g6.batterypilferers.boxInfo" };
 
-    class box_info_impl : public exposing::implements<box_info_impl, box_info>, public exposing::make_external_qualified_name<head_box_info_qualified_name>
+    class box_info_impl : public exposing::implements<box_info_impl, box_info>, public exposing::make_external_qualified_name<batterypilferers_box_info_qualified_name>
     {
     public:
         box_info_impl();
