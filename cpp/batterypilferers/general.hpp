@@ -13,6 +13,9 @@
         using namespace glasssix;
         float MIN_BATTERY_CAR_SCALE=40;
         float AERO_RATE_BETWEEN_BATTERY_CAR_AND_PEOPLE=0.2;
+        float IOU_BETWEEN_BATTERY_CAR=0.8;
+        float IOU_BETWEEN_BATTERY=0.8;
+
         struct Bbox
         {
             int x1;
@@ -123,6 +126,8 @@
         {
             std::array<float,3> means{123.675,116.28,103.53};
             std::array<float,3> stds{1.f/58.395,1.f/57.12,1.f/57.375};
+            //     std::array<float,3> means{0,0,0};
+            // std::array<float,3> stds{1.f,1.f,1.f};
             int channels_size = candicate_images.size()*3;
             for (size_t i = 0; i < candicate_images.size(); i++)
             {
@@ -143,7 +148,7 @@
             std::vector<Bbox> valid_crop_box_list;
             for(auto& candicate2 : candicates2)
                 for(auto& candicate1 : candicates1)             
-                    if(bbox_iou(candicate2.car,candicate1.car )>0.98 &&bbox_iou(candicate2.battery,candicate1.battery)<1.5  )
+                    if(bbox_iou(candicate2.car,candicate1.car )>IOU_BETWEEN_BATTERY_CAR &&bbox_iou(candicate2.battery,candicate1.battery)<IOU_BETWEEN_BATTERY  )
                         valid_crop_box_list.push_back(get_min_rect_in_car_person(candicate2.car,candicate2.person));                
             return valid_crop_box_list;
         }
@@ -155,8 +160,6 @@
             std::vector<Bbox> batteries;
             std::vector<Bbox> persons;
             
-
-
             for(auto& var : input)
             {
                 if(var.category==0)
@@ -183,7 +186,7 @@
                 {
                     for(auto& person : persons)
                     {
-                        if( bbox_iou(car,person)>AERO_RATE_BETWEEN_BATTERY_CAR_AND_PEOPLE  )
+                        if( bbox_iou(person,car)>AERO_RATE_BETWEEN_BATTERY_CAR_AND_PEOPLE  )
                         {
                             Bbox rect = get_min_rect_in_car_person(car,person);
                             std::vector<Bbox> tmp_batteries;
