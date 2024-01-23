@@ -21,7 +21,7 @@ namespace glasssix::head
         std::int32_t y2;
         float score;
         int category;
-        //exposing::param_vector<float> key_points;
+        exposing::param_vector<float> key_points;
     };
 
     class detect_code_internal

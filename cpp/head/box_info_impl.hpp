@@ -21,14 +21,7 @@ namespace glasssix::head
         int y2() const;
         float score() const;
         int category() const;
-        //exposing::param_vector<float> key_points() const;
-
-        void set_x1(int input);
-        void set_y1(int input);
-        void set_x2(int input);
-        void set_y2(int input);
-        void set_score(float input);
-        void set_category(int input);
+        exposing::param_vector<float> key_points() const;
 
     private:
         box_info_internal internal_{};
