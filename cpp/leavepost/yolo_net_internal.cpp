@@ -77,8 +77,8 @@ namespace glasssix::leavepost
                 box_info_internal box;
                 box.rect.x      = i.x1();
                 box.rect.y      = i.y1();
-                box.rect.height = i.x2() - i.x1();
-                box.rect.width  = i.y2() - i.y1();
+                box.rect.height = i.y2() - i.y1();
+                box.rect.width  = i.x2() - i.x1();
                 box.label = 1;
                 box.confidence = i.score();
                 result.push_back(exposing::make_as_first<box_info_impl>(box));
@@ -101,7 +101,7 @@ namespace glasssix::leavepost
 		}
 
 
-    private:       
+    private:
         inline float intersection_area(const box_info_internal &a, const box_info_internal &b)
         {
             anchor_box inter = a.rect & b.rect;
@@ -270,15 +270,15 @@ namespace glasssix::leavepost
         }
 
         std::pair<cv::Mat, float> preprocess(cv::Mat& src,int& hpad,int& wpad ,const cv::Size& input_shape = cv::Size(640, 640) )
-        {      
+        {
             float scale = std::min((float)input_shape.width/(float)src.cols, (float)input_shape.height/(float)src.rows);
             cv::Mat cut_image;
             cv::Mat mask_image(input_shape, CV_8UC3, cv::Scalar(114, 114, 114));
             if(src.cols!=input_shape.width || src.rows!=input_shape.height )
             {
                 cv::resize(src, cut_image, cv::Size((int)(src.cols * scale), (int)(src.rows * scale)), cv::INTER_LINEAR);
-                hpad = int((input_shape.height - cut_image.rows)  ) ; 
-                wpad = int((input_shape.width - cut_image.cols)  ) ; 
+                hpad = int((input_shape.height - cut_image.rows)  ) ;
+                wpad = int((input_shape.width - cut_image.cols)  ) ;
                 cv::copyMakeBorder(cut_image, mask_image,  hpad/2, input_shape.height-cut_image.rows-hpad/2, wpad/2 , input_shape.width-cut_image.cols-wpad/2, cv::BORDER_CONSTANT, cv::Scalar{ 114,114,114 });
             }
             else
@@ -297,7 +297,7 @@ namespace glasssix::leavepost
         std::shared_ptr<memory::tensor<std::uint8_t>> cache_;
     };
 
-    yolo_net_internal::yolo_net_internal(std::string_view model_directory, int device) 
+    yolo_net_internal::yolo_net_internal(std::string_view model_directory, int device)
     : impl_{ std::make_unique<impl>(model_directory, device) }
     {
     }
