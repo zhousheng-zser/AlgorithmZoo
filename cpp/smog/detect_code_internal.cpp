@@ -74,7 +74,7 @@ namespace glasssix::smog
        
         std::string version()
         {
-        const std::string algo_module_version = "2.0.1";
+        const std::string algo_module_version = "2.0.2";
 
 #if defined(USE_RKNNAPI) || defined(USE_RKNN2API)
         //#if 0
@@ -271,7 +271,7 @@ namespace glasssix::smog
         {   
             std::vector<smog::box_info_internal> detect_result;
 
-            float conf_thres = param_map.count("smog_thres") ? param_map["smog_thres"] : 0.65f;
+            float conf_thres = param_map.count("conf_thres") ? param_map["conf_thres"] : 0.65f;
             float iou_thres = param_map.count("nms_thres") ? param_map["nms_thres"] : 0.65f;
 
             // preprocess
