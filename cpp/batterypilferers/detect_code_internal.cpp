@@ -130,7 +130,7 @@ namespace glasssix::batterypilferers
         exposing::param_vector<batterypilferers::box_info> detect(const exposing::param_span<std::uint8_t>& bitmap, int channels, int height, int width,
                                                         int roi_x, int roi_y, int roi_width, int roi_height, std::map<std::string, float>& param_map)
         {
-            std::cout<<"dsdsd\n";
+
             float con_thres = param_map.count("conf_thres") ? param_map["conf_thres"] : 0.3f;
             float iou_thres = param_map.count("nms_thres") ? param_map["nms_thres"] : 0.6f;
 
@@ -194,7 +194,6 @@ namespace glasssix::batterypilferers
                 const float* batterypilferers_result = network_result["output"]->cpu_data();//0 -> steal  
                 is_battery_pilferers[i] = batterypilferers_result[0]>batterypilferers_result[1] ? 1 : 0 ;
                 scores[i]=batterypilferers_result[0];
-
             }
 
             auto fin_result= exposing::make_param_vector<box_info>();
