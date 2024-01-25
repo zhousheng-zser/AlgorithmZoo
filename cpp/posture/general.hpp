@@ -241,13 +241,9 @@
             std::vector<float> cat(65*candidate_num);//1*65*8400 = 64*8400 + 1*8400
             for(int i=0;i<65;i++)
             {   
-                int j=0;
-                for(; j<stride_8_num*stride_8_num; j++)             
-                    cat[ i*candidate_num + j] = data_stride_8[i*stride_8_num*stride_8_num + j];
-                for(; j<stride_16_num*stride_16_num+stride_8_num*stride_8_num; j++)              
-                    cat[ i*candidate_num + j] = data_stride_16[i*stride_16_num*stride_16_num + j- stride_8_num*stride_8_num];                        
-                for(; j<stride_32_num*stride_32_num+stride_16_num*stride_16_num+stride_8_num*stride_8_num; j++)
-                    cat[ i*candidate_num + j] = data_stride_32[i*stride_32_num*stride_32_num + j-stride_8_num*stride_8_num  -stride_16_num*stride_16_num ];
+                std::copy(data_stride_8+i*stride_8_num*stride_8_num, data_stride_8+(i+1)*stride_8_num*stride_8_num, cat.data()+i*candidate_num ); 
+                std::copy(data_stride_16+i*stride_16_num*stride_16_num, data_stride_16+(i+1)*stride_16_num*stride_16_num, cat.data()+i*candidate_num+stride_8_num*stride_8_num ); 
+                std::copy(data_stride_32+i*stride_32_num*stride_32_num, data_stride_32+(i+1)*stride_32_num*stride_32_num, cat.data()+i*candidate_num+stride_8_num*stride_8_num+stride_16_num*stride_16_num ); 
             }
 
             //process the candidate xywh begin  

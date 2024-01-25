@@ -244,7 +244,7 @@ namespace glasssix::sleep
 
             int candicate_box_num = 0;
             std::vector<int> category_mask;
-            auto real_forwards = Posture_Concat640(forwards,17, 0.01 ,candicate_box_num ,posture_add_weight, posture_mul_weight, category_mask);
+            auto real_forwards = Posture_Concat640(forwards,17, conf_threshold ,candicate_box_num ,posture_add_weight, posture_mul_weight, category_mask);
 
             auto nms_input640  = XYXY2WH(real_forwards, pad_h, pad_w, 1.f/ratio, 17, candicate_box_num, category_mask);
 

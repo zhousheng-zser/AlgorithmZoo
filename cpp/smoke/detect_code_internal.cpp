@@ -60,44 +60,41 @@ namespace glasssix::smoke
             auto  empty_map_abi             = exposing::make_param_hash_map<exposing::param_string, float>();
             float conf_threshold            = param_map.count("conf_thres") ? param_map["conf_thres"] : 0.6f;
             float smoke_conf_thres          = param_map.count("smoke_conf_thres") ? param_map["smoke_conf_thres"] : 0.45f;
-            float little_target_conf_thres  = param_map.count("little_target_conf_thres") ? param_map["little_target_conf_thres"] : 0.2f;
 
             empty_map_abi.add_or_update("conf_thres",conf_threshold);
             empty_map_abi.add_or_update("nms_thres", 0.45);
-            empty_map_abi.add_or_update("little_target_conf_thres",little_target_conf_thres);
 
             // exposing::param_vector<posture::box_info> posture_info_list = posture_instance_.detect(bitmap, channels, height, width, 0, 0, width, height, empty_map_abi);
             
+            cv::Mat draw = image.clone();
 
             int indexxx=0;
             // std::cout<<posture_info_list.size()<<std::endl;
             for (auto pinfo : posture_info_list) 
             {
                 PostureInfo postureInfo{ pinfo };
-
+                int color_index =0;
                 // for(auto var : postureInfo.Kpoints)
                 // {
-                //     cv::circle(image,  cv::Point(int( var.first.x ), int(var.first.y  ) ), 3, CV_RGB(125, 255, 0), 10);     
+                        // cv::circle(draw,  cv::Point(int( var.first.x ), int(var.first.y  ) ), 3, CV_RGB(0, 0,255), 3);  
                 // }
 
                 Smoke_Point smoke_point(postureInfo.x1,postureInfo.y1,postureInfo.x2,postureInfo.y2,postureInfo.score,postureInfo.Kpoints );
                 safe_crop_rect detect_rect = smoke_point.get_upper_body_area(image.cols,image.rows);
                 safe_crop_rect head_rect = smoke_point.get_head_area(image.cols,image.rows);
                 
-                // cv::rectangle(image, cv::Point(detect_rect.x1, detect_rect.y1), cv::Point(detect_rect.x2, detect_rect.y2), cv::Scalar(0, 0, 255), 2);
-                // std::cout<<"smoke_point.is_detect(): "<<smoke_point.is_detect()<<std::endl;
+                // cv::rectangle(draw, cv::Point(detect_rect.x1, detect_rect.y1), cv::Point(detect_rect.x2, detect_rect.y2), cv::Scalar(0, 0, 255), 2);
+                // cv::rectangle(draw, cv::Point(head_rect.x1, head_rect.y1), cv::Point(head_rect.x2, head_rect.y2), cv::Scalar(255, 255, 0), 2);
+        
                 if(! smoke_point.is_detect())
                     continue;
-                cv::Mat output = image;
-
-
-            //     cv::rectangle(output, cv::Point(detect_rect.x1, detect_rect.y1), cv::Point(detect_rect.x2, detect_rect.y2), cv::Scalar(0, 0, 255), 2);
-            //     cv::rectangle(output, cv::Point(head_rect.x1, head_rect.y1), cv::Point(head_rect.x2, head_rect.y2), cv::Scalar(255, 255, 0), 2);
-            //     cv::imwrite("..//" + std::to_string(detect_rect.x1)+".jpg",output);
-
 
                 cv::Mat cigarette_detect = image(cv::Range(detect_rect.y1, detect_rect.y2), cv::Range(detect_rect.x1, detect_rect.x2));
+               
                 auto smoke_detect_shape = cv::Size(320,  320);
+
+                // cv::rectangle(draw, cv::Point(cigarette_detect.x1, cigarette_detect.y1), cv::Point(cigarette_detect.x2, cigarette_detect.y2), cv::Scalar(0, 0, 255), 2);
+                // cv::imwrite("..//" + std::to_string(10)+".jpg",draw);
 
                 cv::Mat cigarette_detect_blob;
                 float smoke_ratio = 0;
@@ -121,16 +118,10 @@ namespace glasssix::smoke
 
                 for(auto& cigrate:nms_results)
                 {
-                    // std::cout<<"cigr conf: "<<cigrate[4]<<" " <<std::endl;
                     int cigratex1=std::round( cigrate[0] +detect_rect.x1)>0?std::round( cigrate[0] +detect_rect.x1):0  ;
                     int cigratey1=std::round( cigrate[1] +detect_rect.y1)>0?std::round( cigrate[1] +detect_rect.y1):0  ;
                     int cigratex2=std::round( cigrate[2] +detect_rect.x1)<image.cols?std::round( cigrate[2] +detect_rect.x1):image.cols ;
                     int cigratey2=std::round( cigrate[3] +detect_rect.y1)<image.rows?std::round( cigrate[3] +detect_rect.y1):image.rows ;
-
-                    // if(indexxx==0)
-                    // { 
-                        // cv::rectangle(image, cv::Point(cigratex1, cigratey1), cv::Point(cigratex2, cigratey2), cv::Scalar(0, 255, 0), 2);
-                    // }
                  
                     Cigrate_box a(cigratex1,cigratey1,cigratex2,cigratey2);
 
@@ -141,11 +132,12 @@ namespace glasssix::smoke
 
                     float iou = IOU_compute(a, b);
                     smoke::box_info_internal temp_box;
-                        temp_box.x1 = cigratex1;
-                        temp_box.x2 = cigratex2;
-                        temp_box.y1 = cigratey1;
-                        temp_box.y2 = cigratey2;
-                        temp_box.confidence = cigrate[4];
+
+                        temp_box.x1 = postureInfo.x1;
+                        temp_box.x2 = postureInfo.x2;
+                        temp_box.y1 = postureInfo.y1;
+                        temp_box.y2 = postureInfo.y2;
+                        temp_box.confidence = postureInfo.score;
 
                     if(iou>0.f)
                     {
@@ -159,9 +151,7 @@ namespace glasssix::smoke
                     }
                 }
                 indexxx++;
-                // cv::imwrite("../smoke.jpg",image);
             }
-
 
             for (auto& box : results)
             {

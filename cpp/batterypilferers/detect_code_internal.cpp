@@ -106,7 +106,7 @@ namespace glasssix::batterypilferers
 
             int candicate_num=0;
             std::vector<int> class_mask;
-            auto real_output = Yolov8s_Concat(forwards, conf_threshold, candicate_num,add_weight,mul_weight,class_mask);
+            auto real_output = Yolov8s_Concat(forwards, conf_threshold, candicate_num,add_weight.data(),mul_weight.data(),class_mask);
 
             auto nms_input640  = XYXY2WH(real_output, pad_h, pad_w, 1.f/ratio, candicate_num, class_mask);
 
@@ -183,7 +183,7 @@ namespace glasssix::batterypilferers
                     cv::Mat candicate_detect = images[j](cv::Range(crop_rect[0].y1, crop_rect[0].y2), cv::Range(crop_rect[0].x1, crop_rect[0].x2));
                     cv::resize(candicate_detect, candicate_detect, cv::Size(256, 256));
                     candicate_images.push_back(candicate_detect);    
-                    // cv::imwrite( std::to_string(j)+".jpg" ,candicate_detect);
+                    cv::imwrite( std::to_string(j)+".jpg" ,candicate_detect);
                 }
 
                 std::vector<float> candicate_steal(65536*24);
