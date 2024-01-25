@@ -90,7 +90,7 @@ namespace glasssix::leavepost
 
         std::string version()
 		{
-			const std::string algo_module_version = "1.0.1";
+			const std::string algo_module_version = "1.0.2";
 
 			// std::string nn_frame_version = net_instance_.version();
 
