@@ -148,8 +148,9 @@ using namespace glasssix;
         int y2;
         float score;
         bool quality_is_ok;
+        std::vector<std::pair<cv::Point,float>> nose_eye;
         std::vector<std::pair<cv::Point,float>> nose_eye_ear;//left right
-        std::vector<std::pair<cv::Point,float>> shoulder_elbow_wrist;//left right
+        std::vector<std::pair<cv::Point,float>> nose_shoulder_elbow_wrist;//left right
 
         Smoke_Point(int x11,int y11, int x22,int y22,float score, std::vector<std::pair<cv::Point,float>>&PersonKpoints )
         {
@@ -160,15 +161,19 @@ using namespace glasssix;
             score = score;
             int key_point_size = PersonKpoints.size();
 
+            nose_eye.resize(3);
+            for (size_t i = 0; i < 3; i++) 
+                nose_eye[i]=PersonKpoints[i];
+
             nose_eye_ear.resize(5);
             for (size_t i = 0; i < 5; i++) 
                 nose_eye_ear[i]=PersonKpoints[i];
 
-            shoulder_elbow_wrist.resize(5);
-            shoulder_elbow_wrist[0]=PersonKpoints[0];
+            nose_shoulder_elbow_wrist.resize(5);
+            nose_shoulder_elbow_wrist[0]=PersonKpoints[0];
 
             for (size_t i = 5; i < 9; i++)        
-                shoulder_elbow_wrist[i-4]=PersonKpoints[i];
+                nose_shoulder_elbow_wrist[i-4]=PersonKpoints[i];
 
         }
 
@@ -217,8 +222,8 @@ using namespace glasssix;
             float head_y2;
             float width; 
             float height;
-            std::tie(head_x1, head_x2, width) =  get_width(nose_eye_ear);
-            std::tie(head_y1, head_y2, height) = get_height(nose_eye_ear);
+            std::tie(head_x1, head_x2, width) =  get_width(  nose_eye_ear);
+            std::tie(head_y1, head_y2, height) = get_height(nose_eye);
             head_x1 = nose_eye_ear[0].first.x - width/3.5;
             head_x2 = nose_eye_ear[0].first.x + width/3.5;
             head_y1 = head_y2 ;
@@ -237,9 +242,9 @@ using namespace glasssix;
             float heights;
             upper_body_x1 = x1;
             upper_body_x2 = x2;
-            std::tie(upper_body_y1, upper_body_y2, heights) = get_height(shoulder_elbow_wrist);
-            upper_body_y1-=20;
-            upper_body_y2+=20;
+            std::tie(upper_body_y1, upper_body_y2, heights) = get_height(nose_shoulder_elbow_wrist);
+            // upper_body_y1-=20;
+            // upper_body_y2+=20;
             safe_crop_rect rect(upper_body_x1,upper_body_x2,upper_body_y1,upper_body_y2,width,height);
 
             return rect;
@@ -326,29 +331,14 @@ using namespace glasssix;
                 if( data20_conf[i] >conf  )
                     match_index.push_back(i+stride_num4*stride_num4+stride_num8*stride_num8+stride_num16*stride_num16);
 
-            // std::cout<<"var:\n";
-            // for(auto var : match_index)
-            // {
-            //     std::cout<<var<<"\t";
-            // }
-            // std::cout<<"\n";
-            
             //concat the 80*40 40*40 20*20 
             std::vector<float> cat(65*candidate_num);//1*65*8400 = 64*8400 + 1*8400
             for(int i=0;i<65;i++)
             {   
-                int j=0;
-                for(; j<stride_num4*stride_num4; j++)
-                    cat[ i*candidate_num + j] = data160[i*stride_num4*stride_num4 + j];
-
-                for(; j<stride_num4*stride_num4+stride_num8*stride_num8; j++)
-                    cat[ i*candidate_num + j] = data80[i*stride_num8*stride_num8 + j - stride_num4*stride_num4];
-
-                for(; j<stride_num8*stride_num8+stride_num16*stride_num16 + stride_num4*stride_num4; j++)
-                    cat[ i*candidate_num + j] = data40[i*stride_num16*stride_num16 + j - stride_num8*stride_num8 - stride_num4*stride_num4];     
-
-                for(; j<stride_num8*stride_num8+stride_num16*stride_num16+stride_num4*stride_num4+stride_num32*stride_num32; j++)
-                    cat[ i*candidate_num + j] = data20[i*stride_num32*stride_num32 + j - stride_num8*stride_num8 - stride_num16*stride_num16 - stride_num4*stride_num4 ];
+                std::copy(data160+i*stride_num4*stride_num4, data160+(i+1)*stride_num4*stride_num4, cat.data()+i*candidate_num ); 
+                std::copy(data80+i*stride_num8*stride_num8, data80+(i+1)*stride_num8*stride_num8, cat.data()+i*candidate_num+stride_num4*stride_num4 ); 
+                std::copy(data40+i*stride_num16*stride_num16, data40+(i+1)*stride_num16*stride_num16, cat.data()+i*candidate_num+stride_num4*stride_num4+stride_num16*stride_num16 );         
+                std::copy(data20+i*stride_num32*stride_num32, data20+(i+1)*stride_num32*stride_num32, cat.data()+i*candidate_num+stride_num4*stride_num4+stride_num16*stride_num16+stride_num32*stride_num32 );                    
             }
 
             //process the candidate xywh begin  
