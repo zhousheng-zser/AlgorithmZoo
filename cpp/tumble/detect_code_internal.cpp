@@ -83,7 +83,7 @@ namespace glasssix::tumble
 
         std::string version()
         {
-			const std::string algo_module_version = "2.2.3";
+			const std::string algo_module_version = "1.0.0";
 
 #if defined(USE_RKNNAPI) || defined(USE_RKNN2API)
 			//#if 0
@@ -278,14 +278,12 @@ namespace glasssix::tumble
             std::vector<float> cat(66*candidate_num);//1*65*8400 = 64*8400 + 1*8400
             for(int i=0;i<66;i++)
             {
-                int j=0;
-                for(; j<stride_8*stride_8; j++)
-                    cat[ i*candidate_num + j] = data160[i*stride_8*stride_8 + j];
-                for(; j<stride_16*stride_16+stride_8*stride_8; j++)
-                    cat[ i*candidate_num + j] = data80[i*stride_16*stride_16 + j-25600];     
-                for(; j<stride_32*stride_32+stride_16*stride_16+stride_8*stride_8; j++)
-                    cat[ i*candidate_num + j] = data40[i*stride_32*stride_32 + j-32000 ];
+                std::copy(data160+i*stride_8*stride_8, data160+(i+1)*stride_8*stride_8, cat.data()+i*candidate_num ); 
+                std::copy(data80+i*stride_16*stride_16, data80+(i+1)*stride_16*stride_16, cat.data()+i*candidate_num+stride_8*stride_8); 
+                std::copy(data40+i*stride_32*stride_32, data40+(i+1)*stride_32*stride_32, cat.data()+i*candidate_num+stride_8*stride_8+stride_16*stride_16 ); 
             }
+
+
 
             //process the candidate xywh begin  
             //tranpose and softmax
@@ -420,7 +418,7 @@ namespace glasssix::tumble
         */
         std::vector<tumble::box_info_internal> run_detect(cv::Mat& image, std::map<std::string, float>& param_map)
         {
-            float conf_thres = param_map.count("conf_thres") ? param_map["conf_thres"] : 0.25f;
+            float conf_thres = param_map.count("conf_thres") ? param_map["conf_thres"] : 0.6f;
             float iou_thres  = param_map.count("nms_thres") ? param_map["nms_thres"] : 0.65f;     
 
             // std::cout<<"conf_thres:"<<conf_thres<<std::endl;
