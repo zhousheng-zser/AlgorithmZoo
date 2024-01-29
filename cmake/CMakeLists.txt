@@ -174,6 +174,7 @@ if(BUILD_SAFE_PRODUCTION_SDK)
 	add_subdirectory(Pump_Light)
 	add_subdirectory(Fighting)
 	add_subdirectory(Vehicle)
+	add_subdirectory(Vesthelmet) #craneman
 endif()
 if(BUILD_GENERAL_CV_SDK)
 	add_subdirectory(Gungnir)
