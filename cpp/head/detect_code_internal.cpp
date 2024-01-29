@@ -126,7 +126,7 @@ std::string version()
 
             auto  network_results = net_detect_->forward(blob.data, { 1, blob.rows, blob.cols,blob.channels() }, RKNN_TENSOR_NHWC);
 
-            std::vector<std::string>  out_names={"onnx::Reshape_356","onnx::Reshape_341","onnx::Reshape_326"};
+            std::vector<std::string>  out_names={"355","340","output0"};
 
             std::vector<std::shared_ptr<memory::tensor<float>>> forwards;
 
@@ -276,17 +276,14 @@ std::string version()
                     match_index.push_back(i+ stride_8_num*stride_8_num + stride_16_num*stride_16_num );
 
             //concat the 80*40 40*40 20*20 
-            std::vector<float> cat(65*candidate_num);//1*65*candidate_num = 64*candidate_num + 1*candidate_num
+            std::vector<float> cat(65*candidate_num);//1*65*candidate_num = 64*candidate_num + 1*candidate_num        
             for(int i=0,j=0;i<65;i++,j=0)
             {   
-                for(; j<stride_8_num*stride_8_num; j++)             
-                    cat[ i*candidate_num + j] = data_stride_8[i*stride_8_num*stride_8_num + j];
-                for(; j<stride_16_num*stride_16_num+stride_8_num*stride_8_num; j++)              
-                    cat[ i*candidate_num + j] = data_stride_16[i*stride_16_num*stride_16_num + j- stride_8_num*stride_8_num];                        
-                for(; j<stride_32_num*stride_32_num+stride_16_num*stride_16_num+stride_8_num*stride_8_num; j++)
-                    cat[ i*candidate_num + j] = data_stride_32[i*stride_32_num*stride_32_num + j-stride_8_num*stride_8_num  -stride_16_num*stride_16_num ];
+                std::copy(data_stride_8+i*stride_8_num*stride_8_num, data_stride_8+(i+1)*stride_8_num*stride_8_num, cat.data()+i*candidate_num ); 
+                std::copy(data_stride_16+i*stride_16_num*stride_16_num, data_stride_16+(i+1)*stride_16_num*stride_16_num, cat.data()+i*candidate_num+stride_8_num*stride_8_num ); 
+                std::copy(data_stride_32+i*stride_32_num*stride_32_num, data_stride_32+(i+1)*stride_32_num*stride_32_num, cat.data()+i*candidate_num+stride_8_num*stride_8_num+stride_16_num*stride_16_num ); 
             }
-
+            
             //tranpose and softmax
             std::vector<float> reshape_box(candidate_num*64);
             tranpose(cat.data(),reshape_box.data(),64,candidate_num );

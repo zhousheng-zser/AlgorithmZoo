@@ -36,7 +36,8 @@ namespace glasssix::fighting
 		{
 			std::vector<std::string> empty_hold;
 			if (BATCH_ == 10) {
-				instance_ = std::make_unique<rknnwrapper::rknn_wrapper>(empty_hold, std::string(model_directory) + "/" + "fight_10b" + ".rknn", device);
+				//instance_ = std::make_unique<rknnwrapper::rknn_wrapper>(empty_hold, std::string(model_directory) + "/" + "fight_10b" + ".rknn", device);
+				nonm_instance_ = std::make_unique<rknnwrapper::rknn_wrapper>(empty_hold, std::string(model_directory) + "/" + "fight_10b.nnm" + ".rknn", device); // not normalization
 				CROP_SIZE_H = 256;
 				CROP_SIZE_W = 460;
 			}
@@ -60,14 +61,17 @@ namespace glasssix::fighting
 				std::memcpy(InteImage.data, bitmap.data() + height * width * 3 * i, sizeof(uint8_t) * height * width * 3);
 
 				if (BATCH_ == 10) {
-					InteImage = letter_image_(InteImage, 460, 256);
+					cv::resize(InteImage, InteImage, cv::Size2i{ 460, 256 });
+
+					cv::cvtColor(InteImage, InteImage, cv::COLOR_BGR2RGB);// dbg("cvtColor");
+					//InteImage = letter_image_(InteImage, 460, 256);
 				}
 				BatchImgs.push_back(InteImage);
 			}
 
 			float fight_score = -1.f;
 			if (BATCH_ == 10) {
-				fight_score = detect_10B(BatchImgs);
+				fight_score = detect_10B_handnormalization(BatchImgs);
 			}
 			else if (BATCH_ == 8) {
 				fight_score = detect_8B(BatchImgs);
@@ -75,6 +79,40 @@ namespace glasssix::fighting
 			return fight_score;
 		}
 
+		float detect_10B_handnormalization(const std::vector<cv::Mat>& BatchImgs) {
+			CHECK_EQ(BATCH_, 10);
+			static constexpr int channel_ = 3; //RGB
+			const int HWstep = CROP_SIZE_H * CROP_SIZE_W;
+			cv::Mat inputMat(cv::Size(HWstep, BATCH_), CV_8UC3);// use CV_8UC3Mat to simulate (BATCH_, HWstep, Channel)Tensor, and than will transpose -> (HWstep, BATCH_, Channel)/or means(Hstep, Wstep, BATCH_ * Channel)
+			int inpuCopyFlag = 0;
+
+			for (auto crop : BatchImgs) {
+				if (!crop.isContinuous()) crop = crop.clone();
+				size_t crop_count = crop.step[0] * crop.rows;
+				std::copy(crop.data, crop.data + crop_count, inputMat.data + inpuCopyFlag);
+				inpuCopyFlag += crop_count;
+			}
+			cv::transpose(inputMat, inputMat);//(BATCH_, HWstep, Channel) -> (HWstep, BATCH_, Channel)
+
+			std::array<float, 3> means_v{ 123.675, 116.28, 103.53 };
+			std::array<float, 3> stand_v{ 58.395, 57.12, 57.375 };
+
+			auto tensor_u8 = std::make_shared<memory::tensor<std::uint8_t>>(std::vector<int>{1, CROP_SIZE_H, CROP_SIZE_W, BATCH_* channel_}, -1, memory::NCHW);
+			std::copy(inputMat.data, inputMat.data + inputMat.step[0] * inputMat.rows, tensor_u8->mutable_cpu_data());
+			auto tensor_f32 = tensor_u8 | memory::tensor_convert_to<float>;
+			for (int i = 0; i < tensor_f32->count(); i++) {
+				tensor_f32->mutable_cpu_data()[i] = (tensor_f32->mutable_cpu_data()[i] - means_v[i % 3]) / stand_v[i % 3];
+			}
+
+			auto ts_f32_rst_map = nonm_instance_->forward(tensor_f32->mutable_cpu_data(), { 1, 256, 460, 30 }, RKNN_TENSOR_NHWC);//std_instance_ model param mean{0,0,0} stand{1,1,1}
+			auto det_scores = ts_f32_rst_map.begin()->second->cpu_data();
+
+			//std::cout << "ft " << det_zscores[0] << ",  no " << det_scores[1] << std::endl;
+			return det_scores[0];
+		}
+
+
+		//last version 10B
 		float detect_10B(const std::vector<cv::Mat>& BatchImgs) {
 			// three crop img and sort out
 			CHECK_EQ(BATCH_, 10);
@@ -135,7 +173,7 @@ namespace glasssix::fighting
 
 		std::string version()
 		{
-			const std::string algo_module_version = "2.0.0";
+			const std::string algo_module_version = "2.1.0";
 			std::string nn_frame_version = instance_->version();
 			return fmt::format(R"({ {"nn_frame_version":"{}", "algo_module_version" : "{}"} })", nn_frame_version, algo_module_version);
 		}
@@ -236,6 +274,7 @@ namespace glasssix::fighting
 
 	private:
 		std::unique_ptr<rknnwrapper::rknn_wrapper> instance_;
+		std::unique_ptr<rknnwrapper::rknn_wrapper> nonm_instance_;
 		int BATCH_;
 		int CROP_SIZE_H;
 		int CROP_SIZE_W;
