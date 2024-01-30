@@ -47,7 +47,7 @@ namespace glasssix::helmet
         exposing::param_vector<helmet::box_info> detect(const exposing::param_span<std::uint8_t>& bitmap, int channels, int height, int width, int roi_x, int roi_y, int roi_width, int roi_height, std::map<std::string, float>& param_map)
         {
 
-            float MIN_HEAD = param_map.count("min_size") ? param_map["min_size"] : 48.f;
+            float MIN_HEAD = param_map.count("min_size") ? param_map["min_size"] : 24.f;
             float con_thres = param_map.count("conf_thres") ? param_map["conf_thres"] : 0.5f;
             float iou_thres = param_map.count("nms_thres") ? param_map["nms_thres"] : 0.6f;
 
@@ -57,8 +57,6 @@ namespace glasssix::helmet
             }
             CHECK_EQ(channels, 3);
             CHECK_EQ(bitmap.size(), channels * height * width);
-
-
 
             cv::Mat image(cv::Size(width, height), CV_8UC3);
             std::memcpy(image.data, bitmap.data(), sizeof (uint8_t) * channels * height * width);
@@ -136,7 +134,7 @@ namespace glasssix::helmet
         }
 
       
-        std::tuple<cv::Mat, float> preprocess_detection(cv::Mat src,int& pad_h,int& pad_w,  cv::Size input_shape = cv::Size(640, 640) )
+        cv::Mat preprocess_detection(cv::Mat& src, cv::Size input_shape = cv::Size(96, 96) )
         {
             float scale = std::min((float)input_shape.width/(float)src.cols, (float)input_shape.height/(float)src.rows);
             cv::Mat cut_image;
@@ -145,8 +143,8 @@ namespace glasssix::helmet
             {      
                 cv::resize(src, cut_image, cv::Size((int)(src.cols * scale), (int)(src.rows * scale)), cv::INTER_LINEAR);
 
-                pad_h = int((input_shape.height - cut_image.rows) /2 ) ; 
-                pad_w = int((input_shape.width - cut_image.cols) /2 ) ; 
+                auto pad_h = int((input_shape.height - cut_image.rows) /2 ) ; 
+                auto pad_w = int((input_shape.width - cut_image.cols) /2 ) ; 
                 cv::copyMakeBorder(cut_image, mask_image, pad_h, input_shape.height-cut_image.rows-pad_h, pad_w, input_shape.width-cut_image.cols-pad_w, cv::BORDER_CONSTANT, cv::Scalar{ 114,114,114 });
             }
             else 
@@ -154,7 +152,7 @@ namespace glasssix::helmet
                 src.copyTo(mask_image);     
             }
             cv::cvtColor(mask_image, mask_image, cv::COLOR_BGR2RGB);
-            return {mask_image,scale};
+            return mask_image;
         }
 
 
@@ -185,29 +183,19 @@ namespace glasssix::helmet
             {
 
                 cv::Mat crop = image(cv::Range(head.y1,head.y2), cv::Range(head.x1,head.x2));
+                if( crop.cols<24 || crop.rows<24 )
+                {
+                    continue;
+                }
 
-                cv::Mat headimg;
+                // cv::Mat headimg;
                 crop = hisEqulColor(crop);
-                
-                if( crop.cols>96 && crop.rows>96 )
-                {
-                     cv::resize(crop, headimg, cv::Size((int)(96), (int)(96)), cv::INTER_LINEAR);
-                }
-                else
-                {
-                    float scale_second = 96.f /float(crop.cols)> 96.f /float(crop.rows) ? 96.f /float(crop.rows) : 96.f /float(crop.cols);//返回较小的放缩系数
-                    cv::resize(crop, headimg, cv::Size(std::round(scale_second*crop.cols ), std::round(crop.rows*scale_second)), cv::INTER_LINEAR);
-                    int border_w =   96-std::round(scale_second*crop.cols);
-                    int border_h =   96-std::round(scale_second*crop.rows);
-                    int top_h = border_h/2;
-                    int left_w = border_w/2;
-                    cv::copyMakeBorder(headimg, headimg, top_h, border_h-top_h, left_w, 
-                               border_w-left_w, cv::BORDER_CONSTANT, cv::Scalar{ 0,0,0 });
-                }
 
+                auto headimg = preprocess_detection(crop);
+                
                 auto  network_result = net_class_.forward(headimg.data, { 1, headimg.rows, headimg.cols,headimg.channels() }, RKNN_TENSOR_NHWC);
                
-                const float *helmet_conf=network_result["output"]->cpu_data();
+                float *helmet_conf=network_result["output0"]->mutable_cpu_data();
 
                 Softmax(helmet_conf, 3 );
                
