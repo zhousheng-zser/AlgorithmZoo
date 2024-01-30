@@ -202,13 +202,14 @@ namespace glasssix::playphone
 	}
 
 	std::vector<ObjBox> RknnYolov8Pipline::detect(cv::Mat image, cv::Point image_start, float conf_thres, float iou_thres) {
-		constexpr int imageResize = 640;
+		constexpr int imageResize = 512;
 
 		//image = playphone_HSVCover_preprocess(image);
 		cv::Mat letter_img = letterbox(image, imageResize, imageResize);
 		cv::cvtColor(letter_img, letter_img, cv::COLOR_BGR2RGB);
 
-		//cv::imwrite("/home/glasssix/yhc/call_frame/resource/playphone/letter_img.jpg", letter_img);
+//std::string fext = std::to_string(image_start.x);
+//cv::imwrite("/home/glasssix/yhc/AlgorithmZoo/cpp/playphone/letter_img"+fext+".png", letter_img);
 
 
 		std::vector<ObjBox> obj_list;
@@ -225,7 +226,7 @@ namespace glasssix::playphone
 			if (conf > conf_thres)
 			{
 				//ObjBox phonebox(pdata[0], pdata[1], pdata[2], pdata[3], conf); // no-cut model
-				ObjBox phonebox(pdata[0] * 640, pdata[1] * 640, pdata[2] * 640, pdata[3] * 640, conf);
+				ObjBox phonebox(pdata[0] * imageResize, pdata[1] * imageResize, pdata[2] * imageResize, pdata[3] * imageResize, conf);
 				obj_list.push_back(phonebox);
 			}
 		}
