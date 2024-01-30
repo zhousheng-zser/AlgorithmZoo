@@ -90,6 +90,8 @@ namespace glasssix::playphone
 		std::vector<float> Kpoints_score;
 		//cv::Rect color_cut;
 
+		cv::Rect origin_image_border;
+
 		static constexpr float vaild_face_thres = 0.8f;
 		static constexpr float vaild_hand_thres = 0.6f;
 
@@ -112,32 +114,34 @@ namespace glasssix::playphone
 
 		}
 
+		void set_origin_image_border(int x, int y, int width, int height) {
+			origin_image_border = cv::Rect(x, y, width, height);
+		}
+
 		cv::Rect get_playphone_det_region() {
 			int people_width = xmax - xmin;
 			int people_height = ymax - ymin;
 
-			constexpr float expand_people_ratio = 0.1f;
-			int top = ymin - people_height * expand_people_ratio;
+			constexpr float expand_people_ratio = 0.15f;
 			int left = xmin - people_width * expand_people_ratio;
 			int right = xmax + people_width * expand_people_ratio;
+			int top = ymin - people_height * expand_people_ratio;
+			//int bottom = ymax + people_height * expand_people_ratio;
 
 			int crotch_bottom = std::max(Kpoints[11].y, Kpoints[12].y);
 			int knee_bottom = std::max(Kpoints[13].y, Kpoints[14].y);
 			int bottom = std::max(crotch_bottom, knee_bottom);
-
-			return cv::Rect{
+			cv::Rect uprexpand{
 				cv::Point(std::round(left), std::round(top)),
 				cv::Point(std::round(right), std::round(bottom)) };
+
+			cv::Rect intersect = uprexpand & origin_image_border; //border limit
+			return intersect;
 		}
 
 		std::vector<cv::Rect> get_playphone_hands_region() {
-			// get handbox`s side length from head-cut-height(eye to shoulder)
-			std::vector<cv::Point> vis_pts{ Kpoints[0] ,Kpoints[1],Kpoints[2],Kpoints[3],Kpoints[4],Kpoints[5],Kpoints[6] };
-			std::sort(vis_pts.begin(), vis_pts.end(), [](const cv::Point& A, const cv::Point& B) {return A.y > B.y; });
-			auto vis_y_bottom = vis_pts.begin()->y;
-			auto vis_y_top = vis_pts.rbegin()->y;
-			auto vis_h = vis_y_bottom - vis_y_top;
-			int handbox_len = vis_h * 0.75f;
+			auto upperbody_img_rect = get_playphone_det_region();
+			int handbox_len = std::max(upperbody_img_rect.width, upperbody_img_rect.height) * 0.125f;
 
 			auto centerRect = [](cv::Point center, int W, int H) {
 				cv::Point offset(W / 2, H / 2);
