@@ -28,7 +28,7 @@
 #include "../posture/detect_code.hpp"
 #include "../head/detect_code.hpp"
 
-namespace glasssix::vesthelmet
+namespace glasssix::pump_vesthelmet
 {
     class detect_code_internal::impl
     {
@@ -39,13 +39,13 @@ namespace glasssix::vesthelmet
 
             posture_instance_ = glasssix::exposing::make_exported_interface<posture::detect_code>(exposing::param_string(model_directory), device, 1);
             head_instance_ = glasssix::exposing::make_exported_interface<head::detect_code>(exposing::param_string(model_directory), device);
-            vest_cls_instance_ = std::make_unique<rknnwrapper::rknn_wrapper>(phai,std::string(model_directory) + "/" + "vesthelmet_vest_cls.rknn", device);
-            helmet_cls_instance_ = std::make_unique<rknnwrapper::rknn_wrapper>(phai,std::string(model_directory) + "/" + "vesthelmet_helmet_cls.rknn", device);
+            vest_cls_instance_ = std::make_unique<rknnwrapper::rknn_wrapper>(phai,std::string(model_directory) + "/" + "pump_vesthelmet_vest_cls.rknn", device);
+            helmet_cls_instance_ = std::make_unique<rknnwrapper::rknn_wrapper>(phai,std::string(model_directory) + "/" + "pump_vesthelmet_helmet_cls.rknn", device);
         }
 
-        exposing::param_vector<vesthelmet::box_info> detect(exposing::param_span<std::uint8_t> bitmap, int channels, int height, int width, std::map<std::string, float>& param_map_std)
+        exposing::param_vector<pump_vesthelmet::box_info> detect(exposing::param_span<std::uint8_t> bitmap, int channels, int height, int width, std::map<std::string, float>& param_map_std)
         {
-            auto result = exposing::make_param_vector<vesthelmet::box_info>();
+            auto result = exposing::make_param_vector<pump_vesthelmet::box_info>();
             std::vector<box_info_internal> output;
 
             if (bitmap.empty())
@@ -66,7 +66,7 @@ namespace glasssix::vesthelmet
             {
                 PostureInfo postureInfo{ pinfo };
 
-                if (postureInfo.if_vesthelmet_bodyerr()) {
+                if (postureInfo.if_pump_vesthelmet_bodyerr()) {
                     continue; //body error
                 }
 
@@ -239,7 +239,7 @@ namespace glasssix::vesthelmet
     {
     }
 
-    exposing::param_vector<vesthelmet::box_info> detect_code_internal::detect(exposing::param_span<std::uint8_t> bitmap, int channels, int height, int width, std::map<std::string, float>& param_map_std)
+    exposing::param_vector<pump_vesthelmet::box_info> detect_code_internal::detect(exposing::param_span<std::uint8_t> bitmap, int channels, int height, int width, std::map<std::string, float>& param_map_std)
     {
         return impl_->detect(bitmap, channels, height, width, param_map_std);
     }

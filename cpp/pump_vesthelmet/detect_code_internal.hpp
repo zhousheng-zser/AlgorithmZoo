@@ -14,7 +14,7 @@
 #include <opencv2/core.hpp>
 #include <Primitives/logger.hpp>
 
-namespace glasssix::vesthelmet
+namespace glasssix::pump_vesthelmet
 {
 
 	struct PostureInfo
@@ -81,7 +81,7 @@ namespace glasssix::vesthelmet
 				cv::Point(std::round(xmax), std::round(ymax)) };
 		}
 
-		bool if_vesthelmet_bodyerr() {
+		bool if_pump_vesthelmet_bodyerr() {
 			CHECK_EQ(Kpoints_score.size(), Kpoints.size());
 			int err_counter = 0;
 			std::array<int, 4> check_idxs{ 5,6,11,12 };
@@ -137,7 +137,7 @@ namespace glasssix::vesthelmet
 
         virtual ~detect_code_internal();
 
-        exposing::param_vector<vesthelmet::box_info> detect(exposing::param_span<std::uint8_t> bitmap, int channels, int height, int width, std::map<std::string,float>& param_map_std);
+        exposing::param_vector<pump_vesthelmet::box_info> detect(exposing::param_span<std::uint8_t> bitmap, int channels, int height, int width, std::map<std::string,float>& param_map_std);
 
         std::string version();
 
