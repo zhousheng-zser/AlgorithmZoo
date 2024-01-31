@@ -12,7 +12,7 @@
 
         using namespace glasssix;
         float MIN_BATTERY_CAR_SCALE=40;
-        float AERO_RATE_BETWEEN_BATTERY_CAR_AND_PEOPLE=0.2;
+        float AERO_RATE_BETWEEN_BATTERY_CAR_AND_PEOPLE=0.1;
         float IOU_BETWEEN_BATTERY_CAR=0.8;
         float IOU_BETWEEN_BATTERY=0.8;
 
@@ -65,7 +65,7 @@
 
         float bbox_iou(Bbox &input1,Bbox &input2 )
         {
-            float w = std::max(input1.x2, input2.x2 ) - std::min(input1.x1,input1.x1);
+            float w = std::max(input1.x2, input2.x2 ) - std::min(input1.x1,input2.x1);
             float h = std::max(input1.y2,input2.y2 ) - std::min(input1.y1,input2.y1);
             float ww = input1.x2+input2.x2-input1.x1-input2.x1;
             float hh = input1.y2+input2.y2-input1.y1-input2.y1;
