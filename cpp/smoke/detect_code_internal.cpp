@@ -167,7 +167,7 @@ namespace glasssix::smoke
         
         std::string version()
         {
-            const std::string algo_module_version = "3.0.2";
+            const std::string algo_module_version = "3.0.3";
 
 #if defined(USE_RKNNAPI) || defined(USE_RKNN2API)
         //#if 0
