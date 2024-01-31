@@ -12,7 +12,7 @@
 
         using namespace glasssix;
         float MIN_BATTERY_CAR_SCALE=40;
-        float AERO_RATE_BETWEEN_BATTERY_CAR_AND_PEOPLE=0.1;
+        float AERO_RATE_BETWEEN_BATTERY_CAR_AND_PEOPLE=0.15;
         float IOU_BETWEEN_BATTERY_CAR=0.8;
         float IOU_BETWEEN_BATTERY=0.8;
 
