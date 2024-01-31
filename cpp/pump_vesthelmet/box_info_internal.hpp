@@ -8,7 +8,7 @@
 #include <cstdint>
 #include <abi/param_span.hpp>
 
-namespace glasssix::vesthelmet
+namespace glasssix::pump_vesthelmet
 {
     struct box_info_internal
     {
