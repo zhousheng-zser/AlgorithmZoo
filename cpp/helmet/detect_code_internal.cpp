@@ -86,7 +86,7 @@ namespace glasssix::helmet
 
         std::string version()
         {
-			const std::string algo_module_version = "2.0.6";
+			const std::string algo_module_version = "2.1.0";
 
 #if defined(USE_RKNNAPI) || defined(USE_RKNN2API)
 			//#if 0

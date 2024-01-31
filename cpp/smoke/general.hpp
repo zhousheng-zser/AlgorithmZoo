@@ -93,6 +93,15 @@ using namespace glasssix;
             y2 = y2 <height? y2 : height;
         }
 
+        bool is_distance_between_centre_wrist_less_detect_box_threhold (std::vector<std::pair<cv::Point, float>>& wrists_point, float box_max_length )
+        {
+            int centre_x = (x1+x2)/2;
+            int centre_y = (y1+y2)/2;
+            float distance1 = (wrists_point[0].first.x-centre_x)*(wrists_point[0].first.x-centre_x) +(wrists_point[0].first.y-centre_y)*(wrists_point[0].first.y -centre_y);
+            float distance2 = (wrists_point[1].first.x-centre_x)*(wrists_point[1].first.x-centre_x) +(wrists_point[1].first.y-centre_y)*(wrists_point[1].first.y -centre_y);
+            return (box_max_length * box_max_length*0.625) > std::min(distance1,distance2);
+        }
+
     };
 
     struct Cigrate_box
@@ -124,7 +133,7 @@ using namespace glasssix;
         return head.area()<cigrate.area();
     }
     
-    float IOU_compute(const Cigrate_box b1, const Cigrate_box b2)
+    float IOU_compute(const Cigrate_box& b1, const Cigrate_box& b2)
     {
 
         
@@ -148,11 +157,12 @@ using namespace glasssix;
         int y2;
         float score;
         bool quality_is_ok;
+        std::vector<std::pair<cv::Point,float>> wrists;
         std::vector<std::pair<cv::Point,float>> nose_eye;
         std::vector<std::pair<cv::Point,float>> nose_eye_ear;//left right
         std::vector<std::pair<cv::Point,float>> nose_shoulder_elbow_wrist;//left right
 
-        Smoke_Point(int x11,int y11, int x22,int y22,float score, std::vector<std::pair<cv::Point,float>>&PersonKpoints )
+        Smoke_Point(int x11,int y11, int x22,int y22,float score, std::vector<std::pair<cv::Point,float>>& PersonKpoints )
         {
             x1 = x11;
             y1 = y11;
@@ -174,7 +184,9 @@ using namespace glasssix;
 
             for (size_t i = 5; i < 9; i++)        
                 nose_shoulder_elbow_wrist[i-4]=PersonKpoints[i];
-
+            
+            for (size_t i = 9; i < 11; i++)
+                wrists.push_back(PersonKpoints[i]);
         }
 
         bool is_detect()
@@ -250,8 +262,6 @@ using namespace glasssix;
             return rect;
         }   
 };
-
-
 
         std::tuple<cv::Mat, float> preprocess_detection(cv::Mat src,int& pad_h,int& pad_w,  cv::Size input_shape = cv::Size(640, 640) )
         {
