@@ -1,11 +1,11 @@
 #pragma once
-#ifndef _VESTHELMET_DETECT_CODE_HPP_
-#define _VESTHELMET_DETECT_CODE_HPP_
+#ifndef _PUMP_VESTHELMET_DETECT_CODE_HPP_
+#define _PUMP_VESTHELMET_DETECT_CODE_HPP_
 
 #include "box_info.hpp"
 #include <abi/consumer.hpp>
 
-namespace glasssix::vesthelmet
+namespace glasssix::pump_vesthelmet
 {
     struct detect_code;
 }
@@ -13,7 +13,7 @@ namespace glasssix::vesthelmet
 namespace glasssix::exposing::impl
 {
     template<>
-    struct abi<vesthelmet::detect_code>
+    struct abi<pump_vesthelmet::detect_code>
     {
         using identity_type = type_identity_interface;
         static constexpr guid id{ "{04020159-B8F3-4321-A8EC-C80D7E0ECE38}" };
@@ -30,7 +30,7 @@ namespace glasssix::exposing::impl
                 std::int32_t height,
                 std::int32_t width,
                 abi_in_t<exposing::param_hash_map<exposing::param_string,float>> param_map_abi,
-                abi_out_t<exposing::param_vector<vesthelmet::box_info>> result) noexcept = 0;
+                abi_out_t<exposing::param_vector<pump_vesthelmet::box_info>> result) noexcept = 0;
 
             virtual std::int32_t G6_ABI_CALL version(abi_out_t<exposing::param_string> result) noexcept = 0;
 
@@ -38,7 +38,7 @@ namespace glasssix::exposing::impl
     };
 
     template <typename Derived>
-    struct interface_vtable<Derived, vesthelmet::detect_code> : interface_vtable_base<Derived, vesthelmet::detect_code>
+    struct interface_vtable<Derived, pump_vesthelmet::detect_code> : interface_vtable_base<Derived, pump_vesthelmet::detect_code>
     {
         virtual std::int32_t G6_ABI_CALL init(
             abi_in_t<exposing::param_string> model_directory,
@@ -57,7 +57,7 @@ namespace glasssix::exposing::impl
             std::int32_t height,
             std::int32_t width,
             abi_in_t<exposing::param_hash_map<exposing::param_string,float>> param_map_abi,
-            abi_out_t<exposing::param_vector<vesthelmet::box_info>> result) noexcept override
+            abi_out_t<exposing::param_vector<pump_vesthelmet::box_info>> result) noexcept override
         {
             return abi_safe_call([&]
                 {
@@ -83,10 +83,10 @@ namespace glasssix::exposing::impl
     };
 
     template <>
-    struct abi_adapter<vesthelmet::detect_code>
+    struct abi_adapter<pump_vesthelmet::detect_code>
     {
         template <typename Derived>
-        struct type : enable_self_abi_awareness<Derived, vesthelmet::detect_code>
+        struct type : enable_self_abi_awareness<Derived, pump_vesthelmet::detect_code>
         {
             void init(
                 const exposing::param_string& model_directory,
@@ -97,14 +97,14 @@ namespace glasssix::exposing::impl
                     device));
             }
 
-            exposing::param_vector<vesthelmet::box_info> detect(
+            exposing::param_vector<pump_vesthelmet::box_info> detect(
                 exposing::param_span<std::uint8_t> bitmap,
                 std::int32_t channels,
                 std::int32_t height,
                 std::int32_t width,
                 const exposing::param_hash_map<exposing::param_string,float>& param_map_abi) const
             {
-                exposing::param_vector<vesthelmet::box_info> result{ nullptr };
+                exposing::param_vector<pump_vesthelmet::box_info> result{ nullptr };
                 return (check_abi_result(this->self_abi().detect(
                     get_abi(bitmap),
                     channels,
@@ -124,7 +124,7 @@ namespace glasssix::exposing::impl
     };
 }
 
-namespace glasssix::vesthelmet
+namespace glasssix::pump_vesthelmet
 {
     struct detect_code : exposing::inherits<detect_code>
     {

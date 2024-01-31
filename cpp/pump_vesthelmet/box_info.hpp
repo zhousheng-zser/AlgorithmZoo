@@ -1,10 +1,10 @@
 #pragma once
-#ifndef _VESTHELMET_BOX_INFO_HPP_
-#define _VESTHELMET_BOX_INFO_HPP_
+#ifndef _PUMP_VESTHELMET_BOX_INFO_HPP_
+#define _PUMP_VESTHELMET_BOX_INFO_HPP_
 
 #include <abi/consumer.hpp>
 
-namespace glasssix::vesthelmet
+namespace glasssix::pump_vesthelmet
 {
     struct box_info;
 }
@@ -12,7 +12,7 @@ namespace glasssix::vesthelmet
 namespace glasssix::exposing::impl
 {
     template<>
-    struct abi<vesthelmet::box_info>
+    struct abi<pump_vesthelmet::box_info>
     {
         using identity_type = type_identity_interface;
         static constexpr guid id{ "{3B0C1F5E-318D-4AB1-A164-738FEE9B29E8}" };
@@ -35,7 +35,7 @@ namespace glasssix::exposing::impl
     };
 
     template <typename Derived>
-    struct interface_vtable<Derived, vesthelmet::box_info> : interface_vtable_base<Derived, vesthelmet::box_info>
+    struct interface_vtable<Derived, pump_vesthelmet::box_info> : interface_vtable_base<Derived, pump_vesthelmet::box_info>
     {
         virtual std::int32_t G6_ABI_CALL x1(abi_out_t<std::int32_t> result) noexcept override
         {
@@ -94,10 +94,10 @@ namespace glasssix::exposing::impl
     };
 
     template <>
-    struct abi_adapter<vesthelmet::box_info>
+    struct abi_adapter<pump_vesthelmet::box_info>
     {
         template <typename Derived>
-        struct type : enable_self_abi_awareness<Derived, vesthelmet::box_info>
+        struct type : enable_self_abi_awareness<Derived, pump_vesthelmet::box_info>
         {
             std::int32_t x1() const
             {
@@ -139,7 +139,7 @@ namespace glasssix::exposing::impl
     };
 }
 
-namespace glasssix::vesthelmet
+namespace glasssix::pump_vesthelmet
 {
     struct box_info : exposing::inherits<box_info>
     {

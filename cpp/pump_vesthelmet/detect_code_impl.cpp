@@ -2,7 +2,7 @@
 #include "detect_code_internal.hpp"
 #include <map>
 
-namespace glasssix::vesthelmet
+namespace glasssix::pump_vesthelmet
 {
     detect_code_impl::detect_code_impl() {}
 
@@ -13,7 +13,7 @@ namespace glasssix::vesthelmet
         impl_ = std::make_unique<detect_code_internal>(exposing::to_narrow_string(model_directory), device);
     }
 
-    exposing::param_vector<vesthelmet::box_info> detect_code_impl::detect(exposing::param_span<std::uint8_t> bitmap, std::int32_t channels, std::int32_t height, std::int32_t width, const exposing::param_hash_map<exposing::param_string,float>& param_map_abi)
+    exposing::param_vector<pump_vesthelmet::box_info> detect_code_impl::detect(exposing::param_span<std::uint8_t> bitmap, std::int32_t channels, std::int32_t height, std::int32_t width, const exposing::param_hash_map<exposing::param_string,float>& param_map_abi)
     {
         std::map<std::string,float> param_map_std;
         for (auto it : param_map_abi) {
@@ -21,7 +21,7 @@ namespace glasssix::vesthelmet
         }
 
         if (!impl_)
-            throw exposing::abi_invalid_operation(u8"vesthelmet detect_code internal object not initialized"); 
+            throw exposing::abi_invalid_operation(u8"pump_vesthelmet detect_code internal object not initialized"); 
 
         return impl_->detect(bitmap, channels, height, width, param_map_std);
     }
