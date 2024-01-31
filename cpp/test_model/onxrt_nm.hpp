@@ -11,10 +11,11 @@
 #include <onnxruntime_c_api.h>
 #include "Primitives/tensor.hpp"
 #include "Primitives/fmt/format.h"
-#include "dbg.h"
+#include <cassert>
+//#include "dbg.h"
 
 
-class onx_pipline {
+class ONNXRTPipline {
 	// frame
 	Ort::Env env_;
 	Ort::Session* session_ptr_ = nullptr;
@@ -33,28 +34,49 @@ public:
 	std::vector<std::vector<int64_t>> model_output_shape_;
 
 	std::string version() {
-		return "onnxruntime";
+		auto onxrt_ver = std::to_string(ORT_API_VERSION);
+		return "onnxruntime_" + onxrt_ver;
 	}
 
 	void set_normalization_param(std::vector<std::array<float, 3>> normalization_param) {
 		normalization_param_.clear();
-		printf("onnx pipline set normalization param\n");
+		printf("onnx pipline set normalization param {%f, %f, %f} {%f, %f, %f}\n",
+			normalization_param[0][0],
+			normalization_param[0][1],
+			normalization_param[0][2],
+			normalization_param[1][0],
+			normalization_param[1][1],
+			normalization_param[1][2]);
 		auto& onnx_normalization_means = normalization_param[0];
-		auto& onnx_normalization_stands= normalization_param[1];
-		dbg(onnx_normalization_means);
-		dbg(onnx_normalization_stands);
+		auto& onnx_normalization_stands = normalization_param[1];
+		//dbg(onnx_normalization_means);
+		//dbg(onnx_normalization_stands);
 		for (auto& arr : normalization_param)
 			normalization_param_.push_back(arr);
 	}
 
+	void set_normalization_param(std::array<float, 3> means, std::array<float, 3> stands) {
+		normalization_param_.clear();
+		printf("onnx pipline set normalization param {%f, %f, %f} {%f, %f, %f}\n",
+			means[0], means[1], means[2],
+			stands[0], stands[1], stands[2]);
+		normalization_param_.push_back(means);
+		normalization_param_.push_back(stands);
+	}
+
 	void set_normalization_param(float mean, float stand) {
+		normalization_param_.clear();
+		printf("onnx pipline set normalization param {%f, %f, %f} {%f, %f, %f}\n",
+			mean, mean, mean, stand, stand, stand);
 		normalization_param_ = { {mean,mean,mean},{stand,stand,stand} };
 	}
 
-	onx_pipline(std::string model_path)
+	ONNXRTPipline(std::string model_path, int device = -1)
 	{
 		//model_path = model_path.substr(0, model_path.find_first_of('.')) + ".onnx";
-
+		session_options_.SetIntraOpNumThreads(4);
+		session_options_.SetGraphOptimizationLevel(GraphOptimizationLevel::ORT_ENABLE_ALL); //ORT_ENABLE_ALL ORT_ENABLE_EXTENDED ORT_ENABLE_BASIC
+#ifdef WIN32
 		OrtCUDAProviderOptions options;
 		options.device_id = 0;
 		options.arena_extend_strategy = 0;
@@ -62,14 +84,15 @@ public:
 		options.cudnn_conv_algo_search = OrtCudnnConvAlgoSearch::OrtCudnnConvAlgoSearchHeuristic;
 		options.do_copy_in_default_stream = 1;
 		session_options_.AppendExecutionProvider_CUDA(options);
-
-		session_options_.SetIntraOpNumThreads(4);
-		session_options_.SetGraphOptimizationLevel(GraphOptimizationLevel::ORT_ENABLE_ALL); //ORT_ENABLE_ALL ORT_ENABLE_EXTENDED ORT_ENABLE_BASIC
 		//OrtSessionOptionsAppendExecutionProvider_CUDA(session_options_, 0);
+		auto model_path_ = std::wstring(model_path.begin(), model_path.end());
+#else
+		auto model_path_ = model_path;
+#endif
+
 
 		env_ = Ort::Env(ORT_LOGGING_LEVEL_WARNING, "TheNet");
-		std::wstring widestr = std::wstring(model_path.begin(), model_path.end());
-		session_ptr_ = new Ort::Session(env_, widestr.data(), session_options_);
+		session_ptr_ = new Ort::Session(env_, model_path_.data(), session_options_);
 
 		//Ort::SessionOptions::AppendExecutionProvider_CUDA(*session_ptr_,0);
 
@@ -91,7 +114,7 @@ public:
 		}
 	}
 
-	~onx_pipline()
+	~ONNXRTPipline()
 	{
 		if (session_ptr_ != nullptr) {
 			delete session_ptr_;
@@ -263,24 +286,24 @@ public:
 		set_normalization_param(normalization_param);
 	}
 
-	private:
-		static std::vector<std::string> split_string_(const std::string& s, const std::string& c)
+private:
+	static std::vector<std::string> split_string_(const std::string& s, const std::string& c)
+	{
+		std::vector<std::string> v;
+		std::string::size_type pos1, pos2;
+		pos2 = s.find(c);
+		pos1 = 0;
+		while (std::string::npos != pos2)
 		{
-			std::vector<std::string> v;
-			std::string::size_type pos1, pos2;
-			pos2 = s.find(c);
-			pos1 = 0;
-			while (std::string::npos != pos2)
-			{
-				v.push_back(s.substr(pos1, pos2 - pos1));
+			v.push_back(s.substr(pos1, pos2 - pos1));
 
-				pos1 = pos2 + c.size();
-				pos2 = s.find(c, pos1);
-			}
-			if (pos1 != s.length())
-				v.push_back(s.substr(pos1));
-			return v;
+			pos1 = pos2 + c.size();
+			pos2 = s.find(c, pos1);
 		}
+		if (pos1 != s.length())
+			v.push_back(s.substr(pos1));
+		return v;
+	}
 };
 
 #endif //!USE_ONNXRT
