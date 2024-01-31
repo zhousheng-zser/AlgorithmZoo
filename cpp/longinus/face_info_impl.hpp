@@ -20,6 +20,10 @@ namespace glasssix::longinus
 		float y() const;
 		float width() const;
 		float height() const;
+		float ori_x() const;
+		float ori_y() const;
+		float ori_width() const;
+		float ori_height() const;
 		float yaw() const;
 		float pitch() const;
 		float roll() const;

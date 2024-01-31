@@ -119,7 +119,6 @@ namespace glasssix::face_attributes
 
 				results.push_back( glasssix::exposing::make_as_first<face_attributes::face_attribute_info_impl>(face_info));
 
-			}
 			return results;
 			// std::cout << result.size() << std::endl;
 		}
