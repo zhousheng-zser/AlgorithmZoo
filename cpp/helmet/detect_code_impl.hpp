@@ -5,6 +5,7 @@
 
 #include <memory>
 #include <abi/consumer.hpp>
+#include "../head/box_info.hpp"
 
 namespace glasssix::helmet
 {
@@ -23,7 +24,7 @@ namespace glasssix::helmet
         exposing::param_string version() const;
 
         exposing::param_vector<helmet::box_info> detect(exposing::param_span<std::uint8_t> bitmap, int channels, int height, int width, int roi_x, int roi_y,
-         int roi_width, int roi_height,const exposing::param_hash_map<exposing::param_string, float>& param_map_abi) const;
+         int roi_width, int roi_height, exposing::param_vector<head::box_info> head_info_list, const exposing::param_hash_map<exposing::param_string, float>& param_map_abi) const;
 
     private:
         std::unique_ptr<detect_code_internal> impl_;
