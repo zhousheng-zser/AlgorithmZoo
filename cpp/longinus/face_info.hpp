@@ -26,6 +26,10 @@ namespace glasssix::exposing::impl
 			virtual std::int32_t G6_ABI_CALL y(abi_out_t<float> result) noexcept = 0;
 			virtual std::int32_t G6_ABI_CALL width(abi_out_t<float> result) noexcept = 0;
 			virtual std::int32_t G6_ABI_CALL height(abi_out_t<float> result) noexcept = 0;
+			virtual std::int32_t G6_ABI_CALL ori_x(abi_out_t<float> result) noexcept = 0;
+			virtual std::int32_t G6_ABI_CALL ori_y(abi_out_t<float> result) noexcept = 0;
+			virtual std::int32_t G6_ABI_CALL ori_width(abi_out_t<float> result) noexcept = 0;
+			virtual std::int32_t G6_ABI_CALL ori_height(abi_out_t<float> result) noexcept = 0;
 			virtual std::int32_t G6_ABI_CALL confidence(abi_out_t<float> result) noexcept = 0;
 			virtual std::int32_t G6_ABI_CALL has_mask(abi_out_t<float> result) noexcept = 0;
 			virtual std::int32_t G6_ABI_CALL is_alive(abi_out_t<std::int32_t> result) noexcept = 0;
@@ -95,6 +99,26 @@ namespace glasssix::exposing::impl
 		virtual std::int32_t G6_ABI_CALL height(abi_out_t<float> result) noexcept override
 		{
 			return abi_safe_call([&] {*result = detach_abi(this->self().height()); });
+		}
+
+		virtual std::int32_t G6_ABI_CALL ori_x(abi_out_t<float> result) noexcept override
+		{
+			return abi_safe_call([&] {*result = detach_abi(this->self().ori_x()); });
+		}
+
+		virtual std::int32_t G6_ABI_CALL ori_y(abi_out_t<float> result) noexcept override
+		{
+			return abi_safe_call([&] {*result = detach_abi(this->self().ori_y()); });
+		}
+
+		virtual std::int32_t G6_ABI_CALL ori_width(abi_out_t<float> result) noexcept override
+		{
+			return abi_safe_call([&] {*result = detach_abi(this->self().ori_width()); });
+		}
+
+		virtual std::int32_t G6_ABI_CALL ori_height(abi_out_t<float> result) noexcept override
+		{
+			return abi_safe_call([&] {*result = detach_abi(this->self().ori_height()); });
 		}
 
 		virtual std::int32_t G6_ABI_CALL confidence(abi_out_t<float> result) noexcept override
@@ -239,6 +263,30 @@ namespace glasssix::exposing::impl
 				float result = 0;
 
 				return (check_abi_result(this->self_abi().height(put_abi(result))), result);
+			}
+			float ori_x() const
+			{
+				float result = 0;
+
+				return (check_abi_result(this->self_abi().ori_x(put_abi(result))), result);
+			}
+			float ori_y() const
+			{
+				float result = 0;
+
+				return (check_abi_result(this->self_abi().ori_y(put_abi(result))), result);
+			}
+			float ori_width() const
+			{
+				float result = 0;
+
+				return (check_abi_result(this->self_abi().ori_width(put_abi(result))), result);
+			}
+			float ori_height() const
+			{
+				float result = 0;
+
+				return (check_abi_result(this->self_abi().ori_height(put_abi(result))), result);
 			}
 			float confidence() const
 			{

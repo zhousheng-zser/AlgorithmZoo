@@ -55,6 +55,7 @@ namespace glasssix::longinus
         int glass_index;
         float score;
         anchor_box rect;
+        anchor_box ori_rect;
         face_pts pts;
         float headpose[3];
         bool is_alive;
