@@ -629,10 +629,10 @@ namespace glasssix::longinus
         {
             if (scale != 1.0f)
             {
-                face.rect.x *= scale;
-                face.rect.y *= scale;
-                face.rect.h *= scale;
-                face.rect.w *= scale;
+                face.ori_rect.x = face.rect.x *= scale;
+                face.ori_rect.y = face.rect.y *= scale;
+                face.ori_rect.h = face.rect.h *= scale;
+                face.ori_rect.w = face.rect.w *= scale;
                 for (size_t i = 0; i < std::size(face.pts.x); i++)
                 {
                     face.pts.x[i] *= scale;
@@ -799,10 +799,10 @@ namespace glasssix::longinus
         {
             if (scale != 1.0f)
             {
-                face.rect.x *= scale;
-                face.rect.y *= scale;
-                face.rect.h *= scale;
-                face.rect.w *= scale;
+                face.ori_rect.x = face.rect.x *= scale;
+                face.ori_rect.y = face.rect.y *= scale;
+                face.ori_rect.h = face.rect.h *= scale;
+                face.ori_rect.w = face.rect.w *= scale;
                 for (size_t i = 0; i < std::size(face.pts.x); i++)
                 {
                     face.pts.x[i] *= scale;
