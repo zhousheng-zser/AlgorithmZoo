@@ -70,11 +70,11 @@ namespace glasssix::face_attributes
 						std::copy(crop_face.data, crop_face.data + j * forward_input_channels * forward_input_width, temp.data() + i * forward_input_bytes + j * forward_input_channels * forward_input_width);
 				}
 			}
-			auto network_result = instance_.forward(temp, { static_cast<int>(faces.szie()), forward_input_height, forward_input_width, forward_input_channels }, RKNN_TENSOR_NHWC);
+			auto network_result = instance_.forward(temp.data(), { static_cast<int>(faces.size()), forward_input_height, forward_input_width, forward_input_channels }, RKNN_TENSOR_NHWC);
 #if defined(USE_RKNNAPI)
-			//std::vector<std::string> out_names = {"age","gender","mask","glass"};
+			//std::vector<std::string> out_names = { "gender", "age", "mask", "glass" };
 #else
-			std::vector<std::string> out_names = { "gender","age","mask","glass" };
+			std::vector<std::string> out_names = { "gender", "age", "mask", "glass" };
 #endif
 #else
 			init_cache(bitmap, channels, height, width, order);
@@ -92,7 +92,7 @@ namespace glasssix::face_attributes
 			}
 
 			auto network_result = instance_.forward(cache_ | memory::tensor_convert_to<float>);
-			const std::vector<std::string> out_names = { "age", "gender", "mask", "glass" };
+			const std::vector<std::string> out_names = { "gender", "age", "mask", "glass" };
 #endif
 
 			auto gender_data = network_result[out_names[0]]->cpu_data();
