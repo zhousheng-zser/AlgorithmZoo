@@ -95,12 +95,11 @@ static inline std::map<std::string, std::string> output_map_analyse(
 	return output_map;
 }
 
-static inline void auto_infer_output_map(GenPipline& pip_A, GenPipline& pip_B, std::string fimg, std::map<std::string, std::string>& output_map)
+static inline void auto_infer_output_map(std::shared_ptr<GenPiplineInterface> pip_A, std::shared_ptr<GenPiplineInterface> pip_B, std::string fimg, std::map<std::string, std::string>& output_map)
 {
 	cv::Mat img = cv::imread(fimg);
-
-	auto results_A = pip_A.forward(img);
-	auto results_B = pip_B.forward(img);
+	auto results_A = pip_A->forward(img);
+	auto results_B = pip_B->forward(img);
 	//npy::SAVE_TENSOR_TO_NUMPY(results_A.begin()->second, "/home/glasssix/yhc/test_model/pedestrain/concat_a.npy");
 	//npy::SAVE_TENSOR_TO_NUMPY(results_B.begin()->second, "/home/glasssix/yhc/test_model/pedestrain/concat_b.npy");
 
@@ -123,7 +122,7 @@ static inline void auto_infer_output_map(GenPipline& pip_A, GenPipline& pip_B, s
 	else {
 		output_map = automic_map;
 		std::cout << "succeed to get output map automatically ~" << std::endl;
-		std::cout << "<auto_map> " << pip_B.pipTypeInfo() << " - " << pip_A.pipTypeInfo() << std::endl;
+		std::cout << "<auto_map> " << pip_B->pipTypeInfo() << " - " << pip_A->pipTypeInfo() << std::endl;
 
 		for (auto output_map_elm : output_map) {
 			std::cout << "\t" << output_map_elm.first << ':' << printVect(results_B[output_map_elm.first]->data_shape())

@@ -2,194 +2,277 @@
 #ifndef _GENERAL_PIPLINE_HPP_
 #define _GENERAL_PIPLINE_HPP_
 
-#include "Excalibur/pipeline.hpp"
-#include <Primitives/tensor_conversions.hpp>
-#include "Primitives/logger.hpp"
-#include <abi/exceptions.hpp>
-
-#include <vector>
-#include <opencv2/opencv.hpp>
-#include <Primitives/tensor.hpp>
-#include "postprocessing_register.hpp"
-#include "numpy_extensor/numpyExtensor.hpp"
-#include "test_model.hpp"
 #ifdef EXPERIMENTAL_FILESYSTEM
 #include <experimental/filesystem>
-//using namespace fs std::experimental::filesystem;
 namespace fs = std::experimental::filesystem;
 #else
 #include <filesystem>
 //using namespace std::filesystem;
 namespace fs = std::filesystem;
 #endif // EXPERIMENTAL_FILESYSTEM
+#include <Primitives/abi/exceptions.hpp>
+#include <Primitives/tensor_conversions.hpp>
+#include <Primitives/logger.hpp>
+#include <Primitives/tensor.hpp>
+#include <abi/exceptions.hpp>
+#include <opencv2/opencv.hpp>
+#include <vector>
 
-#ifdef USE_RKNNAPI
-//#if 0
-#include "../../common/include/RKNNWrapper/rknn_wrapper.hpp"
-#define USE_RKNN
-#elif defined(USE_RKNN2API)
-#include "../../common/include/RKNN2Wrapper/rknn2_wrapper.hpp"
-#define USE_RKNN
-#endif
-#ifdef USE_ONNXRT
-#include "onxrt_nm.hpp"
-#endif // USE_ONNXRT
+#include "postprocessing_register.hpp"
+#include "numpy_extensor/numpyExtensor.hpp"
+#include "test_model.hpp"
+
+#include "Backends/BackendFactory.hpp"
+
+#include "Excalibur/pipeline.hpp"
 
 using namespace glasssix;
 
-class GenPipline {
-private:
-	enum class PipType { unknown, rknn, excalibur, onnx	};
-	PipType pipType_ = PipType::unknown;
+namespace GenPiplineTools {
 
-#ifdef USE_RKNN
-	std::unique_ptr<rknnwrapper::rknn_wrapper> base_instance_rknn_;
-#endif // USE_RKNN
+	static auto spilt_file_name_ext_(std::string model) {
+		struct {
+			std::string file_name;
+			std::string file_ext;
+		} rst;
 
-#ifdef USE_ONNXRT
-	std::unique_ptr<ONNXRTPipline> base_instance_onnx_;
-#endif // USE_ONNXRT
+		if (model.empty() || model.rfind('.') == -1)
+		{
+			//LOG(FATAL) << "Input model path format error.";
+			throw glasssix::exposing::abi_invalid_argument("Input model path format error.");
+		}
+		else {
+			rst.file_name = model.substr(0, model.find_last_of('.'));
+			rst.file_ext = model.substr(model.find_last_of('.'));
+		}
+		return rst;
+	}
 
-	std::unique_ptr<excalibur::pipeline<float>> base_instance_exbr_;
+	static cv::Mat letter_image(cv::Mat img, int hope_w, int hope_h, bool if_cvtColor = false)
+	{
+		cv::Mat resize_img;
+		int H = img.rows;
+		int W = img.cols;
 
-	bool if_image_preprocess_ = false;
-	bool convertBGR_ = false;
-	int imgLetterReSize_ = -1;
+		if (hope_w <= 0 || hope_h <= 0 || (H == hope_h && W == hope_w)) {
+			//无效hope_hw时或者HW等于hope_hw时不做任何尺寸操作。
+			resize_img = img;
+		}
+		else {
+			float ratio_w = (float)W / (float)hope_w;
+			float ratio_h = (float)H / (float)hope_h;
+			if (ratio_w == ratio_h)
+				cv::resize(img, resize_img, cv::Size2i{ hope_w, hope_h });
+			else if (ratio_w > ratio_h) {
+				int new_x = hope_w;
+				int new_y = (int)(H / ratio_w);
+				int pad1 = (int)((hope_h - new_y) / 2);
+				int pad2 = hope_h - new_y - pad1;
+				cv::resize(img, resize_img, cv::Size2i{ new_x, new_y });
+				cv::copyMakeBorder(resize_img, resize_img, pad1, pad2, 0, 0, cv::BORDER_CONSTANT, cv::Scalar{ 114,114,114 });
+			}
+			else {
+				int new_y = hope_h;
+				int new_x = (int)(W / ratio_h);
+				int pad1 = (int)((hope_w - new_x) / 2);
+				int pad2 = hope_w - new_x - pad1;
+				cv::resize(img, resize_img, cv::Size2i{ new_x, new_y });
+				cv::copyMakeBorder(resize_img, resize_img, 0, 0, pad1, pad2, cv::BORDER_CONSTANT, cv::Scalar{ 114,114,114 });
+			}
+		}
 
-	bool if_use_ppfunc= false;
-	postprocessing_function ppfunc_;
+		if(if_cvtColor)
+			cv::cvtColor(resize_img, resize_img, cv::COLOR_BGR2RGB);
 
-	int infer_time_count = 0;
+		return resize_img;
+	}
+}
+
+
+// Proxy pattern
+class GenPiplineInterface {
+public:
+	virtual ~GenPiplineInterface() = default;
+	virtual std::unordered_map<std::string, std::shared_ptr<glasssix::memory::tensor<float>>> forward(cv::Mat image) = 0;
+	virtual const std::string pipTypeInfo() = 0;
+};
+
+
+class GenPipline: public GenPiplineInterface {
+	std::unique_ptr<InferBackend> backend;
+
+	void backend_create_(const std::vector<std::string>& model_exts) {
+		auto& registry = BackendFactoryRegistry::getInstance();
+		std::string backendTypeName = registry.BackendFormatsHint(model_exts);
+		backend = registry.createBackend(backendTypeName);
+		if (!backend) {
+			throw glasssix::exposing::abi_not_initialized("Failed to create backend.");
+		}
+		else {
+			//std::cout << "Backend " << backendTypeName << " create successfully." << std::endl;
+		}
+	}
 
 public:
+	GenPipline() {}
 
-	using TensorSptr = std::shared_ptr<glasssix::memory::tensor<float>>;
-
-	GenPipline(std::string model, int device = -1)
-	{
-		if (model.size() > 5)
-		{
-			auto model_name = model.substr(0, model.find_last_of('.'));
-			auto model_ext= model.substr(model.find_last_of('.'));
-			if (model_ext == ".rknn")
-			{
-#ifdef USE_RKNN
-				std::vector<std::string> rkn_phai;
-				base_instance_rknn_ = std::make_unique<rknnwrapper::rknn_wrapper>(rkn_phai, model);
-				pipType_ = PipType::rknn;
-#else
-				printf("System environment dnot support using rknn !");
-				throw glasssix::exposing::abi_invalid_argument("Invalid model!");
-#endif // USE_RKNN
-			}
-			else if (model_ext == ".exbr" || model_ext == ".phai")
-			{
-				base_instance_exbr_ = std::make_unique<excalibur::pipeline<float>>(model_name +".phai", model_name + ".racy", device);
-				pipType_ = PipType::excalibur;
-			}
-			else if (model_ext == ".onnx")
-			{
-#ifdef USE_ONNXRT
-				base_instance_onnx_ = std::make_unique<ONNXRTPipline>(model_name + ".onnx");
-
-				if (fs::exists(model_name + ".phai"))
-				{
-					std::cout << "[note] exists corresponding excalibur model(.phai), onnx_pip use common normalization param from " << model_name + ".phai" << std::endl;
-					base_instance_onnx_->read_exbr_hardcode_params_file(model_name + ".phai");
-				}
-
-				base_instance_onnx_->set_normalization_param({ {0,0,0},{0.003921568,0.003921568,0.003921568} });
-				//base_instance_onnx_->set_normalization_param({ {0,0,0},{0.0078125,0.0078125,0.0078125} });//{104,117,123},{0.0078125,0.0078125,0.0078125} 
-				pipType_ = PipType::onnx;
-#else
-				printf("System environment dnot support using onnxruntime !");
-				throw glasssix::exposing::abi_invalid_argument("Invalid model!");
-#endif // USE_ONNXRT
-			}
+	GenPipline(std::string model, int device = -1) :GenPipline() {
+		auto [name, ext] = GenPiplineTools::spilt_file_name_ext_(model);
+		std::vector<std::string> model_exts{ ext };
+		backend_create_(model_exts);
+		int ret = backend->initModel(model, device);
+		if (ret) {
+			std::string exceptionsInfo = "Init model failed :" + model;
+			throw glasssix::exposing::abi_invalid_argument(exceptionsInfo.c_str());
 		}
 	}
 
-
-	void set_inference_time_cost(bool flag) {
-		infer_time_count += flag;
+	GenPipline(std::string arch, std::string weight, int device = -1) :GenPipline() {
+		auto [arch_name, arch_ext] = GenPiplineTools::spilt_file_name_ext_(arch);
+		auto [weight_name, weight_ext] = GenPiplineTools::spilt_file_name_ext_(weight);
+		std::vector<std::string> model_exts{ arch_ext, weight_ext };
+		backend_create_(model_exts);
+		int ret = backend->initModel(arch, weight, device);
+		if (ret) {
+			std::string exceptionsInfo = "Init model failed :" + arch + " " + weight;
+			throw glasssix::exposing::abi_invalid_argument(exceptionsInfo.c_str());
+		}
 	}
 
-	std::unordered_map<std::string, TensorSptr> forward(cv::Mat image)
-	{
-		cv::Mat img = image.clone();
-		if (if_image_preprocess_)
-		{
-			if (imgLetterReSize_ > 0) img = letter_image_(img, imgLetterReSize_, imgLetterReSize_);
-			if (convertBGR_) cv::cvtColor(img, img, cv::COLOR_BGR2RGB);
+	void handset_possible_normalization(std::array<float, 3> means, std::array<float, 3> stands) {
+		if (!backend) {
+			throw glasssix::exposing::abi_not_initialized("Empty infer backend.");
+		};
+
+		if (backend ->handset_possible_normalization(means, stands) == InferBackend::SupportHandNormaliztion::Enable) {
+			LOG(INFO) << "Support Hand assgin normalization param";
 		}
+		else {
+			LOG(INFO) << "Unsupport hand assgin normalization param";
+		}
+	}
 
-		std::unordered_map<std::string, std::shared_ptr<memory::tensor<float>>> rst_map;
+	std::unordered_map<std::string, std::shared_ptr<glasssix::memory::tensor<float>>> forward(cv::Mat image) override {
+		if (backend) {
+			return backend->forward(image); //success
+		}
+		else {
+			throw glasssix::exposing::abi_not_initialized("Empty infer backend."); //fail
+		}		
+	}
 
-		switch (pipType_)
-		{
-		case GenPipline::PipType::rknn:
-#ifdef USE_RKNN
-			if (infer_time_count > 0) {
-				std::cout << "\n[infer_time_count] ####" << std::endl;
-				for (int i = 0; i < 10; i++)
-					base_instance_rknn_->forward(img.data, { 1, img.rows, img.cols, img.channels() }, RKNN_TENSOR_NHWC);
-				int loop = 100;
-				auto timer_start = std::chrono::system_clock::now(); //timer
-				for (int i = 0; i < loop; i++)
-					base_instance_rknn_->forward(img.data, { 1, img.rows, img.cols, img.channels() }, RKNN_TENSOR_NHWC);
-				int det_inference = std::chrono::duration_cast<std::chrono::milliseconds>(std::chrono::system_clock::now() - timer_start).count(); //timer
-				std::cout << "loop " << loop << " avg cost = " << det_inference * 1.f / loop << std::endl;
-				std::cout << "#######################" << std::endl;
-				infer_time_count--;
+	static std::unordered_set<std::string> dump_backend_menu(bool if_print = false) {
+		auto& registry = BackendFactoryRegistry::getInstance();
+
+		auto backend_menu = registry.getBackendMenu();
+		if (if_print) {
+			printf("BackendFactory has registered backend: ");
+			for (const auto& bk : backend_menu){
+				printf("%s, ", bk.c_str());
 			}
-			rst_map = base_instance_rknn_->forward(img.data, { 1, img.rows, img.cols, img.channels() }, RKNN_TENSOR_NHWC);
-
-#endif // USE_RKNN
-			break;
-		case GenPipline::PipType::excalibur:
-		{
-			std::shared_ptr<glasssix::memory::tensor<uint8_t>> input_tensor_u8(new glasssix::memory::tensor<uint8_t>(std::vector<int>{1, img.rows, img.cols, 3}, -1, glasssix::memory::NHWC));
-			std::copy(img.data, img.data + img.step[0] * img.rows, input_tensor_u8->mutable_cpu_data());
-			input_tensor_u8->convert_order();
-			auto input_tensor_f32 = input_tensor_u8 | glasssix::memory::tensor_convert_to<float>; //convenient for exporting tensor.npy file 
-			rst_map = base_instance_exbr_->forward(input_tensor_f32);
-		}
-			break;
-		case GenPipline::PipType::onnx:
-#ifdef USE_ONNXRT
-		{
-			std::shared_ptr<glasssix::memory::tensor<uint8_t>> input_tensor_u8(new glasssix::memory::tensor<uint8_t>(std::vector<int>{1, img.rows, img.cols, 3}, -1, glasssix::memory::NHWC));
-			std::copy(img.data, img.data + img.step[0] * img.rows, input_tensor_u8->mutable_cpu_data());
-			input_tensor_u8->convert_order();
-			auto input_tensor_f32 = input_tensor_u8 | glasssix::memory::tensor_convert_to<float>;
-			rst_map = base_instance_onnx_->forward(input_tensor_f32);
-		}
-#endif // USE_ONNXRT
-			break;
-		case GenPipline::PipType::unknown:
-			printf("unknown model pipline type.");
-			break;
-		default:
-			break;
+			printf("\n");
 		}
 
+		return backend_menu;
+	}
 
-		if (if_use_ppfunc) {
-			rst_map = ppfunc_(rst_map); // using self-define postprocessing
+	const std::string pipTypeInfo() override {
+		if (backend) {
+			return backend->getBackendTypeName(); //success
+		}
+		else {
+			return "empty infer backend"; //fail
+		}
+	}
+
+	std::string version() {
+		if (backend) {
+			return backend->getVersion(); //success
+		}
+		else {
+			return "empty infer backend"; //fail
+		}
+	}
+
+	bool if_backend_empty() {
+		return (!backend);
+	}
+
+};
+
+
+/// <summary>
+/// PrePostProcessGenPipline: Proxy for GenPiplineInterface, wrapping GenPipline to add pre/post-processing steps.
+/// </summary>
+class PrePostProcessGenPipline: public GenPiplineInterface {
+public:
+
+	using ForwardResultType = std::unordered_map<std::string, std::shared_ptr<glasssix::memory::tensor<float>>>;
+
+	PrePostProcessGenPipline() :pipline_{nullptr}
+	{
+	}
+
+	PrePostProcessGenPipline(std::shared_ptr<GenPiplineInterface> pipline) : pipline_(pipline)
+	{
+	}
+
+	void set_pipline(std::shared_ptr<GenPiplineInterface> pipline) {
+		pipline_ = pipline;
+	}
+
+	void set_image_preprocess(std::function<cv::Mat(cv::Mat)> image_preprocess_function) {
+		image_preprocess_function_ = image_preprocess_function;
+	}
+
+	void check_set_postprocessing(std::map<std::string, postprocessing_function>& postprocessing_market, std::string ppfunc_name) {
+		if (postprocessing_market.count(ppfunc_name)) {
+			std::cout << pipTypeInfo() << " pipline load postprocessing \"" << ppfunc_name << "\"" << std::endl;
+			set_postprocessing(postprocessing_market[ppfunc_name]);
+		}
+		else if (!ppfunc_name.empty()) {
+			std::cout << "postprocessing market not exits \"" << ppfunc_name << "\"" << std::endl;
+			std::cout << "[INFO] POSTPROCESSING MARKET: { ";
+			for (auto& ppf : postprocessing_market) std::cout << ppf.first << ", ";
+			std::cout << "}" << std::endl;
+			std::cout << "please check postprocessing config!" << std::endl;
+		}
+	};
+
+	void set_postprocessing(const std::function<ForwardResultType(ForwardResultType)>& postprocessing_function) {
+		postprocessing_function_ = postprocessing_function;
+	}
+
+	std::unordered_map<std::string, std::shared_ptr<glasssix::memory::tensor<float>>> forward(cv::Mat image) override {
+		ForwardResultType rst_map;
+
+		if (pipline_ != nullptr) {
+			if (image_preprocess_function_ != nullptr) {
+				image = image_preprocess_function_(image);
+			}
+			rst_map = pipline_->forward(image);
+
+			if (postprocessing_function_ != nullptr) {
+				rst_map = postprocessing_function_(rst_map);
+			}
 		}
 
 		return rst_map;
 	}
 
-	void set_image_preprocess(int imgLetterReSize, bool convertBGR);
-	void set_postprocessing(postprocessing_function ppfunc);
-	void set_postprocessing(std::string ppfunc_name, std::map<std::string, postprocessing_function>& postprocessing_market);
-	std::string pipTypeInfo();
-	int pipTypeID();
+	const std::string pipTypeInfo() override {
+		if (pipline_) {
+			return pipline_->pipTypeInfo();
+		}
+		else {
+			return "";
+		}
+	}
 
 private:
-
-	cv::Mat letter_image_(cv::Mat img, int hope_w, int hope_h);
+	std::shared_ptr<GenPiplineInterface> pipline_;
+	std::function<cv::Mat(cv::Mat)> image_preprocess_function_;
+	std::function<ForwardResultType(ForwardResultType)> postprocessing_function_;
 };
 
 
