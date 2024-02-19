@@ -194,7 +194,6 @@ namespace glasssix::onphone
 	private:
 		std::vector<ObjBox> phone_detect(ObjBox& headbox, cv::Mat image, std::map<std::string,float>& param_map)
 		{
-			const float phone_vivid_conf_ratio = 1.25f; // 1.25 = 0.5 / 0.4
 			float phone_conf_thres = param_map.count("conf_thres") ? param_map["conf_thres"] : 0.4f;
 			float phone_nms_thres = param_map.count("nms_thres") ? param_map["nms_thres"] : 0.45f;
 			float phone_distance_thres = param_map.count("phone_distance_thres") ? param_map["phone_distance_thres"] : 1.0f;
@@ -215,7 +214,6 @@ namespace glasssix::onphone
 			}
 			else {
 				det_phone_region = cv::Rect(headbox.xmin - width * 0.5f, headbox.ymin - height * 0.25f, width * 2, height * 1.5);
-				phone_conf_thres = std::min(0.95f, phone_conf_thres * phone_vivid_conf_ratio);
 			}
 
 			static constexpr int reShapeSide = 320;
