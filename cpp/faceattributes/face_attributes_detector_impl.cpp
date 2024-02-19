@@ -101,10 +101,10 @@ namespace glasssix::face_attributes
 			auto glass_data = network_result[out_names[3]]->cpu_data();
 			for (size_t i = 0; i < faces.size(); i++)
 			{
-				int gender_index = std::max_element(age_data + i * 4, age_data + (i + 1) * 4) - age_data + i * 4;
-				int age_index = std::max_element(age_data + i * 4, age_data + (i + 1) * 4) - age_data + i * 4;
-				int mask_index = std::max_element(age_data + i * 4, age_data + (i + 1) * 4) - age_data + i * 4;
-				int glass_index = std::max_element(age_data + i * 4, age_data + (i + 1) * 4) - age_data + i * 4;
+				int gender_index = std::max_element(gender_data + i * 2, gender_data + (i + 1) * 2) - gender_data - i * 2;
+				int age_index = std::max_element(age_data + i * 4, age_data + (i + 1) * 4) - age_data - i * 4;
+				int mask_index = std::max_element(mask_data + i * 2, mask_data + (i + 1) * 2) - mask_data - i * 2;
+				int glass_index = std::max_element(glass_data + i * 2, glass_data + (i + 1) * 2) - glass_data - i * 2;
 
 				face_attributes::face_attribute_info_internal face_info{ gender_index, age_index, mask_index, glass_index };
 				results.push_back(glasssix::exposing::make_as_first<face_attributes::face_attribute_info_impl>(face_info));
