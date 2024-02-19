@@ -47,7 +47,7 @@ private:
 #endif // USE_RKNN
 
 #ifdef USE_ONNXRT
-	std::unique_ptr<onx_pipline> base_instance_onnx_;
+	std::unique_ptr<ONNXRTPipline> base_instance_onnx_;
 #endif // USE_ONNXRT
 
 	std::unique_ptr<excalibur::pipeline<float>> base_instance_exbr_;
@@ -90,7 +90,7 @@ public:
 			else if (model_ext == ".onnx")
 			{
 #ifdef USE_ONNXRT
-				base_instance_onnx_ = std::make_unique<onx_pipline>(model_name + ".onnx");
+				base_instance_onnx_ = std::make_unique<ONNXRTPipline>(model_name + ".onnx");
 
 				if (fs::exists(model_name + ".phai"))
 				{
