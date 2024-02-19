@@ -176,7 +176,6 @@ if(BUILD_SAFE_PRODUCTION_SDK)
 	add_subdirectory(Fighting)
 	add_subdirectory(Vehicle)
 	add_subdirectory(Pump_Vesthelmet) #craneman
-	add_subdirectory(Vesthelmet) #craneman
 	# add_subdirectory(FaceAttributes)
 endif()
 if(BUILD_GENERAL_CV_SDK)

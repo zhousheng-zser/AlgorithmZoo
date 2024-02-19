@@ -13,7 +13,8 @@
 #include "argparse/argparse.hpp"
 
 using namespace glasssix;
-
+#define GetShowRatio(visual_img) std::min(float(1920.f / visual_img.cols), float(1080.f / visual_img.rows)) * 0.75
+#define ShowResize(visual_img, showRatio) cv::resize(visual_img, visual_img, cv::Size(), showRatio, showRatio)
 
 struct RunConfig
 {

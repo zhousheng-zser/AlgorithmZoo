@@ -5,7 +5,6 @@
 /**
 *	HEQW65:
 *		yolov8_complement vec_ts_rstSort asked input tensor H == W !,
-*		and each visual field raw info == 65£¬also CUT_MODEL_VISUALFIELD_RAW_INFO_ = 65; // include 4*BBoxlocaInfo(16 usually) + scores (64+N)
 */
 
 
