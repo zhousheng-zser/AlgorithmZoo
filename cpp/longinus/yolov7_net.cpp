@@ -368,10 +368,10 @@ namespace glasssix::longinus
         for (auto it : nms_result)
         {
             face_info_internal temp_face_info;
-            temp_face_info.rect.x = it.x1;
-            temp_face_info.rect.y = it.y1;
-            temp_face_info.rect.w = it.x2 - it.x1;
-            temp_face_info.rect.h = it.y2 - it.y1;
+            temp_face_info.ori_rect.x = temp_face_info.rect.x = it.x1;
+            temp_face_info.ori_rect.y = temp_face_info.rect.y = it.y1;
+            temp_face_info.ori_rect.w = temp_face_info.rect.w = it.x2 - it.x1;
+            temp_face_info.ori_rect.h = temp_face_info.rect.h = it.y2 - it.y1;
             temp_face_info.score = it.confidence;
             face_infos.push_back(temp_face_info);
         }
@@ -485,10 +485,10 @@ namespace glasssix::longinus
         for (auto it : nms_result)
         {
             face_info_internal temp_face_info;
-            temp_face_info.rect.x = it.x1;
-            temp_face_info.rect.y = it.y1;
-            temp_face_info.rect.w = it.x2 - it.x1;
-            temp_face_info.rect.h = it.y2 - it.y1;
+            temp_face_info.ori_rect.x = temp_face_info.rect.x = it.x1;
+            temp_face_info.ori_rect.y = temp_face_info.rect.y = it.y1;
+            temp_face_info.ori_rect.w = temp_face_info.rect.w = it.x2 - it.x1;
+            temp_face_info.ori_rect.h = temp_face_info.rect.h = it.y2 - it.y1;
             temp_face_info.score = it.confidence;
             face_infos.push_back(temp_face_info);
         }

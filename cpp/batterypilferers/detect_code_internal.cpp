@@ -157,13 +157,18 @@ namespace glasssix::batterypilferers
             }
 
             std::vector<std::vector<car_person_batery>> frames_info;
-            std::vector<cv::Mat> candicate_images;
+            // std::vector<cv::Mat> candicate_images;
 
             for (size_t i = 0; i < batch_size; i++)
             {
                 cv::Mat cropped_image = images[i](cv::Range(roi_y, roi_y + roi_height), cv::Range(roi_x, roi_x + roi_width));
                 auto one_frame_result = yolo_detect(cropped_image, con_thres, iou_thres);
                 auto result = deal_one_frame(one_frame_result);
+                for(auto x : one_frame_result)
+                {
+                    // cv::rectangle(cropped_image, cv::Point(x.x1, x.y1), cv::Point(x.x2, x.y2), cv::Scalar(x.category==2?255:0, x.category?255:0, x.category?0:255), 2);
+                }
+                // cv::imwrite( std::to_string(i)+"detect.jpg" ,cropped_image);
                 frames_info.push_back(result);
             }
 
@@ -178,12 +183,13 @@ namespace glasssix::batterypilferers
             std::vector<float> scores(crop_rect.size());
             for (int i=0;i<crop_rect.size();i++) 
             {   
+                std::vector<cv::Mat> candicate_images;
                 for (size_t j = 0; j < batch_size; j++)
                 {
-                    cv::Mat candicate_detect = images[j](cv::Range(crop_rect[0].y1, crop_rect[0].y2), cv::Range(crop_rect[0].x1, crop_rect[0].x2));
+                    cv::Mat candicate_detect = images[i*batch_size+j](cv::Range(crop_rect[i].y1, crop_rect[i].y2), cv::Range(crop_rect[i].x1, crop_rect[i].x2));
                     cv::resize(candicate_detect, candicate_detect, cv::Size(256, 256));
                     candicate_images.push_back(candicate_detect);    
-                    cv::imwrite( std::to_string(j)+".jpg" ,candicate_detect);
+                    // cv::imwrite( std::to_string(i*batch_size+j)+"touqie.jpg" ,candicate_detect);
                 }
 
                 std::vector<float> candicate_steal(65536*24);

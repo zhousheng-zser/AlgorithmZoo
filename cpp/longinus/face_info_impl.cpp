@@ -32,6 +32,26 @@ namespace glasssix::longinus
 		return internal_.rect.h;
 	}
 
+	float face_info_impl::ori_x() const
+	{
+		return internal_.ori_rect.x;
+	}
+
+	float face_info_impl::ori_y() const
+	{
+		return internal_.ori_rect.y;
+	}
+
+	float face_info_impl::ori_width() const
+	{
+		return internal_.ori_rect.w;
+	}
+
+	float face_info_impl::ori_height() const
+	{
+		return internal_.ori_rect.h;
+	}
+
 	float face_info_impl::yaw() const
 	{
 		return internal_.headpose[0];

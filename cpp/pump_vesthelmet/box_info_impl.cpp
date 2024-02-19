@@ -1,6 +1,6 @@
 #include "box_info_impl.hpp"
 
-namespace glasssix::vesthelmet
+namespace glasssix::pump_vesthelmet
 {
     box_info_impl::box_info_impl() {}
 
