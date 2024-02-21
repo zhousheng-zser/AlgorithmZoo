@@ -54,7 +54,7 @@ namespace glasssix::playphone
             
             cv::Mat image(cv::Size(width, height), CV_8UC3);
             std::memcpy(image.data, bitmap.data(), sizeof (uint8_t) * channels * height * width);            
-            float phone_conf_thres = param_map.count("phone_conf_thres") ? param_map["phone_conf_thres"] : 0.6f;
+            float phone_conf_thres = param_map.count("phone_conf_thres") ? param_map["phone_conf_thres"] : 0.7f;
             float phone_nms_thres = param_map.count("phone_nms_thres") ? param_map["phone_nms_thres"] : 0.5f;
 
 
@@ -73,14 +73,26 @@ namespace glasssix::playphone
                 if (postureInfo.invaild_hand_kpnum() < 2 && postureInfo.invaild_face_kpnum() < 2)
                 {
                     //detect phones
-                    auto playphone_det_region_rect = postureInfo.get_playphone_det_region();
+                    const auto playphone_det_region_rect = postureInfo.get_playphone_det_region();
                     auto playphone_det_region = safty_cut(image, playphone_det_region_rect);
                     std::vector<ObjBox> phone_list = phone_pipilne_->detect(playphone_det_region, playphone_det_region_rect.tl(), phone_conf_thres, phone_nms_thres);
+
+					// 以第二阶段检测框的最长边的0.16倍作为耳朵中心点到手机框中心点距离阈值
+					auto ear_tresh = std::max(playphone_det_region_rect.width, playphone_det_region_rect.height) * 0.16f;
 
                     for (auto phoneObj : phone_list)
                     {
                         //cv::rectangle(image, phoneObj.get_rect(), { 0, 0, 255 }, 2);
                         auto phoneRect = phoneObj.get_rect();
+
+                        //手机框太靠近耳朵
+						cv::Point phoneRectCenter(phoneRect.x + phoneRect.width / 2, phoneRect.y + phoneRect.height / 2);
+                        auto earD1 = cv::norm(phoneRectCenter - postureInfo.Kpoints[3]);
+                        auto earD2 = cv::norm(phoneRectCenter - postureInfo.Kpoints[4]);
+                        if (earD1 < ear_tresh || earD2 < ear_tresh) {
+                            continue;
+                        }
+
                         auto hands_region = postureInfo.get_playphone_hands_region();
                         // phone traversing match hands
                         for (auto& hand_region : hands_region)
@@ -129,7 +141,7 @@ namespace glasssix::playphone
 
         std::string version()
         {
-			const std::string algo_module_version = "2.3.0";
+			const std::string algo_module_version = "2.4.0";
 
 #if defined(USE_RKNNAPI) || defined(USE_RKNN2API)
 			//#if 0

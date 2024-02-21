@@ -141,7 +141,7 @@ namespace glasssix::playphone
 
 		std::vector<cv::Rect> get_playphone_hands_region() {
 			auto upperbody_img_rect = get_playphone_det_region();
-			int handbox_len = std::max(upperbody_img_rect.width, upperbody_img_rect.height) * 0.125f;
+			int handbox_len = std::max(upperbody_img_rect.width, upperbody_img_rect.height) * 0.1f;
 
 			auto centerRect = [](cv::Point center, int W, int H) {
 				cv::Point offset(W / 2, H / 2);
