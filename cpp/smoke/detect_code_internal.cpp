@@ -64,12 +64,10 @@ namespace glasssix::smoke
             empty_map_abi.add_or_update("conf_thres",conf_threshold);
             empty_map_abi.add_or_update("nms_thres", 0.45);
 
-            // exposing::param_vector<posture::box_info> posture_info_list = posture_instance_.detect(bitmap, channels, height, width, 0, 0, width, height, empty_map_abi);
-            
             cv::Mat draw = image.clone();
 
             int indexxx=0;
-            std::cout<<posture_info_list.size()<<std::endl;
+
             for (auto pinfo : posture_info_list) 
             {
                 PostureInfo postureInfo{ pinfo };
