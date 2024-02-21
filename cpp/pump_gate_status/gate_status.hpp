@@ -21,8 +21,7 @@ namespace glasssix::exposing::impl
             virtual std::int32_t G6_ABI_CALL init(std::int32_t device) noexcept = 0;
             virtual std::int32_t G6_ABI_CALL init(std::int32_t model_type, abi_in_t<param_string> racy_path, std::int32_t device, bool use_int8) noexcept = 0;
             virtual std::int32_t G6_ABI_CALL init(abi_in_t<param_span<const param_string>> phai, abi_in_t<param_string> racy_path, std::int32_t device) noexcept = 0;
-            virtual std::int32_t G6_ABI_CALL get(abi_in_t<param_span<std::uint8_t>> bitmaps, std::uint64_t count, std::int32_t order, abi_out_t<param_vector<param_vector<float>>> result) noexcept = 0;
-            
+
             virtual std::int32_t G6_ABI_CALL detect(
                 abi_in_t<param_span<std::uint8_t>> bitmap,
                 std::int32_t channels,
@@ -81,13 +80,6 @@ namespace glasssix::exposing::impl
             return abi_safe_call([&]
                                  { this->self().init(create_from_abi<param_span<const param_string>>(phai), create_from_abi<param_string>(racy_path), device); });
         }
-
-        virtual std::int32_t G6_ABI_CALL get(abi_in_t<param_span<std::uint8_t>> bitmaps, std::uint64_t count, std::int32_t order, abi_out_t<param_vector<param_vector<float>>> result) noexcept override
-        {
-            return abi_safe_call([&]
-                                 { *result = detach_abi(this->self().get(create_from_abi<param_span<std::uint8_t>>(bitmaps), count, order)); });
-        }
-
 
 
         virtual std::int32_t G6_ABI_CALL version(abi_out_t<param_string> result) noexcept override
@@ -148,13 +140,6 @@ namespace glasssix::exposing::impl
             void init(param_span<const param_string> phai, const param_string &racy_path, std::int32_t device) const
             {
                 check_abi_result(this->self_abi().init(get_abi(phai), get_abi(racy_path), get_abi(device)));
-            }
-
-            param_vector<param_vector<float>> get(param_span<std::uint8_t> bitmaps, std::uint64_t count, std::int32_t order) const
-            {
-                param_vector<param_vector<float>> result{nullptr};
-
-                return (check_abi_result(this->self_abi().get(get_abi(bitmaps), get_abi(count), get_abi(order), put_abi(result))), result);
             }
 
             param_string version() const
