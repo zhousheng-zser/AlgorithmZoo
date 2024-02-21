@@ -83,7 +83,7 @@ namespace glasssix::pump_light
             cv::Mat hsv_frame;
             cv::cvtColor(image, hsv_frame, cv::COLOR_BGR2HSV);
 
-            std::vector<cv::Point> contours(4);//ËÄµã¶¨Î»kuang
+            std::vector<cv::Point> contours(4);//ï¿½Äµã¶¨Î»kuang
             contours[0].x = static_cast<int>(x1);
             contours[0].y = static_cast<int>(y1);
             contours[1].x = static_cast<int>(x2);
@@ -93,14 +93,14 @@ namespace glasssix::pump_light
             contours[3].x = static_cast<int>(x4);
             contours[3].y = static_cast<int>(y4);
 
-            // Ìî³äËÄ±ßÐÎÇøÓò²¢Ó¦ÓÃÑÚÂë
+            // ï¿½ï¿½ï¿½ï¿½Ä±ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½Ó¦ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½
             cv::Mat mask = cv::Mat::zeros(image.size(), CV_8UC3);
             std::vector<std::vector<cv::Point>> pts{ contours };
             cv::fillPoly(mask, pts, cv::Scalar(255, 255, 255));
             cv::Mat masked_image;
             cv::bitwise_and(hsv_frame, mask, masked_image);
 
-            // ¼ÆËã·ûºÏÌõ¼þµÄÏñËØÊýÁ¿
+            // ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½
             cv::Mat red_mask, white_mask, orange_mask;
             cv::inRange(masked_image, cv::Scalar(156, 43, 46), cv::Scalar(180, 255, 255), red_mask);
             cv::inRange(masked_image, cv::Scalar(0, 0, 80), cv::Scalar(180, 43, 255), white_mask);
@@ -109,7 +109,7 @@ namespace glasssix::pump_light
             int white_count = cv::countNonZero(white_mask);
             int orange_count = cv::countNonZero(orange_mask);
 
-            // ¼ÆËãËÄ±ßÐÎÇøÓòµÄÕæÊµÏñËØÊýÁ¿
+            // ï¿½ï¿½ï¿½ï¿½ï¿½Ä±ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½Êµï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½
             double total_pixels = cv::contourArea(contours);
 
             pump_light::box_info_internal ans;
