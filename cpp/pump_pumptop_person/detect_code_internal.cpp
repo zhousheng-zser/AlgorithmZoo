@@ -44,10 +44,10 @@ namespace glasssix::pump_pumptop_person
 
             std::memcpy(image.data, bitmap.data(), sizeof(uint8_t) * 3 * height * width);
 
-            constexpr int crop_x1 = 732;
-            constexpr int crop_y1 = 208;
-            constexpr int crop_x2 = 1400;
-            constexpr int crop_y2 = 1020;
+            constexpr int crop_x1 = 780;
+            constexpr int crop_y1 = 218;
+            constexpr int crop_x2 = 1360;
+            constexpr int crop_y2 = 960;
 
             auto [maskpump_crop, pump_rrects_crop] = pump_detect(image, crop_x1, crop_y1, crop_x2, crop_y2);
             
