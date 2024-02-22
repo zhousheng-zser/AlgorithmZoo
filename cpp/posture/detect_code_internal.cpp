@@ -95,7 +95,7 @@ std::string version()
             int candicate_num640=0;
 
             auto real_output640 = Posture_Concat640(forwards640, keypoint_num,con_thres,candicate_num640,posture_add_weight,posture_mul_weight);
-            auto nms_input640  = XYXY2WH(real_output640, pad_h640,pad_w640, 1.f/ratio640, keypoint_num, candicate_num640);
+            auto nms_input640  =  XYXY2WH(real_output640, pad_h640,pad_w640, 1.f/ratio640, keypoint_num, candicate_num640);
 
             nms_input640 = throw_border_result( nms_input640, horizontal, throw_right,  throw_left,  640.f /ratio640);
     

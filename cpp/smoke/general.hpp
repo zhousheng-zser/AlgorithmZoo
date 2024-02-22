@@ -6,7 +6,8 @@
 using namespace glasssix;
 
     
-  
+     bool compareByFifthElement(const std::vector<float>& a, const std::vector<float>& b) {
+                        return a[4] > b[4];   }
 
     void tranpose(const float* sou,
                         float* dest,int sourows,int soucols)
@@ -93,13 +94,14 @@ using namespace glasssix;
             y2 = y2 <height? y2 : height;
         }
 
-        bool is_distance_between_centre_wrist_less_detect_box_threhold (std::vector<std::pair<cv::Point, float>>& wrists_point, float box_max_length )
+        //返回手腕到嘴部距离是否小于检测框体阈值  如果小于则返回 true
+        bool is_distance_of_centre_and_wrist_lessthan_detect_box_threhold (std::vector<std::pair<cv::Point, float>>& wrists_point, float box_max_length )
         {
             int centre_x = (x1+x2)/2;
             int centre_y = (y1+y2)/2;
             float distance1 = (wrists_point[0].first.x-centre_x)*(wrists_point[0].first.x-centre_x) +(wrists_point[0].first.y-centre_y)*(wrists_point[0].first.y -centre_y);
             float distance2 = (wrists_point[1].first.x-centre_x)*(wrists_point[1].first.x-centre_x) +(wrists_point[1].first.y-centre_y)*(wrists_point[1].first.y -centre_y);
-            return (box_max_length * box_max_length*0.030625) > std::min(distance1,distance2);
+            return (box_max_length * box_max_length*0.0484) > std::min(distance1,distance2);
         }
 
     };
@@ -130,7 +132,7 @@ using namespace glasssix;
 
     bool is_filterated(Cigrate_box & head, Cigrate_box & cigrate )
     {
-        return head.area()<cigrate.area();
+        return (head.area()<cigrate.area()) || (cigrate.m_left<10&&cigrate.m_height<10)   ;
     }
     
     float IOU_compute(const Cigrate_box& b1, const Cigrate_box& b2)
