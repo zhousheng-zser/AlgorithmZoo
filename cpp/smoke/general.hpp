@@ -99,7 +99,7 @@ using namespace glasssix;
             int centre_y = (y1+y2)/2;
             float distance1 = (wrists_point[0].first.x-centre_x)*(wrists_point[0].first.x-centre_x) +(wrists_point[0].first.y-centre_y)*(wrists_point[0].first.y -centre_y);
             float distance2 = (wrists_point[1].first.x-centre_x)*(wrists_point[1].first.x-centre_x) +(wrists_point[1].first.y-centre_y)*(wrists_point[1].first.y -centre_y);
-            return (box_max_length * box_max_length*0.625) > std::min(distance1,distance2);
+            return (box_max_length * box_max_length*0.030625) > std::min(distance1,distance2);
         }
 
     };

@@ -26,7 +26,8 @@
 #include "../../common/include/RKNN2Wrapper/rknn2_wrapper.hpp"
 
 #include "../posture/detect_code.hpp"
-#include "../head/detect_code.hpp"
+#include "head_det.hpp"
+#include "obj_box_info.hpp"
 
 namespace glasssix::pump_vesthelmet
 {
@@ -36,10 +37,9 @@ namespace glasssix::pump_vesthelmet
         impl(std::string_view model_directory, int device)
         {
             std::vector<std::string> phai;
-
             posture_instance_ = glasssix::exposing::make_exported_interface<posture::detect_code>(exposing::param_string(model_directory), device, 1);
-            head_instance_ = glasssix::exposing::make_exported_interface<head::detect_code>(exposing::param_string(model_directory), device);
             vest_cls_instance_ = std::make_unique<rknnwrapper::rknn_wrapper>(phai,std::string(model_directory) + "/" + "pump_vesthelmet_vest_cls.rknn", device);
+            head_det_instance_ = std::make_unique<rknnwrapper::rknn_wrapper>(phai,std::string(model_directory) + "/" + "pump_vesthelmet_head_det.rknn", device);
             helmet_cls_instance_ = std::make_unique<rknnwrapper::rknn_wrapper>(phai,std::string(model_directory) + "/" + "pump_vesthelmet_helmet_cls.rknn", device);
         }
 
@@ -59,7 +59,6 @@ namespace glasssix::pump_vesthelmet
             std::memcpy(image.data, bitmap.data(), sizeof(uint8_t) * channels * height * width);
 
             auto temp_param_abi = exposing::make_param_hash_map<exposing::param_string, float>();
-            //temp_param_abi.add_or_update("conf_thres", 0.1);
             exposing::param_vector<posture::box_info> posture_info_list_raw = posture_instance_.detect(bitmap, channels, height, width, 0, 0, width, height, temp_param_abi);
 
             for (auto pinfo : posture_info_list_raw)
@@ -89,15 +88,7 @@ namespace glasssix::pump_vesthelmet
                 auto people_img = safty_cut(image, people_img_rect);
                 auto people_start = people_img_rect.tl();
 
-				exposing::param_span<std::uint8_t> people_img_image_span(const_cast<std::uint8_t*>(people_img.data), people_img.cols * people_img.rows * people_img.channels());
-                exposing::param_vector<head::box_info> head_info_list = head_instance_.detect(people_img_image_span, 3, people_img.rows, people_img.cols, 0, 0, people_img.cols, people_img.rows, temp_param_abi);
-
-                std::vector<headInfo> head_info;
-                for (auto pinfo : head_info_list)
-                {
-                    headInfo postureInfo{ pinfo };
-                    head_info.push_back(postureInfo);
-                }
+                std::vector<HeadInfo> head_info = head_det(people_img);
 
                 for (auto& head : head_info)
                 {
@@ -150,11 +141,10 @@ namespace glasssix::pump_vesthelmet
 
         std::string version()
         {
-            const std::string algo_module_version = "1.0.0";
+            const std::string algo_module_version = "1.1.0";
             std::string nn_frame_version = "rknn";
             return fmt::format(R"({ {"nn_frame_version":"{}", "algo_module_version" : "{}"} })", nn_frame_version, algo_module_version);
         }
-
 
         inline cv::Mat safty_cut(cv::Mat& img, cv::Rect roi)
         {
@@ -190,7 +180,7 @@ namespace glasssix::pump_vesthelmet
             return mat;
         }
 
-        static inline cv::Mat letterbox(cv::Mat img, int hope_w = 640, int hope_h = 640)
+        static inline cv::Mat letterbox(cv::Mat img, int hope_w, int hope_h)
         {
             int H = img.rows;
             int W = img.cols;
@@ -222,10 +212,53 @@ namespace glasssix::pump_vesthelmet
             return resize_img;
         }
 
+		std::vector<HeadInfo> head_det(cv::Mat image, float head_det_conf_thres = 0.6, float nms_threshold = 0.5) {
+            std::vector<HeadInfo> head_list;
+
+            constexpr int reShapeSide = 320;
+            auto letter_img = letterbox(image, reShapeSide, reShapeSide);
+            cv::cvtColor(letter_img, letter_img, cv::COLOR_BGR2RGB);
+            auto det_rst_map = head_det_instance_->forward(letter_img.data, { 1, letter_img.rows, letter_img.cols, letter_img.channels() }, RKNN_TENSOR_NHWC);
+            auto det_rst_vec = sort_yolo_rst(det_rst_map);
+            auto tensor_out = yolov8_complement(det_rst_vec);
+
+            int targetnum = tensor_out->height();
+            int infonum = tensor_out->width();
+            for (size_t idx = 0; idx < targetnum; idx++) {
+                float* pdata = tensor_out->mutable_cpu_data() + idx * infonum;
+                float conf = pdata[4];
+                if (conf > head_det_conf_thres) {
+                    //dbg(conf);
+                    //std::cout << "pdata m640: " << pdata[0] * 640 << " " << pdata[1] * 640 << " " << pdata[1] * 640 << " " << pdata[1] * 640 << std::endl;
+                    HeadInfo headbox(pdata[0] * reShapeSide, pdata[1] * reShapeSide, pdata[2] * reShapeSide, pdata[3] * reShapeSide, conf);
+                    head_list.push_back(headbox);
+                }
+            }
+
+            int pad = std::abs(image.cols - image.rows) / 2;
+            bool is_vertical_pad = image.cols > image.rows;
+            float mapping_ratio = static_cast<float>(std::max(image.cols, image.rows)) / reShapeSide;
+
+            for (auto& bbox : head_list) {
+                bbox.mul_ratio(mapping_ratio);
+                if (is_vertical_pad) {
+                    bbox.ymin -= pad;
+                    bbox.ymax -= pad;
+                }
+                else {
+                    bbox.xmin -= pad;
+                    bbox.xmax -= pad;
+                }
+            }
+
+            headinfo_nms_cpu(head_list, nms_threshold);
+            return head_list;
+        }
+
     private:
         posture::detect_code posture_instance_;
-        head::detect_code head_instance_;
         std::unique_ptr<rknnwrapper::rknn_wrapper> vest_cls_instance_;
+        std::unique_ptr<rknnwrapper::rknn_wrapper> head_det_instance_;
         std::unique_ptr<rknnwrapper::rknn_wrapper> helmet_cls_instance_;
 
     };
