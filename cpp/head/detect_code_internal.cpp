@@ -276,7 +276,7 @@ std::string version()
                     match_index.push_back(i+ stride_8_num*stride_8_num + stride_16_num*stride_16_num );
 
             //concat the 80*40 40*40 20*20 
-            std::vector<float> cat(65*candidate_num);//1*65*candidate_num = 64*candidate_num + 1*candidate_num        
+            std::vector<float> cat(65*candidate_num); //1*65*candidate_num = 64*candidate_num + 1*candidate_num        
             for(int i=0,j=0;i<65;i++,j=0)
             {   
                 std::copy(data_stride_8+i*stride_8_num*stride_8_num, data_stride_8+(i+1)*stride_8_num*stride_8_num, cat.data()+i*candidate_num ); 
@@ -315,7 +315,7 @@ std::string version()
                     conv[j] = conv[j] +cat[i*4*candidate_num+j ]*i  ; 
 
             std::vector<float>  concat(candidate_num*4);
-            for(int i=0,index=match_index[0];i<candidate_num*2;i++)
+            for(int i=0;i<candidate_num*2;i++)
             {              
                 concat[i]                 = (conv[i+candidate_num*2] - conv[i] )/2.f + posture_add_weight_1280[ i<candidate_num? match_index[i]:(match_index[i - candidate_num ]+totol_size) ] + 0.5;     
                 concat[i+candidate_num*2] = (conv[i+candidate_num*2] + conv[i] );      // add_data[i]-sub_data[i]) ;  
