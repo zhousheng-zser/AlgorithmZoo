@@ -66,20 +66,36 @@ int main(int argc, char* argv[])
 	runConfig.convertBGR = std::stoi(args.args["convert_bgr"]) == 1;
 	runConfig.imgReSize = std::stoi(args.args["img_resize"]);
 
-
-
 	std::map<std::string, std::string> output_map;
 
-	std::vector<std::string> phai;
-	GenPipline pipline_A(runConfig.net_A);
-	GenPipline pipline_B(runConfig.net_B);
-	pipline_A.set_inference_time_cost(false);
-	pipline_B.set_inference_time_cost(false);
-	pipline_A.set_image_preprocess(runConfig.imgReSize, runConfig.convertBGR);
-	pipline_B.set_image_preprocess(runConfig.imgReSize, runConfig.convertBGR);
-	pipline_A.set_postprocessing(runConfig.net_A_postprocess, postprocessing_market);
-	pipline_B.set_postprocessing(runConfig.net_B_postprocess, postprocessing_market);
 
+	GenPipline::dump_backend_menu(true);
+
+	auto pipline_A = std::make_shared<GenPipline>(runConfig.net_A, 0);
+	auto pipline_B = std::make_shared<GenPipline>(runConfig.net_B, 0);
+
+	pipline_A->handset_possible_normalization({ 0,0,0 }, { 0.003921568,0.003921568,0.003921568 });
+	pipline_B->handset_possible_normalization({ 0,0,0 }, { 0.0078125,0.0038125,0.0048125 });
+
+	// GenPipline Pre & Post Processing Wrapper Obj
+	auto ioprocess_pipline_A = std::make_shared<PrePostProcessGenPipline>(pipline_A);
+	auto ioprocess_pipline_B = std::make_shared<PrePostProcessGenPipline>(pipline_B);
+
+	// Define Pre-Processing
+	if (runConfig.convertBGR) printf("- convert BGR order !\n");
+	if (runConfig.imgReSize > 0)
+	{
+		printf("- resize image to %d * %d !\n", runConfig.imgReSize, runConfig.imgReSize);
+		printf("  if program crash, check size^2 EQ rknn input shape !\n");
+	}
+	auto image_preprocess = [&runConfig](cv::Mat img) {
+		return GenPiplineTools::letter_image(img, runConfig.imgReSize, runConfig.imgReSize, runConfig.convertBGR);
+	};
+	ioprocess_pipline_A->set_image_preprocess(image_preprocess);
+	ioprocess_pipline_B->set_image_preprocess(image_preprocess);
+	// Define Post-Processing
+	ioprocess_pipline_A->check_set_postprocessing(postprocessing_market, runConfig.net_A_postprocess);
+	ioprocess_pipline_B->check_set_postprocessing(postprocessing_market, runConfig.net_B_postprocess);
 
 	std::map<std::string, std::vector<float>> score_map;
 	std::vector<std::string> img_list;
@@ -87,7 +103,7 @@ int main(int argc, char* argv[])
 
 	if (output_map.empty())
 	{
-		auto_infer_output_map(pipline_A, pipline_B, img_list[0], output_map);
+		auto_infer_output_map(ioprocess_pipline_A, ioprocess_pipline_B, img_list[0], output_map);
 	}
 	else
 	{
@@ -106,17 +122,8 @@ int main(int argc, char* argv[])
 	{
 		cv::Mat img = cv::imread(img_list[idx]);
 
-		if (idx == 0)
-		{
-			if (runConfig.convertBGR) printf("- convert BGR order !\n");
-			if (runConfig.imgReSize > 0)
-			{
-				printf("- resize image to %d * %d !\n", runConfig.imgReSize, runConfig.imgReSize);
-				printf("  if program crash, check size^2 EQ rknn input shape !\n");
-			}
-		}
-		auto results_pip_A = pipline_A.forward(img);
-		auto results_pip_B = pipline_B.forward(img);
+		auto results_pip_A = pipline_A->forward(img);
+		auto results_pip_B = pipline_B->forward(img);
 
 		for (auto& x : output_map)
 		{

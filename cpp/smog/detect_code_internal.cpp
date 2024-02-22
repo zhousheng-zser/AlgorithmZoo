@@ -74,7 +74,7 @@ namespace glasssix::smog
        
         std::string version()
         {
-        const std::string algo_module_version = "2.0.3";
+        const std::string algo_module_version = "2.1.0";
 
 #if defined(USE_RKNNAPI) || defined(USE_RKNN2API)
         //#if 0
@@ -285,10 +285,15 @@ namespace glasssix::smog
 
             std::vector<std::shared_ptr<glasssix::memory::tensor<float>>> forwards;
 
-            auto  network_results = net_detect_.forward(blobs.data, { 1, blobs.rows, blobs.cols, blobs.channels() }, RKNN_TENSOR_NHWC);
+            auto network_results = net_detect_.forward(blobs.data, { 1, blobs.rows, blobs.cols, blobs.channels() }, RKNN_TENSOR_NHWC);
 
-            forwards.push_back(network_results["onnx::Mul_423"]);
-            forwards.push_back(network_results["onnx::Sigmoid_380"]);
+            for (auto& out : network_results) {
+                forwards.push_back(out.second);
+            }
+
+            if (forwards[0]->count() < forwards[1]->count()) {
+                std::swap(forwards[0], forwards[1]);
+            }
 
             auto bboxes_list = concat(forwards, conf_thres, blobs);
 

@@ -3,12 +3,13 @@ cmake_minimum_required(VERSION 3.5)
 set(module_name test_model)
 
 file(GLOB CPP_FILES ${PROJECT_SOURCE_DIR}/../cpp/test_model/*.cpp ${PROJECT_SOURCE_DIR}/../cpp/test_model/postprocessing_functions/*.cpp)
-file(GLOB HPP_FILES ${PROJECT_SOURCE_DIR}/../cpp/test_model/*.hpp)
+file(GLOB HPP_FILES ${PROJECT_SOURCE_DIR}/../cpp/test_model/*.hpp ${PROJECT_SOURCE_DIR}/../cpp/test_model/*.h)
 
+file(GLOB backends_files ${PROJECT_SOURCE_DIR}/../cpp/test_model/Backends/*.hpp ${PROJECT_SOURCE_DIR}/../cpp/test_model/Backends/*.cpp)
 file(GLOB argparse_files ${PROJECT_SOURCE_DIR}/../cpp/test_model/argparse/*.hpp ${PROJECT_SOURCE_DIR}/../cpp/test_model/argparse/*.cpp)
 file(GLOB numpy_extensor_files ${PROJECT_SOURCE_DIR}/../cpp/test_model/numpy_extensor/*.hpp ${PROJECT_SOURCE_DIR}/../cpp/test_model/numpy_extensor/*.cpp)
 
-add_executable(${module_name} ${CPP_FILES} ${HPP_FILES} ${argparse_files} ${numpy_extensor_files}) 
+add_executable(${module_name} ${CPP_FILES} ${HPP_FILES} ${argparse_files} ${numpy_extensor_files} ${backends_files}) 
 
 if(NOT (CMAKE_CXX_COMPILER_ID STREQUAL "MSVC"))
 	target_link_directories(${module_name} PRIVATE ${COMMON_LIBRARY_DIRS})
