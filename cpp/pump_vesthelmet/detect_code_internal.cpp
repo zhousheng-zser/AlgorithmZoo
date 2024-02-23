@@ -145,7 +145,7 @@ namespace glasssix::pump_vesthelmet
 
         std::string version()
         {
-            const std::string algo_module_version = "1.1.0";
+            const std::string algo_module_version = "1.2.0";
             std::string nn_frame_version = "rknn";
             return fmt::format(R"({ {"nn_frame_version":"{}", "algo_module_version" : "{}"} })", nn_frame_version, algo_module_version);
         }

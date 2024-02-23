@@ -232,7 +232,7 @@ namespace glasssix::pump_pumptop_person
 
         std::string version()
         {
-            const std::string algo_module_version = "1.0.0";
+            const std::string algo_module_version = "1.1.0";
             std::string nn_frame_version = "rknn2";
             return fmt::format(R"({ {"nn_frame_version":"{}", "algo_module_version" : "{}"} })", nn_frame_version, algo_module_version);
         }
