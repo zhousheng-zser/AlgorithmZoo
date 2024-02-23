@@ -58,8 +58,12 @@ namespace glasssix::pump_vesthelmet
 
             std::memcpy(image.data, bitmap.data(), sizeof(uint8_t) * channels * height * width);
 
-            auto temp_param_abi = exposing::make_param_hash_map<exposing::param_string, float>();
-            exposing::param_vector<posture::box_info> posture_info_list_raw = posture_instance_.detect(bitmap, channels, height, width, 0, 0, width, height, temp_param_abi);
+            float posture_conf_thres = param_map_std.count("posture_conf_thres") ? param_map_std["posture_conf_thres"] : 0.1f;
+            float head_conf_thres = param_map_std.count("head_conf_thres") ? param_map_std["head_conf_thres"] : 0.6f;
+
+            auto posture_param_abi = exposing::make_param_hash_map<exposing::param_string, float>();
+            posture_param_abi.add_or_update("conf_thres", posture_conf_thres);
+            exposing::param_vector<posture::box_info> posture_info_list_raw = posture_instance_.detect(bitmap, channels, height, width, 0, 0, width, height, posture_param_abi);
 
             for (auto pinfo : posture_info_list_raw)
             {
@@ -88,7 +92,7 @@ namespace glasssix::pump_vesthelmet
                 auto people_img = safty_cut(image, people_img_rect);
                 auto people_start = people_img_rect.tl();
 
-                std::vector<HeadInfo> head_info = head_det(people_img);
+                std::vector<HeadInfo> head_info = head_det(people_img, head_conf_thres);
 
                 for (auto& head : head_info)
                 {
