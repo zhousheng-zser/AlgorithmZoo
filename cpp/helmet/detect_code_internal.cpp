@@ -125,7 +125,6 @@ namespace glasssix::helmet
         };
 
 
-
         void  Softmax(float* data, int num)
         {
 
@@ -177,9 +176,7 @@ namespace glasssix::helmet
 
                 cv::Mat crop = image(cv::Range(head.y1, head.y2), cv::Range(head.x1, head.x2));
                 if (crop.cols < 24 || crop.rows < 24)
-                {
                     continue;
-                }
 
                 // cv::Mat headimg;
                 crop = hisEqulColor(crop);
@@ -190,7 +187,7 @@ namespace glasssix::helmet
 
                 float* helmet_conf = network_result["output0"]->mutable_cpu_data();
 
-                Softmax(helmet_conf, 3);
+                // Softmax(helmet_conf, 3);
 
                 box_info_internal  headp(head.x1, head.x2, head.y1, head.y2);
                 if (helmet_conf[0] > helmet_conf[1] && helmet_conf[0] > helmet_conf[2])
