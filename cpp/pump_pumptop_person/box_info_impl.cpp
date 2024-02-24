@@ -28,6 +28,11 @@ namespace glasssix::pump_pumptop_person
         return internal_.y2;
     }
 
+    float box_info_impl::score()
+    {
+        return internal_.score;
+    }
+
     std::int32_t box_info_impl::category()
     {
         return internal_.category;
