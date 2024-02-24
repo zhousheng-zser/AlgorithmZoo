@@ -131,7 +131,7 @@ namespace glasssix::pump_pumptop_person
             {"red2", {{156, 43, 46},{180, 255, 255}}},
             {"green",{{156, 43, 46},{180, 255, 255}}},
             {"blue", {{100, 43, 46},{124, 255, 255}}},
-            {"grey", {{ 50,  0, 46},{140,  30, 180}}}
+            {"grey", {{ 80, 0,  46},{180, 43,  220}}}
         };
 
 		std::pair<cv::Mat, std::vector<cv::RotatedRect>> pump_detect(cv::Mat image, int crop_x1, int crop_y1, int crop_x2, int crop_y2) {
@@ -232,7 +232,7 @@ namespace glasssix::pump_pumptop_person
 
         std::string version()
         {
-            const std::string algo_module_version = "1.0.0";
+            const std::string algo_module_version = "1.1.0";
             std::string nn_frame_version = "rknn2";
             return fmt::format(R"({ {"nn_frame_version":"{}", "algo_module_version" : "{}"} })", nn_frame_version, algo_module_version);
         }
