@@ -19,6 +19,7 @@ namespace glasssix::pump_pumptop_person
         std::int32_t y1();
         std::int32_t y2();
         std::int32_t category();
+        float score();
         exposing::param_vector<std::int32_t> pump();
 
     private:

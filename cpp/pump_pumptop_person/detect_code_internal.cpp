@@ -67,6 +67,7 @@ namespace glasssix::pump_pumptop_person
 					person_state.y1 = pedestrian_info.y1;
 					person_state.x2 = pedestrian_info.x2;
 					person_state.y2 = pedestrian_info.y2;
+					person_state.score = pedestrian_info.score;
 					person_state.pump = exposing::make_param_vector<std::int32_t>();
 
 					// install pump location
