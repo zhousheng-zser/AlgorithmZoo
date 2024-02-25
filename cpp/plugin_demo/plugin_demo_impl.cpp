@@ -1,6 +1,6 @@
 #pragma once
 
-// ±¾ÎÄ¼ş¶¨ÒåÁËÒ»¸ö½Ó¿ÚÊµÏÖµÄÊ¾Àı¡£
+// æœ¬æ–‡ä»¶å®šä¹‰äº†ä¸€ä¸ªæ¥å£å®ç°çš„ç¤ºä¾‹ã€‚
 
 #include "plugin_demo_impl.hpp"
 
@@ -12,13 +12,13 @@ namespace glasssix::excalibur
 
 	param_string plugin_demo_impl::name() const
 	{
-		return format(u8"ÎÒµÄÃû×ÖÊÇ£º{}£¬ĞĞºÅ£º{}", to_param_string(__FILE__), __LINE__);
+		return format(u8"æˆ‘çš„åå­—æ˜¯ï¼š{}ï¼Œè¡Œå·ï¼š{}", to_param_string(__FILE__), __LINE__);
 	}
 
 	void plugin_demo_impl::print(const param_hash_map<param_string, param_string>& params) const
 	{
-		// param_hash_map Ö§³Öµü´ú¡£
-		// Ê¹ÓÃ exposing::begin ºÍ exposing::end ¿É»ñÈ¡µü´úÆ÷¡£
+		// param_hash_map æ”¯æŒè¿­ä»£ã€‚
+		// ä½¿ç”¨ exposing::begin å’Œ exposing::end å¯è·å–è¿­ä»£å™¨ã€‚
 		for (const auto& item : params)
 		{
 			std::cout << to_narrow_string(format(u8"[{}, {}]", item.key(), item.value())) << std::endl;
@@ -39,8 +39,8 @@ namespace glasssix::excalibur
 
 	object_iterator<param_string> plugin_demo_impl::get_iterator() const
 	{
-		// ÊµÏÖÒ»¸öµü´úÆ÷£¬ÒÔÖ§³Ö ranged-for ºÍ¸÷ÀàÈİÆ÷±ê×¼Ëã·¨¡£
-		// ±¾Àı¼òµ¥·¶Î§Ò»¸ö¹Ì¶¨µÄ list
+		// å®ç°ä¸€ä¸ªè¿­ä»£å™¨ï¼Œä»¥æ”¯æŒ ranged-for å’Œå„ç±»å®¹å™¨æ ‡å‡†ç®—æ³•ã€‚
+		// æœ¬ä¾‹ç®€å•èŒƒå›´ä¸€ä¸ªå›ºå®šçš„ list
 		static const std::initializer_list<int> numbers{ 1, 2, 3, 4, 5 };
 
 		struct impl : implements<impl, object_iterator<param_string>>
@@ -51,7 +51,7 @@ namespace glasssix::excalibur
 
 			param_string current() const
 			{
-				return format(u8"ÎÒÊÇ {}", *iter_);
+				return format(u8"æˆ‘æ˜¯ {}", *iter_);
 			}
 
 			bool valid() const
