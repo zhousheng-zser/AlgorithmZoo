@@ -539,6 +539,11 @@ namespace glasssix::pumptop_helmet
 					// std::cout << "The point is inside the rectangle!" << std::endl;
 					// 人头检测
 					rect_head = head_detect(image_ori_all, people_rect, param_map); // 这里 rect 需要替换成人的原始坐标
+					//! 这里需要对人头检测进行判空,不然 人头分类检测 拿到的就是空数据,会报错
+					if(rect_head.width == 0 || rect_head.height == 0)
+					{
+						continue;
+					}
 					// 人头分类检测
 					category = helmet_detect(image_ori_all, rect_head);
 				}
