@@ -31,7 +31,7 @@ namespace glasssix::face_attributes
 	public:
 		impl() = delete;
 
-		impl(const exposing::param_string &models_directory, std::int32_t device) : device_{device}, instance_{get_model_params("attributes_detection_best"), std::string{models_directory} + "/640-v1_ori_TAL.racy", device}
+		impl(const exposing::param_string &models_directory, std::int32_t device) : device_{device}, instance_{get_model_params("attributes_detection_best"), std::string{models_directory} + "/face_attributes.racy", device}
 		{
 		}
 
