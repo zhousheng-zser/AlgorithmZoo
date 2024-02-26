@@ -25,14 +25,17 @@ namespace glasssix::pumptop_helmet
 		impl(std::string_view model_directory, int device)
 			: model_directory_{std::string(model_directory)}, device_{device}
 		{
+			//算法传过来的模型名:泵检测模型 640-v1_ori_TAL
+			net_detect_1 = std::make_unique<rknnwrapper::rknn_wrapper>(phais, std::string(model_directory) + "/" + "pumptop_helmet_pump.rknn", device);
 
-			net_detect_1 = std::make_unique<rknnwrapper::rknn_wrapper>(phais, std::string(model_directory) + "/" + "640-v1_ori_TAL.rknn", device);
+			//算法传过来的模型名:人检测模型 1280T320-0108_Person_best_detection
+			net_detect_2 = std::make_unique<rknnwrapper::rknn_wrapper>(phais, std::string(model_directory) + "/" + "pumptop_helmet_person.rknn", device);
 
-			net_detect_2 = std::make_unique<rknnwrapper::rknn_wrapper>(phais, std::string(model_directory) + "/" + "1280T320-0108_Person_best_detection.rknn", device);
+			//算法传过来的模型名:人头检测模型 640T320-200epft-baoshinegtivev2-atss-nwd-wop
+			net_detect_3 = std::make_unique<rknnwrapper::rknn_wrapper>(phais, std::string(model_directory) + "/" + "pumptop_helmet_head.rknn", device);
 
-			net_detect_3 = std::make_unique<rknnwrapper::rknn_wrapper>(phais, std::string(model_directory) + "/" + "640T320-200epft-baoshinegtivev2-atss-nwd-wop.rknn", device);
-
-			net_detect_4 = std::make_unique<rknnwrapper::rknn_wrapper>(phais, std::string(model_directory) + "/" + "helmetclassify-v2-96-labelsmooth-0.05.rknn", device);
+			//算法传过来的模型名:人头分类检测模型 helmetclassify-v2-96-labelsmooth-0.05
+			net_detect_4 = std::make_unique<rknnwrapper::rknn_wrapper>(phais, std::string(model_directory) + "/" + "pumptop_helmet_helmet.rknn", device);
 		}
 
 		~impl()
