@@ -60,6 +60,8 @@ namespace glasssix::pump_vesthelmet
 
             float posture_conf_thres = param_map_std.count("posture_conf_thres") ? param_map_std["posture_conf_thres"] : 0.1f;
             float head_conf_thres = param_map_std.count("head_conf_thres") ? param_map_std["head_conf_thres"] : 0.6f;
+            float head_min_h_thres = param_map_std.count("head_min_h_thres") ? param_map_std["head_min_h_thres"] : 24.0f;
+            float head_min_w_thres = param_map_std.count("head_min_w_thres") ? param_map_std["head_min_w_thres"] : 24.0f;
 
             auto posture_param_abi = exposing::make_param_hash_map<exposing::param_string, float>();
             posture_param_abi.add_or_update("conf_thres", posture_conf_thres);
@@ -96,7 +98,11 @@ namespace glasssix::pump_vesthelmet
 
                 for (auto& head : head_info)
                 {
-                    auto helmet_cls_region = safty_cut(people_img, head.get_rect());
+                    auto head_rect = head.get_rect();
+                    if (head_rect.width < head_min_w_thres || head_rect.height < head_min_h_thres)
+                        continue;
+
+                    auto helmet_cls_region = safty_cut(people_img, head_rect);
 
                     auto helmet_cls = letterbox(helmet_cls_region, 96, 96);
 					cv::cvtColor(helmet_cls, helmet_cls, cv::COLOR_BGR2RGB);
@@ -145,7 +151,7 @@ namespace glasssix::pump_vesthelmet
 
         std::string version()
         {
-            const std::string algo_module_version = "1.2.0";
+            const std::string algo_module_version = "1.3.0";
             std::string nn_frame_version = "rknn";
             return fmt::format(R"({ {"nn_frame_version":"{}", "algo_module_version" : "{}"} })", nn_frame_version, algo_module_version);
         }
