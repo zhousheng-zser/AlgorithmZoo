@@ -411,7 +411,7 @@ namespace glasssix::pumptop_helmet
 			std::vector<cv::Rect> result_rect;
 			// 预处理
 			init_data640();
-			float con_thres = param_map.count("conf_thres") ? param_map["conf_thres"] : 0.5f;
+			float con_thres = param_map.count("pump_conf_thres") ? param_map["pump_conf_thres"] : 0.8f;
 			float iou_thres = param_map.count("nms_thres") ? param_map["nms_thres"] : 0.6f;
 			auto new_shape = cv::Size(640, 640);
 			cv::Mat blob;
@@ -469,7 +469,7 @@ namespace glasssix::pumptop_helmet
 			cv::Rect rect_head;
 			cv::Rect rect_peple_ori;
 			category = -1;
-			float con_thres = param_map.count("conf_thres") ? param_map["conf_thres"] : 0.1f;
+			float con_thres = param_map.count("people_conf_thres") ? param_map["people_conf_thres"] : 0.1f;
 			float iou_thres = param_map.count("nms_thres") ? param_map["nms_thres"] : 0.6f;
 			cv::Rect roi(rect.x, rect.y, rect.width, rect.height);
 			cv::Mat image = image_ori_all(roi).clone();
@@ -543,7 +543,8 @@ namespace glasssix::pumptop_helmet
 					// 人头检测
 					rect_head = head_detect(image_ori_all, people_rect, param_map); // 这里 rect 需要替换成人的原始坐标
 					//! 这里需要对人头检测进行判空,不然 人头分类检测 拿到的就是空数据,会报错
-					if(rect_head.width == 0 || rect_head.height == 0)
+					// 根据算法需求,宽高分别小于24要过滤
+					if(rect_head.width < 24 || rect_head.height < 24)
 					{
 						continue;
 					}
@@ -568,7 +569,7 @@ namespace glasssix::pumptop_helmet
 			cv::Mat image = image_ori_all(roi).clone();
 			cv::Rect roiRect;
 
-			float con_thres = param_map.count("conf_thres") ? param_map["conf_thres"] : 0.1f;
+			float con_thres = param_map.count("head_conf_thres") ? param_map["head_conf_thres"] : 0.1f;
 			float iou_thres = param_map.count("nms_thres") ? param_map["nms_thres"] : 0.5f;
 			init_data320();
 			auto new_shape = cv::Size(320, 320);
@@ -633,9 +634,6 @@ namespace glasssix::pumptop_helmet
 			cv::Rect roi(rect.x, rect.y, rect.width, rect.height);
 			cv::Mat image = image_ori_all(roi).clone();
 
-			// init_data96();
-			float conf_threshold = 0.1f;
-			float iou_threshold = 0.5f;
 			auto new_shape = cv::Size(96, 96);
 			cv::Mat blob;
 			float ratio = 1.f;
@@ -658,6 +656,11 @@ namespace glasssix::pumptop_helmet
 			auto result = network_results[out_names[0]]->cpu_data();
 
 			int index = std::max_element(result, result + 3) - result;
+			// 如果检测结果为 {0: 'head', 1: 'helmet', 2: 'no'} 中的head,当值低于0.7,要过滤
+			if(index == 0 && *result < 0.7)
+			{
+				index = -1;
+			}
 
 
 			return index;
