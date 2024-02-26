@@ -70,7 +70,7 @@ namespace glasssix::pump_hoisting
             return Out_xy;
         }
 
-        std::vector<Quadrilateral> get_dangerous_rect(std::vector<Rectangle>& all_pump_rect_boxes, cv::Mat& img )
+        std::vector<Quadrilateral> get_dangerous_rect(std::vector<Rectangle>& all_pump_rect_boxes, cv::Mat& img ,float move_threshold=0.2)
         {
             std::vector<Quadrilateral> dangerous_region;
             if( first_init )
@@ -94,7 +94,7 @@ namespace glasssix::pump_hoisting
                     {
                         float distance =get_distance_between_Rectangle(current_box, library[match_id] );
 
-                        if( get_distance_between_Rectangle(current_box, library[match_id] )>4)// abs(current_box.y2-current_box.y1)*0.2 ) //检测到移动了
+                        if( get_distance_between_Rectangle(current_box, library[match_id] )> abs(current_box.y2-current_box.y1)*move_threshold ) //检测到移动了
                         {
                             auto neighboor = find_nearest_rectangles(all_pump_rect_boxes, current_box );
 
@@ -262,6 +262,9 @@ namespace glasssix::pump_hoisting
 
             auto  empty_map_abi             = exposing::make_param_hash_map<exposing::param_string, float>();
             float conf_threshold            = param_map.count("conf_thres") ? param_map["conf_thres"] : 0.6f;
+
+            float move_threshold            = param_map.count("move_threshold") ? param_map["move_threshold"] : 0.2f;
+
             float pump_hoisting_conf_thres          = param_map.count("pump_hoisting_conf_thres") ? param_map["pump_hoisting_conf_thres"] : 0.7f;
 
             empty_map_abi.add_or_update("conf_thres",conf_threshold);
@@ -281,7 +284,7 @@ namespace glasssix::pump_hoisting
             }
             cv::imwrite("../pumprect.jpg",image);
 #endif
-            auto dangerous_regions = get_dangerous_rect(all_current_boxes,image);
+            auto dangerous_regions = get_dangerous_rect(all_current_boxes,image,move_threshold);
 
             for (auto& dangerous_region : dangerous_regions)
             {
