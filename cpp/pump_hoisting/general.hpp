@@ -190,7 +190,7 @@ using namespace glasssix;
     {      
         std::map<int, Rectangle> ::iterator it;
         int min_distance =  (1 << 30);
-        std::cout << "min_distance: " << min_distance << std::endl;
+        //std::cout << "min_distance: " << min_distance << std::endl;
         int id=-1;
         for(it=librarys.begin(); it != librarys.end();  it++ )
         {   
