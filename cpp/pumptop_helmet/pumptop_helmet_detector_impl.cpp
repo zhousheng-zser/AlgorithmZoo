@@ -477,16 +477,12 @@ namespace glasssix::pumptop_helmet
 			cv::Mat img_det;
 			cv::Point point_people_feet_center{0, 0};
 			cv::Point point_pump_xy_ori = {rect.x, rect.y};
-			// 泵顶的区域
-			int centerX = rect.x + rect.width / 2;
-			int centerY = rect.y + rect.height / 2;
+			// 泵顶的区域 根据算法要求，改为 0.35
+			float scale = 0.35;
+			float X = rect.x + rect.width  * (1 - scale) / 2;
+			float Y = rect.y + rect.height * (1 - scale) / 2;
 
-			int top = (rect.y - centerY) / 2;
-			int botton = (rect.y + rect.height - centerY) / 2;
-			int left = (rect.x - centerX) / 2;
-			int right = (rect.x + rect.width - centerY) / 2;
-
-			cv::Rect pump_top_ori(centerX + left, centerY + top, rect.width / 2, rect.height / 2);
+			cv::Rect pump_top_ori(X, Y, rect.width * scale, rect.height * scale);
 			init_data320();
 			auto new_shape = cv::Size(320, 320);
 			cv::Mat blob;
