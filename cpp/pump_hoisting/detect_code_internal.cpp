@@ -19,7 +19,8 @@
 
 #include "general.hpp"
 
-#define no_draw_pic 
+#define draw_pic 
+#define LIBRARY_ID_MAX 1073741824
 
 namespace glasssix::pump_hoisting
 {
@@ -39,7 +40,7 @@ namespace glasssix::pump_hoisting
             init_data();
         } 
    
-        std::vector<Rectangle> get_pumprect(cv::Mat& image)
+        std::vector<Rectangle> get_pumprect(cv::Mat& image, float conf_thres=0.6, float iou_thres=0.7)
         {
             std::vector<Rectangle> Out_xy;
             auto new_shape = cv::Size(640, 640);
@@ -60,28 +61,33 @@ namespace glasssix::pump_hoisting
 
             int num =0;
             auto real_output = Yovo8se_Concat(forwards,0.1,num);//5*8400
-            auto post_result = post_process(real_output,pad_h,pad_w, 1.f/ratio, num,0.1,0.7 );
+            auto post_result = post_process(real_output,pad_h,pad_w, 1.f/ratio, num, conf_thres, iou_thres );
             
-            for(auto& var : post_result)
+            for(auto& var : post_result)//x1,y1,x2,y2
             {
-                Rectangle temp = {var[0],var[1],var[2],var[3] ,var[4] };
+                Rectangle temp(var[0],var[2],var[1],var[3] ,var[4] );
+                temp.refresh();
                 Out_xy.push_back(temp);
             }
             return Out_xy;
         }
 
-        std::vector<Quadrilateral> get_dangerous_rect(std::vector<Rectangle>& all_pump_rect_boxes, cv::Mat& img ,float move_threshold=0.2)
+        std::vector<Quadrilateral> get_dangerous_rect(std::vector<Rectangle>& all_pump_rect_boxes, cv::Mat& img ,int device_id =0, float move_threshold=0.2)
         {
             std::vector<Quadrilateral> dangerous_region;
+            std::map<int, Rectangle> library;
+            if( librarys.count(device_id) )
+                library = librarys[device_id];
+
+            if( library.size()==0 )
+                first_init=1;
+
             if( first_init )
             {
                 for(auto& current_box : all_pump_rect_boxes)
                 {
-                    id = (id+1)%10000;
-                    // std::cout<<"id: "<<id<<std::endl;
+                    id = (id+1) % LIBRARY_ID_MAX;
                     library[id] = current_box;
-                    // cv::rectangle(img, cv::Point(current_box.x1,current_box.y1),  
-                    //                 cv::Point(current_box.x2,current_box.y2),  cv::Scalar(0,0,255) ,5);
                 }
                 first_init = false;
             }
@@ -89,12 +95,16 @@ namespace glasssix::pump_hoisting
             {
                 for( auto& current_box : all_pump_rect_boxes )
                 {
-                    auto match_id =get_match_id(library, current_box);
+                    auto match_id = get_match_id(library, current_box);
                     if( match_id != -1 )  
                     {
-                        float distance =get_distance_between_Rectangle(current_box, library[match_id] );
-
-                        if( get_distance_between_Rectangle(current_box, library[match_id] )> abs(current_box.y2-current_box.y1)*move_threshold ) //检测到移动了
+                        float distance1 =get_distance_between_Rectangle(current_box, library[match_id] );
+std::cout<<"before distance: "<<distance1<<std::endl;
+                        float distance =get_distance_between_Rectangle(current_box, library[match_id], false );
+std::cout<<"distance: "<<distance<<std::endl;
+                        library[match_id].refresh( current_box.x1, current_box.y1, current_box.x2, current_box.y2   );
+std::cout<<"threshold: "<<abs(current_box.y2-current_box.y1)*move_threshold<<std::endl;
+                        if( distance > abs(current_box.y2-current_box.y1)*move_threshold ) //检测到移动了
                         {
                             auto neighboor = find_nearest_rectangles(all_pump_rect_boxes, current_box );
 
@@ -107,13 +117,13 @@ namespace glasssix::pump_hoisting
 
                             auto quadrilateral_right = std::get<1>(  neighboor_quadrilateral);
 
-                            if(! neighboorleft.is_invalid_rect() )
+                            if(!neighboorleft.is_invalid_rect() )
                             {
                                 Quadrilateral_scale(quadrilateral_left,0.8);
                                 dangerous_region.push_back(quadrilateral_left);
                             }
 
-                            if(! neighboorright.is_invalid_rect() )
+                            if(!neighboorright.is_invalid_rect() )
                             {
                                 Quadrilateral_scale(quadrilateral_right,0.8,false);
                                 dangerous_region.push_back(quadrilateral_right);
@@ -146,10 +156,12 @@ namespace glasssix::pump_hoisting
                     }
                     else    // 新添加特征进入特征库
                     {
-                        library[(id++) % 10000000] = current_box;
+                        library[(id++) % LIBRARY_ID_MAX] = current_box;
                     }
                 }
             }
+
+            librarys[device_id] = library;
             return dangerous_region;
         }
 
@@ -186,7 +198,7 @@ namespace glasssix::pump_hoisting
 
             //concat the 80*40 40*40 20*20 
             std::vector<float> cat(65*candidate_num); //1*65*candidate_num = 64*candidate_num + 1*candidate_num        
-            for(int i=0,j=0;i<65;i++,j=0)
+            for(int i=0;i<65;i++)
             {   
                 std::copy(data_stride_8+i*stride_8_num*stride_8_num, data_stride_8+(i+1)*stride_8_num*stride_8_num, cat.data()+i*candidate_num ); 
                 std::copy(data_stride_16+i*stride_16_num*stride_16_num, data_stride_16+(i+1)*stride_16_num*stride_16_num, cat.data()+i*candidate_num+stride_8_num*stride_8_num ); 
@@ -262,19 +274,18 @@ namespace glasssix::pump_hoisting
 
             auto  empty_map_abi             = exposing::make_param_hash_map<exposing::param_string, float>();
             float conf_threshold            = param_map.count("conf_thres") ? param_map["conf_thres"] : 0.6f;
-
+            float iou_threshold             = param_map.count("iou_threshold") ? param_map["iou_threshold"] : 0.7f;
             float move_threshold            = param_map.count("move_threshold") ? param_map["move_threshold"] : 0.2f;
+            int   device_id                 = std::round( param_map.count("device_id") ? param_map["device_id"] : 0.f );
 
-            float pump_hoisting_conf_thres          = param_map.count("pump_hoisting_conf_thres") ? param_map["pump_hoisting_conf_thres"] : 0.7f;
-
-            empty_map_abi.add_or_update("conf_thres",conf_threshold);
+            empty_map_abi.add_or_update("conf_thres",conf_threshold) ;
             empty_map_abi.add_or_update("nms_thres", 0.45);
 
             cv::Mat draw = image.clone();
 
             std::vector<int> pedestrain_list;
 
-            auto all_current_boxes = get_pumprect(image);
+            auto all_current_boxes = get_pumprect(image,conf_threshold);
 
 #ifdef draw_pic
             for(auto& current_box : all_current_boxes)
@@ -282,9 +293,43 @@ namespace glasssix::pump_hoisting
                 cv::rectangle(image, cv::Point(current_box.x1,current_box.y1),  
                                 cv::Point(current_box.x2,current_box.y2),  cv::Scalar(0,0,255) ,5);
             }
-            cv::imwrite("../pumprect.jpg",image);
+            cv::imwrite( "../pumprect.jpg", image );
 #endif
-            auto dangerous_regions = get_dangerous_rect(all_current_boxes,image,move_threshold);
+            auto dangerous_regions = get_dangerous_rect(all_current_boxes, image, device_id, move_threshold) ;
+
+            if( dangerous_regions.size())
+            {
+                time_t tmep_Sec;
+                time(&tmep_Sec);
+
+                if(time_register.count(device_id)) // 有对应的表
+                {
+                    bool first_init =  time_register[device_id].first_init;
+
+                    if(first_init) //第一次初始化
+                    {
+                        time_register[device_id].first_init = false;
+                        time_register[device_id].first_alarm_time = tmep_Sec; 
+                    }  
+                    else   //并非第一次初始化  判断时间是否大于时间间隔
+                    {
+                        if( abs(tmep_Sec - time_register[device_id].first_alarm_time)>50 )//大于间隔 初始化标志位 并且删除相应库信息
+                        {
+                            //set time sign invalidity
+                            time_register[device_id].first_init = true;
+                            remove_library_by_id(device_id);
+                        }
+                        else{}
+                    }
+                }
+                else{                        //无对应的表
+                    time_sign temp_time_sign;
+                    temp_time_sign.first_init = false;
+                    temp_time_sign.first_alarm_time = tmep_Sec; 
+                    time_register[device_id] = temp_time_sign;
+                }
+            
+            }
 
             for (auto& dangerous_region : dangerous_regions)
             {
@@ -294,6 +339,23 @@ namespace glasssix::pump_hoisting
             }  
 
             return result;
+        }
+
+        std::string remove_library()
+        {
+            librarys.clear();
+            first_init=true;
+            id=0;
+            const std::string delete_library = "ok";
+            return delete_library;
+        }
+
+        std::string remove_library_by_id(int device_id)
+        {
+            std::map<int, Rectangle> library;
+            librarys[device_id]=library;
+            const std::string delete_library = "ok";
+            return delete_library;
         }
 
         std::string version()
@@ -306,7 +368,7 @@ namespace glasssix::pump_hoisting
 #else
             std::string nn_frame_version = net_pump_hoisting_detect_.version();
 #endif
-        return fmt::format(R"({{"nn_frame_version":"{}", "algo_module_version":"{}"}})", nn_frame_version, algo_module_version);
+            return fmt::format(R"({{"nn_frame_version":"{}", "algo_module_version":"{}"}})", nn_frame_version, algo_module_version);
         }
 
     private:
@@ -338,7 +400,6 @@ namespace glasssix::pump_hoisting
             }
         }
 
-
     private:
 #if defined(USE_RKNNAPI) || defined(USE_RKNN2API)
 
@@ -349,7 +410,9 @@ namespace glasssix::pump_hoisting
         pedestrian::classify_code pedestrain_instance_;
         std::string model_directory_;
 
-        static std::map<int, Rectangle> library;
+        static std::map<int, std::map<int, Rectangle>>  librarys;
+        static std::map<int, time_sign> time_register; //device_id
+
         static bool first_init ;
         static int id ;
 
@@ -379,8 +442,14 @@ namespace glasssix::pump_hoisting
 		return impl_->version();
 	}
 
-    std::map<int, Rectangle> detect_code_internal::impl::library ;
-    bool detect_code_internal::impl::first_init =true ;
-    int detect_code_internal::impl::id =0 ;
+    std::string detect_code_internal::remove_library()
+	{
+		return impl_->remove_library();
+	}
+
+    std::map<int, std::map<int, Rectangle>> detect_code_internal::impl::librarys;
+    std::map<int, time_sign> detect_code_internal::impl::time_register;
+    bool detect_code_internal::impl::first_init = true;
+    int  detect_code_internal::impl::id =0 ;
 
 }
