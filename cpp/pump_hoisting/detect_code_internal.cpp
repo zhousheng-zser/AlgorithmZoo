@@ -72,7 +72,7 @@ namespace glasssix::pump_hoisting
             return Out_xy;
         }
 
-        std::vector<Quadrilateral> get_dangerous_rect(std::vector<Rectangle>& all_pump_rect_boxes, cv::Mat& img ,int device_id =0, float move_threshold=0.2)
+        std::vector<Quadrilateral> get_dangerous_rect(std::vector<Rectangle>& all_pump_rect_boxes, cv::Mat& img ,int device_id =0, float move_threshold=0.05)
         {
             std::vector<Quadrilateral> dangerous_region;
             std::map<int, Rectangle> library;
@@ -99,11 +99,11 @@ namespace glasssix::pump_hoisting
                     if( match_id != -1 )  
                     {
                         float distance1 =get_distance_between_Rectangle(current_box, library[match_id] );
-std::cout<<"before distance: "<<distance1<<std::endl;
+
                         float distance =get_distance_between_Rectangle(current_box, library[match_id], false );
-std::cout<<"distance: "<<distance<<std::endl;
+
                         library[match_id].refresh( current_box.x1, current_box.y1, current_box.x2, current_box.y2   );
-std::cout<<"threshold: "<<abs(current_box.y2-current_box.y1)*move_threshold<<std::endl;
+
                         if( distance > abs(current_box.y2-current_box.y1)*move_threshold ) //检测到移动了
                         {
                             auto neighboor = find_nearest_rectangles(all_pump_rect_boxes, current_box );
@@ -275,7 +275,7 @@ std::cout<<"threshold: "<<abs(current_box.y2-current_box.y1)*move_threshold<<std
             auto  empty_map_abi             = exposing::make_param_hash_map<exposing::param_string, float>();
             float conf_threshold            = param_map.count("conf_thres") ? param_map["conf_thres"] : 0.6f;
             float iou_threshold             = param_map.count("iou_threshold") ? param_map["iou_threshold"] : 0.7f;
-            float move_threshold            = param_map.count("move_threshold") ? param_map["move_threshold"] : 0.2f;
+            float move_threshold            = param_map.count("move_threshold") ? param_map["move_threshold"] : 0.05f;
             int   device_id                 = std::round( param_map.count("device_id") ? param_map["device_id"] : 0.f );
 
             empty_map_abi.add_or_update("conf_thres",conf_threshold) ;

@@ -223,11 +223,10 @@ using namespace glasssix;
 
     }
 
-    int get_match_id( std::map<int, Rectangle>& librarys, Rectangle Rect )
+    int get_match_id( std::map<int, Rectangle>& librarys, Rectangle Rect, float ratio = 0.2 )
     {      
         std::map<int, Rectangle> ::iterator it;
         int min_distance =  (1 << 30);
-        std::cout << "min_distance: " << min_distance << std::endl;
         int id=-1;
         for(it=librarys.begin(); it != librarys.end();  it++ )
         {   
@@ -242,7 +241,7 @@ using namespace glasssix;
             }
         }
 
-        if( min_distance > abs(Rect.x2-Rect.x1) )
+        if( min_distance > abs(Rect.x2-Rect.x1)*ratio )
         {
             id = -1;
         }
