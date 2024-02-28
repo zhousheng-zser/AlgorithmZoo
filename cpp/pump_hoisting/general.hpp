@@ -3,13 +3,45 @@
 // #include <opencv2/opencv.hpp>
 #include "Excalibur/pipeline.hpp"
 #include "Primitives/tensor_conversions.hpp"
+#include <ctime>
 
 using namespace glasssix;
+
+    struct time_sign
+    {
+        bool first_init = true;
+        time_t first_alarm_time;
+    };
 
     struct Rectangle 
     {
         int x1, y1, x2, y2;
+
+        int real_time_x1, real_time_y1, real_time_x2, real_time_y2;
+
         float score;
+
+        Rectangle()
+        {}
+
+        Rectangle(int x1_, int x2_,int y1_,int y2_, float score_):x1(x1_), x2(x2_), y1(y1_), y2(y2_), score(score_)
+        {}
+
+        void refresh()
+        {
+            real_time_x1 = x1;
+            real_time_y1 = y1;
+            real_time_x2 = x2;
+            real_time_y2 = y2;
+        }
+
+        void refresh(int x11, int y11,int x22,int y22)
+        {
+            real_time_x1 = x11;
+            real_time_y1 = y11;
+            real_time_x2 = x22;
+            real_time_y2 = y22;
+        }
 
         bool is_invalid_rect()
         {
@@ -99,9 +131,12 @@ using namespace glasssix;
         return std::make_pair(quadrilateral_left,quadrilateral_right);
     }
 
-    float get_distance_between_Rectangle(const Rectangle&R1, const Rectangle& R2)
+    float get_distance_between_Rectangle(const Rectangle&R1, const Rectangle& R2, bool real_time = true)
     {
-        return   0.5 * sqrt( (R1.x1-R2.x1) * (R1.x2-R2.x2) + (R1.y1-R2.y1) * (R1.y2-R2.y2)) ;
+        if(real_time)
+            return  0.5 * sqrt( (R1.real_time_x1-R2.real_time_x1) * (R1.real_time_x2-R2.real_time_x2) + (R1.real_time_y1-R2.real_time_y1) * (R1.real_time_y2-R2.real_time_y2)) ;
+        else
+            return  0.5 * sqrt( (R1.x1-R2.x1) * (R1.x2-R2.x2) + (R1.y1-R2.y1) * (R1.y2-R2.y2)) ;
     }
 
     int calculate_distance(Rectangle rect1, Rectangle rect2) 
@@ -112,8 +147,8 @@ using namespace glasssix;
 
     std::pair<Rectangle, Rectangle> find_nearest_rectangles(std::vector<Rectangle> rectangles, Rectangle target_rect) 
     {
-        Rectangle left_nearest = {0, 0, 0, 0};
-        Rectangle right_nearest = {0, 0, 0, 0};
+        Rectangle left_nearest (0, 0, 0, 0,0);
+        Rectangle right_nearest (0, 0, 0, 0,0);
         int left_distance = INT_MAX;
         int right_distance = INT_MAX;
 
@@ -130,13 +165,15 @@ using namespace glasssix;
             }
         }
 
+        Rectangle null_rectangle (0, 0, 0, 0,0);
+        
         if (left_nearest.x1 == 0 && left_nearest.y1 == 0 && left_nearest.x2 == 0 && left_nearest.y2 == 0 &&
             right_nearest.x1 == 0 && right_nearest.y1 == 0 && right_nearest.x2 == 0 && right_nearest.y2 == 0) {
-            return std::make_pair(Rectangle{0, 0, 0, 0}, Rectangle{0, 0, 0, 0});  // 左右两边都没有符合条件的矩形框，返回 {0, 0, 0, 0}, {0, 0, 0, 0}
+            return std::make_pair(null_rectangle,null_rectangle);  // 左右两边都没有符合条件的矩形框，返回 {0, 0, 0, 0}, {0, 0, 0, 0}
         } else if (left_nearest.x1 == 0 && left_nearest.y1 == 0 && left_nearest.x2 == 0 && left_nearest.y2 == 0) {
-            return std::make_pair(Rectangle{0, 0, 0, 0}, right_nearest);  // 左边没有符合条件的矩形框，返回 {0, 0, 0, 0} 和右边最近的矩形框
+            return std::make_pair(null_rectangle, right_nearest);  // 左边没有符合条件的矩形框，返回 {0, 0, 0, 0} 和右边最近的矩形框
         } else if (right_nearest.x1 == 0 && right_nearest.y1 == 0 && right_nearest.x2 == 0 && right_nearest.y2 == 0) {
-            return std::make_pair(left_nearest, Rectangle{0, 0, 0, 0});  // 右边没有符合条件的矩形框，返回左边最近的矩形框和 {0, 0, 0, 0}
+            return std::make_pair(left_nearest, null_rectangle);  // 右边没有符合条件的矩形框，返回左边最近的矩形框和 {0, 0, 0, 0}
         } else {
             return std::make_pair(left_nearest, right_nearest);  // 左右两边都有符合条件的矩形框，返回左右两边最近的矩形框
         }
@@ -190,7 +227,7 @@ using namespace glasssix;
     {      
         std::map<int, Rectangle> ::iterator it;
         int min_distance =  (1 << 30);
-        std::cout << "min_distance: " << min_distance << std::endl;
+        //std::cout << "min_distance: " << min_distance << std::endl;
         int id=-1;
         for(it=librarys.begin(); it != librarys.end();  it++ )
         {   
