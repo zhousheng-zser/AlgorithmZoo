@@ -22,6 +22,8 @@ namespace glasssix::pumptop_helmet
 		/*
 			{0: 'head', 1: 'helmet', 2: 'no'}
 		*/
+        float score;//人头置信度
+        float helmet_score;//人头分类置信度
     };
 	class pumptop_helmet_detector_impl : public exposing::implements<pumptop_helmet_detector_impl, pumptop_helmet_detector>, public exposing::make_external_qualified_name<pumptop_helmet_detector_qualified_name>
 	{
