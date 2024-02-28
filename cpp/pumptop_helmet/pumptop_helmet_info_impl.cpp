@@ -37,4 +37,9 @@ namespace glasssix::pumptop_helmet
 	{
 		return internal_.category;
 	}
+
+	float pumptop_helmet_info_impl::score() const
+	{
+		return internal_.score;
+	}
 }

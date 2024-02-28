@@ -20,6 +20,7 @@ namespace glasssix::pumptop_helmet
 		int x2() const;
 		int y2() const;
 		int category() const;
+		float score() const;
 
 	private:
 		pumptop_helmet_info_internal internal_;
