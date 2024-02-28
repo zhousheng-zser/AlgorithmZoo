@@ -18,13 +18,16 @@ namespace fs = std::filesystem;
 #include <opencv2/opencv.hpp>
 #include <vector>
 
-#include "postprocessing_register.hpp"
-
 #include "Backends/BackendFactory.hpp"
 
 #include "Excalibur/pipeline.hpp"
 
 using namespace glasssix;
+
+using PostprocessingFunction = std::function<
+	std::unordered_map<std::string, std::shared_ptr<memory::tensor<float>>>
+	(std::unordered_map<std::string, std::shared_ptr<memory::tensor<float>>>&)>;
+
 
 namespace GenPiplineTools {
 

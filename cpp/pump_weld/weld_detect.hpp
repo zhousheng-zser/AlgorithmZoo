@@ -241,9 +241,7 @@ namespace glasssix::pump_weld
         } while (has_merged && box_list.size() > 1); // Stop the loop when no more merges occur
     }
 
-    void get_candidate_box(std::vector<cv::Rect>& weld_box_list, int image_w, int image_h) {
-        constexpr int CANDIDATE_BOX_WIDTH = 500;
-        constexpr int CANDIDATE_BOX_HEIGHT = 500;
+    void get_candidate_box(std::vector<cv::Rect>& weld_box_list, int image_w, int image_h, int CANDIDATE_BOX_WIDTH, int CANDIDATE_BOX_HEIGHT) {
         constexpr float MIN_IOU_BETWEEN_CANDIDATE_BOX = 0.001f;
 
         for (auto& weld_box : weld_box_list) {
@@ -352,7 +350,7 @@ namespace glasssix::pump_weld
         return weld_box_list;
     }
 
-    std::tuple<std::vector<cv::Rect>,std::vector<cv::Rect>> weld_detect(std::vector<cv::Mat>& BatchImgs, const int& height, const int& width) {
+    std::tuple<std::vector<cv::Rect>,std::vector<cv::Rect>> weld_detect(std::vector<cv::Mat>& BatchImgs, const int& height, const int& width, int candidate_box_width, int candidate_box_height) {
         std::vector<cv::Mat> background_threshold_list;
         std::vector<cv::Mat> light_threshold_list;
 
@@ -366,7 +364,7 @@ namespace glasssix::pump_weld
 
         std::vector<cv::Rect> weld_box_list = get_weld_box(time_light_box_list);
         auto candidate_box_list = weld_box_list;
-        get_candidate_box(candidate_box_list, width, height);
+        get_candidate_box(candidate_box_list, width, height, candidate_box_width, candidate_box_height);
 
 		return { weld_box_list,candidate_box_list };
     }
