@@ -45,12 +45,26 @@ namespace glasssix::pump_gate_status
             return hsv;
         } 
 
-        //door:  0:close  1:open  2:half
+        //door:  0:close or night  1:open  2:half 
         int statistic_yellow(cv::Mat img, cv::Scalar& yellow_hsv_lower, cv::Scalar& yellow_hsv_upper, double ratio_closed, double ratio_opened) 
         {
-          
             cv::Mat HSV;
             cv::cvtColor(img, HSV, cv::COLOR_BGR2HSV);
+
+            double sum_s = 0;
+            double sum_v = 0;
+            for (int i = 0; i < HSV.rows; ++i) {
+                for (int j = 0; j < HSV.cols; ++j) {
+                    // 访问S通道的值
+                    sum_s += HSV.at<cv::Vec3b>(i, j)[1];
+                    // 访问S通道的值
+                    sum_v += HSV.at<cv::Vec3b>(i, j)[2];
+                }
+            }
+            sum_s /= (HSV.rows * HSV.cols);
+            sum_v /= (HSV.rows * HSV.cols);
+            if (sum_s < 10 || sum_v < 30)
+                return 3;
 
             cv::Mat mask;
             cv::inRange(HSV, yellow_hsv_lower, yellow_hsv_upper, mask);
@@ -87,6 +101,21 @@ namespace glasssix::pump_gate_status
         {
             cv::Mat HSV;
             cv::cvtColor(img, HSV, cv::COLOR_BGR2HSV);
+
+            double sum_s = 0;
+            double sum_v = 0;
+            for (int i = 0; i < HSV.rows; ++i) {
+                for (int j = 0; j < HSV.cols; ++j) {
+                    // 访问S通道的值
+                    sum_s += HSV.at<cv::Vec3b>(i, j)[1];
+                    // 访问S通道的值
+                    sum_v += HSV.at<cv::Vec3b>(i, j)[2];
+                }
+            }
+            sum_s /= (HSV.rows * HSV.cols);
+            sum_v /= (HSV.rows * HSV.cols);
+            if (sum_s < 15 || sum_v < 30)
+                return 1;
 
             cv::Mat mask;
             cv::inRange(HSV, yellow_hsv_lower, yellow_hsv_upper, mask);
@@ -150,7 +179,9 @@ namespace glasssix::pump_gate_status
 
 
 			bool  opened_door = yellow_filter(image,door,yellow_lower,yellow_upper , door_close_ratio, door_open_ratio )!=0;//0为关闭
-            bool  working = (!gray_filter(image,floor,gray_lower, gray_upper, floor_ratio)); //0为有东西
+            if (!opened_door)
+                return 0;
+            bool  working = gray_filter(image,floor,gray_lower, gray_upper, floor_ratio) == 0; //0为有东西
 			return opened_door&&working;
 
         }
