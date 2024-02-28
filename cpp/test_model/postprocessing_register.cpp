@@ -11,7 +11,7 @@ std::vector<std::shared_ptr<Postprocessing>>& postprocessing_list_instance()
 	return postprocessing_list;
 }
 
-void AddPostprocessing(std::map<std::string, postprocessing_function>& postprocessing_map)
+void AddPostprocessing(std::map<std::string, PostprocessingFunction>& postprocessing_map)
 {
 	for (auto p : postprocessing_list_instance())
 	{

@@ -15,13 +15,15 @@
 using namespace glasssix;
 #define GetShowRatio(visual_img) std::min(float(1920.f / visual_img.cols), float(1080.f / visual_img.rows)) * 0.75
 #define ShowResize(visual_img, showRatio) cv::resize(visual_img, visual_img, cv::Size(), showRatio, showRatio)
+#define ImgShow(visual_img) cv::imshow("visual_img", visual_img);cv::waitKey(0)
+#define AdpShow(img) {auto visual_img=img.clone();ShowResize(visual_img,GetShowRatio(visual_img));ImgShow(visual_img);}
 
 struct RunConfig
 {
-	std::string net_A = "";
-	std::string net_B = "";
-	std::string net_A_postprocess = "";
-	std::string net_B_postprocess = "";
+	std::string net_TEST = "";
+	std::string net_BASE = "";
+	std::string net_TEST_postprocess = "";
+	std::string net_BASE_postprocess = "";
 	std::string dataset = "";
 	std::string outputMap ="";
 	bool convertBGR = false;
@@ -30,7 +32,7 @@ struct RunConfig
 
 int main(int argc, char* argv[])
 {
-	std::map<std::string, postprocessing_function> postprocessing_market;
+	std::map<std::string, PostprocessingFunction> postprocessing_market;
 	AddPostprocessing(postprocessing_market);
 
 	show_usage(argc);
@@ -56,30 +58,31 @@ int main(int argc, char* argv[])
 	ArgumentResult args = parser.parse_args(argc, argv);
 
 	RunConfig runConfig;
-	runConfig.net_A = args.args["test_model"];
-	runConfig.net_B = args.args["base_model"];
-	runConfig.net_A_postprocess = args.args["test_model_pp"];
-	runConfig.net_B_postprocess = args.args["base_model_pp"];
+	runConfig.net_TEST = args.args["test_model"];
+	runConfig.net_BASE = args.args["base_model"];
+	runConfig.net_TEST_postprocess = args.args["test_model_pp"];
+	runConfig.net_BASE_postprocess = args.args["base_model_pp"];
 
 	runConfig.dataset = args.args["dataset"];
 	runConfig.outputMap = args.args["output_map"];
 	runConfig.convertBGR = std::stoi(args.args["convert_bgr"]) == 1;
 	runConfig.imgReSize = std::stoi(args.args["img_resize"]);
 
-	std::map<std::string, std::string> output_map;
 
-
-	GenPipline::dump_backend_menu(true);
-
-	auto pipline_A = std::make_shared<GenPipline>(runConfig.net_A, 0);
-	auto pipline_B = std::make_shared<GenPipline>(runConfig.net_B, 0);
-
-	pipline_A->handset_possible_normalization({ 0,0,0 }, { 0.003921568,0.003921568,0.003921568 });
-	pipline_B->handset_possible_normalization({ 0,0,0 }, { 0.0078125,0.0038125,0.0048125 });
 
 	// GenPipline Pre & Post Processing Wrapper Obj
-	auto ioprocess_pipline_A = std::make_shared<PrePostProcessGenPipline>(pipline_A);
-	auto ioprocess_pipline_B = std::make_shared<PrePostProcessGenPipline>(pipline_B);
+	std::shared_ptr<PrePostProcessGenPipline> ioprocess_pipline_TEST;
+	std::shared_ptr<PrePostProcessGenPipline> ioprocess_pipline_BASE;
+	{
+		GenPipline::dump_backend_menu(true); // tell which backends could be used
+		auto pipline_TEST = std::make_shared<GenPipline>(runConfig.net_TEST, 0);
+		auto pipline_BASE = std::make_shared<GenPipline>(runConfig.net_BASE, 0);
+		pipline_TEST->handset_possible_normalization({ 0,0,0 }, { 0.003921568,0.003921568,0.003921568 });
+		pipline_BASE->handset_possible_normalization({ 0,0,0 }, { 0.003921568,0.003921568,0.003921568 });
+
+		ioprocess_pipline_TEST = std::make_shared<PrePostProcessGenPipline>(pipline_TEST);
+		ioprocess_pipline_BASE = std::make_shared<PrePostProcessGenPipline>(pipline_BASE);
+	}
 
 	// Define Pre-Processing
 	if (runConfig.convertBGR) printf("- convert BGR order !\n");
@@ -91,19 +94,20 @@ int main(int argc, char* argv[])
 	auto image_preprocess = [&runConfig](cv::Mat img) {
 		return GenPiplineTools::letter_image(img, runConfig.imgReSize, runConfig.imgReSize, runConfig.convertBGR);
 	};
-	ioprocess_pipline_A->set_image_preprocess(image_preprocess);
-	ioprocess_pipline_B->set_image_preprocess(image_preprocess);
+	ioprocess_pipline_TEST->set_image_preprocess(image_preprocess);
+	ioprocess_pipline_BASE->set_image_preprocess(image_preprocess);
 	// Define Post-Processing
-	ioprocess_pipline_A->check_set_postprocessing(postprocessing_market, runConfig.net_A_postprocess);
-	ioprocess_pipline_B->check_set_postprocessing(postprocessing_market, runConfig.net_B_postprocess);
+	ioprocess_pipline_TEST->check_set_postprocessing(postprocessing_market, runConfig.net_TEST_postprocess);
+	ioprocess_pipline_BASE->check_set_postprocessing(postprocessing_market, runConfig.net_BASE_postprocess);
 
 	std::map<std::string, std::vector<float>> score_map;
 	std::vector<std::string> img_list;
 	load_line_txt(runConfig.dataset, img_list);
 
-	if (output_map.empty())
+	std::map<std::string, std::string> output_map;
+	if (runConfig.outputMap.empty())
 	{
-		auto_infer_output_map(ioprocess_pipline_A, ioprocess_pipline_B, img_list[0], output_map);
+		auto_infer_output_map(ioprocess_pipline_TEST, ioprocess_pipline_BASE, img_list[0], output_map);
 	}
 	else
 	{
@@ -122,26 +126,26 @@ int main(int argc, char* argv[])
 	{
 		cv::Mat img = cv::imread(img_list[idx]);
 
-		auto results_pip_A = pipline_A->forward(img);
-		auto results_pip_B = pipline_B->forward(img);
+		auto results_pip_TEST = ioprocess_pipline_TEST->forward(img);
+		auto results_pip_BASE = ioprocess_pipline_BASE->forward(img);
 
 		for (auto& x : output_map)
 		{
-			float* B_out = results_pip_B[x.first]->mutable_cpu_data();
-			float* A_out = results_pip_A[x.second]->mutable_cpu_data();
-			CHECK_EQ(results_pip_B[x.first]->count(), results_pip_A[x.second]->count());
-			int count = results_pip_B[x.first]->count();
+			float* BASE_out = results_pip_BASE[x.first]->mutable_cpu_data();
+			float* TEST_out = results_pip_TEST[x.second]->mutable_cpu_data();
+			CHECK_EQ(results_pip_BASE[x.first]->count(), results_pip_TEST[x.second]->count());
+			int count = results_pip_BASE[x.first]->count();
 
 
 			if (x.first == "score_out") {
 				size_t vaild_counter = 0;
-				float cos = fliter_score_CosineSimilarity(B_out, A_out, count, 0.1f, diffStatistics, vaild_counter);
+				float cos = fliter_score_CosineSimilarity(BASE_out, TEST_out, count, 0.1f, diffStatistics, vaild_counter);
 				score_map[x.first].push_back(cos);
 				printf("[%d/%d]-> fcos:%f : score_out[>0.1]%d | %s\n", idx, img_list.size(), cos, vaild_counter, img_list[idx].c_str());
 
 			}
 			else {
-				float cos = CosineSimilarity(B_out, A_out, count);
+				float cos = CosineSimilarity(BASE_out, TEST_out, count);
 				score_map[x.first].push_back(cos);
 				printf("[%d/%d]-> cos:%f : %s(%s) | %s\n", idx, img_list.size(), cos, x.second.c_str(), x.first.c_str(), img_list[idx].c_str());
 			}
@@ -155,7 +159,7 @@ int main(int argc, char* argv[])
 
 	std::ofstream less80_out("less80_samples.txt");
 
-	TableMaker statistics_table_maker(runConfig.net_A);
+	TableMaker statistics_table_maker(runConfig.net_TEST);
 
 	for (auto& x : score_map)
 	{

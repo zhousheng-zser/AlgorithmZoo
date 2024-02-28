@@ -25,7 +25,6 @@
 #include "GenPipline.hpp"
 #include "weld_detect.hpp"
 #include "obj_box_info.hpp"
-#include "dbg.h"
 
 
 #ifdef BUILD_DEBUG_INFO
@@ -73,8 +72,10 @@ namespace glasssix::pump_weld
 
             float weld_machine_conf_thres = param_map_std.count("conf_thres") ? param_map_std["conf_thres"] : 0.3f;
             float weld_machine_nms_thres = param_map_std.count("nms_thres") ? param_map_std["nms_thres"] : 0.4f;
+            int candidate_box_width= param_map_std.count("candidate_box_width") ? param_map_std["candidate_box_width"] : 500.f;
+			int candidate_box_height = param_map_std.count("candidate_box_height") ? param_map_std["candidate_box_height"] : 500.f;
 
-            auto [weld_box_list, candidate_box_list] = weld_detect(BatchImgs, height, width);
+            auto [weld_box_list, candidate_box_list] = weld_detect(BatchImgs, height, width, candidate_box_width, candidate_box_height);
 
             std::vector<std::vector<ObjBox>> weld_machine_list = weld_machine_seqdet(BatchImgs, weld_machine_conf_thres, weld_machine_nms_thres);
 
@@ -98,15 +99,18 @@ namespace glasssix::pump_weld
             //}
 #endif // BUILD_DEBUG_INFO
 
+            constexpr bool STANDARD_WELD = false;
+            constexpr bool UNSTANDARD_WELD = true;
+
             struct CandidateBoxFlaglist
             {
                 cv::Rect rect;
-				bool category = 1;//0=standard, 1=unstandard
+				bool category; //0=standard, 1=unstandard
                 CandidateBoxFlaglist(cv::Rect& rect_, bool category_) :rect(rect_), category(category_) {}
             };
             std::vector<CandidateBoxFlaglist> candidate_box_flag_list;
             for (auto& candidate_box : candidate_box_list) {
-                candidate_box_flag_list.push_back({ candidate_box ,false });
+                candidate_box_flag_list.push_back({ candidate_box ,UNSTANDARD_WELD });
             }
 
             for (auto tube_bbox : tube_bbox_list) {
@@ -123,7 +127,7 @@ namespace glasssix::pump_weld
 //#endif // BUILD_DEBUG_INFO
 
 					if (iou >= MIN_IOU_BETWEEN_TUBE_AND_WELD_BOX) {
-                        candidate_box.category = 0; //standard
+                        candidate_box.category = STANDARD_WELD;
                     }
                 }
             }
@@ -256,7 +260,7 @@ namespace glasssix::pump_weld
 
         std::string version()
         {
-            const std::string algo_module_version = "1.0.0";
+            const std::string algo_module_version = "1.1.0";
 
             std::string nn_frame_version = weld_machine_instance_.version();
 

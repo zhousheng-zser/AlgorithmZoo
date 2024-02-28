@@ -36,8 +36,8 @@ std::string printVect(std::vector<T> vec) {
 
 // true: can not judge out map
 static inline std::map<std::string, std::string> output_map_analyse(
-	std::unordered_map<std::string, std::shared_ptr<glasssix::memory::tensor<float>>>& results_rknn,
-	std::unordered_map<std::string, std::shared_ptr<glasssix::memory::tensor<float>>>& results_excb)
+	std::unordered_map<std::string, std::shared_ptr<glasssix::memory::tensor<float>>>& results_test,
+	std::unordered_map<std::string, std::shared_ptr<glasssix::memory::tensor<float>>>& results_base)
 {
 	std::map<std::string, std::string> output_map;
 
@@ -50,22 +50,22 @@ static inline std::map<std::string, std::string> output_map_analyse(
 	};
 
 	std::cout << "\n-------------" << std::endl;
-	printOutsMap(results_excb, "excalibur pipline");
-	printOutsMap(results_rknn, "rknn pipline");
+	printOutsMap(results_base, "BASE pipline");
+	printOutsMap(results_test, "TEST pipline");
 	std::cout << "-------------" << std::endl;
 
 	// auto judge
 
-	if (results_rknn.size() == 1 && results_excb.size() == 1) {
-		auto& single_rknn = *results_rknn.begin();
-		auto& single_excb = *results_excb.begin();
-		if (single_rknn.second->count() == single_excb.second->count()) {
-			output_map[single_excb.first] = single_rknn.first;
+	if (results_test.size() == 1 && results_base.size() == 1) {
+		auto& single_test = *results_test.begin();
+		auto& single_base = *results_base.begin();
+		if (single_test.second->count() == single_base.second->count()) {
+			output_map[single_base.first] = single_test.first;
 			return output_map;
 		}
 	}
 
-	if (results_rknn.size() != results_excb.size()) return output_map;
+	if (results_test.size() != results_base.size()) return output_map;
 
 	std::set<std::vector<int>> shapes_rknn;
 	std::set<std::vector<int>> shapes_excb;
@@ -78,14 +78,14 @@ static inline std::map<std::string, std::string> output_map_analyse(
 		return shapes.size() != rst_map.size();
 	};
 
-	if (shapes_statistics(results_rknn, shapes_rknn)) return output_map;
-	if (shapes_statistics(results_excb, shapes_excb)) return output_map;
+	if (shapes_statistics(results_test, shapes_rknn)) return output_map;
+	if (shapes_statistics(results_base, shapes_excb)) return output_map;
 
 	if (shapes_rknn == shapes_excb) {
-		for (auto& single_rknn : results_rknn) {
-			for (auto& single_excb : results_excb) {
-				if (single_excb.second->data_shape() == single_rknn.second->data_shape())
-					output_map[single_excb.first] = single_rknn.first;
+		for (auto& single_test : results_test) {
+			for (auto& single_base : results_base) {
+				if (single_base.second->data_shape() == single_test.second->data_shape())
+					output_map[single_base.first] = single_test.first;
 			}
 		}
 
@@ -95,11 +95,11 @@ static inline std::map<std::string, std::string> output_map_analyse(
 	return output_map;
 }
 
-static inline void auto_infer_output_map(std::shared_ptr<GenPiplineInterface> pip_A, std::shared_ptr<GenPiplineInterface> pip_B, std::string fimg, std::map<std::string, std::string>& output_map)
+static inline void auto_infer_output_map(std::shared_ptr<GenPiplineInterface> pip_TEST, std::shared_ptr<GenPiplineInterface> pip_BASE, std::string fimg, std::map<std::string, std::string>& output_map)
 {
 	cv::Mat img = cv::imread(fimg);
-	auto results_A = pip_A->forward(img);
-	auto results_B = pip_B->forward(img);
+	auto results_TEST = pip_TEST->forward(img);
+	auto results_BASE = pip_BASE->forward(img);
 	//npy::SAVE_TENSOR_TO_NUMPY(results_A.begin()->second, "/home/glasssix/yhc/test_model/pedestrain/concat_a.npy");
 	//npy::SAVE_TENSOR_TO_NUMPY(results_B.begin()->second, "/home/glasssix/yhc/test_model/pedestrain/concat_b.npy");
 
@@ -107,7 +107,7 @@ static inline void auto_infer_output_map(std::shared_ptr<GenPiplineInterface> pi
 	//	throw glasssix::exposing::abi_not_implemented("Invalid pipline output empty!");
 	//}
 
-	auto automic_map = output_map_analyse(results_A, results_B);
+	auto automic_map = output_map_analyse(results_TEST, results_BASE);
 	if (automic_map.empty()) {
 		std::cout << "-- failed to get output map automatically !" << std::endl;
 		std::cout << "-- please specify output map regulation (xx.json) by hand" << std::endl;
@@ -122,11 +122,11 @@ static inline void auto_infer_output_map(std::shared_ptr<GenPiplineInterface> pi
 	else {
 		output_map = automic_map;
 		std::cout << "succeed to get output map automatically ~" << std::endl;
-		std::cout << "<auto_map> " << pip_B->pipTypeInfo() << " - " << pip_A->pipTypeInfo() << std::endl;
+		std::cout << "<auto_map> " << pip_BASE->pipTypeInfo() << " - " << pip_TEST->pipTypeInfo() << std::endl;
 
 		for (auto output_map_elm : output_map) {
-			std::cout << "\t" << output_map_elm.first << ':' << printVect(results_B[output_map_elm.first]->data_shape())
-				<< " - " << output_map_elm.second << ':' << printVect(results_A[output_map_elm.second]->data_shape()) << std::endl;
+			std::cout << "\t" << output_map_elm.first << ':' << printVect(results_BASE[output_map_elm.first]->data_shape())
+				<< " - " << output_map_elm.second << ':' << printVect(results_TEST[output_map_elm.second]->data_shape()) << std::endl;
 		}
 		std::cout << "</auto_map>" << std::endl;
 		std::cout << "-------------" << std::endl;
