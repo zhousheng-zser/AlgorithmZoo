@@ -657,13 +657,14 @@ namespace glasssix::pumptop_helmet
 				cv::Point people_ori_2 = {x2 + rect.x, y2 + rect.y};
 				cv::Point point_people_feet_center = {(people_ori_2.x - people_ori_1.x) / 2 + people_ori_1.x, people_ori_2.y};
 				cv::Rect people_rect(people_ori_1.x, people_ori_1.y, people_ori_2.x - people_ori_1.x, people_ori_2.y - people_ori_1.y);
-				rect_peple_ori = people_rect;
 				// 比对:人是否在泵顶里面
 				if (pump_top_ori.contains(point_people_feet_center))
 				{
+					rect_peple_ori = people_rect;
+
 					// std::cout << "The point is inside the rectangle!" << std::endl;
 					// 人头检测
-					rect_head = head_detect(image_ori_all, people_rect, param_map, score); // 这里 people_rect 需要替换成人的原始坐标
+					rect_head = head_detect(image_ori_all, rect_peple_ori, param_map, score); // 这里 rect_peple_ori 需要替换成人的原始坐标(而且还必须是满足要求的坐标)
 					//! 这里需要对人头检测进行判空,不然 人头分类检测 拿到的就是空数据,会报错
 					// 根据算法需求,宽高分别小于24要过滤
 					if(rect_head.width < 24 || rect_head.height < 24)
