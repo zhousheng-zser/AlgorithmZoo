@@ -241,7 +241,7 @@ namespace glasssix::pumptop_helmet
 					conv[j] = conv[j] + cat[i * 4 * candidate_num + j] * i;
 
 			std::vector<float> concat(candidate_num * 4);
-			for (int i = 0, index = match_index[0]; i < candidate_num * 2; i++)
+			for (int i = 0; i < candidate_num * 2; i++)
 			{
 				concat[i] = (conv[i + candidate_num * 2] - conv[i]) / 2.f + posture_add_weight_1280[i < candidate_num ? match_index[i] : (match_index[i - candidate_num] + totol_size)] + 0.5;
 				concat[i + candidate_num * 2] = (conv[i + candidate_num * 2] + conv[i]); // add_data[i]-sub_data[i]) ;
@@ -259,10 +259,100 @@ namespace glasssix::pumptop_helmet
 			}
 			return output0;
 		}
+
 		std::shared_ptr<memory::tensor<float>> Yovo8se_Concat_320(std::vector<std::shared_ptr<memory::tensor<float>>> &outs, float conf, int &candicate_num)
 		{
 			conf = de_sigmoid(conf);
 			int input = 320;
+			int box_tmp_size = 64;
+			int stride_8_num = input / 8;
+			int stride_16_num = input / 16;
+			int stride_32_num = input / 32;
+
+			int candidate_num = stride_8_num * stride_8_num + stride_16_num * stride_16_num + stride_32_num * stride_32_num;
+			int totol_size = candidate_num;
+			// 10 20 40
+			const float *data_stride_8 = outs[2]->cpu_data();
+			const float *data_stride_16 = outs[1]->cpu_data();
+			const float *data_stride_32 = outs[0]->cpu_data();
+
+			std::vector<int> match_index;
+
+			const float *data_stride_8_conf = data_stride_8 + stride_8_num * stride_8_num * box_tmp_size;
+			for (size_t i = 0; i < stride_8_num * stride_8_num; i++)
+				if (data_stride_8_conf[i] > conf)
+					match_index.push_back(i);
+			const float *data_stride_16_conf = data_stride_16 + stride_16_num * stride_16_num * box_tmp_size;
+			for (size_t i = 0; i < stride_16_num * stride_16_num; i++)
+				if (data_stride_16_conf[i] > conf)
+					match_index.push_back(i + stride_8_num * stride_8_num);
+			const float *data_stride_32_conf = data_stride_32 + stride_32_num * stride_32_num * box_tmp_size;
+			for (size_t i = 0; i < stride_32_num * stride_32_num; i++)
+				if (data_stride_32_conf[i] > conf)
+					match_index.push_back(i + stride_8_num * stride_8_num + stride_16_num * stride_16_num);
+
+			// concat the 80*80 40*40 20*20
+			std::vector<float> cat(65 * candidate_num); // 1*65*candidate_num = 64*candidate_num + 1*candidate_num
+			for (int i = 0, j = 0; i < 65; i++, j = 0)
+			{
+				std::copy(data_stride_8 + i * stride_8_num * stride_8_num, data_stride_8 + (i + 1) * stride_8_num * stride_8_num, cat.data() + i * candidate_num);
+				std::copy(data_stride_16 + i * stride_16_num * stride_16_num, data_stride_16 + (i + 1) * stride_16_num * stride_16_num, cat.data() + i * candidate_num + stride_8_num * stride_8_num);
+				std::copy(data_stride_32 + i * stride_32_num * stride_32_num, data_stride_32 + (i + 1) * stride_32_num * stride_32_num, cat.data() + i * candidate_num + stride_8_num * stride_8_num + stride_16_num * stride_16_num);
+			}
+
+			// tranpose and softmax
+			std::vector<float> reshape_box(candidate_num * 64);
+			tranpose(cat.data(), reshape_box.data(), 64, candidate_num);
+
+			candidate_num = match_index.size();
+
+			candicate_num = candidate_num;
+			std::vector<float> reshape_boxtmp(candidate_num * 64);
+			std::shared_ptr<glasssix::memory::tensor<float>> output0(new memory::tensor<float>(std::vector<int>{1, 5, candidate_num}, -1, memory::NCHW));
+
+			for (size_t i = 0; i < match_index.size(); i++)
+				std::copy(reshape_box.data() + match_index[i] * 64, reshape_box.data() + match_index[i] * 64 + 64, reshape_boxtmp.data() + i * 64);
+
+			int index = 0;
+			for (int i = 0; i < candidate_num; i++)
+				for (int j = 0; j < 4; j++)
+					Softmax(reshape_boxtmp.data() + 16 * index++, 16); // inplace softamax
+
+			for (int i = 0; i < candidate_num; i++)
+				for (int j = 0; j < 4; j++)
+					for (int k = 0; k < 16; k++)
+						cat[k * 4 * candidate_num + j * candidate_num + i] = reshape_boxtmp[i * 16 * 4 + j * 16 + k];
+
+			// 16 channels 1*1convolution
+			std::vector<float> conv(4 * candidate_num, 0);
+			for (int i = 0; i < 16; i++)
+				for (int j = 0; j < 4 * candidate_num; j++)
+					conv[j] = conv[j] + cat[i * 4 * candidate_num + j] * i;
+
+			std::vector<float> concat(candidate_num * 4);
+			for (int i = 0; i < candidate_num * 2; i++)
+			{
+				concat[i] = (conv[i + candidate_num * 2] - conv[i]) / 2.f + posture_add_weight_1280[i < candidate_num ? match_index[i] : (match_index[i - candidate_num] + totol_size)] + 0.5;
+				concat[i + candidate_num * 2] = (conv[i + candidate_num * 2] + conv[i]); // add_data[i]-sub_data[i]) ;
+			}
+
+			// concat the output
+			float *output = output0->mutable_cpu_data();
+			for (int i = 0; i < candidate_num; i++)
+			{
+				output[candidate_num * 0 + i] = concat[candidate_num * 0 + i] * posture_mul_weight_1280[match_index[i]];
+				output[candidate_num * 1 + i] = concat[candidate_num * 1 + i] * posture_mul_weight_1280[match_index[i]];
+				output[candidate_num * 2 + i] = concat[candidate_num * 2 + i] * posture_mul_weight_1280[match_index[i]];
+				output[candidate_num * 3 + i] = concat[candidate_num * 3 + i] * posture_mul_weight_1280[match_index[i]];
+				output[candidate_num * 4 + i] = sigmoid_x(cat[totol_size * 64 + match_index[i]]);
+			}
+			return output0;
+		}
+
+		std::shared_ptr<memory::tensor<float>> Yovo8se_Concat_128(std::vector<std::shared_ptr<memory::tensor<float>>> &outs, float conf, int &candicate_num)
+		{
+			conf = de_sigmoid(conf);
+			int input = 128;
 			int box_tmp_size = 64;
 			int stride_8_num = input / 8;
 			int stride_16_num = input / 16;
@@ -409,6 +499,7 @@ namespace glasssix::pumptop_helmet
 		{
 			std::vector<int> categorys;
 			std::vector<float> scores;
+			std::vector<float> helmet_scores;
 			// CHECK_EQ(channels, 24);
 			if (bitmap.empty())
 			{
@@ -416,16 +507,22 @@ namespace glasssix::pumptop_helmet
 			}
 			auto results = exposing::make_param_vector<pumptop_helmet::pumptop_helmet_info>();
 			cv::Mat image(height, width, CV_8UC3, bitmap.data());
-			std::vector<cv::Rect> ori_rect = pump_detect(image, param_map, categorys,scores);
+			std::vector<cv::Rect> ori_rect = pump_detect(image, param_map, categorys,scores, helmet_scores);
 			for (int i = 0; i < ori_rect.size(); i++)
 			{
+				int category = -1;
+				category = categorys[i];
+				if(category != 0)
+				{
+					continue;
+				}
 				int x1 = ori_rect[i].x;
 				int y1 = ori_rect[i].y;
 				int x2 = ori_rect[i].x + ori_rect[i].width;
 				int y2 = ori_rect[i].y + ori_rect[i].height;
-				int category = categorys[i];
 				float score = scores[i];
-				pumptop_helmet::pumptop_helmet_info_internal goal{x1, y1, x2, y2, category, score};
+				float helmet_score = helmet_scores[i];
+				pumptop_helmet::pumptop_helmet_info_internal goal{x1, y1, x2, y2, category, score, helmet_score};
 				results.push_back(glasssix::exposing::make_as_first<pumptop_helmet::pumptop_helmet_info_impl>(goal));
 			}
 			return results;
@@ -433,7 +530,7 @@ namespace glasssix::pumptop_helmet
 
 		//! 开始泵检测,人检测,人头检测,人头分类
 		//~ 泵检测
-		std::vector<cv::Rect> pump_detect(cv::Mat &image, std::map<std::string, float> &param_map, std::vector<int> &categorys, std::vector<float> &scores)
+		std::vector<cv::Rect> pump_detect(cv::Mat &image, std::map<std::string, float> &param_map, std::vector<int> &categorys, std::vector<float> &scores, std::vector<float> &helmet_scores)
 		{
 			cv::Rect ori_rect;
 			std::vector<cv::Rect> result_rect;
@@ -467,7 +564,7 @@ namespace glasssix::pumptop_helmet
 
 			auto real_output = Yovo8se_Concat(forwards, con_thres, candicate_num);
 			auto nms_result = post_process(real_output, blob, pad_h, pad_w, 1.f / ratio, candicate_num, con_thres, iou_thres);
-			// 画图
+			// 对泵的结果循环
 			for (auto &pump : nms_result)
 			{
 				int x1 = std::round(pump[0]) > 0 ? std::round(pump[0]) : 0;
@@ -481,19 +578,21 @@ namespace glasssix::pumptop_helmet
 				// 人检测
 				int category;
 				float score;
-				ori_rect = people_detect(image, roiRect, param_map, category, score); // roiRect 是泵的坐标
+				float helmet_score;
+				ori_rect = people_detect(image, roiRect, param_map, category, score, helmet_score); // roiRect 是泵的坐标
 				if(category != -1)//满足目标才放入
 				{
 					categorys.push_back(category);
 					result_rect.push_back(ori_rect);
 					scores.push_back(score);
+					helmet_scores.push_back(helmet_score);
 				}
 			}
 			return result_rect;
 		}
 
 		//~ 人检测,包含了人,人头,人头分类检测
-		cv::Rect people_detect(cv::Mat image_ori_all, cv::Rect rect, std::map<std::string, float> &param_map, int &category ,float &score)
+		cv::Rect people_detect(cv::Mat image_ori_all, cv::Rect rect, std::map<std::string, float> &param_map, int &category , float &score, float &helmet_score)
 		{
 			cv::Rect rect_head;
 			cv::Rect rect_peple_ori;
@@ -572,7 +671,7 @@ namespace glasssix::pumptop_helmet
 						continue;
 					}
 					// 人头分类检测
-					category = helmet_detect(image_ori_all, rect_head, param_map);
+					category = helmet_detect(image_ori_all, rect_head, param_map, helmet_score);
 				}
 				else
 				{
@@ -623,11 +722,11 @@ namespace glasssix::pumptop_helmet
 			int candicate_num = 0;
 			std::vector<cv::Mat> v_roi;
 
-			auto real_output = Yovo8se_Concat_320(forwards, con_thres, candicate_num);
+			auto real_output = Yovo8se_Concat_128(forwards, con_thres, candicate_num);
 
 			auto nms_result = post_process(real_output, blob, pad_h, pad_w, 1.f / ratio, candicate_num, con_thres, iou_thres);
 			int num = 0;
-			//从结果里面拿取人头的坐标
+			//从人头结果里面拿取人头的坐标
 			for (auto &pump : nms_result)
 			{
 				int x1 = std::round(pump[0]) > 0 ? std::round(pump[0]) : 0;
@@ -639,6 +738,11 @@ namespace glasssix::pumptop_helmet
 				int x2_ori = x2 + rect.x;
 				int y1_ori = y1 + rect.y;
 				int y2_ori = y2 + rect.y;
+				//这里可能出现多个目标的时候,导致 x1 > x2 、y1 > y2 的情况
+				if(x1_ori > x2_ori || y1_ori > y2_ori)
+				{
+					continue;
+				}
 				num++;
 				roiRect = {x1_ori, y1_ori, x2_ori - x1_ori, y2_ori - y1_ori};
 				cv::Mat roi = image_ori_all(roiRect).clone();
@@ -647,7 +751,7 @@ namespace glasssix::pumptop_helmet
 			return roiRect;
 		}
 
-		int helmet_detect(cv::Mat image_ori_all, cv::Rect rect, std::map<std::string, float> &param_map)
+		int helmet_detect(cv::Mat image_ori_all, cv::Rect rect, std::map<std::string, float> &param_map, float &helmet_score)
 		{
 			float con_thres = param_map.count("head_score_conf_thres") ? param_map["head_score_conf_thres"] : 0.7f;
 
@@ -681,7 +785,7 @@ namespace glasssix::pumptop_helmet
 			{
 				index = -1;
 			}
-
+			helmet_score = result[index];
 
 			return index;
 		}
