@@ -37,8 +37,9 @@ public:
 	int initModel(std::string arch, std::string weight, int device) override final {
 		if (arch == weight) {
 			auto model_pure = arch.substr(0, arch.find_last_of('.'));
-			auto onx_model = model_pure + ".onnx";
-			pipline = std::make_unique<ONNXRTPipline>(onx_model, device);
+			auto rkn_model = model_pure + ".rknn";
+			std::vector<std::string> phai;
+			pipline = std::make_unique<rknnwrapper::rknn_wrapper>(phai, rkn_model, device);
 			return 0;
 		}
 		else {
@@ -48,48 +49,32 @@ public:
 
 	int initModel(std::string model, int device) override final {
 		auto model_pure = model.substr(0, model.find_last_of('.'));
-		auto onx_model = model_pure + ".onnx";
-		pipline = std::make_unique<ONNXRTPipline>(onx_model, device);
+		auto rkn_model = model_pure + ".rknn";
+		std::vector<std::string> phai;
+		pipline = std::make_unique<rknnwrapper::rknn_wrapper>(phai, rkn_model, device);
 		return 0;
 	}
 
 	SupportHandNormaliztion handset_possible_normalization(std::array<float, 3> means, std::array<float, 3> stands) {
-		pipline->set_normalization_param(means, stands);
-		return SupportHandNormaliztion::Enable;
+		// rknn useless normalization param setting functiuon, model file integrated;
+		return SupportHandNormaliztion::Disable;
 	}
 
 	std::unordered_map<std::string, std::shared_ptr<glasssix::memory::tensor<float>>> forward(cv::Mat image)  override final {
-		std::shared_ptr<glasssix::memory::tensor<uint8_t>> input_tensor_u8(new glasssix::memory::tensor<uint8_t>(std::vector<int>{1, image.rows, image.cols, 3}, -1, glasssix::memory::NHWC));
-#ifdef USE_BMNN
-		for (int i = 0; i < image.rows; i++) {
-			auto row_ptr = image.ptr<uint8_t>(i);
-			std::copy(row_ptr, row_ptr + image.cols * image.channels(), input_tensor_u8->mutable_cpu_data() + i * image.cols * image.channels());
-		}
-#else
-		std::copy(image.data, image.data + image.step[0] * image.rows, input_tensor_u8->mutable_cpu_data());
-#endif
-		input_tensor_u8->convert_order();
-		auto input_tensor_f32 = input_tensor_u8 | glasssix::memory::tensor_convert_to<float>;
-		return pipline->forward(input_tensor_f32);
+		return pipline->forward(image.data, { 1, image.rows, image.cols, image.channels() }, RKNN_TENSOR_NHWC);
 	}
 
+	//对于rknn，一下三者最好不要用，设计存在缺陷
 	std::unordered_map<std::string, std::shared_ptr<glasssix::memory::tensor<float>>> forward(std::shared_ptr<glasssix::memory::tensor<float>> input_tensor) override final {
-		return pipline->forward(input_tensor);
+		return pipline->forward(input_tensor->cpu_data(), input_tensor->data_shape(), static_cast<rknn_tensor_format>(input_tensor->order()));
 	}
 
 	std::unordered_map<std::string, std::shared_ptr<glasssix::memory::tensor<float>>> forward(const float* input_data, std::vector<int> data_shape, int order)  override final {
-		auto bottom = std::make_shared<glasssix::memory::tensor<float>>(data_shape);
-		auto count = std::accumulate(std::begin(data_shape), std::end(data_shape), 1, std::multiplies<int>());
-		std::copy(input_data, input_data + count, bottom->mutable_cpu_data());
-		return pipline->forward(bottom);
+		return pipline->forward(input_data, data_shape, static_cast<rknn_tensor_format>(order));//RKNN_TENSOR_NCHW
 	}
 
 	std::unordered_map<std::string, std::shared_ptr<glasssix::memory::tensor<float>>> forward(const std::uint8_t* input_data, std::vector<int> data_shape, int order)  override final {
-		auto bottom_u8 = std::make_shared<glasssix::memory::tensor<std::uint8_t>>(data_shape);
-		auto count = std::accumulate(std::begin(data_shape), std::end(data_shape), 1, std::multiplies<int>());
-		std::copy(input_data, input_data + count, bottom_u8->mutable_cpu_data());
-		auto input_tensor_f32 = bottom_u8 | glasssix::memory::tensor_convert_to<float>;
-		return pipline->forward(input_tensor_f32);
+		return pipline->forward(input_data, data_shape, static_cast<rknn_tensor_format>(order));//RKNN_TENSOR_NCHW
 	}
 
 };
