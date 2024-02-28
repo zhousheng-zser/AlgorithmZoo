@@ -67,6 +67,9 @@ static inline float CosineSimilarity(T emb1, T emb2, int len)
 	float emb1_sum = 0.f;
 	float emb2_sum = 0.f;
 	for (size_t i = 0; i < len; i++) {
+		//if(i>1000&&i<1020)
+		//	std::cout << std::fixed << std::setprecision(2) << emb1[i] << ", " << emb2[i] << " \tdf=" << std::setprecision(3) << emb1[i] - emb2[i] << std::endl;
+
 		dot += emb1[i] * emb2[i];
 		emb1_sum += emb1[i] * emb1[i];
 		emb2_sum += emb2[i] * emb2[i];

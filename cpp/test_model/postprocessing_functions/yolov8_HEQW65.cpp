@@ -4,7 +4,7 @@
 
 /**
 *	HEQW65:
-*		yolov8_complement vec_ts_rstSort asked input tensor H == W !,
+*		yolov8_complement raw node (tensor shape) asked H == W !,
 */
 
 
@@ -165,15 +165,32 @@ class pp_yolov8_HEQW65 : public Postprocessing
 		{
 			for (int j = 0; j < 4; j++) {
 				output_locat_data[i * 4 + j] = concat_tensor_data[i * 5 + j];
-				output_score_data[i] = concat_tensor_data[i * 5 + 4];
 			}
+			output_score_data[i] = concat_tensor_data[i * 5 + 4];
+		}
+
+		// Mul _SCALE
+		constexpr int _SCALE = 1280;
+		for (size_t idx = 0; idx < _LINES; idx++) {
+			float* pdata = concat_tensor_ptr->mutable_cpu_data() + idx * _UINTLINE_NUM;
+			pdata[0] = pdata[0] * _SCALE;
+			pdata[1] = pdata[1] * _SCALE;
+			pdata[2] = pdata[2] * _SCALE;
+			pdata[3] = pdata[3] * _SCALE;
+			//float conf = pdata[4];
 		}
 
 		std::unordered_map<std::string, std::shared_ptr<glasssix::memory::tensor<float>>> postprocessing_rstmap;
 
-		postprocessing_rstmap.try_emplace("inteyolo8", concat_tensor_ptr); // complement result 
-		postprocessing_rstmap.try_emplace("locat_out", output_locat); // complement result 
-		postprocessing_rstmap.try_emplace("score_out", output_score); // complement result 
+		postprocessing_rstmap.try_emplace("inteyolo8_scale", concat_tensor_ptr); // locations + scroes * scale
+		//postprocessing_rstmap.try_emplace("inteyolo8", concat_tensor_ptr); // locations + scroes raw
+		//postprocessing_rstmap.try_emplace("loca_raw", output_locat); // locations
+		postprocessing_rstmap.try_emplace("score_out", output_score); // scroes
+#ifdef WIN32
+		//npy::SAVE_TENSOR_TO_NUMPY(concat_tensor_ptr, "D:/bigthree/npy/inteyolo8_scale.npy");
+#else
+		//npy::SAVE_TENSOR_TO_NUMPY(concat_tensor_ptr, "/home/glasssix/yhc/AlgorithmZoo/cmake/build_safe_production_sdk/bin/npy/inteyolo8_scale.npy");
+#endif // !WIN32
 
 		//npy::SAVE_TENSOR_TO_NUMPY(concat_tensor_ptr, "D:/concat_tensor_ptr.npy");
 		//npy::SAVE_TENSOR_TO_NUMPY(output_locat, "D:/output_locat.npy");
@@ -184,9 +201,9 @@ class pp_yolov8_HEQW65 : public Postprocessing
 
 
 public:
-	virtual const std::map<std::string, postprocessing_function> parser_postprocessing_dump() const override
+	virtual const std::map<std::string, PostprocessingFunction> parser_postprocessing_dump() const override
 	{
-		std::map<std::string, postprocessing_function> pp_map;
+		std::map<std::string, PostprocessingFunction> pp_map;
 		pp_map["yolov8_HEQW65"] = &pedestrian_concat_score;
 		return pp_map;
 	}

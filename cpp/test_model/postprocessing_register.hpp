@@ -8,14 +8,14 @@
 using namespace glasssix;
 
 
-using postprocessing_function = std::function<
+using PostprocessingFunction = std::function<
 	std::unordered_map<std::string, std::shared_ptr<memory::tensor<float>>>
 		(std::unordered_map<std::string, std::shared_ptr<memory::tensor<float>>>&)>;
 
 class Postprocessing {
 public:
 	using TensorSptr = std::shared_ptr<memory::tensor<float>>;
-	virtual const std::map<std::string, postprocessing_function> parser_postprocessing_dump() const = 0;
+	virtual const std::map<std::string, PostprocessingFunction> parser_postprocessing_dump() const = 0;
 
 
 	static inline float sigmoid_x(float x)
@@ -64,7 +64,7 @@ static std::vector<std::shared_ptr<Postprocessing>>& postprocessing_list_instanc
 #define REGISTE_POSTPROCESSING(CLASS_NAME) \
 	static PostprocessingRegister postprocessing_##CLASS_NAME##_register(std::shared_ptr<Postprocessing>{new CLASS_NAME});
 
-void AddPostprocessing(std::map<std::string, postprocessing_function>&);
+void AddPostprocessing(std::map<std::string, PostprocessingFunction>&);
 
 
 #endif //!_CONCAT_FUNCTIONS_
