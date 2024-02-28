@@ -18,15 +18,17 @@ namespace fs = std::filesystem;
 #include <opencv2/opencv.hpp>
 #include <vector>
 
-#include "postprocessing_register.hpp"
 #include "numpy_extensor/numpyExtensor.hpp"
-#include "test_model.hpp"
 
 #include "Backends/BackendFactory.hpp"
 
 #include "Excalibur/pipeline.hpp"
 
 using namespace glasssix;
+
+using PostprocessingFunction = std::function<
+	std::unordered_map<std::string, std::shared_ptr<memory::tensor<float>>>
+	(std::unordered_map<std::string, std::shared_ptr<memory::tensor<float>>>&)>;
 
 namespace GenPiplineTools {
 
@@ -48,7 +50,7 @@ namespace GenPiplineTools {
 		return rst;
 	}
 
-	static cv::Mat letter_image(cv::Mat img, int hope_w, int hope_h, bool if_cvtColor = false)
+	static cv::Mat letter_image(cv::Mat img, int hope_w, int hope_h, bool& is_horizon_pad, int& pad_val, float& resize_scale, bool if_cvtColor = false)
 	{
 		cv::Mat resize_img;
 		int H = img.rows;
@@ -57,17 +59,24 @@ namespace GenPiplineTools {
 		if (hope_w <= 0 || hope_h <= 0 || (H == hope_h && W == hope_w)) {
 			//无效hope_hw时或者HW等于hope_hw时不做任何尺寸操作。
 			resize_img = img;
+			pad_val = 0;
 		}
 		else {
 			float ratio_w = (float)W / (float)hope_w;
 			float ratio_h = (float)H / (float)hope_h;
-			if (ratio_w == ratio_h)
+			if (ratio_w == ratio_h) {
 				cv::resize(img, resize_img, cv::Size2i{ hope_w, hope_h });
+				pad_val = 0;
+
+			}
 			else if (ratio_w > ratio_h) {
 				int new_x = hope_w;
 				int new_y = (int)(H / ratio_w);
 				int pad1 = (int)((hope_h - new_y) / 2);
 				int pad2 = hope_h - new_y - pad1;
+				pad_val = (pad1 + pad2) / 2;
+				is_horizon_pad = true;
+				resize_scale = ratio_w;
 				cv::resize(img, resize_img, cv::Size2i{ new_x, new_y });
 				cv::copyMakeBorder(resize_img, resize_img, pad1, pad2, 0, 0, cv::BORDER_CONSTANT, cv::Scalar{ 114,114,114 });
 			}
@@ -76,25 +85,37 @@ namespace GenPiplineTools {
 				int new_x = (int)(W / ratio_h);
 				int pad1 = (int)((hope_w - new_x) / 2);
 				int pad2 = hope_w - new_x - pad1;
+				pad_val = (pad1 + pad2) / 2;
+				is_horizon_pad = false;
+				resize_scale = ratio_h;
 				cv::resize(img, resize_img, cv::Size2i{ new_x, new_y });
 				cv::copyMakeBorder(resize_img, resize_img, 0, 0, pad1, pad2, cv::BORDER_CONSTANT, cv::Scalar{ 114,114,114 });
 			}
 		}
 
-		if(if_cvtColor)
+		if (if_cvtColor)
 			cv::cvtColor(resize_img, resize_img, cv::COLOR_BGR2RGB);
 
 		return resize_img;
 	}
-}
 
+	static cv::Mat letter_image(cv::Mat img, int hope_w, int hope_h, bool if_cvtColor = false)
+	{
+		bool is_horizon_pad_temp;
+		int pad_val_temp;
+		float resize_scale;
+		return letter_image(img, hope_w, hope_h, is_horizon_pad_temp, pad_val_temp, resize_scale, if_cvtColor);
+	}
+}
 
 // Proxy pattern
 class GenPiplineInterface {
 public:
 	virtual ~GenPiplineInterface() = default;
 	virtual std::unordered_map<std::string, std::shared_ptr<glasssix::memory::tensor<float>>> forward(cv::Mat image) = 0;
+	virtual void handset_possible_normalization(std::array<float, 3> means, std::array<float, 3> stands) = 0;
 	virtual const std::string pipTypeInfo() = 0;
+	virtual const std::string version() = 0;
 };
 
 
@@ -139,7 +160,7 @@ public:
 		}
 	}
 
-	void handset_possible_normalization(std::array<float, 3> means, std::array<float, 3> stands) {
+	void handset_possible_normalization(std::array<float, 3> means, std::array<float, 3> stands) override {
 		if (!backend) {
 			throw glasssix::exposing::abi_not_initialized("Empty infer backend.");
 		};
@@ -185,7 +206,7 @@ public:
 		}
 	}
 
-	std::string version() {
+	const std::string version() override {
 		if (backend) {
 			return backend->getVersion(); //success
 		}
@@ -225,7 +246,7 @@ public:
 		image_preprocess_function_ = image_preprocess_function;
 	}
 
-	void check_set_postprocessing(std::map<std::string, postprocessing_function>& postprocessing_market, std::string ppfunc_name) {
+	void check_set_postprocessing(std::map<std::string, PostprocessingFunction>& postprocessing_market, std::string ppfunc_name) {
 		if (postprocessing_market.count(ppfunc_name)) {
 			std::cout << pipTypeInfo() << " pipline load postprocessing \"" << ppfunc_name << "\"" << std::endl;
 			set_postprocessing(postprocessing_market[ppfunc_name]);
@@ -239,8 +260,8 @@ public:
 		}
 	};
 
-	void set_postprocessing(const std::function<ForwardResultType(ForwardResultType)>& postprocessing_function) {
-		postprocessing_function_ = postprocessing_function;
+	void set_postprocessing(PostprocessingFunction pp_function) {
+		postprocessing_function_ = pp_function;
 	}
 
 	std::unordered_map<std::string, std::shared_ptr<glasssix::memory::tensor<float>>> forward(cv::Mat image) override {
@@ -260,6 +281,12 @@ public:
 		return rst_map;
 	}
 
+	void handset_possible_normalization(std::array<float, 3> means, std::array<float, 3> stands) override {
+		if (pipline_) {
+			return pipline_->handset_possible_normalization(means, stands);
+		}
+	}
+
 	const std::string pipTypeInfo() override {
 		if (pipline_) {
 			return pipline_->pipTypeInfo();
@@ -269,10 +296,19 @@ public:
 		}
 	}
 
+	const std::string version() override {
+		if (pipline_) {
+			return pipline_->version();
+		}
+		else {
+			return "";
+		}
+	}
+
 private:
 	std::shared_ptr<GenPiplineInterface> pipline_;
 	std::function<cv::Mat(cv::Mat)> image_preprocess_function_;
-	std::function<ForwardResultType(ForwardResultType)> postprocessing_function_;
+	PostprocessingFunction postprocessing_function_;
 };
 
 
