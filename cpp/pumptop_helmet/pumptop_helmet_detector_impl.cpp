@@ -25,14 +25,17 @@ namespace glasssix::pumptop_helmet
 		impl(std::string_view model_directory, int device)
 			: model_directory_{std::string(model_directory)}, device_{device}
 		{
+			//算法传过来的模型名:泵检测模型 640-v1_ori_TAL
+			net_detect_1 = std::make_unique<rknnwrapper::rknn_wrapper>(phais, std::string(model_directory) + "/" + "pumptop_helmet_pump.rknn", device);
 
-			net_detect_1 = std::make_unique<rknnwrapper::rknn_wrapper>(phais, std::string(model_directory) + "/" + "640-v1_ori_TAL.rknn", device);
+			//算法传过来的模型名:人检测模型 1280T320-0108_Person_best_detection
+			net_detect_2 = std::make_unique<rknnwrapper::rknn_wrapper>(phais, std::string(model_directory) + "/" + "pumptop_helmet_person.rknn", device);
 
-			net_detect_2 = std::make_unique<rknnwrapper::rknn_wrapper>(phais, std::string(model_directory) + "/" + "1280T320-0108_Person_best_detection.rknn", device);
+			//算法传过来的模型名:人头检测模型 640T320-200epft-baoshinegtivev2-atss-nwd-wop
+			net_detect_3 = std::make_unique<rknnwrapper::rknn_wrapper>(phais, std::string(model_directory) + "/" + "pumptop_helmet_head.rknn", device);
 
-			net_detect_3 = std::make_unique<rknnwrapper::rknn_wrapper>(phais, std::string(model_directory) + "/" + "640T320-200epft-baoshinegtivev2-atss-nwd-wop.rknn", device);
-
-			net_detect_4 = std::make_unique<rknnwrapper::rknn_wrapper>(phais, std::string(model_directory) + "/" + "helmetclassify-v2-96-labelsmooth-0.05.rknn", device);
+			//算法传过来的模型名:人头分类检测模型 helmetclassify-v2-96-labelsmooth-0.05
+			net_detect_4 = std::make_unique<rknnwrapper::rknn_wrapper>(phais, std::string(model_directory) + "/" + "pumptop_helmet_helmet.rknn", device);
 		}
 
 		~impl()
@@ -408,7 +411,7 @@ namespace glasssix::pumptop_helmet
 			std::vector<cv::Rect> result_rect;
 			// 预处理
 			init_data640();
-			float con_thres = param_map.count("conf_thres") ? param_map["conf_thres"] : 0.5f;
+			float con_thres = param_map.count("pump_conf_thres") ? param_map["pump_conf_thres"] : 0.8f;
 			float iou_thres = param_map.count("nms_thres") ? param_map["nms_thres"] : 0.6f;
 			auto new_shape = cv::Size(640, 640);
 			cv::Mat blob;
@@ -466,7 +469,7 @@ namespace glasssix::pumptop_helmet
 			cv::Rect rect_head;
 			cv::Rect rect_peple_ori;
 			category = -1;
-			float con_thres = param_map.count("conf_thres") ? param_map["conf_thres"] : 0.1f;
+			float con_thres = param_map.count("people_conf_thres") ? param_map["people_conf_thres"] : 0.1f;
 			float iou_thres = param_map.count("nms_thres") ? param_map["nms_thres"] : 0.6f;
 			cv::Rect roi(rect.x, rect.y, rect.width, rect.height);
 			cv::Mat image = image_ori_all(roi).clone();
@@ -474,16 +477,12 @@ namespace glasssix::pumptop_helmet
 			cv::Mat img_det;
 			cv::Point point_people_feet_center{0, 0};
 			cv::Point point_pump_xy_ori = {rect.x, rect.y};
-			// 泵顶的区域
-			int centerX = rect.x + rect.width / 2;
-			int centerY = rect.y + rect.height / 2;
+			// 泵顶的区域 根据算法要求，改为 0.35
+			float scale = 0.35;
+			float X = rect.x + rect.width  * (1 - scale) / 2;
+			float Y = rect.y + rect.height * (1 - scale) / 2;
 
-			int top = (rect.y - centerY) / 2;
-			int botton = (rect.y + rect.height - centerY) / 2;
-			int left = (rect.x - centerX) / 2;
-			int right = (rect.x + rect.width - centerY) / 2;
-
-			cv::Rect pump_top_ori(centerX + left, centerY + top, rect.width / 2, rect.height / 2);
+			cv::Rect pump_top_ori(X, Y, rect.width * scale, rect.height * scale);
 			init_data320();
 			auto new_shape = cv::Size(320, 320);
 			cv::Mat blob;
@@ -540,7 +539,8 @@ namespace glasssix::pumptop_helmet
 					// 人头检测
 					rect_head = head_detect(image_ori_all, people_rect, param_map); // 这里 rect 需要替换成人的原始坐标
 					//! 这里需要对人头检测进行判空,不然 人头分类检测 拿到的就是空数据,会报错
-					if(rect_head.width == 0 || rect_head.height == 0)
+					// 根据算法需求,宽高分别小于24要过滤
+					if(rect_head.width < 24 || rect_head.height < 24)
 					{
 						continue;
 					}
@@ -565,7 +565,7 @@ namespace glasssix::pumptop_helmet
 			cv::Mat image = image_ori_all(roi).clone();
 			cv::Rect roiRect;
 
-			float con_thres = param_map.count("conf_thres") ? param_map["conf_thres"] : 0.1f;
+			float con_thres = param_map.count("head_conf_thres") ? param_map["head_conf_thres"] : 0.1f;
 			float iou_thres = param_map.count("nms_thres") ? param_map["nms_thres"] : 0.5f;
 			init_data320();
 			auto new_shape = cv::Size(320, 320);
@@ -630,9 +630,6 @@ namespace glasssix::pumptop_helmet
 			cv::Rect roi(rect.x, rect.y, rect.width, rect.height);
 			cv::Mat image = image_ori_all(roi).clone();
 
-			// init_data96();
-			float conf_threshold = 0.1f;
-			float iou_threshold = 0.5f;
 			auto new_shape = cv::Size(96, 96);
 			cv::Mat blob;
 			float ratio = 1.f;
@@ -655,6 +652,11 @@ namespace glasssix::pumptop_helmet
 			auto result = network_results[out_names[0]]->cpu_data();
 
 			int index = std::max_element(result, result + 3) - result;
+			// 如果检测结果为 {0: 'head', 1: 'helmet', 2: 'no'} 中的head,当值低于0.7,要过滤
+			if(index == 0 && *result < 0.7)
+			{
+				index = -1;
+			}
 
 
 			return index;

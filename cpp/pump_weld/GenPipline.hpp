@@ -18,8 +18,6 @@ namespace fs = std::filesystem;
 #include <opencv2/opencv.hpp>
 #include <vector>
 
-#include "numpy_extensor/numpyExtensor.hpp"
-
 #include "Backends/BackendFactory.hpp"
 
 #include "Excalibur/pipeline.hpp"
@@ -29,6 +27,7 @@ using namespace glasssix;
 using PostprocessingFunction = std::function<
 	std::unordered_map<std::string, std::shared_ptr<memory::tensor<float>>>
 	(std::unordered_map<std::string, std::shared_ptr<memory::tensor<float>>>&)>;
+
 
 namespace GenPiplineTools {
 
@@ -107,6 +106,7 @@ namespace GenPiplineTools {
 		return letter_image(img, hope_w, hope_h, is_horizon_pad_temp, pad_val_temp, resize_scale, if_cvtColor);
 	}
 }
+
 
 // Proxy pattern
 class GenPiplineInterface {

@@ -7,6 +7,7 @@
 #include <Primitives/tensor.hpp>
 using namespace glasssix;
 
+using TensorSptr = std::shared_ptr<memory::tensor<float>>;
 
 using PostprocessingFunction = std::function<
 	std::unordered_map<std::string, std::shared_ptr<memory::tensor<float>>>
@@ -14,7 +15,6 @@ using PostprocessingFunction = std::function<
 
 class Postprocessing {
 public:
-	using TensorSptr = std::shared_ptr<memory::tensor<float>>;
 	virtual const std::map<std::string, PostprocessingFunction> parser_postprocessing_dump() const = 0;
 
 

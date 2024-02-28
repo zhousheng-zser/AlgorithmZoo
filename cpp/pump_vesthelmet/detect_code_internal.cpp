@@ -60,6 +60,10 @@ namespace glasssix::pump_vesthelmet
 
             float posture_conf_thres = param_map_std.count("posture_conf_thres") ? param_map_std["posture_conf_thres"] : 0.1f;
             float head_conf_thres = param_map_std.count("head_conf_thres") ? param_map_std["head_conf_thres"] : 0.6f;
+            float head_min_h_thres = param_map_std.count("head_min_h_thres") ? param_map_std["head_min_h_thres"] : 24.0f;
+            float head_min_w_thres = param_map_std.count("head_min_w_thres") ? param_map_std["head_min_w_thres"] : 24.0f;
+            float vest_cls_thres = param_map_std.count("vest_cls_thres") ? param_map_std["vest_cls_thres"] : 0.7f;
+            float helmet_cls_thres = param_map_std.count("helmet_cls_thres") ? param_map_std["helmet_cls_thres"] : 0.7f;
 
             auto posture_param_abi = exposing::make_param_hash_map<exposing::param_string, float>();
             posture_param_abi.add_or_update("conf_thres", posture_conf_thres);
@@ -82,7 +86,7 @@ namespace glasssix::pump_vesthelmet
                 auto vest_cls_rst = vest_cls_rst_map.begin()->second;
                 auto vest_cls_scores = vest_cls_rst->cpu_data();
 
-				if (vest_cls_scores[0] > 0.2 || vest_cls_scores[1] < 0.8) continue; //no vest
+                if (vest_cls_scores[1] < vest_cls_thres) continue; //no vest
 
                 auto people_img_rect = postureInfo.get_rect();
                 //people_img_rect.width *= 1.4;
@@ -96,7 +100,11 @@ namespace glasssix::pump_vesthelmet
 
                 for (auto& head : head_info)
                 {
-                    auto helmet_cls_region = safty_cut(people_img, head.get_rect());
+                    auto head_rect = head.get_rect();
+                    if (head_rect.width < head_min_w_thres || head_rect.height < head_min_h_thres)
+                        continue;
+
+                    auto helmet_cls_region = safty_cut(people_img, head_rect);
 
                     auto helmet_cls = letterbox(helmet_cls_region, 96, 96);
 					cv::cvtColor(helmet_cls, helmet_cls, cv::COLOR_BGR2RGB);
@@ -104,6 +112,8 @@ namespace glasssix::pump_vesthelmet
 					auto helmet_cls_rst_map = helmet_cls_instance_->forward(helmet_cls.data, { 1, helmet_cls.rows, helmet_cls.cols, helmet_cls.channels() }, RKNN_TENSOR_NHWC);
                     auto helmet_cls_rst = helmet_cls_rst_map.begin()->second;
                     auto helmet_cls_scores = helmet_cls_rst->cpu_data();
+
+                    if (helmet_cls_scores[1] < helmet_cls_thres) continue; //no helmet
 
                     ////YHC
                     //std::array<float, 3> helmet_cls_arr{ helmet_cls_scores[0], helmet_cls_scores[1],helmet_cls_scores[2] };
@@ -145,7 +155,7 @@ namespace glasssix::pump_vesthelmet
 
         std::string version()
         {
-            const std::string algo_module_version = "1.2.0";
+            const std::string algo_module_version = "1.3.1";
             std::string nn_frame_version = "rknn";
             return fmt::format(R"({ {"nn_frame_version":"{}", "algo_module_version" : "{}"} })", nn_frame_version, algo_module_version);
         }
