@@ -43,6 +43,27 @@ using namespace glasssix;
             real_time_y2 = y22;
         }
 
+
+        float get_centre_x ()
+        {
+            return (x1+x2)/2;
+        }
+
+        float get_centre_y ()
+        {
+            return (y1+y2)/2;
+        }
+
+        float get_centre_rt_x ()
+        {
+            return (real_time_x1+real_time_x2)/2;
+        }
+
+        float get_centre_rt_y()
+        {
+            return (real_time_y1+real_time_y2)/2;
+        }
+
         bool is_invalid_rect()
         {
             return (x1==0&&x2==0&&y1==0&&y2==0) ;
@@ -134,9 +155,11 @@ using namespace glasssix;
     float get_distance_between_Rectangle(const Rectangle&R1, const Rectangle& R2, bool real_time = true)
     {
         if(real_time)
-            return  0.5 * sqrt( (R1.real_time_x1-R2.real_time_x1) * (R1.real_time_x2-R2.real_time_x2) + (R1.real_time_y1-R2.real_time_y1) * (R1.real_time_y2-R2.real_time_y2)) ;
+            return  0.5 * sqrt(  (R1.get_centre_rt_x()-R2.get_centre_rt_x())* (R1.get_centre_rt_x()-R2.get_centre_rt_x()) +  (R1.get_centre_rt_y()-R2.get_centre_rt_y()) *(R1.get_centre_rt_y()-R2.get_centre_rt_y()) );
+
+            // return  0.5 * sqrt( (R1.real_time_x1-R2.real_time_x1) * (R1.real_time_x2-R2.real_time_x2) + (R1.real_time_y1-R2.real_time_y1) * (R1.real_time_y2-R2.real_time_y2)) ;
         else
-            return  0.5 * sqrt( (R1.x1-R2.x1) * (R1.x2-R2.x2) + (R1.y1-R2.y1) * (R1.y2-R2.y2)) ;
+            return  0.5 * sqrt(  (R1.get_centre_x()-R2.get_centre_x())* (R1.get_centre_x()-R2.get_centre_x()) +  (R1.get_centre_y()-R2.get_centre_y()) *(R1.get_centre_y()-R2.get_centre_y())) ;
     }
 
     int calculate_distance(Rectangle rect1, Rectangle rect2) 
