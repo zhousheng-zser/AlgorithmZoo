@@ -52,13 +52,11 @@ namespace glasssix::pump_vesthelmet
 				return a.y < b.y; });
 			int top = minmax_y.first->y;
 			int bottom = minmax_y.second->y;
-			CHECK_LT(top, bottom);
 
 			auto minmax_x = std::minmax_element(Kpoints_temp.begin(), Kpoints_temp.end(), [](cv::Point& a, cv::Point& b) {
 				return a.x < b.x; });
 			int left = minmax_x.first->x;
 			int right = minmax_x.second->x;
-			CHECK_LT(left, right);
 
 			return cv::Rect{
 				cv::Point(std::round(left), std::round(top)),
