@@ -78,6 +78,7 @@ namespace glasssix::pump_vesthelmet
                 }
 
                 auto vest_cls_rect = postureInfo.get_vest_det_region();
+				if (vest_cls_rect.height <= 1 || vest_cls_rect.width <= 1) continue; //invalid input
                 auto vest_cls_region = safty_cut(image, vest_cls_rect);
                 vest_cls_region = letterbox(vest_cls_region, 128, 128);
                 cv::cvtColor(vest_cls_region, vest_cls_region, cv::COLOR_BGR2RGB);
