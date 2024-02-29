@@ -19,7 +19,7 @@
 
 #include "general.hpp"
 
-#define draw_pic 
+#define no_draw_pic 
 #define LIBRARY_ID_MAX 1073741824
 
 namespace glasssix::pump_hoisting
@@ -104,7 +104,7 @@ namespace glasssix::pump_hoisting
 
                         library[match_id].refresh( current_box.x1, current_box.y1, current_box.x2, current_box.y2   );
 
-                        if( distance > abs(current_box.y2-current_box.y1)*move_threshold ) //检测到移动了
+                        if(  abs(current_box.y2-current_box.y1)*0.8 > distance && distance > abs(current_box.y2-current_box.y1)*move_threshold ) //检测到移动了
                         {
                             auto neighboor = find_nearest_rectangles(all_pump_rect_boxes, current_box );
 
