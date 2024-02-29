@@ -19,7 +19,7 @@
 
 #include "general.hpp"
 
-#define no_draw_pic 
+#define draw_pic 
 #define LIBRARY_ID_MAX 1073741824
 
 namespace glasssix::pump_hoisting
@@ -99,7 +99,7 @@ namespace glasssix::pump_hoisting
                     auto match_id = get_match_id(library, current_box);
                     if( match_id != -1 )  
                     {
-                        float distance1 =get_distance_between_Rectangle(current_box, library[match_id] );
+                        // float distance1 =get_distance_between_Rectangle(current_box, library[match_id] );
 
                         float distance =get_distance_between_Rectangle(current_box, library[match_id], false );
 
