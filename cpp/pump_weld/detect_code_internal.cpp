@@ -260,7 +260,7 @@ namespace glasssix::pump_weld
 
         std::string version()
         {
-            const std::string algo_module_version = "1.1.0";
+            const std::string algo_module_version = "1.2.0";
 
             std::string nn_frame_version = weld_machine_instance_.version();
 
