@@ -44,6 +44,10 @@ namespace glasssix::longinus
 		void set_y(float input);
 		void set_width(float input);
 		void set_height(float input);
+		void set_ori_x(float input);
+		void set_ori_y(float input);
+		void set_ori_width(float input);
+		void set_ori_height(float input);
 		void set_confidence(float input);
 		void set_has_mask(float input);
 		void set_is_alive(std::int32_t);

@@ -25,16 +25,16 @@ namespace glasssix::pumptop_helmet
 		impl(std::string_view model_directory, int device)
 			: model_directory_{std::string(model_directory)}, device_{device}
 		{
-			//算法传过来的模型名:泵检测模型 640-v1_ori_TAL
+			// 算法传过来的模型名:泵检测模型 640-v1_ori_TAL
 			net_detect_1 = std::make_unique<rknnwrapper::rknn_wrapper>(phais, std::string(model_directory) + "/" + "pumptop_helmet_pump.rknn", device);
 
-			//算法传过来的模型名:人检测模型 1280T320-0108_Person_best_detection
+			// 算法传过来的模型名:人检测模型 1280T320-0108_Person_best_detection
 			net_detect_2 = std::make_unique<rknnwrapper::rknn_wrapper>(phais, std::string(model_directory) + "/" + "pumptop_helmet_person.rknn", device);
 
-			//算法传过来的模型名:人头检测模型 640T320-200epft-baoshinegtivev2-atss-nwd-wop
+			// 算法传过来的模型名:人头检测模型 640T320-200epft-baoshinegtivev2-atss-nwd-wop
 			net_detect_3 = std::make_unique<rknnwrapper::rknn_wrapper>(phais, std::string(model_directory) + "/" + "pumptop_helmet_head.rknn", device);
 
-			//算法传过来的模型名:人头分类检测模型 helmetclassify-v2-96-labelsmooth-0.05
+			// 算法传过来的模型名:人头分类检测模型 helmetclassify-v2-96-labelsmooth-0.05
 			net_detect_4 = std::make_unique<rknnwrapper::rknn_wrapper>(phais, std::string(model_directory) + "/" + "pumptop_helmet_helmet.rknn", device);
 		}
 
@@ -43,6 +43,32 @@ namespace glasssix::pumptop_helmet
 		}
 
 		// 检测前的预处理以及后处理相关函数
+		void init_data1280()
+		{
+			posture_add_weight_1280.resize(33600 * 2);
+			posture_mul_weight_1280.resize(33600);
+			for (size_t i = 0; i < 33600; i++)
+			{
+				if (i < 25600)
+				{
+					posture_add_weight_1280[i] = i % 160;
+					posture_add_weight_1280[i + 33600] = i / 160;
+					posture_mul_weight_1280[i] = 8.f;
+				}
+				else if (i < 32000)
+				{
+					posture_add_weight_1280[i] = (i - 25600) % 80;
+					posture_add_weight_1280[i + 33600] = (i - 25600) / 80;
+					posture_mul_weight_1280[i] = 16.f;
+				}
+				else
+				{
+					posture_add_weight_1280[i] = (i - 32000) % 40;
+					posture_add_weight_1280[i + 33600] = (i - 32000) / 40;
+					posture_mul_weight_1280[i] = 32.f;
+				}
+			}
+		}
 		void init_data640()
 		{
 			posture_add_weight_1280.resize(8400 * 2);
@@ -171,6 +197,95 @@ namespace glasssix::pumptop_helmet
 				return NAN;
 			return static_cast<float>(log(x / (1 - x)));
 		}
+		std::shared_ptr<memory::tensor<float>> Yovo8se_Concat1280(std::vector<std::shared_ptr<memory::tensor<float>>> &outs, float conf, int &candicate_num)
+		{
+			conf = de_sigmoid(conf);
+			int input = 1280;
+			int box_tmp_size = 64;
+			int stride_8_num = input / 8;
+			int stride_16_num = input / 16;
+			int stride_32_num = input / 32;
+
+			int candidate_num = stride_8_num * stride_8_num + stride_16_num * stride_16_num + stride_32_num * stride_32_num;
+			int totol_size = stride_8_num * stride_8_num + stride_16_num * stride_16_num + stride_32_num * stride_32_num;
+			// 20 40 80
+			const float *data_stride_8 = outs[2]->cpu_data();
+			const float *data_stride_16 = outs[1]->cpu_data();
+			const float *data_stride_32 = outs[0]->cpu_data();
+
+			std::vector<int> match_index;
+
+			const float *data_stride_8_conf = data_stride_8 + stride_8_num * stride_8_num * box_tmp_size;
+			for (size_t i = 0; i < stride_8_num * stride_8_num; i++)
+				if (data_stride_8_conf[i] > conf)
+					match_index.push_back(i);
+			const float *data_stride_16_conf = data_stride_16 + stride_16_num * stride_16_num * box_tmp_size;
+			for (size_t i = 0; i < stride_16_num * stride_16_num; i++)
+				if (data_stride_16_conf[i] > conf)
+					match_index.push_back(i + stride_8_num * stride_8_num);
+			const float *data_stride_32_conf = data_stride_32 + stride_32_num * stride_32_num * box_tmp_size;
+			for (size_t i = 0; i < stride_32_num * stride_32_num; i++)
+				if (data_stride_32_conf[i] > conf)
+					match_index.push_back(i + stride_8_num * stride_8_num + stride_16_num * stride_16_num);
+
+			// concat the 80*40 40*40 20*20
+			std::vector<float> cat(65 * candidate_num); // 1*65*candidate_num = 64*candidate_num + 1*candidate_num
+			for (int i = 0, j = 0; i < 65; i++, j = 0)
+			{
+				std::copy(data_stride_8 + i * stride_8_num * stride_8_num, data_stride_8 + (i + 1) * stride_8_num * stride_8_num, cat.data() + i * candidate_num);
+				std::copy(data_stride_16 + i * stride_16_num * stride_16_num, data_stride_16 + (i + 1) * stride_16_num * stride_16_num, cat.data() + i * candidate_num + stride_8_num * stride_8_num);
+				std::copy(data_stride_32 + i * stride_32_num * stride_32_num, data_stride_32 + (i + 1) * stride_32_num * stride_32_num, cat.data() + i * candidate_num + stride_8_num * stride_8_num + stride_16_num * stride_16_num);
+			}
+
+			// tranpose and softmax
+			std::vector<float> reshape_box(candidate_num * 64);
+			tranpose(cat.data(), reshape_box.data(), 64, candidate_num);
+
+			candidate_num = match_index.size();
+
+			candicate_num = candidate_num;
+			std::vector<float> reshape_boxtmp(candidate_num * 64);
+			std::shared_ptr<glasssix::memory::tensor<float>> output0(new memory::tensor<float>(std::vector<int>{1, 5, candidate_num}, -1, memory::NCHW));
+
+			for (size_t i = 0; i < match_index.size(); i++)
+				std::copy(reshape_box.data() + match_index[i] * 64, reshape_box.data() + match_index[i] * 64 + 64, reshape_boxtmp.data() + i * 64);
+
+			int index = 0;
+			for (int i = 0; i < candidate_num; i++)
+				for (int j = 0; j < 4; j++)
+					Softmax(reshape_boxtmp.data() + 16 * index++, 16); // inplace softamax
+
+			for (int i = 0; i < candidate_num; i++)
+				for (int j = 0; j < 4; j++)
+					for (int k = 0; k < 16; k++)
+						cat[k * 4 * candidate_num + j * candidate_num + i] = reshape_boxtmp[i * 16 * 4 + j * 16 + k];
+
+			// 16 channels 1*1convolution
+			std::vector<float> conv(4 * candidate_num, 0);
+			for (int i = 0; i < 16; i++)
+				for (int j = 0; j < 4 * candidate_num; j++)
+					conv[j] = conv[j] + cat[i * 4 * candidate_num + j] * i;
+
+			std::vector<float> concat(candidate_num * 4);
+			for (int i = 0; i < candidate_num * 2; i++)
+			{
+				concat[i] = (conv[i + candidate_num * 2] - conv[i]) / 2.f + posture_add_weight_1280[i < candidate_num ? match_index[i] : (match_index[i - candidate_num] + totol_size)] + 0.5;
+				concat[i + candidate_num * 2] = (conv[i + candidate_num * 2] + conv[i]); // add_data[i]-sub_data[i]) ;
+			}
+
+			// concat the output
+			float *output = output0->mutable_cpu_data();
+			for (int i = 0; i < candidate_num; i++)
+			{
+				output[candidate_num * 0 + i] = concat[candidate_num * 0 + i] * posture_mul_weight_1280[match_index[i]];
+				output[candidate_num * 1 + i] = concat[candidate_num * 1 + i] * posture_mul_weight_1280[match_index[i]];
+				output[candidate_num * 2 + i] = concat[candidate_num * 2 + i] * posture_mul_weight_1280[match_index[i]];
+				output[candidate_num * 3 + i] = concat[candidate_num * 3 + i] * posture_mul_weight_1280[match_index[i]];
+				output[candidate_num * 4 + i] = sigmoid_x(cat[totol_size * 64 + match_index[i]]);
+			}
+			return output0;
+		}
+
 		std::shared_ptr<memory::tensor<float>> Yovo8se_Concat(std::vector<std::shared_ptr<memory::tensor<float>>> &outs, float conf, int &candicate_num)
 		{
 			conf = de_sigmoid(conf);
@@ -495,6 +610,7 @@ namespace glasssix::pumptop_helmet
 			return output;
 		}
 
+		int num = 0;
 		exposing::param_vector<pumptop_helmet_info> detect(exposing::param_span<std::uint8_t> bitmap, std::int32_t channels, std::int32_t height, std::int32_t width, std::map<std::string, float> &param_map)
 		{
 			std::vector<int> categorys;
@@ -507,12 +623,12 @@ namespace glasssix::pumptop_helmet
 			}
 			auto results = exposing::make_param_vector<pumptop_helmet::pumptop_helmet_info>();
 			cv::Mat image(height, width, CV_8UC3, bitmap.data());
-			std::vector<cv::Rect> ori_rect = pump_detect(image, param_map, categorys,scores, helmet_scores);
+			std::vector<cv::Rect> ori_rect = pump_detect(image, param_map, categorys, scores, helmet_scores);
 			for (int i = 0; i < ori_rect.size(); i++)
 			{
 				int category = -1;
 				category = categorys[i];
-				if(category != 0)
+				if (category != 0)
 				{
 					continue;
 				}
@@ -532,6 +648,7 @@ namespace glasssix::pumptop_helmet
 		//~ 泵检测
 		std::vector<cv::Rect> pump_detect(cv::Mat &image, std::map<std::string, float> &param_map, std::vector<int> &categorys, std::vector<float> &scores, std::vector<float> &helmet_scores)
 		{
+			num++;
 			cv::Rect ori_rect;
 			std::vector<cv::Rect> result_rect;
 			// 预处理
@@ -580,7 +697,7 @@ namespace glasssix::pumptop_helmet
 				float score;
 				float helmet_score;
 				ori_rect = people_detect(image, roiRect, param_map, category, score, helmet_score); // roiRect 是泵的坐标
-				if(category != -1)//满足目标才放入
+				if (category != -1)																	// 满足目标才放入
 				{
 					categorys.push_back(category);
 					result_rect.push_back(ori_rect);
@@ -592,27 +709,127 @@ namespace glasssix::pumptop_helmet
 		}
 
 		//~ 人检测,包含了人,人头,人头分类检测
-		cv::Rect people_detect(cv::Mat image_ori_all, cv::Rect rect, std::map<std::string, float> &param_map, int &category , float &score, float &helmet_score)
+		cv::Rect people_detect(cv::Mat image_ori_all, cv::Rect rect, std::map<std::string, float> &param_map, int &category, float &score, float &helmet_score)
 		{
+
+			cv::Mat img = image_ori_all;
 			cv::Rect rect_head;
 			cv::Rect rect_peple_ori;
 			category = -1;
 			float con_thres = param_map.count("people_conf_thres") ? param_map["people_conf_thres"] : 0.6f;
 			float iou_thres = param_map.count("nms_thres") ? param_map["nms_thres"] : 0.6f;
 			cv::Rect roi(rect.x, rect.y, rect.width, rect.height);
-			cv::Mat image = image_ori_all(roi).clone();
+			cv::Mat image = image_ori_all; // 现在是全图检测了,不是从泵区域检测了
 			cv::Rect ori_rect;
 			cv::Mat img_det;
 			cv::Point point_people_feet_center{0, 0};
 			cv::Point point_pump_xy_ori = {rect.x, rect.y};
-			// 泵顶的区域 根据算法要求，改为 0.4
-			float scale = 0.4;
-			float X = rect.x + rect.width  * (1 - scale) / 2;
-			float Y = rect.y + rect.height * (1 - scale) / 2;
+			std::vector<cv::Point> vec_pump_top;
+			//~ 泵顶的区域 根据算法工程师的要求,变得极为复杂,需好好优化下
+			{
+				float fix_ratio = 1.0f;
+				// 比例系数， 泵宽除以高（一般来说<1)
+				float scale_ratio = rect.width / (rect.height * 1.0f);
 
+				// 针对宽高做不同程度缩小，宽都统一缩小0.65，上边高度缩小0.2，下边缩小0.6（缩小至1-ration），乘以比例系数
+				float pump_w_ratio = 0.8 * scale_ratio;
+				float pump_y1_ratio = 0.3 * scale_ratio;
+				float pump_y2_ratio = 0.7 * scale_ratio;
+				// 确定泵顶的初始四个点
+				float pump_top_x1 = rect.x + rect.width * (pump_w_ratio / 2.0f);
+				float pump_top_y1 = rect.y + rect.height * (pump_y1_ratio / 2.0f);
+				float pump_top_x2 = (rect.x + rect.width) - rect.width * (pump_w_ratio / 2.0f);
+				float pump_top_y2 = (rect.y + rect.height) - rect.height * (pump_y2_ratio / 2.0f);
+
+				float img_middle_x = image_ori_all.cols / 2.0f;		// 图片中点的横坐标(也是图片宽度的一半)
+				float pump_center_x = rect.x + rect.width / 2.0f;	// 泵中心点的横坐标
+				pump_center_x = (pump_top_x1 + pump_top_x2) / 2.0f; // 这俩个是一个东西
+				float pump_weight = pump_top_x2 - pump_top_x1;		// 泵顶的宽,不是泵宽,一切以python代码为准
+				float move_ratio = std::sqrt(scale_ratio) / 3.5;	// 泵顶区域移动系数
+
+				float dis_boxcenter_middle = pump_center_x - img_middle_x;		 // 泵中心点与图片中心点距离
+				float bia_ratio = std::abs(dis_boxcenter_middle) / img_middle_x; // 偏移系数=泵中心点与图片中心点距离绝对值/图片一半宽度
+				// 偏移距离
+				float fix_dis = bia_ratio * pump_weight * fix_ratio;
+				// 移动距离
+				float move_dis = move_ratio * pump_weight;
+				float x0 = 0.f;
+				bool if_right = false;
+
+				//^ 接下来需要判断泵在图片中心点的左边还是右边
+				// 对几个参数进行特殊化
+				// 默认为左边
+				if (dis_boxcenter_middle > 0) // 在右边
+				{
+					fix_dis = -fix_dis;
+					move_dis = -move_dis;
+					x0 = rect.x;
+					if_right = true;
+				}
+				// 四个泵顶的点横坐标的偏移距离 与 移动
+				float fix_box_x1 = pump_top_x1 + fix_dis + move_dis;
+				float fix_box_x2 = pump_top_x2 + fix_dis + move_dis;
+				float fix_box_x3 = pump_top_x1 - fix_dis + move_dis;
+				float fix_box_x4 = pump_top_x2 - fix_dis + move_dis;
+
+				// 保证平行四边形
+				bool iffix = false;
+				bool iffix_right = false;
+				if (fix_box_x2 > rect.x + rect.width)
+				{
+					iffix = true;
+				}
+				if (if_right && fix_box_x1 < rect.x)
+				{
+					iffix_right = true;
+				}
+				// 保证区域坐标在泵范围内
+				fix_box_x1 = std::max(rect.x + 0.0f, std::min(fix_box_x1, rect.x + rect.width + 0.0f));
+				fix_box_x2 = std::max(x0, std::min(fix_box_x2, rect.x + rect.width + 0.0f));
+				fix_box_x3 = std::max(rect.x + 0.0f, std::min(fix_box_x3, rect.x + rect.width + 0.0f));
+				fix_box_x4 = std::max(x0, std::min(fix_box_x4, rect.x + rect.width + 0.0f));
+
+				if (iffix)
+				{
+					fix_box_x1 = fix_box_x2 - (fix_box_x4 - fix_box_x3);
+				}
+				if (iffix_right)
+				{
+					fix_box_x2 = fix_box_x1 + (fix_box_x4 - fix_box_x3);
+				}
+				//& 得到最终泵顶区域的四个顶点:四边形的左上、右上、右下、左下
+				float x1, y1;
+				float x2, y2;
+				float x4, y4;
+				float x3, y3;
+				x1 = fix_box_x1;
+				y1 = pump_top_y1;
+				x2 = fix_box_x2;
+				y2 = pump_top_y1;
+				x4 = fix_box_x4;
+				y4 = pump_top_y2;
+				x3 = fix_box_x3;
+				y3 = pump_top_y2;
+#if 0
+				std::vector<cv::Point> vertices = {cv::Point(1134.8093075284075, 353), cv::Point(1291, 353), cv::Point(1405, 687), cv::Point(1249, 687)};
+#else
+				std::vector<cv::Point> vertices = {cv::Point(x1, y1), cv::Point(x2, y2), cv::Point(x4, y4), cv::Point(x3, y3)};
+#endif
+				vec_pump_top = vertices;
+				// 画泵和泵顶的区域
+				cv::rectangle(img, cv::Point(rect.x, rect.y), cv::Point(rect.x + rect.width, rect.y + rect.height), cv::Scalar(0, 0, 255), 1);
+				std::vector<cv::Point> pts = {vertices[0], vertices[1], vertices[2], vertices[3], vertices[0]}; // 构造多边形的顶点序列
+				cv::polylines(img, pts, true, cv::Scalar(0, 255, 0), 2);
+			}
+#if 0
+			float scale = 0.4;
+			float X = rect.x + rect.width * (1 - scale) / 2;
+			float Y = rect.y + rect.height * (1 - scale) / 2;
 			cv::Rect pump_top_ori(X, Y, rect.width * scale, rect.height * scale);
-			init_data320();
-			auto new_shape = cv::Size(320, 320);
+#endif
+
+			init_data1280();
+			auto new_shape = cv::Size(1280, 1280);
 			cv::Mat blob;
 			float ratio = 1.f;
 			int pad_h = 0;
@@ -639,10 +856,10 @@ namespace glasssix::pumptop_helmet
 
 			int candicate_num = 0;
 
-			auto real_output = Yovo8se_Concat_320(forwards, con_thres, candicate_num);
+			auto real_output = Yovo8se_Concat1280(forwards, con_thres, candicate_num);
 
 			auto nms_result = post_process(real_output, blob, pad_h, pad_w, 1.f / ratio, candicate_num, con_thres, iou_thres);
-			//从结果里面拿取人的坐标
+			// 从结果里面拿取人的坐标
 			for (auto &pump : nms_result)
 			{
 				int x1 = std::round(pump[0]) > 0 ? std::round(pump[0]) : 0;
@@ -653,12 +870,20 @@ namespace glasssix::pumptop_helmet
 				cv::Rect roiRect(x1, y1, x2 - x1, y2 - y1);
 				cv::Mat roi = image(roiRect).clone();
 				// 找到人的原始坐标
-				cv::Point people_ori_1 = {x1 + rect.x, y1 + rect.y};
-				cv::Point people_ori_2 = {x2 + rect.x, y2 + rect.y};
+				cv::Point people_ori_1 = {x1, y1};
+				cv::Point people_ori_2 = {x2, y2};
 				cv::Point point_people_feet_center = {(people_ori_2.x - people_ori_1.x) / 2 + people_ori_1.x, people_ori_2.y};
 				cv::Rect people_rect(people_ori_1.x, people_ori_1.y, people_ori_2.x - people_ori_1.x, people_ori_2.y - people_ori_1.y);
 				// 比对:人是否在泵顶里面
-				if (pump_top_ori.contains(point_people_feet_center))
+				double distance = cv::pointPolygonTest(vec_pump_top, point_people_feet_center, false);
+				if (distance > 0)
+				{
+					std::cout << "\033[31mThis text will be red!  distance: *************************\033[0m"
+							  << "" << distance << std::endl;
+				}
+				else
+					std::cout << "distance: *************************" << distance << std::endl;
+				if (distance >= 0)
 				{
 					rect_peple_ori = people_rect;
 
@@ -667,23 +892,33 @@ namespace glasssix::pumptop_helmet
 					rect_head = head_detect(image_ori_all, rect_peple_ori, param_map, score); // 这里 rect_peple_ori 需要替换成人的原始坐标(而且还必须是满足要求的坐标)
 					//! 这里需要对人头检测进行判空,不然 人头分类检测 拿到的就是空数据,会报错
 					// 根据算法需求,宽高分别小于24要过滤
-					if(rect_head.width < 24 || rect_head.height < 24)
+					if (rect_head.width < 24 || rect_head.height < 24)
 					{
 						continue;
 					}
 					// 人头分类检测
 					category = helmet_detect(image_ori_all, rect_head, param_map, helmet_score);
+					// 画泵顶区域的人体与底部中心
+					cv::rectangle(img, cv::Point(rect_peple_ori.x - 10, rect_peple_ori.y - 10), cv::Point(rect_peple_ori.x + rect_peple_ori.width, rect_peple_ori.y + rect_peple_ori.height), cv::Scalar(0, 0, 255), 4);
+					cv::circle(img, point_people_feet_center, 5, cv::Scalar(0, 0, 255), -1);
+					// 画人头
+					cv::rectangle(img, cv::Point(rect_head.x, rect_head.y), cv::Point(rect_head.x + rect_head.width, rect_head.y + rect_head.height), cv::Scalar(0, 0, 255), 1);
 				}
 				else
 				{
 					// std::cout << "The point is outside the rectangle!" << std::endl;
+					// 画不在泵顶里面的人体与底部中心
+					cv::rectangle(img, cv::Point(people_rect.x, people_rect.y), cv::Point(people_rect.x + people_rect.width, people_rect.y + people_rect.height), cv::Scalar(255, 255, 0), 4);
+					cv::circle(img, point_people_feet_center, 5, cv::Scalar(0, 0, 255), -1);
 				}
 			}
-			if(category == -1)
+
+			cv::imwrite("../last" + std::to_string(num) + ".jpg", img);
+			if (category == -1)
 			{
 				return {};
 			}
-			return rect_peple_ori;//改为返回人的目标
+			return rect_peple_ori; // 改为返回人的目标
 		}
 
 		cv::Rect head_detect(cv::Mat image_ori_all, cv::Rect rect, std::map<std::string, float> &param_map, float &score)
@@ -727,7 +962,7 @@ namespace glasssix::pumptop_helmet
 
 			auto nms_result = post_process(real_output, blob, pad_h, pad_w, 1.f / ratio, candicate_num, con_thres, iou_thres);
 			int num = 0;
-			//从人头结果里面拿取人头的坐标
+			// 从人头结果里面拿取人头的坐标
 			for (auto &pump : nms_result)
 			{
 				int x1 = std::round(pump[0]) > 0 ? std::round(pump[0]) : 0;
@@ -739,8 +974,8 @@ namespace glasssix::pumptop_helmet
 				int x2_ori = x2 + rect.x;
 				int y1_ori = y1 + rect.y;
 				int y2_ori = y2 + rect.y;
-				//这里可能出现多个目标的时候,导致 x1 > x2 、y1 > y2 的情况
-				if(x1_ori > x2_ori || y1_ori > y2_ori)
+				// 这里可能出现多个目标的时候,导致 x1 > x2 、y1 > y2 的情况
+				if (x1_ori > x2_ori || y1_ori > y2_ori)
 				{
 					continue;
 				}
@@ -782,10 +1017,11 @@ namespace glasssix::pumptop_helmet
 
 			int index = std::max_element(result, result + 3) - result;
 			// 如果检测结果为 {0: 'head', 1: 'helmet', 2: 'no'} 中的head,当值低于0.7,要过滤
-			if(index == 0 && *result < con_thres)
+			if (index == 0 && *result < con_thres)
 			{
 				index = -1;
 			}
+			// Softmax(result + index, 2);
 			helmet_score = result[index];
 
 			return index;

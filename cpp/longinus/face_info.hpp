@@ -45,6 +45,10 @@ namespace glasssix::exposing::impl
 			virtual std::int32_t G6_ABI_CALL set_y(abi_in_t<float> input) noexcept = 0;
 			virtual std::int32_t G6_ABI_CALL set_width(abi_in_t<float> input) noexcept = 0;
 			virtual std::int32_t G6_ABI_CALL set_height(abi_in_t<float> input) noexcept = 0;
+			virtual std::int32_t G6_ABI_CALL set_ori_x(abi_in_t<float> input) noexcept = 0;
+			virtual std::int32_t G6_ABI_CALL set_ori_y(abi_in_t<float> input) noexcept = 0;
+			virtual std::int32_t G6_ABI_CALL set_ori_width(abi_in_t<float> input) noexcept = 0;
+			virtual std::int32_t G6_ABI_CALL set_ori_height(abi_in_t<float> input) noexcept = 0;
 			virtual std::int32_t G6_ABI_CALL set_confidence(abi_in_t<float> input) noexcept = 0;
 			virtual std::int32_t G6_ABI_CALL set_has_mask(abi_in_t<float> input) noexcept = 0;
 			virtual std::int32_t G6_ABI_CALL set_is_alive(abi_in_t<std::int32_t> input) noexcept = 0;
@@ -181,6 +185,22 @@ namespace glasssix::exposing::impl
 		virtual std::int32_t G6_ABI_CALL set_height(abi_in_t<float> input) noexcept override
 		{
 			return abi_safe_call([&] { this->self().set_height(create_from_abi<float>(input)); });
+		}
+		virtual std::int32_t G6_ABI_CALL set_ori_x(abi_in_t<float> input) noexcept override
+		{
+			return abi_safe_call([&] { this->self().set_ori_x(create_from_abi<float>(input)); });
+		}
+		virtual std::int32_t G6_ABI_CALL set_ori_y(abi_in_t<float> input) noexcept override
+		{
+			return abi_safe_call([&] { this->self().set_ori_y(create_from_abi<float>(input)); });
+		}
+		virtual std::int32_t G6_ABI_CALL set_ori_width(abi_in_t<float> input) noexcept override
+		{
+			return abi_safe_call([&] { this->self().set_ori_width(create_from_abi<float>(input)); });
+		}
+		virtual std::int32_t G6_ABI_CALL set_ori_height(abi_in_t<float> input) noexcept override
+		{
+			return abi_safe_call([&] { this->self().set_ori_height(create_from_abi<float>(input)); });
 		}
 		virtual std::int32_t G6_ABI_CALL set_confidence(abi_in_t<float> input) noexcept override
 		{
@@ -358,6 +378,22 @@ namespace glasssix::exposing::impl
 			void set_height(float input)
 			{
 				check_abi_result(this->self_abi().set_height(get_abi(input)));
+			}
+			void set_ori_x(float input)
+			{
+				check_abi_result(this->self_abi().set_ori_x(get_abi(input)));
+			}
+			void set_ori_y(float input)
+			{
+				check_abi_result(this->self_abi().set_ori_y(get_abi(input)));
+			}
+			void set_ori_width(float input)
+			{
+				check_abi_result(this->self_abi().set_ori_width(get_abi(input)));
+			}
+			void set_ori_height(float input)
+			{
+				check_abi_result(this->self_abi().set_ori_height(get_abi(input)));
 			}
 			void set_confidence(float input)
 			{
