@@ -28,272 +28,316 @@
 #include "../posture/detect_code.hpp"
 #include "head_det.hpp"
 #include "obj_box_info.hpp"
+//#include "dbg.h"
 
 namespace glasssix::pump_vesthelmet
 {
-    class detect_code_internal::impl
-    {
-    public:
-        impl(std::string_view model_directory, int device)
-        {
-            std::vector<std::string> phai;
-            posture_instance_ = glasssix::exposing::make_exported_interface<posture::detect_code>(exposing::param_string(model_directory), device, 1);
-            vest_cls_instance_ = std::make_unique<rknnwrapper::rknn_wrapper>(phai,std::string(model_directory) + "/" + "pump_vesthelmet_vest_cls.rknn", device);
-            head_det_instance_ = std::make_unique<rknnwrapper::rknn_wrapper>(phai,std::string(model_directory) + "/" + "pump_vesthelmet_head_det.rknn", device);
-            helmet_cls_instance_ = std::make_unique<rknnwrapper::rknn_wrapper>(phai,std::string(model_directory) + "/" + "pump_vesthelmet_helmet_cls.rknn", device);
-        }
+	class detect_code_internal::impl
+	{
+	public:
+		impl(std::string_view model_directory, int device)
+		{
+			std::vector<std::string> phai;
+			posture_instance_ = glasssix::exposing::make_exported_interface<posture::detect_code>(exposing::param_string(model_directory), device, 1);
+			vest_cls_instance_ = std::make_unique<rknnwrapper::rknn_wrapper>(phai, std::string(model_directory) + "/" + "pump_vesthelmet_vest_cls.rknn", device);
+			head_det_instance_ = std::make_unique<rknnwrapper::rknn_wrapper>(phai, std::string(model_directory) + "/" + "pump_vesthelmet_head_det.rknn", device);
+			helmet_cls_instance_ = std::make_unique<rknnwrapper::rknn_wrapper>(phai, std::string(model_directory) + "/" + "pump_vesthelmet_helmet_cls.rknn", device);
+		}
 
-        exposing::param_vector<pump_vesthelmet::box_info> detect(exposing::param_span<std::uint8_t> bitmap, int channels, int height, int width, std::map<std::string, float>& param_map_std)
-        {
-            auto result = exposing::make_param_vector<pump_vesthelmet::box_info>();
-            std::vector<box_info_internal> output;
+		exposing::param_vector<pump_vesthelmet::box_info> detect(exposing::param_span<std::uint8_t> bitmap, int channels, int height, int width, std::map<std::string, float>& param_map_std)
+		{
+			auto result = exposing::make_param_vector<pump_vesthelmet::box_info>();
+			std::vector<box_info_internal> output;
 
-            if (bitmap.empty())
-            {
-                throw exposing::abi_invalid_argument("current frame is empty");
-            }
-            CHECK_EQ(channels, 3);
-            CHECK_EQ(bitmap.size(), channels * height * width);
-            cv::Mat image(cv::Size(width, height), CV_8UC3);
+			if (bitmap.empty())
+			{
+				throw exposing::abi_invalid_argument("current frame is empty");
+			}
+			CHECK_EQ(channels, 3);
+			CHECK_EQ(bitmap.size(), channels * height * width);
+			cv::Mat image(cv::Size(width, height), CV_8UC3);
 
-            std::memcpy(image.data, bitmap.data(), sizeof(uint8_t) * channels * height * width);
+			std::memcpy(image.data, bitmap.data(), sizeof(uint8_t) * channels * height * width);
 
-            float posture_conf_thres = param_map_std.count("posture_conf_thres") ? param_map_std["posture_conf_thres"] : 0.1f;
-            float head_conf_thres = param_map_std.count("head_conf_thres") ? param_map_std["head_conf_thres"] : 0.6f;
-            float head_min_h_thres = param_map_std.count("head_min_h_thres") ? param_map_std["head_min_h_thres"] : 24.0f;
-            float head_min_w_thres = param_map_std.count("head_min_w_thres") ? param_map_std["head_min_w_thres"] : 24.0f;
-            float vest_cls_thres = param_map_std.count("vest_cls_thres") ? param_map_std["vest_cls_thres"] : 0.7f;
-            float helmet_cls_thres = param_map_std.count("helmet_cls_thres") ? param_map_std["helmet_cls_thres"] : 0.7f;
+			float posture_conf_thres = param_map_std.count("posture_conf_thres") ? param_map_std["posture_conf_thres"] : 0.1f;
+			float head_conf_thres = param_map_std.count("head_conf_thres") ? param_map_std["head_conf_thres"] : 0.6f;
+			float head_min_h_thres = param_map_std.count("head_min_h_thres") ? param_map_std["head_min_h_thres"] : 24.0f;
+			float head_min_w_thres = param_map_std.count("head_min_w_thres") ? param_map_std["head_min_w_thres"] : 24.0f;
+			//float vest_cls_thres = param_map_std.count("vest_cls_thres") ? param_map_std["vest_cls_thres"] : 0.7f;
+			//float helmet_cls_thres = param_map_std.count("helmet_cls_thres") ? param_map_std["helmet_cls_thres"] : 0.7f;
+			constexpr float is_vest_score_thres = 0.7;
+			constexpr float no_helmet_score_thres = 0.7;
 
-            auto posture_param_abi = exposing::make_param_hash_map<exposing::param_string, float>();
-            posture_param_abi.add_or_update("conf_thres", posture_conf_thres);
-            exposing::param_vector<posture::box_info> posture_info_list_raw = posture_instance_.detect(bitmap, channels, height, width, 0, 0, width, height, posture_param_abi);
+			constexpr int NO_REF_VEST = -1;
+			constexpr int IS_REF_VEST = 100;
 
-            for (auto pinfo : posture_info_list_raw)
-            {
-                PostureInfo postureInfo{ pinfo };
+			constexpr int NO_HELMET = 0; //alarm target
+			constexpr int HAS_HELMET = 1;
+			constexpr int OTHER_HAT = 2;
+			constexpr int LOW_NO_HELMET = 3;
 
-                if (postureInfo.if_pump_vesthelmet_bodyerr()) {
-                    continue; //body error
-                }
+			auto posture_param_abi = exposing::make_param_hash_map<exposing::param_string, float>();
+			posture_param_abi.add_or_update("conf_thres", posture_conf_thres);
+			exposing::param_vector<posture::box_info> posture_info_list_raw = posture_instance_.detect(bitmap, channels, height, width, 0, 0, width, height, posture_param_abi);
 
-                auto vest_cls_rect = postureInfo.get_vest_det_region();
+			for (auto pinfo : posture_info_list_raw)
+			{
+				PostureInfo postureInfo{ pinfo };
+
+				if (postureInfo.if_pump_vesthelmet_bodyerr()) {
+					continue; //body error
+				}
+
+				auto vest_cls_rect = postureInfo.get_vest_det_region();
 				if (vest_cls_rect.height <= 1 || vest_cls_rect.width <= 1) continue; //invalid input
-                auto vest_cls_region = safty_cut(image, vest_cls_rect);
-                vest_cls_region = letterbox(vest_cls_region, 128, 128);
-                cv::cvtColor(vest_cls_region, vest_cls_region, cv::COLOR_BGR2RGB);
+				auto vest_cls_region = safty_cut(image, vest_cls_rect);
+				vest_cls_region = letterbox(vest_cls_region, 128, 128);
+				cv::cvtColor(vest_cls_region, vest_cls_region, cv::COLOR_BGR2RGB);
 
-                auto vest_cls_rst_map = vest_cls_instance_->forward(vest_cls_region.data, { 1, vest_cls_region.rows, vest_cls_region.cols, vest_cls_region.channels() }, RKNN_TENSOR_NHWC);
-                auto vest_cls_rst = vest_cls_rst_map.begin()->second;
-                auto vest_cls_scores = vest_cls_rst->cpu_data();
+				auto vest_cls_rst_map = vest_cls_instance_->forward(vest_cls_region.data, { 1, vest_cls_region.rows, vest_cls_region.cols, vest_cls_region.channels() }, RKNN_TENSOR_NHWC);
+				auto vest_cls_rst = vest_cls_rst_map.begin()->second;
+				auto vest_cls_scores = vest_cls_rst->cpu_data();
+				float is_refvest_score = vest_cls_scores[1];
 
-                if (vest_cls_scores[1] < vest_cls_thres) continue; //no vest
+				//printf("vest_cls_scores %f, %f\n",vest_cls_scores[0],vest_cls_scores[1]);
+				int refvest_status = IS_REF_VEST;
+				if (is_refvest_score < is_vest_score_thres) {
+					//printf("### NO_REF_VEST\n");
+					refvest_status = NO_REF_VEST;
+				}
 
-                auto people_img_rect = postureInfo.get_rect();
-                //people_img_rect.width *= 1.4;
-                //people_img_rect.height *= 1.3;
-                //people_img_rect.x -= people_img_rect.width * 0.2;
-                //people_img_rect.y -= people_img_rect.width * 0.2;
-                auto people_img = safty_cut(image, people_img_rect);
-                auto people_start = people_img_rect.tl();
+				auto people_img_rect = postureInfo.get_rect();
+				//auto people_start = people_img_rect.tl(); //only for head box map origin picture
 
-                std::vector<HeadInfo> head_info = head_det(people_img, head_conf_thres);
+				if (refvest_status == NO_REF_VEST) {
+					//Pack NO_REF_VEST Person
+					box_info_internal person_vest_uint;
+					person_vest_uint.x1 = people_img_rect.x;
+					person_vest_uint.y1 = people_img_rect.y;
+					person_vest_uint.x2 = people_img_rect.x + people_img_rect.width;
+					person_vest_uint.y2 = people_img_rect.y + people_img_rect.height;
+					person_vest_uint.score = vest_cls_scores[1];
+					person_vest_uint.category = NO_REF_VEST;
+					output.push_back(person_vest_uint);
+				}
+				else {
+					auto people_img = safty_cut(image, people_img_rect);
+					std::vector<HeadInfo> head_info = head_det(people_img, head_conf_thres);
 
-                for (auto& head : head_info)
-                {
-                    auto head_rect = head.get_rect();
-                    if (head_rect.width < head_min_w_thres || head_rect.height < head_min_h_thres)
-                        continue;
+					for (auto& head : head_info)
+					{
+						auto head_rect = head.get_rect();
+						if (head_rect.width < head_min_w_thres || head_rect.height < head_min_h_thres)
+							continue;
 
-                    auto helmet_cls_region = safty_cut(people_img, head_rect);
+						box_info_internal person_head_uint;
+						//person_head_uint.x1 = head.x1 + people_start.x;
+						//person_head_uint.y1 = head.y1 + people_start.y;
+						//person_head_uint.x2 = head.x2 + people_start.x;
+						//person_head_uint.y2 = head.y2 + people_start.y;
+						person_head_uint.x1 = people_img_rect.x;
+						person_head_uint.y1 = people_img_rect.y;
+						person_head_uint.x2 = people_img_rect.x + people_img_rect.width;
+						person_head_uint.y2 = people_img_rect.y + people_img_rect.height;
 
-                    auto helmet_cls = letterbox(helmet_cls_region, 96, 96);
-					cv::cvtColor(helmet_cls, helmet_cls, cv::COLOR_BGR2RGB);
+						auto helmet_cls_region = safty_cut(people_img, head_rect);
+						auto helmet_cls = letterbox(helmet_cls_region, 96, 96);
+						cv::cvtColor(helmet_cls, helmet_cls, cv::COLOR_BGR2RGB);
+						auto helmet_cls_rst_map = helmet_cls_instance_->forward(helmet_cls.data, { 1, helmet_cls.rows, helmet_cls.cols, helmet_cls.channels() }, RKNN_TENSOR_NHWC);
+						auto helmet_cls_rst = helmet_cls_rst_map.begin()->second;
+						auto helmet_cls_scores = helmet_cls_rst->mutable_cpu_data();// 3 * float
 
-					auto helmet_cls_rst_map = helmet_cls_instance_->forward(helmet_cls.data, { 1, helmet_cls.rows, helmet_cls.cols, helmet_cls.channels() }, RKNN_TENSOR_NHWC);
-                    auto helmet_cls_rst = helmet_cls_rst_map.begin()->second;
-                    auto helmet_cls_scores = helmet_cls_rst->cpu_data();
+						//Pack score & tag
+						struct HelmetClsStatus
+						{
+							float conf;
+							int status;
+						};
 
-                    if (helmet_cls_scores[1] < helmet_cls_thres) continue; //no helmet
+						std::array<HelmetClsStatus, 3> socre_idx_list{
+						HelmetClsStatus{helmet_cls_scores[NO_HELMET],NO_HELMET},
+						HelmetClsStatus{helmet_cls_scores[HAS_HELMET],HAS_HELMET},
+						HelmetClsStatus{helmet_cls_scores[OTHER_HAT],OTHER_HAT},
+						};
 
-                    ////YHC
-                    //std::array<float, 3> helmet_cls_arr{ helmet_cls_scores[0], helmet_cls_scores[1],helmet_cls_scores[2] };
-                    //dbg(helmet_cls_arr);
+						std::sort(socre_idx_list.begin(), socre_idx_list.end(), [](HelmetClsStatus& a, HelmetClsStatus& b) {
+							return a.conf > b.conf;
+							});
 
-                    std::array<std::pair<float, int>, 3> socre_idx_list{
-                        std::pair{helmet_cls_scores[0],0},
-                        std::pair{helmet_cls_scores[1],1},
-                        std::pair{helmet_cls_scores[2],2},
-                    };
-                    std::sort(socre_idx_list.begin(), socre_idx_list.end(), [](std::pair<float, int>& a, std::pair<float, int>& b) {
-                        return a.first > b.first;
-                        });
+						auto max_conf_status = socre_idx_list[0];
 
-                    box_info_internal rst_uint;
-                    //rst_uint.x1 = head.x1 + people_start.x;
-                    //rst_uint.y1 = head.y1 + people_start.y;
-                    //rst_uint.x2 = head.x2 + people_start.x;
-                    //rst_uint.y2 = head.y2 + people_start.y;
-                    rst_uint.x1 = people_img_rect.x;
-                    rst_uint.y1 = people_img_rect.y;
-					rst_uint.x2 = people_img_rect.x + people_img_rect.width;
-					rst_uint.y2 = people_img_rect.y + people_img_rect.height;
-                    rst_uint.score = socre_idx_list[0].first;
-                    rst_uint.category = socre_idx_list[0].second;
-                    output.push_back(rst_uint);
+						person_head_uint.score = max_conf_status.conf;
 
-                }
+						// carefullly judge if NO_HELMET for lowering mistake alarm
+						if (max_conf_status.status == NO_HELMET)
+						{
+							if (max_conf_status.conf > no_helmet_score_thres)
+							{
+								person_head_uint.category = NO_HELMET; // alarm !
+							}
+							else
+							{
+								person_head_uint.category = LOW_NO_HELMET; // no helmet but low confidence
+							}
+						}
+						else
+						{
+							person_head_uint.category = max_conf_status.status;
+						}
 
-            }
+						output.push_back(person_head_uint);
+					}
+				}
 
-            for (auto& it : output)
-            {
-                result.push_back(glasssix::exposing::make_as_first<box_info_impl>(it));
-            }
+			}
 
+			for (auto& it : output)
+			{
+				result.push_back(glasssix::exposing::make_as_first<box_info_impl>(it));
+			}
 			return result;
-        }
+		}
 
-        std::string version()
-        {
-            const std::string algo_module_version = "1.3.1";
-            std::string nn_frame_version = "rknn";
-            return fmt::format(R"({ {"nn_frame_version":"{}", "algo_module_version" : "{}"} })", nn_frame_version, algo_module_version);
-        }
+		std::string version()
+		{
+			const std::string algo_module_version = "1.4.0";
+			std::string nn_frame_version = "rknn";
+			return fmt::format(R"({ {"nn_frame_version":"{}", "algo_module_version" : "{}"} })", nn_frame_version, algo_module_version);
+		}
 
-        inline cv::Mat safty_cut(cv::Mat& img, cv::Rect roi)
-        {
-            int width = roi.width;
-            int height = roi.height;
-            int x = roi.x;
-            int y = roi.y;
+		inline cv::Mat safty_cut(cv::Mat& img, cv::Rect roi)
+		{
+			int width = roi.width;
+			int height = roi.height;
+			int x = roi.x;
+			int y = roi.y;
 
-            cv::Mat mat(height, width, img.type(), cv::Scalar(0));
-            int _x = x;
-            int _y = y;
-            int _width = width;
-            int _height = height;
-            if (x < 0)
-            {
-                _x = 0;
-                _width = width + x;
-            }
+			cv::Mat mat(height, width, img.type(), cv::Scalar(0));
+			int _x = x;
+			int _y = y;
+			int _width = width;
+			int _height = height;
+			if (x < 0)
+			{
+				_x = 0;
+				_width = width + x;
+			}
 
-            if (_x + _width > img.cols)
-                _width = img.cols - _x;
+			if (_x + _width > img.cols)
+				_width = img.cols - _x;
 
-            if (y < 0)
-            {
-                _y = 0;
-                _height = height + y;
-            }
+			if (y < 0)
+			{
+				_y = 0;
+				_height = height + y;
+			}
 
-            if (_y + _height > img.rows)
-                _height = img.rows - _y;
+			if (_y + _height > img.rows)
+				_height = img.rows - _y;
 
-            img(cv::Rect(_x, _y, _width, _height)).copyTo(mat(cv::Rect(_x - x, _y - y, _width, _height)));
-            return mat;
-        }
+			img(cv::Rect(_x, _y, _width, _height)).copyTo(mat(cv::Rect(_x - x, _y - y, _width, _height)));
+			return mat;
+		}
 
-        static inline cv::Mat letterbox(cv::Mat img, int hope_w, int hope_h)
-        {
-            int H = img.rows;
-            int W = img.cols;
-            float ratio_w = (float)W / (float)hope_w;
-            float ratio_h = (float)H / (float)hope_h;
-            cv::Mat resize_img;
-            if (ratio_w == ratio_h)
-            {
-                cv::resize(img, resize_img, cv::Size2i{ hope_w, hope_h });
-            }
-            else if (ratio_w > ratio_h)
-            {
-                int new_x = hope_w;
-                int new_y = (int)(H / ratio_w);
-                int pad1 = (int)((hope_h - new_y) / 2);
-                int pad2 = hope_h - new_y - pad1;
-                cv::resize(img, resize_img, cv::Size2i{ new_x, new_y });
-                cv::copyMakeBorder(resize_img, resize_img, pad1, pad2, 0, 0, cv::BORDER_CONSTANT, cv::Scalar{ 114,114,114 });
-            }
-            else
-            {
-                int new_y = hope_h;
-                int new_x = (int)(W / ratio_h);
-                int pad1 = (int)((hope_w - new_x) / 2);
-                int pad2 = hope_w - new_x - pad1;
-                cv::resize(img, resize_img, cv::Size2i{ new_x, new_y });
-                cv::copyMakeBorder(resize_img, resize_img, 0, 0, pad1, pad2, cv::BORDER_CONSTANT, cv::Scalar{ 114,114,114 });
-            }
-            return resize_img;
-        }
+		static inline cv::Mat letterbox(cv::Mat img, int hope_w, int hope_h)
+		{
+			int H = img.rows;
+			int W = img.cols;
+			float ratio_w = (float)W / (float)hope_w;
+			float ratio_h = (float)H / (float)hope_h;
+			cv::Mat resize_img;
+			if (ratio_w == ratio_h)
+			{
+				cv::resize(img, resize_img, cv::Size2i{ hope_w, hope_h });
+			}
+			else if (ratio_w > ratio_h)
+			{
+				int new_x = hope_w;
+				int new_y = (int)(H / ratio_w);
+				int pad1 = (int)((hope_h - new_y) / 2);
+				int pad2 = hope_h - new_y - pad1;
+				cv::resize(img, resize_img, cv::Size2i{ new_x, new_y });
+				cv::copyMakeBorder(resize_img, resize_img, pad1, pad2, 0, 0, cv::BORDER_CONSTANT, cv::Scalar{ 114,114,114 });
+			}
+			else
+			{
+				int new_y = hope_h;
+				int new_x = (int)(W / ratio_h);
+				int pad1 = (int)((hope_w - new_x) / 2);
+				int pad2 = hope_w - new_x - pad1;
+				cv::resize(img, resize_img, cv::Size2i{ new_x, new_y });
+				cv::copyMakeBorder(resize_img, resize_img, 0, 0, pad1, pad2, cv::BORDER_CONSTANT, cv::Scalar{ 114,114,114 });
+			}
+			return resize_img;
+		}
 
 		std::vector<HeadInfo> head_det(cv::Mat image, float head_det_conf_thres = 0.6, float nms_threshold = 0.5) {
-            std::vector<HeadInfo> head_list;
+			std::vector<HeadInfo> head_list;
 
-            constexpr int reShapeSide = 320;
-            auto letter_img = letterbox(image, reShapeSide, reShapeSide);
-            cv::cvtColor(letter_img, letter_img, cv::COLOR_BGR2RGB);
-            auto det_rst_map = head_det_instance_->forward(letter_img.data, { 1, letter_img.rows, letter_img.cols, letter_img.channels() }, RKNN_TENSOR_NHWC);
-            auto det_rst_vec = sort_yolo_rst(det_rst_map);
-            auto tensor_out = yolov8_complement(det_rst_vec);
+			constexpr int reShapeSide = 320;
+			auto letter_img = letterbox(image, reShapeSide, reShapeSide);
+			cv::cvtColor(letter_img, letter_img, cv::COLOR_BGR2RGB);
+			auto det_rst_map = head_det_instance_->forward(letter_img.data, { 1, letter_img.rows, letter_img.cols, letter_img.channels() }, RKNN_TENSOR_NHWC);
+			auto det_rst_vec = sort_yolo_rst(det_rst_map);
+			auto tensor_out = yolov8_complement(det_rst_vec);
 
-            int targetnum = tensor_out->height();
-            int infonum = tensor_out->width();
-            for (size_t idx = 0; idx < targetnum; idx++) {
-                float* pdata = tensor_out->mutable_cpu_data() + idx * infonum;
-                float conf = pdata[4];
-                if (conf > head_det_conf_thres) {
-                    //dbg(conf);
-                    //std::cout << "pdata m640: " << pdata[0] * 640 << " " << pdata[1] * 640 << " " << pdata[1] * 640 << " " << pdata[1] * 640 << std::endl;
-                    HeadInfo headbox(pdata[0] * reShapeSide, pdata[1] * reShapeSide, pdata[2] * reShapeSide, pdata[3] * reShapeSide, conf);
-                    head_list.push_back(headbox);
-                }
-            }
+			int targetnum = tensor_out->height();
+			int infonum = tensor_out->width();
+			for (size_t idx = 0; idx < targetnum; idx++) {
+				float* pdata = tensor_out->mutable_cpu_data() + idx * infonum;
+				float conf = pdata[4];
+				if (conf > head_det_conf_thres) {
+					//dbg(conf);
+					//std::cout << "pdata m640: " << pdata[0] * 640 << " " << pdata[1] * 640 << " " << pdata[1] * 640 << " " << pdata[1] * 640 << std::endl;
+					HeadInfo headbox(pdata[0] * reShapeSide, pdata[1] * reShapeSide, pdata[2] * reShapeSide, pdata[3] * reShapeSide, conf);
+					head_list.push_back(headbox);
+				}
+			}
 
-            int pad = std::abs(image.cols - image.rows) / 2;
-            bool is_vertical_pad = image.cols > image.rows;
-            float mapping_ratio = static_cast<float>(std::max(image.cols, image.rows)) / reShapeSide;
+			int pad = std::abs(image.cols - image.rows) / 2;
+			bool is_vertical_pad = image.cols > image.rows;
+			float mapping_ratio = static_cast<float>(std::max(image.cols, image.rows)) / reShapeSide;
 
-            for (auto& bbox : head_list) {
-                bbox.mul_ratio(mapping_ratio);
-                if (is_vertical_pad) {
-                    bbox.ymin -= pad;
-                    bbox.ymax -= pad;
-                }
-                else {
-                    bbox.xmin -= pad;
-                    bbox.xmax -= pad;
-                }
-            }
+			for (auto& bbox : head_list) {
+				bbox.mul_ratio(mapping_ratio);
+				if (is_vertical_pad) {
+					bbox.ymin -= pad;
+					bbox.ymax -= pad;
+				}
+				else {
+					bbox.xmin -= pad;
+					bbox.xmax -= pad;
+				}
+			}
 
-            headinfo_nms_cpu(head_list, nms_threshold);
-            return head_list;
-        }
+			headinfo_nms_cpu(head_list, nms_threshold);
+			return head_list;
+		}
 
-    private:
-        posture::detect_code posture_instance_;
-        std::unique_ptr<rknnwrapper::rknn_wrapper> vest_cls_instance_;
-        std::unique_ptr<rknnwrapper::rknn_wrapper> head_det_instance_;
-        std::unique_ptr<rknnwrapper::rknn_wrapper> helmet_cls_instance_;
+	private:
+		posture::detect_code posture_instance_;
+		std::unique_ptr<rknnwrapper::rknn_wrapper> vest_cls_instance_;
+		std::unique_ptr<rknnwrapper::rknn_wrapper> head_det_instance_;
+		std::unique_ptr<rknnwrapper::rknn_wrapper> helmet_cls_instance_;
 
-    };
+	};
 
-    detect_code_internal::detect_code_internal(std::string_view model_directory, int device)
-        : impl_{ std::make_unique<impl>(model_directory, device) }
-    {
-    }
+	detect_code_internal::detect_code_internal(std::string_view model_directory, int device)
+		: impl_{ std::make_unique<impl>(model_directory, device) }
+	{
+	}
 
-    detect_code_internal::~detect_code_internal()
-    {
-    }
+	detect_code_internal::~detect_code_internal()
+	{
+	}
 
-    exposing::param_vector<pump_vesthelmet::box_info> detect_code_internal::detect(exposing::param_span<std::uint8_t> bitmap, int channels, int height, int width, std::map<std::string, float>& param_map_std)
-    {
-        return impl_->detect(bitmap, channels, height, width, param_map_std);
-    }
+	exposing::param_vector<pump_vesthelmet::box_info> detect_code_internal::detect(exposing::param_span<std::uint8_t> bitmap, int channels, int height, int width, std::map<std::string, float>& param_map_std)
+	{
+		return impl_->detect(bitmap, channels, height, width, param_map_std);
+	}
 
-    std::string detect_code_internal::version()
-    {
-        return impl_->version();
-    }
+	std::string detect_code_internal::version()
+	{
+		return impl_->version();
+	}
 }
