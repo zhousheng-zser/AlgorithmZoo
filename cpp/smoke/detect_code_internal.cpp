@@ -85,7 +85,7 @@ namespace glasssix::smoke
                 //获取头嘴框中心点到手腕最近距离
                 if(!smoke_point.is_detect() || !head_rect.is_distance_of_centre_and_wrist_lessthan_detect_box_threhold( smoke_point.wrists, 
                                                                                                                         std::max(detect_rect.x2-detect_rect.x1,detect_rect.y2-detect_rect.y1) ))
-                {}  //     continue;
+                { continue;}  //    
 
                 cv::Mat cigarette_detect = image(cv::Range(detect_rect.y1, detect_rect.y2), cv::Range(detect_rect.x1, detect_rect.x2));
                
