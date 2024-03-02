@@ -153,6 +153,22 @@ namespace glasssix::longinus
 	{
 		internal_.rect.h = input;
 	}
+	void face_info_impl::set_ori_x(float input)
+	{
+		internal_.ori_rect.x = input;
+	}
+	void face_info_impl::set_ori_y(float input)
+	{
+		internal_.ori_rect.y = input;
+	}
+	void face_info_impl::set_ori_width(float input)
+	{
+		internal_.ori_rect.w = input;
+	}
+	void face_info_impl::set_ori_height(float input)
+	{
+		internal_.ori_rect.h = input;
+	}
 	void face_info_impl::set_confidence(float input)
 	{
 		internal_.score = input;
