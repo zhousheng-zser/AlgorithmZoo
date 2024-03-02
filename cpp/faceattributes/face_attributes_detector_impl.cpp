@@ -39,6 +39,19 @@ namespace glasssix::face_attributes
 		{
 		}
 
+		
+		void  Softmax(float* data, int num )
+		{             
+			double L2_Sum=0.f;
+			for(size_t i=0; i<num; i++) 
+			{
+				data[i]= ( exp(data[i] ) );
+				L2_Sum +=  data[i];
+			}
+			for(size_t i=0; i<num; i++) 
+				data[i] =  data[i] / L2_Sum ;
+		}
+
 		exposing::param_vector<face_attribute_info> detect(const exposing::param_vector<longinus::face_info>& faces, exposing::param_span<std::uint8_t> bitmap, std::int32_t channels, std::int32_t height, std::int32_t width, std::int32_t order)
 		{
 			if (bitmap.empty())
@@ -52,16 +65,46 @@ namespace glasssix::face_attributes
 			auto results = exposing::make_param_vector<face_attributes::face_attribute_info>();
 #if defined(USE_RKNNAPI) || defined(USE_RKNN2API)
 			//#if 0
-
+			std::vector<cv::Rect> rect_tests;
+			cv::Rect test_rect1(96, 71, 163 - 96, 139 - 71);
+			cv::Rect test_rect2(406, 52, 476 - 406, 123 - 52);
+			cv::Rect test_rect3(435, 2, 499 - 435, 65 - 2);
+			rect_tests.push_back(test_rect1);
+			rect_tests.push_back(test_rect2);
+			rect_tests.push_back(test_rect3);
 			cv::Mat img(height, width, CV_8UC3, bitmap.data());
+
+			// std::vector<cv::Mat>  faces;
+		
 			std::vector<std::uint8_t> temp(faces.size() * forward_input_bytes);
+		uchar * data =img.ptr<uchar>();
 			for (size_t i = 0; i < faces.size(); i++)
 			{
 				cv::Mat crop_face;
 				cv::Rect2f rect(faces[i].x(), faces[i].y(), faces[i].width(), faces[i].height());
 				refine(rect, height, width);
+				// cv::Mat crop_face = img(cv::Range(rect.y, rect.y + rect.height), cv::Range(rect.x, rect.x + rect.width));
+				#if 1
 				mat_safty_cut(img, crop_face, rect);
+				#else
+				mat_safty_cut(img, crop_face, rect_tests[i]);
+				#endif
+uchar * data2 =crop_face.ptr<uchar>();
+
+// crop_face= cv::imread("dsds.jpg");
 				cv::resize(crop_face, crop_face, cv::Size(forward_input_width, forward_input_height));
+				// cv::imwrite("dsdds.jpg",crop_face);
+				auto  network_results = instance_.forward(crop_face.data, { 1, crop_face.rows, crop_face.cols,crop_face.channels() }, RKNN_TENSOR_NHWC);
+
+					
+			const std::vector<std::string> out_namesss = { "gender", "age", "mask", "glass" };
+			auto gender_datas = network_results[out_namesss[0]]->mutable_cpu_data();
+			auto age_datas = network_results[out_namesss[1]]->mutable_cpu_data();
+			auto mask_datas = network_results[out_namesss[2]]->mutable_cpu_data();
+			auto glass_datas = network_results[out_namesss[3]]->mutable_cpu_data();
+
+			// Softmax(gender_datas,2);
+
 				if (crop_face.isContinuous())
 					std::copy(crop_face.data, crop_face.data + forward_input_bytes, temp.data() + i * forward_input_bytes);
 				else
@@ -71,6 +114,13 @@ namespace glasssix::face_attributes
 				}
 			}
 			auto network_result = instance_.forward(temp.data(), { static_cast<int>(faces.size()), forward_input_height, forward_input_width, forward_input_channels }, RKNN_TENSOR_NHWC);
+			
+			const std::vector<std::string> out_namess = { "gender", "age", "mask", "glass" };
+			// auto gender_datas = network_result[out_namess[0]]->cpu_data();
+			// auto age_datas = network_result[out_namess[1]]->cpu_data();
+			// auto mask_datas = network_result[out_namess[2]]->cpu_data();
+			// auto glass_datas = network_result[out_namess[3]]->cpu_data();
+
 #if defined(USE_RKNNAPI)
 			//std::vector<std::string> out_names = { "gender", "age", "mask", "glass" };
 #else
@@ -99,13 +149,23 @@ namespace glasssix::face_attributes
 			auto age_data = network_result[out_names[1]]->cpu_data();
 			auto mask_data = network_result[out_names[2]]->cpu_data();
 			auto glass_data = network_result[out_names[3]]->cpu_data();
+			#if 0
+			for (size_t i = 0; i < faces.size(); i++)
+			{
+				std::cout << "gender : " << *(gender_data + i * 2) << " " << *(gender_data + 1 + i * 2) << std::endl;
+				std::cout << "age : " << *(age_data + i * 4) << " " << *(age_data + 1 + i * 4) << " " << *(age_data + 2 + i * 4) << " " << *(age_data + 3 + i * 4) << std::endl;
+				std::cout << "mask : " << *(mask_data + i * 2) << " " << *(mask_data + 1 + i * 2) << std::endl;
+				std::cout << "glass : " << *(glass_data + i * 2) << " " << *(glass_data + 1 + i * 2) << std::endl;
+			}
+			#else
+			#endif
 			for (size_t i = 0; i < faces.size(); i++)
 			{
 				int gender_index = std::max_element(gender_data + i * 2, gender_data + (i + 1) * 2) - gender_data - i * 2;
 				int age_index = std::max_element(age_data + i * 4, age_data + (i + 1) * 4) - age_data - i * 4;
 				int mask_index = std::max_element(mask_data + i * 2, mask_data + (i + 1) * 2) - mask_data - i * 2;
 				int glass_index = std::max_element(glass_data + i * 2, glass_data + (i + 1) * 2) - glass_data - i * 2;
-
+				// std::cout << "index : " << gender_index << " " << age_index << " " << mask_index << " " <<glass_index << std::endl;
 				face_attributes::face_attribute_info_internal face_info{ gender_index, age_index, mask_index, glass_index };
 				results.push_back(glasssix::exposing::make_as_first<face_attributes::face_attribute_info_impl>(face_info));
 			}
@@ -115,7 +175,7 @@ namespace glasssix::face_attributes
 
 		exposing::param_string version() const
 		{
-			return "1.0.1";
+			return "1.0.3";
 		}
 
 	private:
@@ -149,7 +209,8 @@ namespace glasssix::face_attributes
 
         	if (_y + _height > img.rows)
             		_height = img.rows - _y;
-
+			cv::Rect rect(_x, _y, _width, _height);
+			// std::cout << "bounder : "<< rect.x << " " << rect.y << " " << rect.x + rect.width << " " << rect.y + rect.height << std::endl;
         	img(cv::Rect(_x, _y, _width, _height)).copyTo(mat(cv::Rect(_x - x, _y - y, _width, _height)));
         	dst = mat;
     	}
@@ -164,7 +225,7 @@ namespace glasssix::face_attributes
 			x1 = face.x;
 			y1 = face.y;
 
-			maxSide = ((bbh > bbw) ? bbh : bbw) * 1.02f;
+			maxSide = ((bbh > bbw) ? bbh : bbw) * 1.02f + 10;
 			x1 = x1 + bbw * 0.5 - maxSide * 0.5;
 			y1 = y1 + bbh * 0.5 - maxSide * 0.5;
 			face.width = round(maxSide + 1);
@@ -197,7 +258,7 @@ namespace glasssix::face_attributes
 			x1 = face.x;
 			y1 = face.y;
 
-			maxSide = ((bbh > bbw) ? bbh : bbw) * 1.02f;
+			maxSide = ((bbh > bbw) ? bbh : bbw) * 1.02f + 10;
 			x1 = x1 + bbw * 0.5 - maxSide * 0.5;
 			y1 = y1 + bbh * 0.5 - maxSide * 0.5;
 			face.w = round(maxSide + 1);
