@@ -817,9 +817,9 @@ namespace glasssix::pumptop_helmet
 #endif
 				vec_pump_top = vertices;
 				// 画泵和泵顶的区域
-				cv::rectangle(img, cv::Point(rect.x, rect.y), cv::Point(rect.x + rect.width, rect.y + rect.height), cv::Scalar(0, 0, 255), 1);
-				std::vector<cv::Point> pts = {vertices[0], vertices[1], vertices[2], vertices[3], vertices[0]}; // 构造多边形的顶点序列
-				cv::polylines(img, pts, true, cv::Scalar(0, 255, 0), 2);
+				// cv::rectangle(img, cv::Point(rect.x, rect.y), cv::Point(rect.x + rect.width, rect.y + rect.height), cv::Scalar(0, 0, 255), 1);
+				// std::vector<cv::Point> pts = {vertices[0], vertices[1], vertices[2], vertices[3], vertices[0]}; // 构造多边形的顶点序列
+				// cv::polylines(img, pts, true, cv::Scalar(0, 255, 0), 2);
 			}
 #if 0
 			float scale = 0.4;
@@ -876,13 +876,13 @@ namespace glasssix::pumptop_helmet
 				cv::Rect people_rect(people_ori_1.x, people_ori_1.y, people_ori_2.x - people_ori_1.x, people_ori_2.y - people_ori_1.y);
 				// 比对:人是否在泵顶里面
 				double distance = cv::pointPolygonTest(vec_pump_top, point_people_feet_center, false);
-				if (distance > 0)
-				{
-					std::cout << "\033[31mThis text will be red!  distance: *************************\033[0m"
-							  << "" << distance << std::endl;
-				}
-				else
-					std::cout << "distance: *************************" << distance << std::endl;
+				// if (distance >= 0)
+				// {
+				// 	std::cout << "\033[31mThis text will be red!  distance: *************************\033[0m"
+				// 			  << "" << distance << std::endl;
+				// }
+				// else
+				// 	std::cout << "distance: *************************" << distance << std::endl;
 				if (distance >= 0)
 				{
 					rect_peple_ori = people_rect;
@@ -902,18 +902,18 @@ namespace glasssix::pumptop_helmet
 					cv::rectangle(img, cv::Point(rect_peple_ori.x - 10, rect_peple_ori.y - 10), cv::Point(rect_peple_ori.x + rect_peple_ori.width, rect_peple_ori.y + rect_peple_ori.height), cv::Scalar(0, 0, 255), 4);
 					cv::circle(img, point_people_feet_center, 5, cv::Scalar(0, 0, 255), -1);
 					// 画人头
-					cv::rectangle(img, cv::Point(rect_head.x, rect_head.y), cv::Point(rect_head.x + rect_head.width, rect_head.y + rect_head.height), cv::Scalar(0, 0, 255), 1);
+					// cv::rectangle(img, cv::Point(rect_head.x, rect_head.y), cv::Point(rect_head.x + rect_head.width, rect_head.y + rect_head.height), cv::Scalar(0, 0, 255), 1);
 				}
 				else
 				{
 					// std::cout << "The point is outside the rectangle!" << std::endl;
 					// 画不在泵顶里面的人体与底部中心
-					cv::rectangle(img, cv::Point(people_rect.x, people_rect.y), cv::Point(people_rect.x + people_rect.width, people_rect.y + people_rect.height), cv::Scalar(255, 255, 0), 4);
-					cv::circle(img, point_people_feet_center, 5, cv::Scalar(0, 0, 255), -1);
+					// cv::rectangle(img, cv::Point(people_rect.x, people_rect.y), cv::Point(people_rect.x + people_rect.width, people_rect.y + people_rect.height), cv::Scalar(255, 255, 0), 4);
+					// cv::circle(img, point_people_feet_center, 5, cv::Scalar(0, 0, 255), -1);
 				}
 			}
 
-			cv::imwrite("../last" + std::to_string(num) + ".jpg", img);
+			// cv::imwrite("../last" + std::to_string(num) + ".jpg", img);
 			if (category == -1)
 			{
 				return {};
