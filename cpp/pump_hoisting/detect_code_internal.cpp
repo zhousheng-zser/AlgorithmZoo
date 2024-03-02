@@ -37,13 +37,14 @@ namespace glasssix::pump_hoisting
         {
             static bool ready = glasssix::exposing::get_component_loader().add_module_by_name("pedestrian");
             pedestrain_instance_ = glasssix::exposing::make_exported_interface<pedestrian::classify_code>(exposing::param_string(model_directory), device);
-            init_data();
+            model640 = false;//1280<->false 640 <->true
+            init_data(model640);
         } 
    
         std::vector<Rectangle> get_pumprect(cv::Mat& image, float conf_thres=0.6, float iou_thres=0.7)
         {
             std::vector<Rectangle> Out_xy;
-            auto new_shape = cv::Size(640, 640);
+            auto new_shape = cv::Size(model640? 640:1280, model640? 640:1280);
             cv::Mat blob;
             float ratio = 0;
             int pad_h=0;  
@@ -98,13 +99,13 @@ namespace glasssix::pump_hoisting
                     auto match_id = get_match_id(library, current_box);
                     if( match_id != -1 )  
                     {
-                        float distance1 =get_distance_between_Rectangle(current_box, library[match_id] );
+                        // float distance1 =get_distance_between_Rectangle(current_box, library[match_id] );
 
                         float distance =get_distance_between_Rectangle(current_box, library[match_id], false );
 
                         library[match_id].refresh( current_box.x1, current_box.y1, current_box.x2, current_box.y2   );
 
-                        if( distance > abs(current_box.y2-current_box.y1)*move_threshold ) //检测到移动了
+                        if(  abs(current_box.y2-current_box.y1)*0.8 > distance && distance > abs(current_box.y2-current_box.y1)*move_threshold ) //检测到移动了
                         {
                             auto neighboor = find_nearest_rectangles(all_pump_rect_boxes, current_box );
 
@@ -168,7 +169,7 @@ namespace glasssix::pump_hoisting
         std::shared_ptr<memory::tensor<float>> Yovo8se_Concat(std::vector<std::shared_ptr<memory::tensor<float>>>& outs,float conf,int& candicate_num)
         {
             conf = de_sigmoid(conf);
-            int input = 640;
+            int input = model640? 640:1280;
             int box_tmp_size = 64;
             int stride_8_num = input / 8;
             int stride_16_num = input / 16;
@@ -373,31 +374,61 @@ namespace glasssix::pump_hoisting
 
     private:
       
-        void init_data()
+        void init_data(bool box640=true)
         {
-            add_weight.resize(8400*2);
-            mul_weight.resize(8400);
-            for (size_t i = 0; i < 8400; i++)
+            if(box640)
             {
-                if(i<6400)
+                add_weight.resize(8400*2);
+                mul_weight.resize(8400);
+                for (size_t i = 0; i < 8400; i++)
                 {
-                    add_weight[i] = i%80;
-                    add_weight[i+8400] = i/80 ;
-                    mul_weight[i] =8.f;
-                }
-                else if( i<8000)
-                {
-                    add_weight[i] = (i -6400)% 40;
-                    add_weight[i+8400] = (i-6400)/40;
-                    mul_weight[i] = 16.f;
-                }
-                else
-                {
-                    add_weight[i] = (i -8000)% 20;
-                    add_weight[i+8400] = (i-8000)/20;
-                    mul_weight[i] = 32.f;
+                    if(i<6400)
+                    {
+                        add_weight[i] = i%80;
+                        add_weight[i+8400] = i/80 ;
+                        mul_weight[i] =8.f;
+                    }
+                    else if( i<8000)
+                    {
+                        add_weight[i] = (i -6400)% 40;
+                        add_weight[i+8400] = (i-6400)/40;
+                        mul_weight[i] = 16.f;
+                    }
+                    else
+                    {
+                        add_weight[i] = (i -8000)% 20;
+                        add_weight[i+8400] = (i-8000)/20;
+                        mul_weight[i] = 32.f;
+                    }
                 }
             }
+            else
+            {
+                add_weight.resize(33600*2);
+                mul_weight.resize(33600);
+                for (size_t i = 0; i < 33600; i++)
+                {
+                    if(i<25600)
+                    {
+                        add_weight[i] = i%160;
+                        add_weight[i+33600] = i/160 ;
+                        mul_weight[i] =8.f;
+                    }
+                    else if( i<32000)
+                    {
+                        add_weight[i] = (i -25600)% 80;
+                        add_weight[i+33600] = (i-25600)/80;
+                        mul_weight[i] = 16.f;
+                    }
+                    else
+                    {
+                        add_weight[i] = (i -32000)% 40;
+                        add_weight[i+33600] = (i-32000)/40;
+                        mul_weight[i] = 32.f;
+                    }
+                }
+            }
+
         }
 
     private:
@@ -409,6 +440,7 @@ namespace glasssix::pump_hoisting
 #endif
         pedestrian::classify_code pedestrain_instance_;
         std::string model_directory_;
+        bool model640 = true;
 
         static std::map<int, std::map<int, Rectangle>>  librarys;
         static std::map<int, time_sign> time_register; //device_id
