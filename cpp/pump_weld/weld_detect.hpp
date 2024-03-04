@@ -79,24 +79,17 @@ namespace glasssix::pump_weld
         std::vector<std::vector<cv::Point>> contours;
         cv::findContours(image, contours, cv::RETR_EXTERNAL, cv::CHAIN_APPROX_SIMPLE);
 
-        std::vector<cv::Rect> xywh_list;
+        std::vector<cv::Rect> light_box_list;
         for (const auto& cnt : contours) {
-            cv::Rect rect = cv::boundingRect(cnt);
-            int area = rect.width * rect.height;
+            int area = cv::contourArea(cnt);
             if (LIGHT_MIN_AERO <= area && area <= LIGHT_MAX_AERO) {
+				cv::Rect rect = cv::boundingRect(cnt);
                 double aspectRatio = std::max(rect.width, rect.height) / std::min(rect.width, rect.height);
                 if (aspectRatio <= LIGHT_MAX_W_H_RATIO) {
-                    xywh_list.push_back(rect);
+                    light_box_list.push_back(rect);
                 }
             }
         }
-
-        std::vector<cv::Rect> light_box_list;
-        for (const auto& rect : xywh_list) {
-            cv::Rect xyxy_rect(rect.x, rect.y, rect.width, rect.height);
-            light_box_list.push_back(xyxy_rect);
-        }
-
         return light_box_list;
     }
 
