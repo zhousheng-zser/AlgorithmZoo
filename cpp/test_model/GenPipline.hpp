@@ -11,18 +11,13 @@ namespace fs = std::experimental::filesystem;
 namespace fs = std::filesystem;
 #endif // EXPERIMENTAL_FILESYSTEM
 #include <Primitives/abi/exceptions.hpp>
-#include <Primitives/tensor_conversions.hpp>
 #include <Primitives/logger.hpp>
 #include <Primitives/tensor.hpp>
-#include <abi/exceptions.hpp>
 #include <opencv2/opencv.hpp>
 #include <vector>
 
-#include "numpy_extensor/numpyExtensor.hpp"
-
+//#include "numpy_extensor/numpyExtensor.hpp"
 #include "Backends/BackendFactory.hpp"
-
-#include "Excalibur/pipeline.hpp"
 
 using namespace glasssix;
 
@@ -50,62 +45,6 @@ namespace GenPiplineTools {
 		return rst;
 	}
 
-	static cv::Mat letter_image(cv::Mat img, int hope_w, int hope_h, bool& is_horizon_pad, int& pad_val, float& resize_scale, bool if_cvtColor = false)
-	{
-		cv::Mat resize_img;
-		int H = img.rows;
-		int W = img.cols;
-
-		if (hope_w <= 0 || hope_h <= 0 || (H == hope_h && W == hope_w)) {
-			//无效hope_hw时或者HW等于hope_hw时不做任何尺寸操作。
-			resize_img = img;
-			pad_val = 0;
-		}
-		else {
-			float ratio_w = (float)W / (float)hope_w;
-			float ratio_h = (float)H / (float)hope_h;
-			if (ratio_w == ratio_h) {
-				cv::resize(img, resize_img, cv::Size2i{ hope_w, hope_h });
-				pad_val = 0;
-
-			}
-			else if (ratio_w > ratio_h) {
-				int new_x = hope_w;
-				int new_y = (int)(H / ratio_w);
-				int pad1 = (int)((hope_h - new_y) / 2);
-				int pad2 = hope_h - new_y - pad1;
-				pad_val = (pad1 + pad2) / 2;
-				is_horizon_pad = true;
-				resize_scale = ratio_w;
-				cv::resize(img, resize_img, cv::Size2i{ new_x, new_y });
-				cv::copyMakeBorder(resize_img, resize_img, pad1, pad2, 0, 0, cv::BORDER_CONSTANT, cv::Scalar{ 114,114,114 });
-			}
-			else {
-				int new_y = hope_h;
-				int new_x = (int)(W / ratio_h);
-				int pad1 = (int)((hope_w - new_x) / 2);
-				int pad2 = hope_w - new_x - pad1;
-				pad_val = (pad1 + pad2) / 2;
-				is_horizon_pad = false;
-				resize_scale = ratio_h;
-				cv::resize(img, resize_img, cv::Size2i{ new_x, new_y });
-				cv::copyMakeBorder(resize_img, resize_img, 0, 0, pad1, pad2, cv::BORDER_CONSTANT, cv::Scalar{ 114,114,114 });
-			}
-		}
-
-		if (if_cvtColor)
-			cv::cvtColor(resize_img, resize_img, cv::COLOR_BGR2RGB);
-
-		return resize_img;
-	}
-
-	static cv::Mat letter_image(cv::Mat img, int hope_w, int hope_h, bool if_cvtColor = false)
-	{
-		bool is_horizon_pad_temp;
-		int pad_val_temp;
-		float resize_scale;
-		return letter_image(img, hope_w, hope_h, is_horizon_pad_temp, pad_val_temp, resize_scale, if_cvtColor);
-	}
 }
 
 // Proxy pattern
@@ -218,7 +157,6 @@ public:
 	bool if_backend_empty() {
 		return (!backend);
 	}
-
 };
 
 
@@ -246,10 +184,11 @@ public:
 		image_preprocess_function_ = image_preprocess_function;
 	}
 
+	template<bool SET_PROFILER = false>
 	void check_set_postprocessing(std::map<std::string, PostprocessingFunction>& postprocessing_market, std::string ppfunc_name) {
 		if (postprocessing_market.count(ppfunc_name)) {
 			std::cout << pipTypeInfo() << " pipline load postprocessing \"" << ppfunc_name << "\"" << std::endl;
-			set_postprocessing(postprocessing_market[ppfunc_name]);
+			set_postprocessing<SET_PROFILER>(postprocessing_market[ppfunc_name]);
 		}
 		else if (!ppfunc_name.empty()) {
 			std::cout << "postprocessing market not exits \"" << ppfunc_name << "\"" << std::endl;
@@ -260,8 +199,10 @@ public:
 		}
 	};
 
+	template<bool SET_PROFILER = false>
 	void set_postprocessing(PostprocessingFunction pp_function) {
 		postprocessing_function_ = pp_function;
+		post_profiler_ = SET_PROFILER;
 	}
 
 	std::unordered_map<std::string, std::shared_ptr<glasssix::memory::tensor<float>>> forward(cv::Mat image) override {
@@ -274,7 +215,13 @@ public:
 			rst_map = pipline_->forward(image);
 
 			if (postprocessing_function_ != nullptr) {
+				auto start = std::chrono::high_resolution_clock::now();
 				rst_map = postprocessing_function_(rst_map);
+				if (post_profiler_) {
+					const auto duration = std::chrono::duration_cast<std::chrono::milliseconds>(std::chrono::high_resolution_clock::now() - start);
+					profiler_time_count += std::chrono::milliseconds(static_cast<long long>(duration.count()));
+					infer_post_count++;
+				}
 			}
 		}
 
@@ -305,10 +252,24 @@ public:
 		}
 	}
 
+	void clear_profiler_record() {
+		infer_post_count = 0;
+		profiler_time_count = std::chrono::milliseconds{0};
+	}
+
+	void show_avg_infer_post_cost() {
+		LOG(INFO) << "loop " << infer_post_count
+			<< ", show_avg_infer_post_cost = " << (infer_post_count ? profiler_time_count.count() * 1.f / infer_post_count : 0) << " ms";
+		clear_profiler_record();
+	}
 private:
 	std::shared_ptr<GenPiplineInterface> pipline_;
 	std::function<cv::Mat(cv::Mat)> image_preprocess_function_;
 	PostprocessingFunction postprocessing_function_;
+
+	std::chrono::milliseconds profiler_time_count{0};
+	unsigned int infer_post_count = 0;
+	bool post_profiler_ = false;
 };
 
 

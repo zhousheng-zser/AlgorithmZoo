@@ -1,4 +1,4 @@
-#include "postprocessing_register.hpp"
+#include "../postprocessing_register.hpp"
 #include <vector>
 
 PostprocessingRegister::PostprocessingRegister(std::shared_ptr<Postprocessing> pplugin) {
@@ -11,6 +11,13 @@ std::vector<std::shared_ptr<Postprocessing>>& postprocessing_list_instance()
 	return postprocessing_list;
 }
 
+std::map<std::string, PostprocessingFunction> AddPostprocessing()
+{
+	std::map<std::string, PostprocessingFunction> postprocessing_map;
+	AddPostprocessing(postprocessing_map);
+	return postprocessing_map;
+}
+
 void AddPostprocessing(std::map<std::string, PostprocessingFunction>& postprocessing_map)
 {
 	for (auto p : postprocessing_list_instance())
@@ -20,4 +27,10 @@ void AddPostprocessing(std::map<std::string, PostprocessingFunction>& postproces
 	}
 }
 
+void DumpShowPostprocessingMarket(const std::map<std::string, PostprocessingFunction>& postprocessing_market)
+{
+	printf("[INFO] POSTPROCESSING MARKET[%d]: { ", postprocessing_market.size());
+	for (auto&& ppf : postprocessing_market) std::cout << ppf.first << ", ";
+	std::cout << "}" << std::endl;
+}
 

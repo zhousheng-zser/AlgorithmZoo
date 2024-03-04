@@ -1,5 +1,6 @@
 #include "PrintTable.hpp"
 #include <iostream>
+#include <array>
 
 class TableMaker {
 	PrintTable pt;
