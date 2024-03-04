@@ -91,7 +91,10 @@ namespace glasssix::pump_vesthelmet
 				auto vest_cls_rect = postureInfo.get_vest_det_region();
 				if (vest_cls_rect.height <= 1 || vest_cls_rect.width <= 1) continue; //invalid input
 				auto vest_cls_region = safty_cut(image, vest_cls_rect);
-				vest_cls_region = letterbox(vest_cls_region, 128, 128);
+				//vest_cls_region = letterbox(vest_cls_region, 128, 128);
+				cv::resize(vest_cls_region, vest_cls_region, cv::Size2i{ 128, 128 });
+
+
 				cv::cvtColor(vest_cls_region, vest_cls_region, cv::COLOR_BGR2RGB);
 
 				auto vest_cls_rst_map = vest_cls_instance_->forward(vest_cls_region.data, { 1, vest_cls_region.rows, vest_cls_region.cols, vest_cls_region.channels() }, RKNN_TENSOR_NHWC);
@@ -123,69 +126,84 @@ namespace glasssix::pump_vesthelmet
 				else {
 					auto people_img = safty_cut(image, people_img_rect);
 					std::vector<HeadInfo> head_info = head_det(people_img, head_conf_thres);
-
-					for (auto& head : head_info)
+					if (head_info.empty())
 					{
-						auto head_rect = head.get_rect();
-						if (head_rect.width < head_min_w_thres || head_rect.height < head_min_h_thres)
-							continue;
-
-						box_info_internal person_head_uint;
-						//person_head_uint.x1 = head.x1 + people_start.x;
-						//person_head_uint.y1 = head.y1 + people_start.y;
-						//person_head_uint.x2 = head.x2 + people_start.x;
-						//person_head_uint.y2 = head.y2 + people_start.y;
-						person_head_uint.x1 = people_img_rect.x;
-						person_head_uint.y1 = people_img_rect.y;
-						person_head_uint.x2 = people_img_rect.x + people_img_rect.width;
-						person_head_uint.y2 = people_img_rect.y + people_img_rect.height;
-
-						auto helmet_cls_region = safty_cut(people_img, head_rect);
-						auto helmet_cls = letterbox(helmet_cls_region, 96, 96);
-						cv::cvtColor(helmet_cls, helmet_cls, cv::COLOR_BGR2RGB);
-						auto helmet_cls_rst_map = helmet_cls_instance_->forward(helmet_cls.data, { 1, helmet_cls.rows, helmet_cls.cols, helmet_cls.channels() }, RKNN_TENSOR_NHWC);
-						auto helmet_cls_rst = helmet_cls_rst_map.begin()->second;
-						auto helmet_cls_scores = helmet_cls_rst->mutable_cpu_data();// 3 * float
-
-						//Pack score & tag
-						struct HelmetClsStatus
+						// wear refvest but det no head
+						box_info_internal person_vest_nohead_uint;
+						person_vest_nohead_uint.x1 = people_img_rect.x;
+						person_vest_nohead_uint.y1 = people_img_rect.y;
+						person_vest_nohead_uint.x2 = people_img_rect.x + people_img_rect.width;
+						person_vest_nohead_uint.y2 = people_img_rect.y + people_img_rect.height;
+						person_vest_nohead_uint.score = vest_cls_scores[1];
+						person_vest_nohead_uint.category = IS_REF_VEST;
+						output.push_back(person_vest_nohead_uint);
+					}
+					else {
+						for (auto& head : head_info)
 						{
-							float conf;
-							int status;
-						};
+							auto head_rect = head.get_rect();
+							if (head_rect.width < head_min_w_thres || head_rect.height < head_min_h_thres)
+								continue;
 
-						std::array<HelmetClsStatus, 3> socre_idx_list{
-						HelmetClsStatus{helmet_cls_scores[NO_HELMET],NO_HELMET},
-						HelmetClsStatus{helmet_cls_scores[HAS_HELMET],HAS_HELMET},
-						HelmetClsStatus{helmet_cls_scores[OTHER_HAT],OTHER_HAT},
-						};
+							box_info_internal person_head_uint;
+							//person_head_uint.x1 = head.x1 + people_start.x;
+							//person_head_uint.y1 = head.y1 + people_start.y;
+							//person_head_uint.x2 = head.x2 + people_start.x;
+							//person_head_uint.y2 = head.y2 + people_start.y;
+							person_head_uint.x1 = people_img_rect.x;
+							person_head_uint.y1 = people_img_rect.y;
+							person_head_uint.x2 = people_img_rect.x + people_img_rect.width;
+							person_head_uint.y2 = people_img_rect.y + people_img_rect.height;
 
-						std::sort(socre_idx_list.begin(), socre_idx_list.end(), [](HelmetClsStatus& a, HelmetClsStatus& b) {
-							return a.conf > b.conf;
-							});
+							auto helmet_cls = safty_cut(people_img, head_rect);
+							//auto helmet_cls = letterbox(helmet_cls_region, 96, 96);
+							cv::resize(helmet_cls, helmet_cls, cv::Size2i{ 96, 96 });
 
-						auto max_conf_status = socre_idx_list[0];
+							cv::cvtColor(helmet_cls, helmet_cls, cv::COLOR_BGR2RGB);
+							auto helmet_cls_rst_map = helmet_cls_instance_->forward(helmet_cls.data, { 1, helmet_cls.rows, helmet_cls.cols, helmet_cls.channels() }, RKNN_TENSOR_NHWC);
+							auto helmet_cls_rst = helmet_cls_rst_map.begin()->second;
+							auto helmet_cls_scores = helmet_cls_rst->mutable_cpu_data();// 3 * float
 
-						person_head_uint.score = max_conf_status.conf;
-
-						// carefullly judge if NO_HELMET for lowering mistake alarm
-						if (max_conf_status.status == NO_HELMET)
-						{
-							if (max_conf_status.conf > no_helmet_score_thres)
+							//Pack score & tag
+							struct HelmetClsStatus
 							{
-								person_head_uint.category = NO_HELMET; // alarm !
+								float conf;
+								int status;
+							};
+
+							std::array<HelmetClsStatus, 3> socre_idx_list{
+							HelmetClsStatus{helmet_cls_scores[NO_HELMET],NO_HELMET},
+							HelmetClsStatus{helmet_cls_scores[HAS_HELMET],HAS_HELMET},
+							HelmetClsStatus{helmet_cls_scores[OTHER_HAT],OTHER_HAT},
+							};
+
+							std::sort(socre_idx_list.begin(), socre_idx_list.end(), [](HelmetClsStatus& a, HelmetClsStatus& b) {
+								return a.conf > b.conf;
+								});
+
+							auto max_conf_status = socre_idx_list[0];
+
+							person_head_uint.score = max_conf_status.conf;
+
+							// carefullly judge if NO_HELMET for lowering mistake alarm
+							if (max_conf_status.status == NO_HELMET)
+							{
+								if (max_conf_status.conf > no_helmet_score_thres)
+								{
+									person_head_uint.category = NO_HELMET; // alarm !
+								}
+								else
+								{
+									person_head_uint.category = LOW_NO_HELMET; // no helmet but low confidence
+								}
 							}
 							else
 							{
-								person_head_uint.category = LOW_NO_HELMET; // no helmet but low confidence
+								person_head_uint.category = max_conf_status.status;
 							}
-						}
-						else
-						{
-							person_head_uint.category = max_conf_status.status;
-						}
 
-						output.push_back(person_head_uint);
+							output.push_back(person_head_uint);
+						}
 					}
 				}
 
@@ -200,7 +218,7 @@ namespace glasssix::pump_vesthelmet
 
 		std::string version()
 		{
-			const std::string algo_module_version = "1.4.0";
+			const std::string algo_module_version = "1.4.1";
 			std::string nn_frame_version = "rknn";
 			return fmt::format(R"({ {"nn_frame_version":"{}", "algo_module_version" : "{}"} })", nn_frame_version, algo_module_version);
 		}
