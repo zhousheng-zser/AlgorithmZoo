@@ -215,7 +215,7 @@ namespace glasssix::pump_pumptop_person
             double max_area = 0.9 * croppedImage_area;
 
             // µÆÇøÓòÄ¨ºÚ
-            cv::rectangle(croppedImage, cv::Point(400, 0), cv::Point(800, 160), { 0,0,0 }, -1);
+            cv::rectangle(croppedImage, cv::Point(495, 0), cv::Point(715, 281), { 0,0,0 }, -1);
 
             cv::Mat hsv_img;
             cv::cvtColor(croppedImage, hsv_img, cv::COLOR_BGR2HSV);
@@ -322,7 +322,7 @@ namespace glasssix::pump_pumptop_person
 
         std::string version()
         {
-            const std::string algo_module_version = "1.1.0";
+            const std::string algo_module_version = "1.2.1";
             std::string nn_frame_version = "rknn2";
             return fmt::format(R"({ {"nn_frame_version":"{}", "algo_module_version" : "{}"} })", nn_frame_version, algo_module_version);
         }

@@ -8,24 +8,44 @@ namespace glasssix::pump_weld
 
     box_info_impl::~box_info_impl() {}
 
-    std::int32_t box_info_impl::x1()
+    std::int32_t box_info_impl::weld_x1()
     {
-        return internal_.x1;
+        return internal_.weld_x1;
     }
 
-    std::int32_t box_info_impl::x2()
+    std::int32_t box_info_impl::weld_x2()
     {
-        return internal_.x2;
+        return internal_.weld_x2;
     }
 
-    std::int32_t box_info_impl::y1()
+    std::int32_t box_info_impl::weld_y1()
     {
-        return internal_.y1;
+        return internal_.weld_y1;
     }
 
-    std::int32_t box_info_impl::y2()
+    std::int32_t box_info_impl::weld_y2()
     {
-        return internal_.y2;
+        return internal_.weld_y2;
+    }
+
+    std::int32_t box_info_impl::can_x1()
+    {
+        return internal_.can_x1;
+    }
+
+    std::int32_t box_info_impl::can_x2()
+    {
+        return internal_.can_x2;
+    }
+
+    std::int32_t box_info_impl::can_y1()
+    {
+        return internal_.can_y1;
+    }
+
+    std::int32_t box_info_impl::can_y2()
+    {
+        return internal_.can_y2;
     }
 
     float box_info_impl::score()
