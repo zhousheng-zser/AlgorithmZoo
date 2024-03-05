@@ -42,10 +42,12 @@ namespace glasssix::pump_weld
         impl(int device) noexcept : device_{ device } {}
         impl(std::string_view model_directory, int device): impl(device)
         {
+#if defined(USE_RKNNAPI) || defined(USE_RKNN2API)
             std::string model = std::string(model_directory) + "/" + "pump_weld.rknn";
-            //std::string model = std::string(model_directory) + "/" + "pump_weld.onnx";
+#else
+            std::string model = std::string(model_directory) + "/" + "pump_weld.onnx";
             //std::string model_inte = std::string(model_directory) + "/" + "pump_weld_intege.onnx";
-
+#endif
 			weld_machine_instance_.set_pipline(std::make_shared<GenPipline>(model, device));
 #ifdef BUILD_DEBUG_INFO
             weld_machine_instance_.handset_possible_normalization({ 0,0,0 }, { 0.003921568,0.003921568,0.003921568 });//div 255, if backend can hand set normalization, it will, else do nothing
@@ -272,7 +274,7 @@ namespace glasssix::pump_weld
 
         std::string version()
         {
-            const std::string algo_module_version = "1.3.0";
+            const std::string algo_module_version = "1.4.0";
 
             std::string nn_frame_version = weld_machine_instance_.version();
 
