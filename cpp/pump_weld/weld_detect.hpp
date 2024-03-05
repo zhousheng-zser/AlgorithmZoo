@@ -269,75 +269,99 @@ namespace glasssix::pump_weld
     }
 
     std::vector<cv::Rect> get_weld_box(const std::array<std::vector<cv::Rect>, 8>& time_light_box_list) {
-        constexpr float MIN_IOU_BETWEEN_LIGHT_BOX = 0.3;
-        constexpr float MAX_IOU_BETWEEN_LIGHT_BOX = 0.95;
-        constexpr int WELD_MIN_LIGHT_FRAME = 4;
-        constexpr int WELD_MAX_LIGHT_FRAME = 6;
+		constexpr float MIN_IOU_BETWEEN_LIGHT_BOX = 0.3;
+		constexpr float MAX_IOU_BETWEEN_LIGHT_BOX = 0.95;
+		constexpr int WELD_MIN_LIGHT_FRAME = 4;
+		constexpr int WELD_MAX_LIGHT_FRAME = 6;
 
-        std::map<std::string, std::string> box_light_dict; // means {box, light_info}
+        std::unordered_map<std::string, std::vector<int>> box_light_dict;
+        std::vector<cv::Rect> weld_box_list;
 
-        for (int time_idx = 0; time_idx < time_light_box_list.size(); time_idx++) {
-            auto light_box_list = time_light_box_list[time_idx];
+        for (size_t time_idx = 0; time_idx < time_light_box_list.size(); ++time_idx) {
+            std::unordered_map<std::string, std::vector<int>> new_box_light_dict;
+            std::vector<std::string> matched_box_list;
 
-            std::vector<std::string> matched_box_str_list;
-            std::map<std::string, std::string> new_box_light_dict;
-
-            for (auto light_box : light_box_list) {
+            for (const cv::Rect& light_box : time_light_box_list[time_idx]) {
                 bool new_box_flag = true;
-                std::string light_box_str = RectToString(light_box);
 
-                for (auto& box_light_info_pair : box_light_dict) {
-                    auto box_str = box_light_info_pair.first; 
-                    auto light_info = box_light_info_pair.second; 
-
-                    cv::Rect box = StringToRect(box_str);
-
-                    float iou = count_iou(light_box, box);
-
+                for (const auto& pair : box_light_dict) {
+                    cv::Rect existing_box = StringToRect(pair.first);
+                    float iou = count_iou(light_box, existing_box);
                     if (MIN_IOU_BETWEEN_LIGHT_BOX <= iou && iou <= MAX_IOU_BETWEEN_LIGHT_BOX) {
                         new_box_flag = false;
-                        new_box_light_dict[light_box_str] = light_info + '1';
-                        matched_box_str_list.push_back(box_str);
+                        std::vector<int> area_list = pair.second;
+                        area_list.push_back(light_box.area());
+                        new_box_light_dict[RectToString(light_box)] = area_list;
+                        matched_box_list.push_back(pair.first);
+                        break;
                     }
                 }
 
                 if (new_box_flag) {
-                    std::string light_info_temp(time_idx, '0');
-                    new_box_light_dict[light_box_str] = light_info_temp + '1';
+                    std::vector<int> area_list(time_idx, 0);
+                    area_list.push_back(light_box.area());
+                    new_box_light_dict[RectToString(light_box)] = area_list;
                 }
             }
 
-            std::vector<std::string> un_match_box_str_list;
-            for (auto& box_light : box_light_dict) {
-                auto box_str = box_light.first; 
-                bool is_matched = false;
-                for (auto matched_box_str : matched_box_str_list) {
-                    if (box_str == matched_box_str) {
-                        is_matched = true;
-                        break;
-                    }
+            // Add unlight info  
+            for (const auto& pair : box_light_dict) {
+                if (std::find(matched_box_list.begin(), matched_box_list.end(), pair.first) == matched_box_list.end()) {
+                    std::vector<int> area_list = pair.second;
+                    area_list.push_back(0);
+                    new_box_light_dict[pair.first] = area_list;
                 }
-                if (!is_matched) {
-                    un_match_box_str_list.push_back(box_str);
-                }
-            }
-
-            for (auto un_match_box_str : un_match_box_str_list) {
-                new_box_light_dict[un_match_box_str] = box_light_dict[un_match_box_str] + '0';
             }
 
             box_light_dict = new_box_light_dict;
         }
 
-        std::vector<cv::Rect> weld_box_list; 
-        for (auto& box_light_info_pair : box_light_dict) {
-            auto box_str = box_light_info_pair.first; 
-            auto light_info = box_light_info_pair.second;
-            auto continue_light_max_num = get_longest_sub_string_length(light_info);
-            if (WELD_MIN_LIGHT_FRAME <= continue_light_max_num && continue_light_max_num <= WELD_MAX_LIGHT_FRAME) {
-                cv::Rect box = StringToRect(box_str);
-                weld_box_list.push_back(box);
+        for (const auto& pair : box_light_dict) {
+            const std::string& box_str = pair.first;
+            const std::vector<int>& area_list = pair.second;
+
+            cv::Rect box = StringToRect(box_str);
+
+            std::vector<std::vector<int>> continue_light_area_list;
+            std::vector<int> temp;
+            for (int area : area_list) {
+                if (area > 0) {
+                    temp.push_back(area);
+                }
+                else {
+                    if (!temp.empty()) {
+                        continue_light_area_list.push_back(temp);
+                        temp.clear();
+                    }
+                }
             }
+            if (!temp.empty()) {
+                continue_light_area_list.push_back(temp);
+            }
+
+            std::sort(continue_light_area_list.begin(), continue_light_area_list.end(),
+                [](const std::vector<int>& a, const std::vector<int>& b) {
+                return a.size() > b.size();
+                });
+
+            if (continue_light_area_list.empty()) {
+                continue;
+            }
+
+            const std::vector<int>& selected_area_list = continue_light_area_list.front();
+            if (selected_area_list.size() < WELD_MIN_LIGHT_FRAME || selected_area_list.size() > WELD_MAX_LIGHT_FRAME) {
+                continue;
+            }
+
+            int order = 0;
+            for (size_t i = 0; i < selected_area_list.size() - 1; ++i) {
+                order += (selected_area_list[i + 1] > selected_area_list[i]) ? 1 : -1;
+            }
+            if (std::abs(order) == static_cast<int>(selected_area_list.size()) - 1) {
+                continue;
+            }
+
+            weld_box_list.push_back(box);
         }
 
         return weld_box_list;
