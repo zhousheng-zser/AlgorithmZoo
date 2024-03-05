@@ -211,7 +211,7 @@ namespace glasssix::pump_pumptop_person
             auto croppedImage = safty_cut(image, cv::Rect(crop_x1, crop_y1, crop_x2 - crop_x1, crop_y2 - crop_y1));
 
             int croppedImage_area = croppedImage.rows * croppedImage.cols;
-            double min_area = 0.15 * croppedImage_area;
+            double min_area = 0.2 * croppedImage_area; //MIN_AREA
             double max_area = 0.9 * croppedImage_area;
 
             // µÆÇøÓòÄ¨ºÚ
@@ -322,7 +322,7 @@ namespace glasssix::pump_pumptop_person
 
         std::string version()
         {
-            const std::string algo_module_version = "1.2.1";
+            const std::string algo_module_version = "1.2.2";
             std::string nn_frame_version = "rknn2";
             return fmt::format(R"({ {"nn_frame_version":"{}", "algo_module_version" : "{}"} })", nn_frame_version, algo_module_version);
         }

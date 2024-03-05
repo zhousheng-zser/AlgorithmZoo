@@ -114,14 +114,14 @@ namespace glasssix::pump_vesthelmet
 
 				if (refvest_status == NO_REF_VEST) {
 					//Pack NO_REF_VEST Person
-					box_info_internal person_vest_uint;
-					person_vest_uint.x1 = people_img_rect.x;
-					person_vest_uint.y1 = people_img_rect.y;
-					person_vest_uint.x2 = people_img_rect.x + people_img_rect.width;
-					person_vest_uint.y2 = people_img_rect.y + people_img_rect.height;
-					person_vest_uint.score = vest_cls_scores[1];
-					person_vest_uint.category = NO_REF_VEST;
-					output.push_back(person_vest_uint);
+					box_info_internal person_vest_unit;
+					person_vest_unit.x1 = people_img_rect.x;
+					person_vest_unit.y1 = people_img_rect.y;
+					person_vest_unit.x2 = people_img_rect.x + people_img_rect.width;
+					person_vest_unit.y2 = people_img_rect.y + people_img_rect.height;
+					person_vest_unit.score = vest_cls_scores[1];
+					person_vest_unit.category = NO_REF_VEST;
+					output.push_back(person_vest_unit);
 				}
 				else {
 					auto people_img = safty_cut(image, people_img_rect);
@@ -129,14 +129,14 @@ namespace glasssix::pump_vesthelmet
 					if (head_info.empty())
 					{
 						// wear refvest but det no head
-						box_info_internal person_vest_nohead_uint;
-						person_vest_nohead_uint.x1 = people_img_rect.x;
-						person_vest_nohead_uint.y1 = people_img_rect.y;
-						person_vest_nohead_uint.x2 = people_img_rect.x + people_img_rect.width;
-						person_vest_nohead_uint.y2 = people_img_rect.y + people_img_rect.height;
-						person_vest_nohead_uint.score = vest_cls_scores[1];
-						person_vest_nohead_uint.category = IS_REF_VEST;
-						output.push_back(person_vest_nohead_uint);
+						box_info_internal person_vest_nohead_unit;
+						person_vest_nohead_unit.x1 = people_img_rect.x;
+						person_vest_nohead_unit.y1 = people_img_rect.y;
+						person_vest_nohead_unit.x2 = people_img_rect.x + people_img_rect.width;
+						person_vest_nohead_unit.y2 = people_img_rect.y + people_img_rect.height;
+						person_vest_nohead_unit.score = vest_cls_scores[1];
+						person_vest_nohead_unit.category = IS_REF_VEST;
+						output.push_back(person_vest_nohead_unit);
 					}
 					else {
 						for (auto& head : head_info)
@@ -145,15 +145,15 @@ namespace glasssix::pump_vesthelmet
 							if (head_rect.width < head_min_w_thres || head_rect.height < head_min_h_thres)
 								continue;
 
-							box_info_internal person_head_uint;
-							//person_head_uint.x1 = head.x1 + people_start.x;
-							//person_head_uint.y1 = head.y1 + people_start.y;
-							//person_head_uint.x2 = head.x2 + people_start.x;
-							//person_head_uint.y2 = head.y2 + people_start.y;
-							person_head_uint.x1 = people_img_rect.x;
-							person_head_uint.y1 = people_img_rect.y;
-							person_head_uint.x2 = people_img_rect.x + people_img_rect.width;
-							person_head_uint.y2 = people_img_rect.y + people_img_rect.height;
+							box_info_internal person_head_unit;
+							//person_head_unit.x1 = head.x1 + people_start.x;
+							//person_head_unit.y1 = head.y1 + people_start.y;
+							//person_head_unit.x2 = head.x2 + people_start.x;
+							//person_head_unit.y2 = head.y2 + people_start.y;
+							person_head_unit.x1 = people_img_rect.x;
+							person_head_unit.y1 = people_img_rect.y;
+							person_head_unit.x2 = people_img_rect.x + people_img_rect.width;
+							person_head_unit.y2 = people_img_rect.y + people_img_rect.height;
 
 							auto helmet_cls = safty_cut(people_img, head_rect);
 							//auto helmet_cls = letterbox(helmet_cls_region, 96, 96);
@@ -183,30 +183,29 @@ namespace glasssix::pump_vesthelmet
 
 							auto max_conf_status = socre_idx_list[0];
 
-							person_head_uint.score = max_conf_status.conf;
+							person_head_unit.score = max_conf_status.conf;
 
 							// carefullly judge if NO_HELMET for lowering mistake alarm
 							if (max_conf_status.status == NO_HELMET)
 							{
 								if (max_conf_status.conf > no_helmet_score_thres)
 								{
-									person_head_uint.category = NO_HELMET; // alarm !
+									person_head_unit.category = NO_HELMET; // alarm !
 								}
 								else
 								{
-									person_head_uint.category = LOW_NO_HELMET; // no helmet but low confidence
+									person_head_unit.category = LOW_NO_HELMET; // no helmet but low confidence
 								}
 							}
 							else
 							{
-								person_head_uint.category = max_conf_status.status;
+								person_head_unit.category = max_conf_status.status;
 							}
 
-							output.push_back(person_head_uint);
+							output.push_back(person_head_unit);
 						}
 					}
 				}
-
 			}
 
 			for (auto& it : output)
@@ -337,7 +336,6 @@ namespace glasssix::pump_vesthelmet
 		std::unique_ptr<rknnwrapper::rknn_wrapper> vest_cls_instance_;
 		std::unique_ptr<rknnwrapper::rknn_wrapper> head_det_instance_;
 		std::unique_ptr<rknnwrapper::rknn_wrapper> helmet_cls_instance_;
-
 	};
 
 	detect_code_internal::detect_code_internal(std::string_view model_directory, int device)
