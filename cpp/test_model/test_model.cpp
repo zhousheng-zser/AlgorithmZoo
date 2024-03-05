@@ -1,16 +1,17 @@
 #include "Primitives/tensor_conversions.hpp"
-#include <fstream>
 #include <algorithm>
+#include <fstream>
 #include <numeric>
-#include <opencv2/opencv.hpp>
+#include "makeTable.hpp"
+#include "argparse/argparse.hpp"
+#include "auto_infer_output_map.hpp"
+#include "test_model.hpp"
 #include "json.hpp"
 #include "dbg.h"
-#include "auto_infer_output_map.hpp"
-#include "makeTable.hpp"
-#include "test_model.hpp"
+#include <opencv2/opencv.hpp>
 #include "GenPipline.hpp"
 #include "postprocessing_register.hpp"
-#include "argparse/argparse.hpp"
+#include "GenPipline_tools.hpp"
 
 using namespace glasssix;
 #define GetShowRatio(visual_img) std::min(float(1920.f / visual_img.cols), float(1080.f / visual_img.rows)) * 0.75
@@ -32,13 +33,13 @@ struct RunConfig
 
 int main(int argc, char* argv[])
 {
-	std::map<std::string, PostprocessingFunction> postprocessing_market;
-	AddPostprocessing(postprocessing_market);
-
 	show_usage(argc);
+
+	auto postprocessing_market = AddPostprocessing();
 	printf("[INFO] POSTPROCESSING MARKET[%d]: { ", postprocessing_market.size());
 	for (auto& ppf : postprocessing_market) std::cout << ppf.first << ", ";
 	std::cout << "}" << std::endl;
+	GenPipline::dump_backend_menu(true); // tell which backends could be used
 	if (argc < 2) return false;
 
 
@@ -51,7 +52,7 @@ int main(int argc, char* argv[])
 	parser.add_keyword_arg("-bp", "--base_model_pp", "", false, "", "base model postprocessing");
 
 	parser.add_keyword_arg("-d", "--dataset", "", true, "dataset.txt", "test dataset.txt");
-	parser.add_keyword_arg("-m", "--output_map", "", false, "output_map.json", "model pair out nodes mapping");
+	parser.add_keyword_arg("-m", "--output_map", "", false, "", "model pair out nodes mapping");
 	parser.add_keyword_arg("-c", "--convert_bgr", "", false, "0", "if to convert BGR in image preprocessing");
 	parser.add_keyword_arg("-s", "--img_resize", "", false, "-1", "if to resize image in preprocessing");
 
@@ -68,35 +69,27 @@ int main(int argc, char* argv[])
 	runConfig.convertBGR = std::stoi(args.args["convert_bgr"]) == 1;
 	runConfig.imgReSize = std::stoi(args.args["img_resize"]);
 
-
-
 	// GenPipline Pre & Post Processing Wrapper Obj
-	std::shared_ptr<PrePostProcessGenPipline> ioprocess_pipline_TEST;
-	std::shared_ptr<PrePostProcessGenPipline> ioprocess_pipline_BASE;
-	{
-		GenPipline::dump_backend_menu(true); // tell which backends could be used
-		auto pipline_TEST = std::make_shared<GenPipline>(runConfig.net_TEST, 0);
-		auto pipline_BASE = std::make_shared<GenPipline>(runConfig.net_BASE, 0);
-		pipline_TEST->handset_possible_normalization({ 0,0,0 }, { 0.003921568,0.003921568,0.003921568 });
-		pipline_BASE->handset_possible_normalization({ 0,0,0 }, { 0.003921568,0.003921568,0.003921568 });
+	auto ioprocess_pipline_TEST = std::make_shared<PrePostProcessGenPipline>(std::make_shared<GenPipline>(runConfig.net_TEST, 0));
+	auto ioprocess_pipline_BASE = std::make_shared<PrePostProcessGenPipline>(std::make_shared<GenPipline>(runConfig.net_BASE, 0));
+	ioprocess_pipline_TEST->handset_possible_normalization({ 0,0,0 }, { 0.003921568,0.003921568,0.003921568 });
+	ioprocess_pipline_BASE->handset_possible_normalization({ 0,0,0 }, { 0.003921568,0.003921568,0.003921568 });
 
-		ioprocess_pipline_TEST = std::make_shared<PrePostProcessGenPipline>(pipline_TEST);
-		ioprocess_pipline_BASE = std::make_shared<PrePostProcessGenPipline>(pipline_BASE);
-	}
-
-	// Define Pre-Processing
+	// Voice Pre-Processing status
 	if (runConfig.convertBGR) printf("- convert BGR order !\n");
 	if (runConfig.imgReSize > 0)
 	{
 		printf("- resize image to %d * %d !\n", runConfig.imgReSize, runConfig.imgReSize);
 		printf("  if program crash, check size^2 EQ rknn input shape !\n");
 	}
+	// Setting Pre-Processing
 	auto image_preprocess = [&runConfig](cv::Mat img) {
-		return GenPiplineTools::letter_image(img, runConfig.imgReSize, runConfig.imgReSize, runConfig.convertBGR);
+		return  GenPiplineTools::letter_image(img, runConfig.imgReSize, runConfig.imgReSize, runConfig.convertBGR);
+		//return GenPiplineTools::letter_image(img, runConfig.imgReSize, runConfig.imgReSize, runConfig.convertBGR);
 	};
 	ioprocess_pipline_TEST->set_image_preprocess(image_preprocess);
 	ioprocess_pipline_BASE->set_image_preprocess(image_preprocess);
-	// Define Post-Processing
+	// Setting Post-Processing
 	ioprocess_pipline_TEST->check_set_postprocessing(postprocessing_market, runConfig.net_TEST_postprocess);
 	ioprocess_pipline_BASE->check_set_postprocessing(postprocessing_market, runConfig.net_BASE_postprocess);
 
@@ -136,7 +129,6 @@ int main(int argc, char* argv[])
 			CHECK_EQ(results_pip_BASE[x.first]->count(), results_pip_TEST[x.second]->count());
 			int count = results_pip_BASE[x.first]->count();
 
-
 			if (x.first == "score_out") {
 				size_t vaild_counter = 0;
 				float cos = fliter_score_CosineSimilarity(BASE_out, TEST_out, count, 0.1f, diffStatistics, vaild_counter);
@@ -150,7 +142,6 @@ int main(int argc, char* argv[])
 				printf("[%d/%d]-> cos:%f : %s(%s) | %s\n", idx, img_list.size(), cos, x.second.c_str(), x.first.c_str(), img_list[idx].c_str());
 			}
 
-
 		}
 		printf("\n");
 	}
@@ -163,7 +154,6 @@ int main(int argc, char* argv[])
 
 	for (auto& x : score_map)
 	{
-
 		float min_cos = 1.f;
 		int less99 = 0, less98 = 0, less95 = 0, less90 = 0, less85 = 0, less80 = 0, less70 = 0;
 		for (int i = 0; i < x.second.size(); i++)
@@ -189,8 +179,7 @@ int main(int argc, char* argv[])
 				min_cos = x.second[i];
 		}
 
-		statistics_table_maker.rowPushLine(x.first, {less99 ,less98 ,less95,less90,less85,less80,less70}, min_cos, x.second.size());
-
+		statistics_table_maker.rowPushLine(x.first, { less99,less98,less95,less90,less85,less80,less70 }, min_cos, x.second.size());
 	}
 
 	statistics_table_maker.show();

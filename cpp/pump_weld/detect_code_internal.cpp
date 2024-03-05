@@ -104,21 +104,27 @@ namespace glasssix::pump_weld
 
             struct CandidateBoxFlaglist
             {
-                cv::Rect rect;
+                cv::Rect weld_box;
+                cv::Rect candidate_box;
 				bool category; //0=standard, 1=unstandard
-                CandidateBoxFlaglist(cv::Rect& rect_, bool category_) :rect(rect_), category(category_) {}
+                CandidateBoxFlaglist(cv::Rect& candidate_box_, cv::Rect& weld_box_, bool category_) :
+                    candidate_box(candidate_box_), weld_box(weld_box_), category(category_) {}
             };
             std::vector<CandidateBoxFlaglist> candidate_box_flag_list;
-            for (auto& candidate_box : candidate_box_list) {
-                candidate_box_flag_list.push_back({ candidate_box ,UNSTANDARD_WELD });
-            }
+			if (candidate_box_list.size() == weld_box_list.size()) {
+				for (int i = 0; i < candidate_box_list.size(); i++) {
+					auto& candidate_box = candidate_box_list[i];
+					auto& weld_box = weld_box_list[i];
+					candidate_box_flag_list.emplace_back(CandidateBoxFlaglist{ candidate_box, weld_box, UNSTANDARD_WELD });
+				}
+			}
 
             for (auto tube_bbox : tube_bbox_list) {
                 for (int i = 0; i < candidate_box_flag_list.size(); i++) {
                     auto& candidate_box = candidate_box_flag_list[i];
                     constexpr float MIN_IOU_BETWEEN_TUBE_AND_WELD_BOX = 0.001;
 
-                    auto iou = count_iou(tube_bbox.get_rect(), candidate_box.rect);
+                    auto iou = count_iou(tube_bbox.get_rect(), candidate_box.candidate_box);
 
 //#ifdef BUILD_DEBUG_INFO
 //					cv::rectangle(BatchImgs[0], tube_bbox.get_rect(), { 0, 255, 0 }, 3);
@@ -134,10 +140,16 @@ namespace glasssix::pump_weld
 
             for (auto& candidate_box_flag : candidate_box_flag_list) {
 				box_info_internal candidate_box_internal;
-				candidate_box_internal.x1 = candidate_box_flag.rect.x;
-				candidate_box_internal.y1 = candidate_box_flag.rect.y;
-				candidate_box_internal.x2 = candidate_box_flag.rect.x + candidate_box_flag.rect.width;
-				candidate_box_internal.y2 = candidate_box_flag.rect.y + candidate_box_flag.rect.height;
+				candidate_box_internal.weld_x1 = candidate_box_flag.weld_box.x;
+				candidate_box_internal.weld_y1 = candidate_box_flag.weld_box.y;
+				candidate_box_internal.weld_x2 = candidate_box_flag.weld_box.x + candidate_box_flag.weld_box.width;
+				candidate_box_internal.weld_y2 = candidate_box_flag.weld_box.y + candidate_box_flag.weld_box.height;
+
+                candidate_box_internal.can_x1 = candidate_box_flag.candidate_box.x;
+                candidate_box_internal.can_y1 = candidate_box_flag.candidate_box.y;
+                candidate_box_internal.can_x2 = candidate_box_flag.candidate_box.x + candidate_box_flag.candidate_box.width;
+                candidate_box_internal.can_y2 = candidate_box_flag.candidate_box.y + candidate_box_flag.candidate_box.height;
+
                 candidate_box_internal.category = candidate_box_flag.category;
 				result.push_back(glasssix::exposing::make_as_first<box_info_impl>(candidate_box_internal));
             }
@@ -260,7 +272,7 @@ namespace glasssix::pump_weld
 
         std::string version()
         {
-            const std::string algo_module_version = "1.2.0";
+            const std::string algo_module_version = "1.3.0";
 
             std::string nn_frame_version = weld_machine_instance_.version();
 
