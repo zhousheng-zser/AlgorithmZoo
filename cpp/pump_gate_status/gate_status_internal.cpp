@@ -63,7 +63,7 @@ namespace glasssix::pump_gate_status
             }
             sum_s /= (HSV.rows * HSV.cols);
             sum_v /= (HSV.rows * HSV.cols);
-            if (sum_s < 10 || sum_v < 30)
+            if (sum_s < 30 || sum_v < 60)
                 return 3;
 
             cv::Mat mask;
@@ -114,7 +114,7 @@ namespace glasssix::pump_gate_status
             }
             sum_s /= (HSV.rows * HSV.cols);
             sum_v /= (HSV.rows * HSV.cols);
-            if (sum_s < 15 || sum_v < 30)
+            if (sum_s < 30 || sum_v < 60)
                 return 1;
 
             cv::Mat mask;
