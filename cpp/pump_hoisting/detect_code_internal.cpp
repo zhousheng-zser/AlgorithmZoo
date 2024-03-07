@@ -70,7 +70,7 @@ namespace glasssix::pump_hoisting
 
                 Rectangle temp(var[0],var[2],var[1],var[3] ,var[4] );
                 temp.refresh();
-                if(( var[1] -var[0])>150)
+                if(( var[2] -var[0])>150)
                     Out_xy.push_back(temp);
             }
             return Out_xy;
