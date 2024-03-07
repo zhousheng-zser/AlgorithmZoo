@@ -50,9 +50,6 @@ namespace glasssix::pump_work_status
             mask_array[i/2] = std::vector<int> {rois[i],rois[i+1]} ;
 
         clockwise_sort_by_left_corner(mask_array);
-        classify_work_equipment_status(image,  big_paint_room , mask_array );
-        classify_base_plate_status(image,  big_paint_room , mask_array);
-        classify_lamp_status(image,  big_paint_room , mask_array);
 
         return( classify_lamp_status(image,  big_paint_room , mask_array) && classify_base_plate_status(image, big_paint_room , mask_array)&&classify_work_equipment_status(image, big_paint_room ,mask_array ) );
 
