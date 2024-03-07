@@ -43,6 +43,15 @@ using namespace glasssix;
             real_time_y2 = y22;
         }
 
+        float get_y2()
+        {
+            return y2;
+        }
+
+        float get_rt_y2()
+        {
+            return real_time_y2;
+        }
 
         float get_centre_x ()
         {
@@ -152,12 +161,18 @@ using namespace glasssix;
         return std::make_pair(quadrilateral_left,quadrilateral_right);
     }
 
+    float get_left_corner_distance_between_Rectangle(const Rectangle&R1, const Rectangle& R2, bool real_time = true)
+    {
+        if(real_time)
+            return   abs(R1.get_rt_y2()-R2.get_rt_y2()); 
+        else
+            return   abs(R1.get_y2()-R2.get_y2()); 
+    }
+
     float get_distance_between_Rectangle(const Rectangle&R1, const Rectangle& R2, bool real_time = true)
     {
         if(real_time)
             return  0.5 * sqrt(  (R1.get_centre_rt_x()-R2.get_centre_rt_x())* (R1.get_centre_rt_x()-R2.get_centre_rt_x()) +  (R1.get_centre_rt_y()-R2.get_centre_rt_y()) *(R1.get_centre_rt_y()-R2.get_centre_rt_y()) );
-
-            // return  0.5 * sqrt( (R1.real_time_x1-R2.real_time_x1) * (R1.real_time_x2-R2.real_time_x2) + (R1.real_time_y1-R2.real_time_y1) * (R1.real_time_y2-R2.real_time_y2)) ;
         else
             return  0.5 * sqrt(  (R1.get_centre_x()-R2.get_centre_x())* (R1.get_centre_x()-R2.get_centre_x()) +  (R1.get_centre_y()-R2.get_centre_y()) *(R1.get_centre_y()-R2.get_centre_y())) ;
     }

@@ -690,14 +690,13 @@ namespace glasssix::pumptop_helmet
 				int y2 = std::round(pump[3]) < image.rows ? std::round(pump[3]) : image.rows;
 
 				cv::Rect roiRect(x1, y1, x2 - x1, y2 - y1);
-				cv::Mat roi = image(roiRect).clone();
-				cv::Point p(x1, x2);
 				// 人检测
 				int category;
 				float score;
 				float helmet_score;
 				ori_rect = people_detect(image, roiRect, param_map, category, score, helmet_score); // roiRect 是泵的坐标
-				if (category != -1)																	// 满足目标才放入
+
+				if (category != -1) // 满足目标才放入
 				{
 					categorys.push_back(category);
 					result_rect.push_back(ori_rect);
@@ -709,21 +708,17 @@ namespace glasssix::pumptop_helmet
 		}
 
 		//~ 人检测,包含了人,人头,人头分类检测
-		cv::Rect people_detect(cv::Mat image_ori_all, cv::Rect rect, std::map<std::string, float> &param_map, int &category, float &score, float &helmet_score)
+		cv::Rect people_detect(cv::Mat image_ori_all, cv::Rect rect, std::map<std::string, float> &param_map, int &category, float &score, float &helmet_score) // rect 是泵的原始坐标
 		{
 
-			cv::Mat img = image_ori_all;
+			cv::Mat img = image_ori_all.clone();
 			cv::Rect rect_head;
-			cv::Rect rect_peple_ori;
+			cv::Rect rect_peple_ori;//符合泵顶区域里面的人的坐标
 			category = -1;
 			float con_thres = param_map.count("people_conf_thres") ? param_map["people_conf_thres"] : 0.6f;
 			float iou_thres = param_map.count("nms_thres") ? param_map["nms_thres"] : 0.6f;
-			cv::Rect roi(rect.x, rect.y, rect.width, rect.height);
 			cv::Mat image = image_ori_all; // 现在是全图检测了,不是从泵区域检测了
-			cv::Rect ori_rect;
-			cv::Mat img_det;
 			cv::Point point_people_feet_center{0, 0};
-			cv::Point point_pump_xy_ori = {rect.x, rect.y};
 			std::vector<cv::Point> vec_pump_top;
 			//~ 泵顶的区域 根据算法工程师的要求,变得极为复杂,需好好优化下
 			{
@@ -816,18 +811,11 @@ namespace glasssix::pumptop_helmet
 				std::vector<cv::Point> vertices = {cv::Point(x1, y1), cv::Point(x2, y2), cv::Point(x4, y4), cv::Point(x3, y3)};
 #endif
 				vec_pump_top = vertices;
-				// 画泵和泵顶的区域
+				//& 画泵和泵顶的区域
 				// cv::rectangle(img, cv::Point(rect.x, rect.y), cv::Point(rect.x + rect.width, rect.y + rect.height), cv::Scalar(0, 0, 255), 1);
 				// std::vector<cv::Point> pts = {vertices[0], vertices[1], vertices[2], vertices[3], vertices[0]}; // 构造多边形的顶点序列
 				// cv::polylines(img, pts, true, cv::Scalar(0, 255, 0), 2);
 			}
-#if 0
-			float scale = 0.4;
-			float X = rect.x + rect.width * (1 - scale) / 2;
-			float Y = rect.y + rect.height * (1 - scale) / 2;
-			cv::Rect pump_top_ori(X, Y, rect.width * scale, rect.height * scale);
-#endif
-
 			init_data1280();
 			auto new_shape = cv::Size(1280, 1280);
 			cv::Mat blob;
@@ -840,7 +828,6 @@ namespace glasssix::pumptop_helmet
 			std::vector<int> v_blob;
 			v_blob.push_back(1);
 			v_blob.push_back(blob.rows);
-
 			v_blob.push_back(blob.cols);
 			v_blob.push_back(blob.channels());
 			auto network_results = net_detect_2->forward(blob.data, v_blob, RKNN_TENSOR_NHWC);
@@ -867,8 +854,6 @@ namespace glasssix::pumptop_helmet
 				int x2 = std::round(pump[2]) < image.cols ? std::round(pump[2]) : image.cols;
 				int y2 = std::round(pump[3]) < image.rows ? std::round(pump[3]) : image.rows;
 
-				cv::Rect roiRect(x1, y1, x2 - x1, y2 - y1);
-				cv::Mat roi = image(roiRect).clone();
 				// 找到人的原始坐标
 				cv::Point people_ori_1 = {x1, y1};
 				cv::Point people_ori_2 = {x2, y2};
@@ -876,6 +861,7 @@ namespace glasssix::pumptop_helmet
 				cv::Rect people_rect(people_ori_1.x, people_ori_1.y, people_ori_2.x - people_ori_1.x, people_ori_2.y - people_ori_1.y);
 				// 比对:人是否在泵顶里面
 				double distance = cv::pointPolygonTest(vec_pump_top, point_people_feet_center, false);
+				//& 是否打印 人是否在泵顶
 				// if (distance >= 0)
 				// {
 				// 	std::cout << "\033[31mThis text will be red!  distance: *************************\033[0m"
@@ -889,7 +875,7 @@ namespace glasssix::pumptop_helmet
 
 					// std::cout << "The point is inside the rectangle!" << std::endl;
 					// 人头检测
-					rect_head = head_detect(image_ori_all, rect_peple_ori, param_map, score); // 这里 rect_peple_ori 需要替换成人的原始坐标(而且还必须是满足要求的坐标)
+					rect_head = head_detect(image_ori_all, rect_peple_ori, param_map, score); // 这里 rect_peple_ori 需要替换成人的原始坐标(而且还必须是满足是在泵顶区域要求的坐标)
 					//! 这里需要对人头检测进行判空,不然 人头分类检测 拿到的就是空数据,会报错
 					// 根据算法需求,宽高分别小于24要过滤
 					if (rect_head.width < 24 || rect_head.height < 24)
@@ -898,21 +884,21 @@ namespace glasssix::pumptop_helmet
 					}
 					// 人头分类检测
 					category = helmet_detect(image_ori_all, rect_head, param_map, helmet_score);
-					// 画泵顶区域的人体与底部中心
-					cv::rectangle(img, cv::Point(rect_peple_ori.x - 10, rect_peple_ori.y - 10), cv::Point(rect_peple_ori.x + rect_peple_ori.width, rect_peple_ori.y + rect_peple_ori.height), cv::Scalar(0, 0, 255), 4);
-					cv::circle(img, point_people_feet_center, 5, cv::Scalar(0, 0, 255), -1);
-					// 画人头
+					//& 画泵顶区域的人体与人体底部中心
+					// cv::rectangle(img, cv::Point(rect_peple_ori.x - 10, rect_peple_ori.y - 10), cv::Point(rect_peple_ori.x + rect_peple_ori.width, rect_peple_ori.y + rect_peple_ori.height), cv::Scalar(0, 0, 255), 4);
+					// cv::circle(img, point_people_feet_center, 5, cv::Scalar(0, 0, 255), -1);
+					//& 画人头
 					// cv::rectangle(img, cv::Point(rect_head.x, rect_head.y), cv::Point(rect_head.x + rect_head.width, rect_head.y + rect_head.height), cv::Scalar(0, 0, 255), 1);
 				}
 				else
 				{
 					// std::cout << "The point is outside the rectangle!" << std::endl;
-					// 画不在泵顶里面的人体与底部中心
+					//& 画不在泵顶里面的人体与底部中心
 					// cv::rectangle(img, cv::Point(people_rect.x, people_rect.y), cv::Point(people_rect.x + people_rect.width, people_rect.y + people_rect.height), cv::Scalar(255, 255, 0), 4);
 					// cv::circle(img, point_people_feet_center, 5, cv::Scalar(0, 0, 255), -1);
 				}
 			}
-
+			//& 写入图片文件
 			// cv::imwrite("../last" + std::to_string(num) + ".jpg", img);
 			if (category == -1)
 			{
@@ -956,7 +942,6 @@ namespace glasssix::pumptop_helmet
 			}
 
 			int candicate_num = 0;
-			std::vector<cv::Mat> v_roi;
 
 			auto real_output = Yovo8se_Concat_128(forwards, con_thres, candicate_num);
 
@@ -979,10 +964,8 @@ namespace glasssix::pumptop_helmet
 				{
 					continue;
 				}
-				num++;
 				roiRect = {x1_ori, y1_ori, x2_ori - x1_ori, y2_ori - y1_ori};
-				cv::Mat roi = image_ori_all(roiRect).clone();
-				v_roi.push_back(roi);
+
 			}
 			return roiRect;
 		}
@@ -1030,7 +1013,7 @@ namespace glasssix::pumptop_helmet
 
 		exposing::param_string version() const
 		{
-			return "1.0.0";
+			return "1.0.3";
 		}
 
 	private:
