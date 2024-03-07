@@ -64,7 +64,7 @@ namespace glasssix::pump_gate_status
             sum_s /= (HSV.rows * HSV.cols);
             sum_v /= (HSV.rows * HSV.cols);
             if (sum_s < 30 || sum_v < 60)
-                return 3;
+                return 0;
 
             cv::Mat mask;
             cv::inRange(HSV, yellow_hsv_lower, yellow_hsv_upper, mask);

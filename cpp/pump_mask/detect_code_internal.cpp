@@ -326,9 +326,9 @@ namespace glasssix::pump_mask
             cv::Mat image(cv::Size(width, height), CV_8UC3);
             std::memcpy(image.data, bitmap.data(), sizeof(uint8_t) * channels * height * width);
 
-            if (!work_status(image)) {
-                return {};
-            }
+            //if (!work_status(image)) { // 不在这里判断了 , 外面加了work_status协议
+            //    return {};
+            //}
 
             std::vector<Bbox> frame_result = yolo_detect(image, con_thres, iou_thres);
             std::vector<Bbox> person_box_list;
