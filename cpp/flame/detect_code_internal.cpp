@@ -6,27 +6,13 @@
 #include "box_info_impl.hpp"
 #include "logger.hpp"
 
-#include "hardcode.hpp"
-
 #include <abi/param_vector.hpp>
-#include <utility>
-
-#include <Primitives/tensor_conversions.hpp>
-
-#ifdef USE_RKNNAPI
-//#if 0
-#include "../../common/include/RKNNWrapper/rknn_wrapper.hpp"
-#elif defined(USE_RKNN2API)
-#include "../../common/include/RKNN2Wrapper/rknn2_wrapper.hpp"
-#endif
-#include "RknnYolov8Wrapper.hpp"
 
 #include <opencv2/opencv.hpp>
-#include <opencv2/core.hpp>
-#include <opencv2/imgproc.hpp>
-#include <opencv2/dnn.hpp>
 
-
+#include <GenPipeline/PrePostProcessGenPipeline.hpp>
+#include <GenPipeline/GetPostprocessing.hpp>
+#include "../genpipeline/market/yolov8_GEN.hpp"
 
 namespace glasssix::flame
 {
@@ -35,9 +21,18 @@ namespace glasssix::flame
     public:
         impl(const exposing::param_string model_directory, int device = -1)
         {
-            detect_instance_ = std::make_unique<RknnYolov8Wrapper>(exposing::to_narrow_string(model_directory) + "/" + "flame_v8_cut" + ".rknn", device);
-        }
+            std::string model_dir = exposing::to_narrow_string(model_directory) + "/";
 
+#if defined(USE_RKNNAPI) || defined(USE_RKNN2API)
+			ioprocess_pipeline_ = PrePostProcessGenPipeline::mkSharePipeline(model_dir + "flame_v8_cut.rknn", 0);
+#elif defined(USE_BMNN)
+			ioprocess_pipeline_ = PrePostProcessGenPipeline::mkSharePipeline(model_dir + "flame_v8_cut.bmodel", 0);
+#else
+			ioprocess_pipeline_ = PrePostProcessGenPipeline::mkSharePipeline(model_dir + "flame_v8_cut.onnx", 0);
+#endif
+            ioprocess_pipeline_->manual_possible_normalization(0, 1.f / 255);
+            ioprocess_pipeline_->set_postprocessing(yolov8_GEN<2, 1>);
+        }
 
         exposing::param_vector<flame::box_info> detect(const exposing::param_span<std::uint8_t>& bitmap, int channels, int height, int width, int roi_x, int roi_y, int roi_width, int roi_height, std::map<std::string, float>& param_map)
         {
@@ -71,175 +66,66 @@ namespace glasssix::flame
 
         std::string version()
         {
-			const std::string algo_module_version = "3.0.0";
+			const std::string algo_module_version = "4.0.0";
 
-			std::string nn_frame_version = detect_instance_->version();
+			std::string nn_frame_version = ioprocess_pipeline_->version();
 
 			return fmt::format(R"({{"nn_frame_version":"{}", "algo_module_version":"{}"}})", nn_frame_version, algo_module_version);
         }
 
     private:
 
-        /**
-         * @fun imgPreProcess
-         * @param src, new_shape
-         * @return tensor(preprocess(image))
-         * @details image preprocess and make tensor from images
-         */
-        cv::Mat imgPreProcess(cv::Mat img, int hope_w = 640, int hope_h = 640)
-        {
-            int H = img.rows;
-            int W = img.cols;
-            float ratio_w = (float)W / (float)hope_w;
-            float ratio_h = (float)H / (float)hope_h;
-            cv::Mat resize_img;
-            if (ratio_w == ratio_h)
-                cv::resize(img, resize_img, cv::Size2i{ hope_w, hope_h });
-            else if (ratio_w > ratio_h) {
-                int new_x = hope_w;
-                int new_y = (int)(H / ratio_w);
-                int pad1 = (int)((hope_h - new_y) / 2);
-                int pad2 = hope_h - new_y - pad1;
-                cv::resize(img, resize_img, cv::Size2i{ new_x, new_y });
-                cv::copyMakeBorder(resize_img, resize_img, pad1, pad2, 0, 0, cv::BORDER_CONSTANT, cv::Scalar{ 114,114,114 });
-            }
-            else {
-                int new_y = hope_h;
-                int new_x = (int)(W / ratio_h);
-                int pad1 = (int)((hope_w - new_x) / 2);
-                int pad2 = hope_w - new_x - pad1;
-                cv::resize(img, resize_img, cv::Size2i{ new_x, new_y });
-                cv::copyMakeBorder(resize_img, resize_img, 0, 0, pad1, pad2, cv::BORDER_CONSTANT, cv::Scalar{ 127,127,127 });
-            }
-            return resize_img;
-        }
+        struct FlameBox :public GenPipTools::YoloBoxBase {
+        public:
+            using YoloBoxBase::YoloBoxBase; //Inheriting Constructors
+        };
 
-        /**
-           * @fun run_detect
-           * @param image param_map
-           * @details run detect (maybe in multithreading)
-        */
         void run_detect(std::vector<box_info_internal>& results, cv::Mat& image, std::map<std::string, float>& param_map)
         {
             float conf_threshold= param_map.count("conf_thres") ? param_map["conf_thres"] : 0.4f;
             float nms_threshold = param_map.count("nms_thres") ? param_map["nms_thres"] : 0.5f;
 
-            int reShapeSide = 640;
-            auto letter_img = imgPreProcess(image, reShapeSide, reShapeSide);
-            cv::cvtColor(letter_img, letter_img, cv::COLOR_BGR2RGB);
+            constexpr int infrW = 640;
+            constexpr int infrH = 640;
+            constexpr bool ifCvtRGB = true;
 
-#if defined(USE_RKNNAPI) || defined(USE_RKNN2API)
-            auto det_rst_map = detect_instance_->forward(letter_img);
-            auto tensor_out = det_rst_map.begin()->second;
-#else
-            auto input_tensor = matConverTensor(letter_img);
-            // normalization
-            auto data = input_tensor->mutable_cpu_data();
-            for (int i = 0; i < input_tensor->count(); i++) {
-                data[i] = data[i] / 255;
-            }
-            auto det_rst_map = detect_instance_->forward(input_tensor);
-            auto tensor_out = det_rst_map.begin()->second;
-#endif
-            // transepose
-            if (tensor_out->width() == 8400) {
-                printf("tensor_transpose_0132\n");
-                tensor_out = tensor_transpose_0132(tensor_out); // interagte
-            }
-
-            //dbg(tensor_out->data_shape());
-            std::vector<FlameBox> flame_list;
-
-            int targetnum = tensor_out->height();
-            int infonum = tensor_out->width();
-            for (size_t idx = 0; idx < targetnum; idx++) {
-                float* pdata = tensor_out->mutable_cpu_data() + idx * infonum;
-                float conf = pdata[4];
-                float flame_tag= pdata[5];
-
-				if (conf > conf_threshold && flame_tag < 0.1) {
-                    //dbg(conf);
-                    //std::cout << "pdata m640: " << pdata[0] * 640 << " " << pdata[1] * 640 << " " << pdata[1] * 640 << " " << pdata[1] * 640 << std::endl;
-
-                    FlameBox flamebox(pdata[0] * 640, pdata[1] * 640, pdata[2] * 640, pdata[3] * 640, conf);
-                    flame_list.push_back(flamebox);
+            GenPipTools::LetterInfo letter_op;
+            auto letter_img = GenPipTools::letter_image(image, infrW, infrH, letter_op, ifCvtRGB);
+            auto net_rstmap = ioprocess_pipeline_->forward(letter_img);
+            auto tensor_out = net_rstmap.begin()->second;
+            const int vf_nums = tensor_out->height(); //vf, visual field
+            const int per_vf_len = tensor_out->width();
+            std::vector<FlameBox> box_list;
+            for (size_t idx = 0; idx < vf_nums; idx++) {
+                float* pdata = tensor_out->mutable_cpu_data() + idx * per_vf_len;
+                float conf_pos = pdata[4];
+                float conf_neg = pdata[5];
+                if (conf_pos > conf_threshold && conf_neg < 0.1) {
+                    FlameBox obj_box(pdata[0] * infrW, pdata[1] * infrH, pdata[2] * infrW, pdata[3] * infrH, conf_pos, 0);
+                    box_list.push_back(obj_box);
                 }
             }
 
-            int pad = std::abs(image.cols - image.rows) / 2;
-            bool is_vertical_pad = image.cols > image.rows;
-            float mapping_ratio = static_cast<float>(std::max(image.cols, image.rows)) / reShapeSide;
+            GenPipTools::letter_map_origin_location(box_list, letter_op);
+            GenPipTools::nms_cpu(box_list, 0.4);
 
-            for (auto& bbox : flame_list) {
-                bbox.mul_ratio(mapping_ratio);
-                if (is_vertical_pad) {
-                    bbox.ymin -= pad;
-                    bbox.ymax -= pad;
-                }
-                else {
-                    bbox.xmin -= pad;
-                    bbox.xmax -= pad;
-                }
-            }
-
-            nms_cpu(flame_list, nms_threshold);
-
-            for (auto box : flame_list) {
+            for (auto box : box_list) {
                 box_info_internal in_box_info;
                 in_box_info.x1 = box.xmin;
                 in_box_info.y1 = box.ymin;
                 in_box_info.x2 = box.xmax;
                 in_box_info.y2 = box.ymax;
                 in_box_info.score = box.score;
-				in_box_info.category = 1;
-
+                in_box_info.category = 1;
                 results.push_back(in_box_info);
             }
-        }
 
-        std::shared_ptr<glasssix::memory::tensor<float>> matConverTensor(cv::Mat input_image) {
-            std::shared_ptr<glasssix::memory::tensor<uint8_t>> input_tensor_u8(new glasssix::memory::tensor<uint8_t>(std::vector<int>{1, input_image.rows, input_image.cols, 3}, -1, glasssix::memory::NHWC));
-            std::copy(input_image.data, input_image.data + input_image.step[0] * input_image.rows, input_tensor_u8->mutable_cpu_data());
-            input_tensor_u8->convert_order();
-            auto input_tensor = input_tensor_u8 | glasssix::memory::tensor_convert_to<float>;
-            return input_tensor;
-        }
-
-        void nms_cpu(std::vector<FlameBox>& bboxes, float iou_thres) {
-            if (bboxes.empty()) return;
-            std::sort(bboxes.begin(), bboxes.end(), [&](FlameBox b1, FlameBox b2) {return b1.score > b2.score; });
-            std::vector<float> area(bboxes.size());
-            for (int i = 0; i < bboxes.size(); ++i) {
-                area[i] = (bboxes[i].xmax - bboxes[i].xmin + 1) * (bboxes[i].ymax - bboxes[i].ymin + 1);
-            }
-            for (int i = 0; i < bboxes.size(); ++i) {
-                for (int j = i + 1; j < bboxes.size(); ) {
-                    float left = std::max(bboxes[i].xmin, bboxes[j].xmin);
-                    float right = std::min(bboxes[i].xmax, bboxes[j].xmax);
-                    float top = std::max(bboxes[i].ymin, bboxes[j].ymin);
-                    float bottom = std::min(bboxes[i].ymax, bboxes[j].ymax);
-                    float width = std::max(right - left + 1, 0.f);
-                    float height = std::max(bottom - top + 1, 0.f);
-                    float u_area = height * width;
-                    float iou = (u_area) / (area[i] + area[j] - u_area);
-                    if (iou >= iou_thres) {
-                        bboxes.erase(bboxes.begin() + j);
-                        area.erase(area.begin() + j);
-                    }
-                    else {
-                        ++j;
-                    }
-                }
-            }
-            if (bboxes.size() < 2) return;
-            std::sort(bboxes.begin(), bboxes.end(), [&](FlameBox b1, FlameBox b2) {return b1.score > b2.score; });
         }
 
     private:
         std::string model_directory_;
         int device_;
-
-        std::unique_ptr<RknnYolov8Wrapper> detect_instance_;
+        std::shared_ptr<PrePostProcessGenPipeline> ioprocess_pipeline_;
 
     };
 
