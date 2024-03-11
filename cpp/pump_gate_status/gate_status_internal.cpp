@@ -63,8 +63,8 @@ namespace glasssix::pump_gate_status
             }
             sum_s /= (HSV.rows * HSV.cols);
             sum_v /= (HSV.rows * HSV.cols);
-            if (sum_s < 10 || sum_v < 30)
-                return 3;
+            if (sum_s < 30 || sum_v < 60)
+                return 0;
 
             cv::Mat mask;
             cv::inRange(HSV, yellow_hsv_lower, yellow_hsv_upper, mask);
@@ -114,7 +114,7 @@ namespace glasssix::pump_gate_status
             }
             sum_s /= (HSV.rows * HSV.cols);
             sum_v /= (HSV.rows * HSV.cols);
-            if (sum_s < 15 || sum_v < 30)
+            if (sum_s < 30 || sum_v < 60)
                 return 1;
 
             cv::Mat mask;
@@ -181,8 +181,10 @@ namespace glasssix::pump_gate_status
 			bool  opened_door = yellow_filter(image,door,yellow_lower,yellow_upper , door_close_ratio, door_open_ratio )!=0;//0为关闭
             if (!opened_door)
                 return 0;
-            bool  working = gray_filter(image,floor,gray_lower, gray_upper, floor_ratio) == 0; //0为有东西
-			return opened_door&&working;
+
+            // bool  working = gray_filter(image, floor, gray_lower, gray_upper, floor_ratio) == 0; //0为有东西
+            return opened_door;
+			//return opened_door&&working;不在这里判断working了 , 外面加了work_status协议
 
         }
 

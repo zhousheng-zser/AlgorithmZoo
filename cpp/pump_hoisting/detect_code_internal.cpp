@@ -19,7 +19,7 @@
 
 #include "general.hpp"
 
-#define draw_pic 
+#define no_draw_pic 
 #define LIBRARY_ID_MAX 1073741824
 
 namespace glasssix::pump_hoisting
@@ -38,13 +38,14 @@ namespace glasssix::pump_hoisting
             static bool ready = glasssix::exposing::get_component_loader().add_module_by_name("pedestrian");
             pedestrain_instance_ = glasssix::exposing::make_exported_interface<pedestrian::classify_code>(exposing::param_string(model_directory), device);
             model640 = false;//1280<->false 640 <->true
-            init_data(model640);
+            init_data_compatible(1280,736);
         } 
    
         std::vector<Rectangle> get_pumprect(cv::Mat& image, float conf_thres=0.6, float iou_thres=0.7)
         {
             std::vector<Rectangle> Out_xy;
-            auto new_shape = cv::Size(model640? 640:1280, model640? 640:1280);
+            // auto new_shape = cv::Size(model640? 640:1280, model640? 640:1280);
+            auto new_shape = cv::Size(1280, 736);
             cv::Mat blob;
             float ratio = 0;
             int pad_h=0;  
@@ -61,14 +62,16 @@ namespace glasssix::pump_hoisting
                 forwards.push_back(network_results[out_names[i]]);
 
             int num =0;
-            auto real_output = Yovo8se_Concat(forwards,0.1,num);//5*8400
+            auto real_output = Yovo8se_Concat(forwards,0.1,num,1280,736);//5*8400
             auto post_result = post_process(real_output,pad_h,pad_w, 1.f/ratio, num, conf_thres, iou_thres );
             
             for(auto& var : post_result)//x1,y1,x2,y2
             {
+
                 Rectangle temp(var[0],var[2],var[1],var[3] ,var[4] );
                 temp.refresh();
-                Out_xy.push_back(temp);
+                if(( var[2] -var[0])>150)
+                    Out_xy.push_back(temp);
             }
             return Out_xy;
         }
@@ -101,11 +104,14 @@ namespace glasssix::pump_hoisting
                     {
                         // float distance1 =get_distance_between_Rectangle(current_box, library[match_id] );
 
-                        float distance =get_distance_between_Rectangle(current_box, library[match_id], false );
+                        float distance = get_distance_between_Rectangle(current_box, library[match_id], false );
+                        float left_corner_distance = get_left_corner_distance_between_Rectangle(current_box,library[match_id]);
+
+                        // float 
 
                         library[match_id].refresh( current_box.x1, current_box.y1, current_box.x2, current_box.y2   );
 
-                        if(  abs(current_box.y2-current_box.y1)*0.8 > distance && distance > abs(current_box.y2-current_box.y1)*move_threshold ) //检测到移动了
+                        if(  (abs(current_box.y2-current_box.y1)*0.8 > distance && distance > abs(current_box.y2-current_box.y1)*move_threshold) && left_corner_distance>0.06*abs(current_box.y2-current_box.y1)  ) //检测到移动了
                         {
                             auto neighboor = find_nearest_rectangles(all_pump_rect_boxes, current_box );
 
@@ -166,17 +172,17 @@ namespace glasssix::pump_hoisting
             return dangerous_region;
         }
 
-        std::shared_ptr<memory::tensor<float>> Yovo8se_Concat(std::vector<std::shared_ptr<memory::tensor<float>>>& outs,float conf,int& candicate_num)
+        std::shared_ptr<memory::tensor<float>> Yovo8se_Concat(std::vector<std::shared_ptr<memory::tensor<float>>>& outs,float conf,int& candicate_num,int width = 1280, int height =1280 )
         {
             conf = de_sigmoid(conf);
-            int input = model640? 640:1280;
+            int input = width*height;
             int box_tmp_size = 64;
-            int stride_8_num = input / 8;
-            int stride_16_num = input / 16;
-            int stride_32_num = input / 32;
+            int stride_8_num = input / 64;
+            int stride_16_num = input / 256;
+            int stride_32_num = input / 1024;
 
-            int candidate_num = stride_8_num*stride_8_num + stride_16_num*stride_16_num + stride_32_num*stride_32_num ;
-            int totol_size = stride_8_num*stride_8_num + stride_16_num*stride_16_num + stride_32_num*stride_32_num ;    
+            int candidate_num = stride_8_num + stride_16_num + stride_32_num ;
+            int totol_size = stride_8_num + stride_16_num + stride_32_num ;    
             //20 40 80 
             const float *data_stride_8 = outs[2]->cpu_data();
             const float *data_stride_16 = outs[1]->cpu_data();
@@ -184,26 +190,26 @@ namespace glasssix::pump_hoisting
 
             std::vector<int> match_index;
 
-            const float* data_stride_8_conf = data_stride_8+stride_8_num*stride_8_num*box_tmp_size;
-            for (size_t i = 0; i < stride_8_num*stride_8_num; i++)
+            const float* data_stride_8_conf = data_stride_8+stride_8_num*box_tmp_size;
+            for (size_t i = 0; i < stride_8_num; i++)
                 if( data_stride_8_conf[i] >conf  )
                     match_index.push_back(i);
-            const float* data_stride_16_conf = data_stride_16+stride_16_num*stride_16_num*box_tmp_size;
-            for (size_t i = 0; i < stride_16_num*stride_16_num; i++)
+            const float* data_stride_16_conf = data_stride_16+stride_16_num*box_tmp_size;
+            for (size_t i = 0; i < stride_16_num; i++)
                 if( data_stride_16_conf[i]>conf )
-                    match_index.push_back(i+stride_8_num*stride_8_num);
-            const float* data_stride_32_conf = data_stride_32+stride_32_num*stride_32_num*box_tmp_size;
-            for (size_t i = 0; i < stride_32_num*stride_32_num; i++)
+                    match_index.push_back(i+stride_8_num);
+            const float* data_stride_32_conf = data_stride_32+stride_32_num*box_tmp_size;
+            for (size_t i = 0; i < stride_32_num; i++)
                 if( data_stride_32_conf[i] >conf  )    
-                    match_index.push_back(i+ stride_8_num*stride_8_num + stride_16_num*stride_16_num );
+                    match_index.push_back(i+ stride_8_num + stride_16_num );
 
             //concat the 80*40 40*40 20*20 
             std::vector<float> cat(65*candidate_num); //1*65*candidate_num = 64*candidate_num + 1*candidate_num        
-            for(int i=0;i<65;i++)
+            for(int i=0,j=0;i<65;i++,j=0)
             {   
-                std::copy(data_stride_8+i*stride_8_num*stride_8_num, data_stride_8+(i+1)*stride_8_num*stride_8_num, cat.data()+i*candidate_num ); 
-                std::copy(data_stride_16+i*stride_16_num*stride_16_num, data_stride_16+(i+1)*stride_16_num*stride_16_num, cat.data()+i*candidate_num+stride_8_num*stride_8_num ); 
-                std::copy(data_stride_32+i*stride_32_num*stride_32_num, data_stride_32+(i+1)*stride_32_num*stride_32_num, cat.data()+i*candidate_num+stride_8_num*stride_8_num+stride_16_num*stride_16_num ); 
+                std::copy(data_stride_8+i*stride_8_num, data_stride_8+(i+1)*stride_8_num, cat.data()+i*candidate_num ); 
+                std::copy(data_stride_16+i*stride_16_num, data_stride_16+(i+1)*stride_16_num, cat.data()+i*candidate_num+stride_8_num ); 
+                std::copy(data_stride_32+i*stride_32_num, data_stride_32+(i+1)*stride_32_num, cat.data()+i*candidate_num+stride_8_num+stride_16_num ); 
             }
             
             //tranpose and softmax
@@ -314,7 +320,7 @@ namespace glasssix::pump_hoisting
                     }  
                     else   //并非第一次初始化  判断时间是否大于时间间隔
                     {
-                        if( abs(tmep_Sec - time_register[device_id].first_alarm_time)>50 )//大于间隔 初始化标志位 并且删除相应库信息
+                        if( abs(tmep_Sec - time_register[device_id].first_alarm_time)>40 )//大于间隔 初始化标志位 并且删除相应库信息
                         {
                             //set time sign invalidity
                             time_register[device_id].first_init = true;
@@ -374,61 +380,38 @@ namespace glasssix::pump_hoisting
 
     private:
       
-        void init_data(bool box640=true)
+       void init_data_compatible(int width,int height)
         {
-            if(box640)
-            {
-                add_weight.resize(8400*2);
-                mul_weight.resize(8400);
-                for (size_t i = 0; i < 8400; i++)
-                {
-                    if(i<6400)
-                    {
-                        add_weight[i] = i%80;
-                        add_weight[i+8400] = i/80 ;
-                        mul_weight[i] =8.f;
-                    }
-                    else if( i<8000)
-                    {
-                        add_weight[i] = (i -6400)% 40;
-                        add_weight[i+8400] = (i-6400)/40;
-                        mul_weight[i] = 16.f;
-                    }
-                    else
-                    {
-                        add_weight[i] = (i -8000)% 20;
-                        add_weight[i+8400] = (i-8000)/20;
-                        mul_weight[i] = 32.f;
-                    }
-                }
-            }
-            else
-            {
-                add_weight.resize(33600*2);
-                mul_weight.resize(33600);
-                for (size_t i = 0; i < 33600; i++)
-                {
-                    if(i<25600)
-                    {
-                        add_weight[i] = i%160;
-                        add_weight[i+33600] = i/160 ;
-                        mul_weight[i] =8.f;
-                    }
-                    else if( i<32000)
-                    {
-                        add_weight[i] = (i -25600)% 80;
-                        add_weight[i+33600] = (i-25600)/80;
-                        mul_weight[i] = 16.f;
-                    }
-                    else
-                    {
-                        add_weight[i] = (i -32000)% 40;
-                        add_weight[i+33600] = (i-32000)/40;
-                        mul_weight[i] = 32.f;
-                    }
-                }
-            }
+            int size_mul_weight = width*height*21/1024; 
+            int size_add_weight = 2*size_mul_weight;  
+            int width_base = width/8;
+            int height_base = height/8;
+            int candicate_area = width_base*height_base;
 
+            add_weight.resize(size_add_weight);
+            mul_weight.resize(size_mul_weight);
+            for (size_t i = 0; i < candicate_area*21/16; i++)
+            {     
+                if(i< candicate_area  ) 
+                {
+                    add_weight[i] = i%(width_base); 
+                    add_weight[i+size_mul_weight] = i/(width_base) ; 
+                    mul_weight[i] =8.f;
+                }
+                else if( i<int(std::round(i - candicate_area*1.25)))
+                {
+                    add_weight[i] = (i -candicate_area)% (width_base/2);
+                    add_weight[i+size_mul_weight] = (i-candicate_area)/ (width_base/2);
+                    mul_weight[i] = 16.f;
+                }
+                else
+                {
+                    add_weight[i] = int(std::round(i - candicate_area*1.25)) % (width_base/4);
+                    add_weight[i+size_mul_weight] =  int(std::round(i - candicate_area*1.25))/(width_base/4);
+                    mul_weight[i] = 32.f;
+                }
+            }
+            return ;    
         }
 
     private:
