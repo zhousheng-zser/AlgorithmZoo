@@ -45,9 +45,9 @@ namespace glasssix::pump_light
 
         std::string version()
         {
-            const std::string algo_module_version = "1.0.0";
+            const std::string nn_frame_version = "1.1.0";
 
-            return fmt::format(R"({{"nn_frame_version":"{}", "algo_module_version":"{}"}})", "", algo_module_version);
+            return fmt::format(R"({{"nn_frame_version":"{}", "algo_module_version":"{}"}})", nn_frame_version, "");
         }
 
     private:
@@ -101,13 +101,15 @@ namespace glasssix::pump_light
             cv::bitwise_and(hsv_frame, mask, masked_image);
 
             // ���������������������
-            cv::Mat red_mask, white_mask, orange_mask;
+            cv::Mat red_mask, white_mask, orange_mask,grey_mask;
             cv::inRange(masked_image, cv::Scalar(156, 43, 46), cv::Scalar(180, 255, 255), red_mask);
             cv::inRange(masked_image, cv::Scalar(0, 0, 80), cv::Scalar(180, 43, 255), white_mask);
             cv::inRange(masked_image, cv::Scalar(11, 43, 46), cv::Scalar(25, 255, 255), orange_mask);
+            cv::inRange(masked_image, cv::Scalar(0, 0, 46), cv::Scalar(180, 43, 220), grey_mask);
             int red_count = cv::countNonZero(red_mask);
             int white_count = cv::countNonZero(white_mask);
             int orange_count = cv::countNonZero(orange_mask);
+            int grey_count = cv::countNonZero(grey_mask);
 
             // �����ı����������ʵ��������
             double total_pixels = cv::contourArea(contours);
@@ -116,10 +118,11 @@ namespace glasssix::pump_light
             ans.white_ratio = white_count / total_pixels;
             ans.red_ratio = red_count / total_pixels;
             ans.orange_ratio = orange_count / total_pixels;
+            ans.grey_ratio = grey_count / total_pixels;
 
-            if (ans.red_ratio < 0.06 || ans.white_ratio > 0.8)
+            if ( (ans.red_ratio > 0.45 && 0.2> ans.white_ratio && ans.white_ratio > 0.05)   || ans.grey_ratio > 0.75 ||(ans.red_ratio > 0.45 && ans.orange_ratio > 0.1) )
                 ans.light_status = false;
-            else if (ans.red_ratio > 0.1 || ans.white_ratio > 0.3 || ans.orange_ratio > 0.1)
+            else if ( (0.45 > ans.red_ratio && ans.red_ratio > 0.1) || ans.white_ratio > 0.3 || ans.orange_ratio > 0.1)
                 ans.light_status = true;
             else
                 ans.light_status = false;
