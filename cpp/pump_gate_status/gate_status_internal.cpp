@@ -85,16 +85,14 @@ namespace glasssix::pump_gate_status
             }
         }
 
-        int yellow_filter(cv::Mat & image, ROI& roi_door,cv::Scalar& yellow_hsv_lower, cv::Scalar& yellow_hsv_upper, double ratio_closed = 0.18, double ratio_opened = 0.02) 
+        int yellow_filter(cv::Mat & image, ROI& roi_door,cv::Scalar& yellow_hsv_lower, cv::Scalar& yellow_hsv_upper, double ratio_closed = 0.18, double ratio_opened = 0.02)
         {
             int x_min = roi_door.x1, x_max = roi_door.x2, y_min = roi_door.y1, y_max = roi_door.y2;
             // cv::Scalar yellow_hsv_lower(25, 51, 128);
             // cv::Scalar yellow_hsv_upper(33, 204, 255);
 
             cv::Mat crop_image = image(cv::Range(y_min, y_max), cv::Range(x_min, x_max));
-            auto result = statistic_yellow(crop_image, yellow_hsv_lower, yellow_hsv_upper, ratio_closed, ratio_opened);
-
-			return result;
+            return statistic_yellow(crop_image, yellow_hsv_lower, yellow_hsv_upper, ratio_closed, ratio_opened);
         }
 
 		int statistic_gray(cv::Mat img, cv::Scalar yellow_hsv_lower, cv::Scalar yellow_hsv_upper, double ratio_arrived) 
@@ -135,57 +133,103 @@ namespace glasssix::pump_gate_status
             }
         }
 
-        int gray_filter( cv::Mat &image,ROI& roi_door, cv::Scalar& gray_hsv_lower, cv::Scalar& gray_hsv_upper, double ratio_arrived=0.18 ) //0 :有车      1: 没车
+        int statistic_gray_and_line(cv::Mat& img, cv::Mat& img_full)
+        {
+            cv::Mat HSV;
+            cv::cvtColor(img, HSV, cv::COLOR_BGR2HSV);
+
+            double sum_s = 0;
+            double sum_v = 0;
+            for (int i = 0; i < HSV.rows; ++i) {
+                for (int j = 0; j < HSV.cols; ++j) {
+                    // 访问S通道的值
+                    sum_s += HSV.at<cv::Vec3b>(i, j)[1];
+                    // 访问S通道的值
+                    sum_v += HSV.at<cv::Vec3b>(i, j)[2];
+                }
+            }
+            sum_s /= (HSV.rows * HSV.cols);
+            sum_v /= (HSV.rows * HSV.cols);
+            if (sum_s < 30 || sum_v < 60)
+                return 1;
+
+            cv::Mat crop_image = img_full(cv::Range(935, 1070), cv::Range(1124, 1198));
+            cv::Mat gray;
+            cv::cvtColor(crop_image, gray, cv::COLOR_BGR2GRAY);
+            cv::Mat edges;
+            cv::Canny(gray, edges, 50, 150, 3);
+            std::vector<cv::Vec4i> points;
+            cv::HoughLinesP(edges, points, 1, CV_PI / 180, 60, 40, 10);
+            int line = 0;
+            for (int i = 0; i < points.size(); i++) {
+                int x1, x2, y1, y2;
+                x1 = points[i][0];
+                y1 = points[i][1];
+                x2 = points[i][2];
+                y2 = points[i][3];
+                double slope = 1.0 * (y2 - y1) / (x2 - x1);
+                if (slope >= 1.7 && slope <= 2.7)
+                    ++line;
+            }
+            if (line > 0)
+                return 1;
+            return 0;
+        }
+
+        int gray_filter( cv::Mat &image,ROI& roi_door, cv::Scalar& gray_hsv_lower, cv::Scalar& gray_hsv_upper, int device_id, double ratio_arrived=0.18 ) //0 :有车      1: 没车
         {
 			int x_min = roi_door.x1, x_max = roi_door.x2, y_min = roi_door.y1, y_max = roi_door.y2;
 
             cv::Mat crop_image = image(cv::Range(y_min, y_max), cv::Range(x_min, x_max));
-            auto  result = statistic_gray(crop_image, gray_hsv_lower, gray_hsv_upper, ratio_arrived);
-			return result;
+            if(device_id!= 10)
+                return statistic_gray(crop_image, gray_hsv_lower, gray_hsv_upper, ratio_arrived);
+            return statistic_gray_and_line(crop_image, image);
         }
 
-
-        int gate_status_detect(exposing::param_span<std::uint8_t> bitmap, int channels, int height, int width, int yellow_hsv_lower, int yellow_hsv_upper, int gray_hsv_lower, int gray_hsv_upper, 
+        int gate_status_detect(exposing::param_span<std::uint8_t> bitmap, int channels, int height, int width, int yellow_hsv_lower, int yellow_hsv_upper, int gray_hsv_lower, int gray_hsv_upper,
             std::vector<int>& rois,
             std::map<std::string, float>& param_map_abi)
         {
-            
-            double door_close_ratio = param_map_abi.count("door_close_ratio")?param_map_abi["door_close_ratio"]:0.18;
-            double door_open_ratio = param_map_abi.count("door_open_ratio")?param_map_abi["door_open_ratio"]:0.02;
-            double floor_ratio = param_map_abi.count("floor_ratio")?param_map_abi["floor_ratio"]:0.18;
+
+            double door_close_ratio = param_map_abi.count("door_close_ratio") ? param_map_abi["door_close_ratio"] : 0.18;
+            double door_open_ratio = param_map_abi.count("door_open_ratio") ? param_map_abi["door_open_ratio"] : 0.02;
+            double floor_ratio = param_map_abi.count("floor_ratio") ? param_map_abi["floor_ratio"] : 0.18;
+            int device_id = param_map_abi.count("device_id") ? std::round(param_map_abi["device_id"]) : 0;
+
+            if (device_id < 10 || device_id > 17)
+                throw exposing::abi_invalid_argument("pump_gate_status: Invalid device_id");
 
             cv::Scalar yellow_lower;
             cv::Scalar yellow_upper;
-			cv::Scalar gray_lower;
+            cv::Scalar gray_lower;
             cv::Scalar gray_upper;
-            hsv_parse(yellow_hsv_lower, yellow_lower );
-			hsv_parse(yellow_hsv_upper,yellow_upper );
-			hsv_parse(gray_hsv_lower, gray_lower );
-			hsv_parse(gray_hsv_upper, gray_upper );
+            hsv_parse(yellow_hsv_lower, yellow_lower);
+            hsv_parse(yellow_hsv_upper, yellow_upper);
+            hsv_parse(gray_hsv_lower, gray_lower);
+            hsv_parse(gray_hsv_upper, gray_upper);
 
             if (bitmap.empty())
                 throw exposing::abi_invalid_argument("current frame is empty");
 
             CHECK_EQ(channels, 3);
-			CHECK_EQ(rois.size(), 8);
+            CHECK_EQ(rois.size(), 8);
             CHECK_EQ(bitmap.size(), channels * height * width);
 
             cv::Mat image(cv::Size(width, height), CV_8UC3);
             std::memcpy(image.data, bitmap.data(), sizeof(uint8_t) * channels * height * width);
 
-			ROI door (rois[0], rois[1], rois[2],rois[3] );
-			ROI floor (rois[4], rois[5], rois[6],rois[7] );
+            ROI door(rois[0], rois[1], rois[2], rois[3]);
+            ROI floor(rois[4], rois[5], rois[6], rois[7]);
 
-
-
-			bool  opened_door = yellow_filter(image,door,yellow_lower,yellow_upper , door_close_ratio, door_open_ratio )!=0;//0为关闭
+            bool  opened_door = yellow_filter(image, door, yellow_lower, yellow_upper, door_close_ratio, door_open_ratio) != 0;//0为关闭
             if (!opened_door)
                 return 0;
-
-            // bool  working = gray_filter(image, floor, gray_lower, gray_upper, floor_ratio) == 0; //0为有东西
-            return opened_door;
-			//return opened_door&&working;不在这里判断working了 , 外面加了work_status协议
-
+            if (device_id != 10)
+                return opened_door;
+            else {
+                bool  working = gray_filter(image, floor, gray_lower, gray_upper, device_id, floor_ratio) == 0; //0为有东西
+                return opened_door && working;
+            }
         }
 
 
@@ -232,7 +276,9 @@ namespace glasssix::pump_gate_status
 
     std::string gate_status_internal::version()
     {
-        std::string dd;
-        return dd;
+
+        const std::string nn_frame_version = "1.2.0";
+
+        return fmt::format(R"({{"nn_frame_version":"{}", "algo_module_version":"{}"}})", nn_frame_version,"");
     }
 }

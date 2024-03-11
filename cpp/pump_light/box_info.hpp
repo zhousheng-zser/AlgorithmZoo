@@ -22,6 +22,7 @@ namespace glasssix::exposing::impl
             virtual std::int32_t G6_ABI_CALL red_ratio(abi_out_t<float> result) noexcept = 0;
             virtual std::int32_t G6_ABI_CALL white_ratio(abi_out_t<float> result) noexcept = 0;
             virtual std::int32_t G6_ABI_CALL orange_ratio(abi_out_t<float> result) noexcept = 0;
+            virtual std::int32_t G6_ABI_CALL  grey_ratio(abi_out_t<float> result) noexcept = 0;
             virtual std::int32_t G6_ABI_CALL light_status(abi_out_t<bool> result) noexcept = 0;
             virtual std::int32_t G6_ABI_CALL version(abi_out_t<param_string> result) noexcept = 0;
         };
@@ -46,6 +47,12 @@ namespace glasssix::exposing::impl
         {
             return abi_safe_call([&]
                 { *result = detach_abi(this->self().orange_ratio()); });
+        }
+
+        virtual std::int32_t G6_ABI_CALL grey_ratio(abi_out_t<float> result) noexcept override
+        {
+            return abi_safe_call([&]
+                { *result = detach_abi(this->self().grey_ratio()); });
         }
 
         virtual std::int32_t G6_ABI_CALL light_status(abi_out_t<bool> result) noexcept override
@@ -83,6 +90,12 @@ namespace glasssix::exposing::impl
                 float result;
 
                 return (check_abi_result(this->self_abi().orange_ratio(put_abi(result))), result);
+            }
+            float grey_ratio() const
+            {
+                float result;
+
+                return (check_abi_result(this->self_abi().grey_ratio(put_abi(result))), result);
             }
             bool light_status() const
             {

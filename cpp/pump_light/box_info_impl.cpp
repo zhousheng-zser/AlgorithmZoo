@@ -28,6 +28,11 @@ namespace glasssix::pump_light
 		return internal_.orange_ratio;
 	}
 
+	float box_info_impl::grey_ratio() const
+	{
+		return internal_.grey_ratio;
+	}
+
 	bool box_info_impl::light_status() const
 	{
 		return internal_.light_status;
