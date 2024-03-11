@@ -728,7 +728,7 @@ namespace glasssix::pumptop_helmet
 
 				// 针对宽高做不同程度缩小，宽都统一缩小0.65，上边高度缩小0.2，下边缩小0.6（缩小至1-ration），乘以比例系数
 				float pump_w_ratio = 0.8 * scale_ratio;
-				float pump_y1_ratio = 0.3 * scale_ratio;
+				float pump_y1_ratio = 0.5 * scale_ratio;
 				float pump_y2_ratio = 0.7 * scale_ratio;
 				// 确定泵顶的初始四个点
 				float pump_top_x1 = rect.x + rect.width * (pump_w_ratio / 2.0f);
@@ -792,7 +792,7 @@ namespace glasssix::pumptop_helmet
 				{
 					fix_box_x2 = fix_box_x1 + (fix_box_x4 - fix_box_x3);
 				}
-				//& 得到最终泵顶区域的四个顶点:四边形的左上、右上、右下、左下
+				// 得到最终泵顶区域的四个顶点:四边形的左上、右上、右下、左下
 				float x1, y1;
 				float x2, y2;
 				float x4, y4;
