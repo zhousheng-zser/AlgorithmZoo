@@ -137,6 +137,8 @@ if(BUILD_DEBUG_INFO)
 	add_definitions(-DBUILD_DEBUG_INFO)
 endif()
 
+add_subdirectory(GenPipeline)
+
 if(BUILD_MATIERIAL_OCR_SDK)
 	add_subdirectory(Heimdall)
 	add_subdirectory(Banshee)
