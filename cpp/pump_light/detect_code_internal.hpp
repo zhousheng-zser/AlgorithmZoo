@@ -29,6 +29,7 @@ namespace glasssix::pump_light
 		float white_ratio;
 		float red_ratio;
 		float orange_ratio;
+        float grey_ratio;
         bool light_status;
         exposing::param_string version;
     };
