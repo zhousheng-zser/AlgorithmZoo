@@ -39,7 +39,6 @@ namespace glasssix::pump_vesthelmet
 
 		cv::Rect get_vest_det_region() {
 			std::vector<cv::Point> Kpoints_temp{
-				Kpoints[0],
 				Kpoints[5],
 				Kpoints[6],
 				Kpoints[7],
