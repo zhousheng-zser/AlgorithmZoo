@@ -114,6 +114,16 @@ namespace glasssix::playphone
 
 		}
 
+		bool if_hand_close_nose(const float& hand_nose_thresh) {
+			cv::Point nose_pt = Kpoints[0];
+			const cv::Point& rgt_wrist_pt = Kpoints[9];
+			const cv::Point& lft_wrist_pt = Kpoints[10];
+			auto dis_nose_rgtwrist = cv::norm(nose_pt - rgt_wrist_pt);
+			auto dis_nose_lftwrist = cv::norm(nose_pt - lft_wrist_pt);			
+			auto hand_nose_dis = std::min(dis_nose_rgtwrist, dis_nose_lftwrist);
+			return hand_nose_dis<= hand_nose_thresh;
+		}
+
 		void set_origin_image_border(int x, int y, int width, int height) {
 			origin_image_border = cv::Rect(x, y, width, height);
 		}
