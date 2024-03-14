@@ -10,11 +10,10 @@
 #include <numeric>
 #include <memory>
 #include <GenPipeline/BackendFactory.hpp>
-#include "BMNNWrapper/bmnn_pipeline.hpp"
-
+#include <BMNNWrapper/bmnn_pipeline.hpp>
 
 class BMNNBackend : public InferBackend {
-	std::unique_ptr<ONNXRTPipeline> pipeline;
+	std::unique_ptr<BMNNPipeline> pipeline;
 
 public:
 	static constexpr const char* backendType = "sophone_bmnn";
@@ -35,7 +34,7 @@ public:
 		if (arch == weight) {
 			auto model_pure = arch.substr(0, arch.find_last_of('.'));
 			auto target_model = model_pure + ".bmodel";
-			pipeline = std::make_unique<ONNXRTPipeline>(target_model, device);
+			pipeline = std::make_unique<BMNNPipeline>(target_model, device);
 			return 0;
 		}
 		else {
@@ -46,7 +45,7 @@ public:
 	int initModel(std::string model, int device) override final {
 		auto model_pure = model.substr(0, model.find_last_of('.'));
 		auto target_model = model_pure + ".bmodel";
-		pipeline = std::make_unique<ONNXRTPipeline>(target_model, device);
+		pipeline = std::make_unique<BMNNPipeline>(target_model, device);
 		return 0;
 	}
 

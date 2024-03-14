@@ -46,6 +46,19 @@ if(NOT DEFINED COMMON_LIBRARY_DIRS)
 endif()
 
 list(APPEND COMMON_LIBRARIES_NAMES primitives julius)
+
+# SOPHONE TPU BMNN
+if(NOT ${SOPHONE_SDK} STREQUAL "")
+	list(APPEND COMMON_LIBRARIES_NAMES bmlib bmrt bmcv yuv bmjpuapi bmjpulite)
+
+	# list(APPEND COMMON_INCLUDE_DIRS ${SOPHONE_SDK}/include) # no work
+	include_directories("${SOPHONE_SDK}/include/") # work
+
+	list(APPEND COMMON_LIBRARY_DIRS ${SOPHONE_SDK}/lib) #2 select 1
+	#link_directories("${SOPHONE_SDK}/lib/")
+	add_definitions(-DUSE_BMNN)
+endif()
+
 if(RKNNAPI_VERSION STREQUAL "1")
 	list(APPEND COMMON_LIBRARIES_NAMES rknn_api)
 	add_definitions(-DUSE_RKNNAPI)

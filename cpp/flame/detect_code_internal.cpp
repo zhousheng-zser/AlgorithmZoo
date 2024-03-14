@@ -13,7 +13,6 @@
 #include <GenPipeline/PrePostProcessGenPipeline.hpp>
 #include <GenPipeline/GetPostprocessing.hpp>
 #include "../genpipeline/market/yolov8_GEN.hpp"
-
 namespace glasssix::flame
 {
     class detect_code_internal::impl
@@ -43,9 +42,8 @@ namespace glasssix::flame
             CHECK_EQ(channels, 3);
             CHECK_EQ(bitmap.size(), channels * height * width);
             
-            cv::Mat image(cv::Size(width, height), CV_8UC3);
-            std::memcpy(image.data, bitmap.data(), sizeof (uint8_t) * channels * height * width);
-            
+            cv::Mat image(cv::Size(width, height), CV_8UC3, const_cast<uint8_t*>(bitmap.data()));
+
             if(roi_x<0 || roi_x>width || roi_y>height || roi_y<0 ||roi_height<0 || (roi_height+roi_y) >height || roi_width<0 || (roi_width+roi_x) > width)
             {
                   throw exposing::abi_invalid_argument("incorrect roi in flame");
@@ -66,7 +64,7 @@ namespace glasssix::flame
 
         std::string version()
         {
-			const std::string algo_module_version = "4.0.0";
+			const std::string algo_module_version = "4.0.1";
 
 			std::string nn_frame_version = ioprocess_pipeline_->version();
 

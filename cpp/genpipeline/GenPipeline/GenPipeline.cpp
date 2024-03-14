@@ -1,12 +1,4 @@
 #pragma once
-#ifdef EXPERIMENTAL_FILESYSTEM
-#include <experimental/filesystem>
-namespace fs = std::experimental::filesystem;
-#else
-#include <filesystem>
-//using namespace std::filesystem;
-namespace fs = std::filesystem;
-#endif // EXPERIMENTAL_FILESYSTEM
 #include <Primitives/abi/exceptions.hpp>
 #include <Primitives/logger.hpp>
 #include <Primitives/tensor.hpp>
