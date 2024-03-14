@@ -105,13 +105,14 @@ namespace glasssix::pump_hoisting
                         // float distance1 =get_distance_between_Rectangle(current_box, library[match_id] );
 
                         float distance = get_distance_between_Rectangle(current_box, library[match_id], false );
-                        float left_corner_distance = get_left_corner_distance_between_Rectangle(current_box,library[match_id]);
+                        float left_down_corner_distance = get_left_down_corner_distance_between_Rectangle(current_box,library[match_id]);
+                        float left_top_corner_distance = get_left_top_corner_distance_between_Rectangle(current_box,library[match_id]);
 
                         // float 
 
                         library[match_id].refresh( current_box.x1, current_box.y1, current_box.x2, current_box.y2   );
 
-                        if(  (abs(current_box.y2-current_box.y1)*0.8 > distance && distance > abs(current_box.y2-current_box.y1)*move_threshold) && left_corner_distance>0.06*abs(current_box.y2-current_box.y1)  ) //检测到移动了
+                        if(  (abs(current_box.y2-current_box.y1)*centre_move_thres > distance && distance > abs(current_box.y2-current_box.y1)*move_threshold) && left_down_corner_distance>left_down_move_thres*abs(current_box.y2-current_box.y1)  && left_top_corner_distance>left_top_move_thres*abs(current_box.y2-current_box.y1) ) //检测到移动了
                         {
                             auto neighboor = find_nearest_rectangles(all_pump_rect_boxes, current_box );
 
@@ -284,6 +285,10 @@ namespace glasssix::pump_hoisting
             float iou_threshold             = param_map.count("iou_threshold") ? param_map["iou_threshold"] : 0.7f;
             float move_threshold            = param_map.count("move_threshold") ? param_map["move_threshold"] : 0.05f;
             int   device_id                 = std::round( param_map.count("device_id") ? param_map["device_id"] : 0.f );
+
+            float left_top_move_thres            = param_map.count("left_top_move_thres") ? param_map["left_top_move_thres"] : 0.08f;
+            float left_down_move_thres            = param_map.count("left_down_move_thres") ? param_map["left_down_move_thres"] : 0.08f;
+            float centre_move_thres            = param_map.count("centre_move_thres") ? param_map["centre_move_thres"] : 0.05f;
 
             empty_map_abi.add_or_update("conf_thres",conf_threshold) ;
             empty_map_abi.add_or_update("nms_thres", 0.45);
