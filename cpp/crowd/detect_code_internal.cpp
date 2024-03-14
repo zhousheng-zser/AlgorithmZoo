@@ -128,7 +128,7 @@ namespace glasssix::crowd
 
         std::string version()
         {
-			const std::string algo_module_version = "2.1.2";
+			const std::string algo_module_version = "2.1.4";
 
 #if defined(USE_RKNNAPI) || defined(USE_RKNN2API)
 			//#if 0
@@ -230,7 +230,7 @@ namespace glasssix::crowd
             }
         }
 
-        std::vector<detect_list> get_boxInfo_from_Binar_map(std::vector<int>& binar_map, int min_area=3)
+        std::vector<detect_list> get_boxInfo_from_Binar_map(std::vector<int>& binar_map, int min_area=35)
         {
             std::vector<detect_list> result_part;
             int width = 640;
