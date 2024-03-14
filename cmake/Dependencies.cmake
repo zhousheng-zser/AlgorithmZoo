@@ -1,5 +1,4 @@
 if((NOT DEFINED Boost_INCLUDE_DIRS) OR (Boost_INCLUDE_DIRS STREQUAL ""))
-	message("#### YHC")
 	find_package(Boost REQUIRED)
 endif()
 
