@@ -160,7 +160,7 @@ public:
         // 对k-距离进行排序
         std::sort(k_distances.begin(), k_distances.end());
         // 寻找最优eps值
-        double eps = find_optimal_eps(k_distances) * 1.5;
+        double eps = find_optimal_eps(k_distances) * 0.8;
         // 打印结果
         //  std::cout << "eps: " << eps << std::endl;
         std::vector<int> labels;
