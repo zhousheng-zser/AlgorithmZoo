@@ -125,6 +125,7 @@ namespace glasssix::pump_vesthelmet
 				}
 				else {
 					auto people_img = safty_cut(image, people_img_rect);
+					const int people_height = people_img.rows;
 					std::vector<HeadInfo> head_info = head_det(people_img, head_conf_thres);
 					if (head_info.empty())
 					{
@@ -142,7 +143,10 @@ namespace glasssix::pump_vesthelmet
 						for (auto& head : head_info)
 						{
 							auto head_rect = head.get_rect();
+							auto head_center = head.get_center();
 							if (head_rect.width < head_min_w_thres || head_rect.height < head_min_h_thres)
+								continue;
+							if (head_center.y > people_height * 0.2)
 								continue;
 
 							box_info_internal person_head_unit;
@@ -217,7 +221,7 @@ namespace glasssix::pump_vesthelmet
 
 		std::string version()
 		{
-			const std::string algo_module_version = "1.4.1";
+			const std::string algo_module_version = "1.5.1";
 			std::string nn_frame_version = "rknn";
 			return fmt::format(R"({ {"nn_frame_version":"{}", "algo_module_version" : "{}"} })", nn_frame_version, algo_module_version);
 		}
@@ -291,7 +295,7 @@ namespace glasssix::pump_vesthelmet
 		std::vector<HeadInfo> head_det(cv::Mat image, float head_det_conf_thres = 0.6, float nms_threshold = 0.5) {
 			std::vector<HeadInfo> head_list;
 
-			constexpr int reShapeSide = 320;
+			constexpr int reShapeSide = 128;
 			auto letter_img = letterbox(image, reShapeSide, reShapeSide);
 			cv::cvtColor(letter_img, letter_img, cv::COLOR_BGR2RGB);
 			auto det_rst_map = head_det_instance_->forward(letter_img.data, { 1, letter_img.rows, letter_img.cols, letter_img.channels() }, RKNN_TENSOR_NHWC);
