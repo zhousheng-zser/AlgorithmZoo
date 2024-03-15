@@ -692,8 +692,8 @@ namespace glasssix::pumptop_helmet
 
 				cv::Rect roiRect(x1, y1, x2 - x1, y2 - y1);
 				//& 画泵
-				cv::rectangle(image, cv::Point(roiRect.x, roiRect.y), cv::Point(roiRect.x + roiRect.width, roiRect.y + roiRect.height), cv::Scalar(0, 0, 255), 1);
-				cv::putText(image, str, cv::Point(x1 + 10, y1 + 10), 0, 1.5, cv::Scalar(0, 0, 255));
+				// cv::rectangle(image, cv::Point(roiRect.x, roiRect.y), cv::Point(roiRect.x + roiRect.width, roiRect.y + roiRect.height), cv::Scalar(0, 0, 255), 1);
+				// cv::putText(image, str, cv::Point(x1 + 10, y1 + 10), 0, 1.5, cv::Scalar(0, 0, 255));
 				// 人检测
 				int category;
 				float score;
@@ -818,8 +818,8 @@ namespace glasssix::pumptop_helmet
 #endif
 				vec_pump_top = vertices;
 				//& 画泵顶区域
-				std::vector<cv::Point> pts = {vertices[0], vertices[1], vertices[2], vertices[3], vertices[0]}; // 构造多边形的顶点序列
-				cv::polylines(img, pts, true, cv::Scalar(0, 255, 0), 1);
+				// std::vector<cv::Point> pts = {vertices[0], vertices[1], vertices[2], vertices[3], vertices[0]}; // 构造多边形的顶点序列
+				// cv::polylines(img, pts, true, cv::Scalar(0, 255, 0), 1);
 			}
 			init_data1280();
 			auto new_shape = cv::Size(1280, 1280);
@@ -932,20 +932,20 @@ namespace glasssix::pumptop_helmet
 					ratio_ret = point_reception::polygon::count_intersect_area_ratio_to_roi(people_pr, pumptop_pr);
 				}
 				flag = ratio_ret >= Threshold ? true : false;
-					std::cout << "ratio_ret: " << ratio_ret << " - " << flag << std::endl;
+					// std::cout << "ratio_ret: " << ratio_ret << " - " << flag << std::endl;
 				//& 是否打印 人是否在泵顶
-				if (distance >= 0 && flag)
-				{
-					std::cout << "\033[31mThis text will be red!  distance: *************************\033[0m"
-							  << "" << distance << std::endl;
-				}
-				else
-					std::cout << "distance: *************************" << distance << std::endl;
+				// if (distance >= 0 && flag)
+				// {
+				// 	std::cout << "\033[31mThis text will be red!  distance: *************************\033[0m"
+				// 			  << "" << distance << std::endl;
+				// }
+				// else
+				// 	std::cout << "distance: *************************" << distance << std::endl;
 				if (distance >= 0 && flag)
 				{
 					rect_peple_ori = people_rect;
 
-					std::cout << "The point is inside the rectangle!" << std::endl;
+					// std::cout << "The point is inside the rectangle!" << std::endl;
 					// 人头检测
 					rect_head = head_detect(image_ori_all, rect_peple_ori, param_map, score); // 这里 rect_peple_ori 需要替换成人的原始坐标(而且还必须是满足是在泵顶区域要求的坐标)
 					//! 这里需要对人头检测进行判空,不然 人头分类检测 拿到的就是空数据,会报错
@@ -957,24 +957,24 @@ namespace glasssix::pumptop_helmet
 					// 人头分类检测
 					category = helmet_detect(image_ori_all, rect_head, param_map, helmet_score);
 					//& 画泵顶区域的人体与人体底部中心
-					cv::rectangle(img, cv::Point(rect_peple_ori.x, rect_peple_ori.y), cv::Point(rect_peple_ori.x + rect_peple_ori.width, rect_peple_ori.y + rect_peple_ori.height), cv::Scalar(0, 0, 255), 1);
-					cv::circle(img, point_people_feet_center, 5, cv::Scalar(0, 0, 255), -1);
-					cv::putText(img, std::to_string(people_score), cv::Point(rect_peple_ori.x + 10, rect_peple_ori.y + 10), 0, 1.5, cv::Scalar(0, 0, 255));
+					// cv::rectangle(img, cv::Point(rect_peple_ori.x, rect_peple_ori.y), cv::Point(rect_peple_ori.x + rect_peple_ori.width, rect_peple_ori.y + rect_peple_ori.height), cv::Scalar(0, 0, 255), 1);
+					// cv::circle(img, point_people_feet_center, 5, cv::Scalar(0, 0, 255), -1);
+					// cv::putText(img, std::to_string(people_score), cv::Point(rect_peple_ori.x + 10, rect_peple_ori.y + 10), 0, 1.5, cv::Scalar(0, 0, 255));
 
 					//& 画人头
-					cv::rectangle(img, cv::Point(rect_head.x, rect_head.y), cv::Point(rect_head.x + rect_head.width, rect_head.y + rect_head.height), cv::Scalar(0, 0, 255), 1);
-					cv::putText(img, std::to_string(score) + "___" + std::to_string(helmet_score), cv::Point(rect_head.x + 10, rect_head.y + 10), 0, 1.5, cv::Scalar(0, 0, 255));
+					// cv::rectangle(img, cv::Point(rect_head.x, rect_head.y), cv::Point(rect_head.x + rect_head.width, rect_head.y + rect_head.height), cv::Scalar(0, 0, 255), 1);
+					// cv::putText(img, std::to_string(score) + "___" + std::to_string(helmet_score), cv::Point(rect_head.x + 10, rect_head.y + 10), 0, 1.5, cv::Scalar(0, 0, 255));
 				}
 				else
 				{
-					std::cout << "The point is outside the rectangle!" << std::endl;
-					//& 画不在泵顶里面的人体与底部中心
-					cv::rectangle(img, cv::Point(people_rect.x, people_rect.y), cv::Point(people_rect.x + people_rect.width, people_rect.y + people_rect.height), cv::Scalar(255, 255, 0), 1);
-					cv::circle(img, point_people_feet_center, 5, cv::Scalar(0, 0, 255), -1);
+					// std::cout << "The point is outside the rectangle!" << std::endl;
+					// //& 画不在泵顶里面的人体与底部中心
+					// cv::rectangle(img, cv::Point(people_rect.x, people_rect.y), cv::Point(people_rect.x + people_rect.width, people_rect.y + people_rect.height), cv::Scalar(255, 255, 0), 1);
+					// cv::circle(img, point_people_feet_center, 5, cv::Scalar(0, 0, 255), -1);
 				}
 			}
 			//& 写入图片文件
-			cv::imwrite("../last" + std::to_string(num) + ".jpg", img);
+			// cv::imwrite("../last" + std::to_string(num) + ".jpg", img);
 			if (category == -1)
 			{
 				return {};
