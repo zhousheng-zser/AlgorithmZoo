@@ -45,7 +45,7 @@ namespace glasssix::pump_light
 
         std::string version()
         {
-            const std::string nn_frame_version = "1.1.0";
+            const std::string nn_frame_version = "1.1.1";
 
             return fmt::format(R"({{"nn_frame_version":"{}", "algo_module_version":"{}"}})", nn_frame_version, "");
         }
@@ -122,7 +122,7 @@ namespace glasssix::pump_light
 
             if ( (ans.red_ratio > 0.45 && 0.2> ans.white_ratio && ans.white_ratio > 0.05)   || ans.grey_ratio > 0.75 ||(ans.red_ratio > 0.45 && ans.orange_ratio > 0.1) )
                 ans.light_status = false;
-            else if ( (0.45 > ans.red_ratio && ans.red_ratio > 0.1) || ans.white_ratio > 0.3 || ans.orange_ratio > 0.1)
+            else if ( (0.45 > ans.red_ratio && ans.red_ratio > 0.1) || ans.white_ratio > 0.3 || ans.orange_ratio > 0.2)
                 ans.light_status = true;
             else
                 ans.light_status = false;
