@@ -73,17 +73,26 @@ namespace glasssix::playphone
                 if (postureInfo.invaild_hand_kpnum() < 2 && postureInfo.invaild_face_kpnum() < 2)
                 {
                     //detect phones
-                    const auto playphone_det_region_rect = postureInfo.get_playphone_det_region();
-                    auto playphone_det_region = safty_cut(image, playphone_det_region_rect);
-                    std::vector<ObjBox> phone_list = phone_pipilne_->detect(playphone_det_region, playphone_det_region_rect.tl(), phone_conf_thres, phone_nms_thres);
+                    const auto playphone_det_region_rect = postureInfo.get_playphone_det_region(); // upperbody_img
+                    const int max_upperbody_img_side = std::max(playphone_det_region_rect.width, playphone_det_region_rect.height);
 
 					// 以第二阶段检测框的最长边的0.16倍作为耳朵中心点到手机框中心点距离阈值
-					auto ear_tresh = std::max(playphone_det_region_rect.width, playphone_det_region_rect.height) * 0.16f;
+                    const float ear_tresh = max_upperbody_img_side * 0.16f;
+
+                    // 以第二阶段检测框的最长边的0.12倍作为耳朵到鼻子距离过近判定阈值
+					const float hand_nose_thresh= max_upperbody_img_side * 0.12f;
+                    const bool hand_close_nose = postureInfo.if_hand_close_nose(hand_nose_thresh);
+
+                    auto playphone_det_region = safty_cut(image, playphone_det_region_rect);
+                    std::vector<ObjBox> phone_list = phone_pipilne_->detect(playphone_det_region, playphone_det_region_rect.tl(), phone_conf_thres, phone_nms_thres);
 
                     for (auto phoneObj : phone_list)
                     {
                         //cv::rectangle(image, phoneObj.get_rect(), { 0, 0, 255 }, 2);
                         auto phoneRect = phoneObj.get_rect();
+
+                        if (hand_close_nose)
+                            phoneObj.score *= 0.71;
 
                         //手机框太靠近耳朵
 						cv::Point phoneRectCenter(phoneRect.x + phoneRect.width / 2, phoneRect.y + phoneRect.height / 2);
@@ -141,7 +150,7 @@ namespace glasssix::playphone
 
         std::string version()
         {
-			const std::string algo_module_version = "2.4.0";
+			const std::string algo_module_version = "2.5.0";
 
 #if defined(USE_RKNNAPI) || defined(USE_RKNN2API)
 			//#if 0

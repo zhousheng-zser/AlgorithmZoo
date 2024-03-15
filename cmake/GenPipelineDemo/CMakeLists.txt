@@ -1,12 +1,18 @@
-cmake_minimum_required(VERSION 3.14.3)
-set(module_name flame)
-file(GLOB src ${CMAKE_CURRENT_SOURCE_DIR}/../../cpp/flame/*.cpp)
-file(GLOB header ${CMAKE_CURRENT_SOURCE_DIR}/../../cpp/flame/*.hpp)
+cmake_minimum_required(VERSION 3.5)
 
-add_library(${module_name} SHARED ${src} ${header})
+set(module_name genpipeline_demo)
+cmake_minimum_required(VERSION 3.5)
 
-target_link_libraries(${module_name} PRIVATE genpipeline)
+file(GLOB SRC 
+	${PROJECT_SOURCE_DIR}/../cpp/genpipeline_demo/*.hpp
+	${PROJECT_SOURCE_DIR}/../cpp/genpipeline_demo/*.cpp
+)
+
+add_executable(${module_name} ${SRC}) 
+
+target_link_libraries(${module_name} PRIVATE genpipeline) #cant miss PRIVATE, must be either all-keyword or all-plain.
 add_dependencies(${module_name} genpipeline)
+
 
 if(NOT (CMAKE_CXX_COMPILER_ID STREQUAL "MSVC"))
 	target_link_directories(${module_name} PRIVATE ${COMMON_LIBRARY_DIRS})
@@ -18,7 +24,5 @@ if(NOT OPENCV_FOUND)
 endif()
 target_link_libraries(${module_name} PRIVATE ${OpenCV_LIBS})
 
-target_include_directories(${module_name} PRIVATE ${COMMON_INCLUDE_DIRS} )
+target_include_directories(${module_name} PRIVATE ${COMMON_INCLUDE_DIRS})
 target_link_libraries(${module_name} PRIVATE ${COMMON_LIBRARIES})
-
-

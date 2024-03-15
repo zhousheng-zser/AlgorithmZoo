@@ -161,12 +161,20 @@ using namespace glasssix;
         return std::make_pair(quadrilateral_left,quadrilateral_right);
     }
 
-    float get_left_corner_distance_between_Rectangle(const Rectangle&R1, const Rectangle& R2, bool real_time = true)
+    float get_left_down_corner_distance_between_Rectangle(const Rectangle&R1, const Rectangle& R2, bool real_time = true)
     {
         if(real_time)
             return   abs(R1.get_rt_y2()-R2.get_rt_y2()); 
         else
             return   abs(R1.get_y2()-R2.get_y2()); 
+    }
+
+    float get_left_top_corner_distance_between_Rectangle(const Rectangle&R1, const Rectangle& R2, bool real_time = true)
+    {
+        if(real_time)
+            return   abs(R1.real_time_y1-R2.real_time_y1 ); 
+        else
+            return   abs(R1.y1 - R2.y1); 
     }
 
     float get_distance_between_Rectangle(const Rectangle&R1, const Rectangle& R2, bool real_time = true)
