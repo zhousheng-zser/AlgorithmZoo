@@ -132,7 +132,7 @@ using namespace glasssix;
 
     bool is_filterated(Cigrate_box & head, Cigrate_box & cigrate )
     {
-        return (head.area()<cigrate.area()) || (cigrate.m_left<10&&cigrate.m_height<10)   ;
+        return (head.area()<cigrate.area()) || (cigrate.m_width<10&&cigrate.m_height<10)   ;
     }
     
     float IOU_compute(const Cigrate_box& b1, const Cigrate_box& b2)
