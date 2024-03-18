@@ -727,39 +727,48 @@ namespace glasssix::pumptop_helmet
 			//~ 泵顶的区域 根据算法工程师的要求,变得极为复杂,需好好优化下
 			float xx1, yy1, xx2, yy2, xx3, yy3, xx4, yy4;
 			{
-				float fix_ratio = 1.0f;
+				float fix_ratio = 0.3f;
 				// 比例系数， 泵宽除以高（一般来说<1)
-				float scale_ratio = rect.width / (rect.height * 1.0f);
+				float scale_ratio = std::sqrt(rect.width / (rect.height * 1.0f));
 
-				// 针对宽高做不同程度缩小，宽都统一缩小0.65，上边高度缩小0.2，下边缩小0.6（缩小至1-ration），乘以比例系数
-				float pump_w_ratio = 0.8 * scale_ratio;
-				float pump_y1_ratio = 0.5 * scale_ratio;
-				float pump_y2_ratio = 0.7 * scale_ratio;
+				float img_middle_x = image_ori_all.cols / 2.0f; // 图片中点的横坐标(也是图片宽度的一半)
+				float img_middle_y = image_ori_all.rows / 2.0f; // 图片中点的纵坐标(也是图片高度的一半)
+				// 求泵的中心点
+				float pump_center_x = rect.x + rect.width / 2.0f;	// 泵中心点的横坐标
+				// pump_center_x = (pump_top_x1 + pump_top_x2) / 2.0f; // 这俩个是一个东西
+				// float pump_center_x = rect.x + rect.width; // 这里给算错了
+				float pump_center_y = rect.y + rect.height / 2.0f; // 泵中心点的纵坐标
+
+				// 泵中心点与图片中心点距离绝对值
+				float dis_boxcenter_x_middle = pump_center_x - img_middle_x;
+				float dis_boxcenter_y_middle = pump_center_y - img_middle_y;
+
+				float bia_x_ratio = std::abs(dis_boxcenter_x_middle) / img_middle_x; // 偏移系数=泵中心点与图片中心点距离绝对值/图片一半宽度
+				float bia_y_ratio = 1 - (pump_center_y / image_ori_all.rows);		 // 泵中心点纵坐标在图钟位置比例
+
+				// 针对宽高做不同程度缩小，宽都统一缩小0.75，上边高度缩小0.5，下边缩小0.5
+				float pump_w_ratio = 0.75 * scale_ratio;
+				float pump_y1_ratio = 0.5 * std::sqrt(bia_y_ratio);
+				float pump_y2_ratio = 0.5;
+				float move_ratio = std::sqrt(scale_ratio) / 10.0f; // 泵顶区域移动系数
+
 				// 确定泵顶的初始四个点
 				float pump_top_x1 = rect.x + rect.width * (pump_w_ratio / 2.0f);
 				float pump_top_y1 = rect.y + rect.height * (pump_y1_ratio / 2.0f);
 				float pump_top_x2 = (rect.x + rect.width) - rect.width * (pump_w_ratio / 2.0f);
 				float pump_top_y2 = (rect.y + rect.height) - rect.height * (pump_y2_ratio / 2.0f);
-
-				float img_middle_x = image_ori_all.cols / 2.0f;		// 图片中点的横坐标(也是图片宽度的一半)
-				float pump_center_x = rect.x + rect.width / 2.0f;	// 泵中心点的横坐标
-				pump_center_x = (pump_top_x1 + pump_top_x2) / 2.0f; // 这俩个是一个东西
-				float pump_weight = pump_top_x2 - pump_top_x1;		// 泵顶的宽,不是泵宽,一切以python代码为准
-				float move_ratio = std::sqrt(scale_ratio) / 3.5;	// 泵顶区域移动系数
-
-				float dis_boxcenter_middle = pump_center_x - img_middle_x;		 // 泵中心点与图片中心点距离
-				float bia_ratio = std::abs(dis_boxcenter_middle) / img_middle_x; // 偏移系数=泵中心点与图片中心点距离绝对值/图片一半宽度
+				float pump_weight = pump_top_x2 - pump_top_x1;	   // 泵顶的宽,不是泵宽,一切以python代码为准
 				// 偏移距离
-				float fix_dis = bia_ratio * pump_weight * fix_ratio;
+				float fix_dis = bia_x_ratio * pump_weight * fix_ratio;
 				// 移动距离
-				float move_dis = move_ratio * pump_weight;
+				float move_dis = move_ratio * pump_weight * fix_ratio;
 				float x0 = 0.f;
 				bool if_right = false;
 
 				//^ 接下来需要判断泵在图片中心点的左边还是右边
 				// 对几个参数进行特殊化
 				// 默认为左边
-				if (dis_boxcenter_middle > 0) // 在右边
+				if (dis_boxcenter_x_middle > 0) // 在右边
 				{
 					fix_dis = -fix_dis;
 					move_dis = -move_dis;
@@ -932,7 +941,7 @@ namespace glasssix::pumptop_helmet
 					ratio_ret = point_reception::polygon::count_intersect_area_ratio_to_roi(people_pr, pumptop_pr);
 				}
 				flag = ratio_ret >= Threshold ? true : false;
-					// std::cout << "ratio_ret: " << ratio_ret << " - " << flag << std::endl;
+				// std::cout << "ratio_ret: " << ratio_ret << " - " << flag << std::endl;
 				//& 是否打印 人是否在泵顶
 				// if (distance >= 0 && flag)
 				// {
