@@ -8,24 +8,9 @@ namespace glasssix::pump_weld
 
     box_info_impl::~box_info_impl() {}
 
-    std::int32_t box_info_impl::weld_x1()
+    exposing::param_vector<std::int32_t> box_info_impl::weldlocal_list() const
     {
-        return internal_.weld_x1;
-    }
-
-    std::int32_t box_info_impl::weld_x2()
-    {
-        return internal_.weld_x2;
-    }
-
-    std::int32_t box_info_impl::weld_y1()
-    {
-        return internal_.weld_y1;
-    }
-
-    std::int32_t box_info_impl::weld_y2()
-    {
-        return internal_.weld_y2;
+        return internal_.weldlocal_list;
     }
 
     std::int32_t box_info_impl::can_x1()
