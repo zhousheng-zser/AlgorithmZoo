@@ -106,19 +106,17 @@ namespace glasssix::pump_weld
 
             struct CandidateBoxFlaglist
             {
-                cv::Rect weld_box;
+                std::vector<cv::Rect> weld_boxes;
                 cv::Rect candidate_box;
 				bool category; //0=standard, 1=unstandard
-                CandidateBoxFlaglist(cv::Rect& candidate_box_, cv::Rect& weld_box_, bool category_) :
-                    candidate_box(candidate_box_), weld_box(weld_box_), category(category_) {}
+                CandidateBoxFlaglist(cv::Rect& candidate_box_, std::vector<cv::Rect>& weld_boxes_, bool category_) :
+                    candidate_box(candidate_box_), weld_boxes(weld_boxes_), category(category_) {}
             };
+
             std::vector<CandidateBoxFlaglist> candidate_box_flag_list;
-			if (candidate_box_list.size() == weld_box_list.size()) {
-				for (int i = 0; i < candidate_box_list.size(); i++) {
-					auto& candidate_box = candidate_box_list[i];
-					auto& weld_box = weld_box_list[i];
-					candidate_box_flag_list.emplace_back(CandidateBoxFlaglist{ candidate_box, weld_box, UNSTANDARD_WELD });
-				}
+			for (int i = 0; i < candidate_box_list.size(); i++) {
+				auto& candidate_box = candidate_box_list[i];
+				candidate_box_flag_list.emplace_back(CandidateBoxFlaglist{ candidate_box, weld_box_list, UNSTANDARD_WELD });
 			}
 
             for (auto tube_bbox : tube_bbox_list) {
@@ -142,10 +140,12 @@ namespace glasssix::pump_weld
 
             for (auto& candidate_box_flag : candidate_box_flag_list) {
 				box_info_internal candidate_box_internal;
-				candidate_box_internal.weld_x1 = candidate_box_flag.weld_box.x;
-				candidate_box_internal.weld_y1 = candidate_box_flag.weld_box.y;
-				candidate_box_internal.weld_x2 = candidate_box_flag.weld_box.x + candidate_box_flag.weld_box.width;
-				candidate_box_internal.weld_y2 = candidate_box_flag.weld_box.y + candidate_box_flag.weld_box.height;
+                for (auto weld_box : candidate_box_flag.weld_boxes) {
+                    candidate_box_internal.weldlocal_list.push_back(weld_box.x);
+                    candidate_box_internal.weldlocal_list.push_back(weld_box.y);
+					candidate_box_internal.weldlocal_list.push_back(weld_box.x + weld_box.width);
+					candidate_box_internal.weldlocal_list.push_back(weld_box.y + weld_box.height);
+                }
 
                 candidate_box_internal.can_x1 = candidate_box_flag.candidate_box.x;
                 candidate_box_internal.can_y1 = candidate_box_flag.candidate_box.y;
@@ -274,7 +274,7 @@ namespace glasssix::pump_weld
 
         std::string version()
         {
-            const std::string algo_module_version = "1.4.0";
+            const std::string algo_module_version = "1.5.0";
 
             std::string nn_frame_version = weld_machine_instance_.version();
 

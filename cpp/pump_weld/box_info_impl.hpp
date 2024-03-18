@@ -14,10 +14,8 @@ namespace glasssix::pump_weld
         box_info_impl();
         box_info_impl(const box_info_internal &internal);
         ~box_info_impl();
-        std::int32_t weld_x1();
-        std::int32_t weld_x2();
-        std::int32_t weld_y1();
-        std::int32_t weld_y2();
+
+        exposing::param_vector<std::int32_t> weldlocal_list() const;
         std::int32_t can_x1();
         std::int32_t can_x2();
         std::int32_t can_y1();

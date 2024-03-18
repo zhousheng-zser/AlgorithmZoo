@@ -63,7 +63,7 @@ namespace glasssix::pump_gate_status
             }
             sum_s /= (HSV.rows * HSV.cols);
             sum_v /= (HSV.rows * HSV.cols);
-            if (sum_s < 30 || sum_v < 60)
+            if (sum_s < 10 || sum_v < 30)
                 return 0;
 
             cv::Mat mask;
@@ -112,7 +112,7 @@ namespace glasssix::pump_gate_status
             }
             sum_s /= (HSV.rows * HSV.cols);
             sum_v /= (HSV.rows * HSV.cols);
-            if (sum_s < 30 || sum_v < 60)
+            if (sum_s < 15 || sum_v < 30)
                 return 1;
 
             cv::Mat mask;
@@ -150,7 +150,7 @@ namespace glasssix::pump_gate_status
             }
             sum_s /= (HSV.rows * HSV.cols);
             sum_v /= (HSV.rows * HSV.cols);
-            if (sum_s < 30 || sum_v < 60)
+            if (sum_s < 15 || sum_v < 30)
                 return 1;
 
             cv::Mat crop_image = img_full(cv::Range(935, 1070), cv::Range(1124, 1198));
