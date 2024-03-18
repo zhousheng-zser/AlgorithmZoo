@@ -323,16 +323,14 @@ namespace glasssix::pump_weld
             cv::Rect box = StringToRect(box_str);
 
             std::vector<std::vector<int>> continue_light_area_list;
+
             std::vector<int> temp;
-            for (int area : area_list) {
+            for (auto area : area_list) {
                 if (area > 0) {
                     temp.push_back(area);
                 }
                 else {
-                    if (!temp.empty()) {
-                        continue_light_area_list.push_back(temp);
-                        temp.clear();
-                    }
+                    continue_light_area_list.push_back(temp);
                 }
             }
             if (!temp.empty()) {
@@ -349,7 +347,8 @@ namespace glasssix::pump_weld
             }
 
             const std::vector<int>& selected_area_list = continue_light_area_list.front();
-            if (selected_area_list.size() < WELD_MIN_LIGHT_FRAME || selected_area_list.size() > WELD_MAX_LIGHT_FRAME) {
+
+			if (selected_area_list.size() < WELD_MIN_LIGHT_FRAME || WELD_MAX_LIGHT_FRAME < selected_area_list.size()) {
                 continue;
             }
 

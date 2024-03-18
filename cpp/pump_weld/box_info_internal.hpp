@@ -12,10 +12,7 @@ namespace glasssix::pump_weld
 {
     struct box_info_internal
     {
-        std::int32_t weld_x1;
-        std::int32_t weld_x2;
-        std::int32_t weld_y1;
-        std::int32_t weld_y2;
+        exposing::param_vector<std::int32_t> weldlocal_list;
 
         std::int32_t can_x1;
         std::int32_t can_x2;
@@ -24,6 +21,10 @@ namespace glasssix::pump_weld
 
         float score;
         std::int32_t category;
+
+        box_info_internal() {
+            weldlocal_list = exposing::make_param_vector<std::int32_t>();
+        }
     };
 
 }
