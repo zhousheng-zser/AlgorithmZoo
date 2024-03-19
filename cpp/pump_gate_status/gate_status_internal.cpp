@@ -45,7 +45,7 @@ namespace glasssix::pump_gate_status
             return hsv;
         } 
 
-        //door:  0:close or night  1:open  2:half 
+        //door:  0:close or night  1:open  0:half 
         int statistic_yellow(cv::Mat img, cv::Scalar& yellow_hsv_lower, cv::Scalar& yellow_hsv_upper, double ratio_closed, double ratio_opened) 
         {
             cv::Mat HSV;
@@ -63,7 +63,7 @@ namespace glasssix::pump_gate_status
             }
             sum_s /= (HSV.rows * HSV.cols);
             sum_v /= (HSV.rows * HSV.cols);
-            if (sum_s < 30 || sum_v < 60)
+            if (sum_s < 10 || sum_v < 30)
                 return 0;
 
             cv::Mat mask;
@@ -80,8 +80,8 @@ namespace glasssix::pump_gate_status
                 return 0;
             } else if (ratio < ratio_opened) {
                 return 1;
-            } else {
-                return 2;
+            } else {   
+                return 0;
             }
         }
 
@@ -112,7 +112,7 @@ namespace glasssix::pump_gate_status
             }
             sum_s /= (HSV.rows * HSV.cols);
             sum_v /= (HSV.rows * HSV.cols);
-            if (sum_s < 30 || sum_v < 60)
+            if (sum_s < 15 || sum_v < 30)
                 return 1;
 
             cv::Mat mask;
@@ -150,7 +150,7 @@ namespace glasssix::pump_gate_status
             }
             sum_s /= (HSV.rows * HSV.cols);
             sum_v /= (HSV.rows * HSV.cols);
-            if (sum_s < 30 || sum_v < 60)
+            if (sum_s < 15 || sum_v < 30)
                 return 1;
 
             cv::Mat crop_image = img_full(cv::Range(935, 1070), cv::Range(1124, 1198));
@@ -277,7 +277,7 @@ namespace glasssix::pump_gate_status
     std::string gate_status_internal::version()
     {
 
-        const std::string nn_frame_version = "1.2.0";
+        const std::string nn_frame_version = "1.3.0";
 
         return fmt::format(R"({{"nn_frame_version":"{}", "algo_module_version":"{}"}})", nn_frame_version,"");
     }

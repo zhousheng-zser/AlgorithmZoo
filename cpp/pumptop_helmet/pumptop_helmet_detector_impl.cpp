@@ -14,7 +14,9 @@
 #include "Excalibur/operation_resize.hpp"
 #include "Primitives/tensor_conversions.hpp"
 #endif
-
+#include "poly.hpp"
+#include <thread>
+#include <chrono>
 namespace glasssix::pumptop_helmet
 {
 	class pumptop_helmet_detector_impl::impl
@@ -688,14 +690,17 @@ namespace glasssix::pumptop_helmet
 				int y1 = std::round(pump[1]) > 0 ? std::round(pump[1]) : 0;
 				int x2 = std::round(pump[2]) < image.cols ? std::round(pump[2]) : image.cols;
 				int y2 = std::round(pump[3]) < image.rows ? std::round(pump[3]) : image.rows;
+				std::string str = std::to_string(pump[4]);
 
 				cv::Rect roiRect(x1, y1, x2 - x1, y2 - y1);
+				//& 画泵的分数
+				// cv::putText(image, str, cv::Point(x2 + 10, y2 + 10), 0, 0.8, cv::Scalar(0, 0, 255));
+				// std::this_thread::sleep_for(std::chrono::milliseconds(200));
 				// 人检测
 				int category;
 				float score;
 				float helmet_score;
 				ori_rect = people_detect(image, roiRect, param_map, category, score, helmet_score); // roiRect 是泵的坐标
-
 				if (category != -1) // 满足目标才放入
 				{
 					categorys.push_back(category);
@@ -711,9 +716,9 @@ namespace glasssix::pumptop_helmet
 		cv::Rect people_detect(cv::Mat image_ori_all, cv::Rect rect, std::map<std::string, float> &param_map, int &category, float &score, float &helmet_score) // rect 是泵的原始坐标
 		{
 
-			cv::Mat img = image_ori_all.clone();
+			cv::Mat img = image_ori_all;
 			cv::Rect rect_head;
-			cv::Rect rect_peple_ori;//符合泵顶区域里面的人的坐标
+			cv::Rect rect_peple_ori; // 符合泵顶区域里面的人的坐标
 			category = -1;
 			float con_thres = param_map.count("people_conf_thres") ? param_map["people_conf_thres"] : 0.6f;
 			float iou_thres = param_map.count("nms_thres") ? param_map["nms_thres"] : 0.6f;
@@ -721,40 +726,48 @@ namespace glasssix::pumptop_helmet
 			cv::Point point_people_feet_center{0, 0};
 			std::vector<cv::Point> vec_pump_top;
 			//~ 泵顶的区域 根据算法工程师的要求,变得极为复杂,需好好优化下
+			float xx1, yy1, xx2, yy2, xx3, yy3, xx4, yy4;
 			{
-				float fix_ratio = 1.0f;
+				float fix_ratio = 0.3f;
 				// 比例系数， 泵宽除以高（一般来说<1)
-				float scale_ratio = rect.width / (rect.height * 1.0f);
+				float scale_ratio = std::sqrt(rect.width / (rect.height * 1.0f));
 
-				// 针对宽高做不同程度缩小，宽都统一缩小0.65，上边高度缩小0.2，下边缩小0.6（缩小至1-ration），乘以比例系数
-				float pump_w_ratio = 0.8 * scale_ratio;
-				float pump_y1_ratio = 0.5 * scale_ratio;
-				float pump_y2_ratio = 0.7 * scale_ratio;
+				// 求泵的中心点
+				float pump_center_x = rect.x + rect.width / 2.0f;  // 泵中心点的横坐标
+				float pump_center_y = rect.y + rect.height / 2.0f; // 泵中心点的纵坐标
+				float pump_weight = rect.width;					   // 现在是求泵宽了
+				float img_middle_x = image_ori_all.cols / 2.0f;	   // 图片中点的横坐标(也是图片宽度的一半)
+				float img_middle_y = image_ori_all.rows / 2.0f;	   // 图片中点的纵坐标(也是图片高度的一半)
+
+				// 泵中心点与图片中心点距离绝对值
+				float dis_boxcenter_x_middle = pump_center_x - img_middle_x;
+				float dis_boxcenter_y_middle = pump_center_y - img_middle_y;
+
+				float bia_x_ratio = std::abs(dis_boxcenter_x_middle) / img_middle_x; // 偏移系数=泵中心点与图片中心点距离绝对值/图片一半宽度
+				float bia_y_ratio = 1 - (pump_center_y / image_ori_all.rows);		 // 泵中心点纵坐标在图钟位置比例
+
+				// 针对宽高做不同程度缩小，宽都统一缩小0.75，上边高度缩小0.4，下边缩小0.5
+				float pump_w_ratio = 0.75 * scale_ratio;
+				float pump_y1_ratio = 0.4 * std::sqrt(bia_y_ratio);
+				float pump_y2_ratio = 0.5;
+				float move_ratio = std::sqrt(scale_ratio) / 10.0f; // 泵顶区域移动系数
+
 				// 确定泵顶的初始四个点
 				float pump_top_x1 = rect.x + rect.width * (pump_w_ratio / 2.0f);
 				float pump_top_y1 = rect.y + rect.height * (pump_y1_ratio / 2.0f);
 				float pump_top_x2 = (rect.x + rect.width) - rect.width * (pump_w_ratio / 2.0f);
 				float pump_top_y2 = (rect.y + rect.height) - rect.height * (pump_y2_ratio / 2.0f);
-
-				float img_middle_x = image_ori_all.cols / 2.0f;		// 图片中点的横坐标(也是图片宽度的一半)
-				float pump_center_x = rect.x + rect.width / 2.0f;	// 泵中心点的横坐标
-				pump_center_x = (pump_top_x1 + pump_top_x2) / 2.0f; // 这俩个是一个东西
-				float pump_weight = pump_top_x2 - pump_top_x1;		// 泵顶的宽,不是泵宽,一切以python代码为准
-				float move_ratio = std::sqrt(scale_ratio) / 3.5;	// 泵顶区域移动系数
-
-				float dis_boxcenter_middle = pump_center_x - img_middle_x;		 // 泵中心点与图片中心点距离
-				float bia_ratio = std::abs(dis_boxcenter_middle) / img_middle_x; // 偏移系数=泵中心点与图片中心点距离绝对值/图片一半宽度
 				// 偏移距离
-				float fix_dis = bia_ratio * pump_weight * fix_ratio;
+				float fix_dis = bia_x_ratio * pump_weight * fix_ratio;
 				// 移动距离
-				float move_dis = move_ratio * pump_weight;
+				float move_dis = move_ratio * pump_weight * fix_ratio;
 				float x0 = 0.f;
 				bool if_right = false;
 
 				//^ 接下来需要判断泵在图片中心点的左边还是右边
 				// 对几个参数进行特殊化
 				// 默认为左边
-				if (dis_boxcenter_middle > 0) // 在右边
+				if (dis_boxcenter_x_middle > 0) // 在右边
 				{
 					fix_dis = -fix_dis;
 					move_dis = -move_dis;
@@ -797,24 +810,27 @@ namespace glasssix::pumptop_helmet
 				float x2, y2;
 				float x4, y4;
 				float x3, y3;
-				x1 = fix_box_x1;
-				y1 = pump_top_y1;
-				x2 = fix_box_x2;
-				y2 = pump_top_y1;
-				x4 = fix_box_x4;
-				y4 = pump_top_y2;
-				x3 = fix_box_x3;
-				y3 = pump_top_y2;
+				xx1 = x1 = fix_box_x1;
+				yy1 = y1 = pump_top_y1;
+				xx2 = x2 = fix_box_x2;
+				yy2 = y2 = pump_top_y1;
+				xx4 = x4 = fix_box_x4;
+				yy4 = y4 = pump_top_y2;
+				xx3 = x3 = fix_box_x3;
+				yy3 = y3 = pump_top_y2;
 #if 0
 				std::vector<cv::Point> vertices = {cv::Point(1134.8093075284075, 353), cv::Point(1291, 353), cv::Point(1405, 687), cv::Point(1249, 687)};
 #else
+				// 泵顶的平行四边形坐标
 				std::vector<cv::Point> vertices = {cv::Point(x1, y1), cv::Point(x2, y2), cv::Point(x4, y4), cv::Point(x3, y3)};
 #endif
 				vec_pump_top = vertices;
-				//& 画泵和泵顶的区域
-				// cv::rectangle(img, cv::Point(rect.x, rect.y), cv::Point(rect.x + rect.width, rect.y + rect.height), cv::Scalar(0, 0, 255), 1);
+
+				//& 画泵
+				// cv::rectangle(image, cv::Point(rect.x, rect.y), cv::Point(rect.x + rect.width, rect.y + rect.height), cv::Scalar(0, 0, 255), 1);
+				//& 画泵顶区域
 				// std::vector<cv::Point> pts = {vertices[0], vertices[1], vertices[2], vertices[3], vertices[0]}; // 构造多边形的顶点序列
-				// cv::polylines(img, pts, true, cv::Scalar(0, 255, 0), 2);
+				// cv::polylines(img, pts, true, cv::Scalar(0, 255, 0), 1);
 			}
 			init_data1280();
 			auto new_shape = cv::Size(1280, 1280);
@@ -853,6 +869,7 @@ namespace glasssix::pumptop_helmet
 				int y1 = std::round(pump[1]) > 0 ? std::round(pump[1]) : 0;
 				int x2 = std::round(pump[2]) < image.cols ? std::round(pump[2]) : image.cols;
 				int y2 = std::round(pump[3]) < image.rows ? std::round(pump[3]) : image.rows;
+				float people_score = pump[4];
 
 				// 找到人的原始坐标
 				cv::Point people_ori_1 = {x1, y1};
@@ -861,15 +878,62 @@ namespace glasssix::pumptop_helmet
 				cv::Rect people_rect(people_ori_1.x, people_ori_1.y, people_ori_2.x - people_ori_1.x, people_ori_2.y - people_ori_1.y);
 				// 比对:人是否在泵顶里面
 				double distance = cv::pointPolygonTest(vec_pump_top, point_people_feet_center, false);
+
+				// 计算泵顶区域(平行四边形)与人的区域(矩形)的相交面积
+				double intersectionArea = 0;
+				double ratio_ret = 0.f;
+				float area = people_rect.width * people_rect.height; // 计算人体区域的面积
+				float Threshold = 0.5f;
+				bool flag = false; // 人是否大面积在泵顶区域
+				{
+					// 对四边形中的人进行初始化
+					point_reception::point p1, p2, p3, p4;
+					p1.x = people_ori_1.x;
+					p1.y = people_ori_1.y;
+					p2.x = people_ori_1.x + people_rect.width;
+					p2.y = people_ori_1.y;
+					p3.x = people_ori_2.x;
+					p3.y = people_ori_2.y;
+					p4.x = people_ori_1.x;
+					p4.y = people_ori_1.y + people_rect.height;
+
+					std::vector<point_reception::point> points(4);
+					point_reception::polygon people_pr{4, points};
+					people_pr.list[0] = p1;
+					people_pr.list[1] = p2;
+					people_pr.list[2] = p3;
+					people_pr.list[3] = p4;
+
+					// 对四边形中的泵顶区域进行初始化
+					point_reception::point p_1, p_2, p_3, p_4;
+
+					p_1.x = xx1;
+					p_1.y = yy1;
+					p_2.x = xx2;
+					p_2.y = yy2;
+					p_3.x = xx4;
+					p_3.y = yy4;
+					p_4.x = xx3;
+					p_4.y = yy3;
+					point_reception::polygon pumptop_pr{4, points};
+					pumptop_pr.list[0] = p_1;
+					pumptop_pr.list[1] = p_2;
+					pumptop_pr.list[2] = p_3;
+					pumptop_pr.list[3] = p_4;
+					// 计算
+					ratio_ret = point_reception::polygon::count_intersect_area_ratio_to_roi(people_pr, pumptop_pr);
+				}
+				flag = ratio_ret >= Threshold ? true : false;
+				// std::cout << "ratio_ret: " << ratio_ret << " - " << flag << std::endl;
 				//& 是否打印 人是否在泵顶
-				// if (distance >= 0)
+				// if (distance >= 0 && flag)
 				// {
 				// 	std::cout << "\033[31mThis text will be red!  distance: *************************\033[0m"
 				// 			  << "" << distance << std::endl;
 				// }
 				// else
 				// 	std::cout << "distance: *************************" << distance << std::endl;
-				if (distance >= 0)
+				if (distance >= 0 && flag)
 				{
 					rect_peple_ori = people_rect;
 
@@ -885,16 +949,19 @@ namespace glasssix::pumptop_helmet
 					// 人头分类检测
 					category = helmet_detect(image_ori_all, rect_head, param_map, helmet_score);
 					//& 画泵顶区域的人体与人体底部中心
-					// cv::rectangle(img, cv::Point(rect_peple_ori.x - 10, rect_peple_ori.y - 10), cv::Point(rect_peple_ori.x + rect_peple_ori.width, rect_peple_ori.y + rect_peple_ori.height), cv::Scalar(0, 0, 255), 4);
+					// cv::rectangle(img, cv::Point(rect_peple_ori.x, rect_peple_ori.y), cv::Point(rect_peple_ori.x + rect_peple_ori.width, rect_peple_ori.y + rect_peple_ori.height), cv::Scalar(0, 0, 255), 1);
 					// cv::circle(img, point_people_feet_center, 5, cv::Scalar(0, 0, 255), -1);
+					// cv::putText(img, std::to_string(people_score), cv::Point(rect_peple_ori.x + 10, rect_peple_ori.y + 10), 0, 1.5, cv::Scalar(0, 0, 255));
+
 					//& 画人头
 					// cv::rectangle(img, cv::Point(rect_head.x, rect_head.y), cv::Point(rect_head.x + rect_head.width, rect_head.y + rect_head.height), cv::Scalar(0, 0, 255), 1);
+					// cv::putText(img, std::to_string(score) + "___" + std::to_string(helmet_score), cv::Point(rect_head.x + 10, rect_head.y + 10), 0, 1.5, cv::Scalar(0, 0, 255));
 				}
 				else
 				{
 					// std::cout << "The point is outside the rectangle!" << std::endl;
-					//& 画不在泵顶里面的人体与底部中心
-					// cv::rectangle(img, cv::Point(people_rect.x, people_rect.y), cv::Point(people_rect.x + people_rect.width, people_rect.y + people_rect.height), cv::Scalar(255, 255, 0), 4);
+					// //& 画不在泵顶里面的人体与底部中心
+					// cv::rectangle(img, cv::Point(people_rect.x, people_rect.y), cv::Point(people_rect.x + people_rect.width, people_rect.y + people_rect.height), cv::Scalar(255, 255, 0), 1);
 					// cv::circle(img, point_people_feet_center, 5, cv::Scalar(0, 0, 255), -1);
 				}
 			}
@@ -965,7 +1032,6 @@ namespace glasssix::pumptop_helmet
 					continue;
 				}
 				roiRect = {x1_ori, y1_ori, x2_ori - x1_ori, y2_ori - y1_ori};
-
 			}
 			return roiRect;
 		}
@@ -1013,7 +1079,7 @@ namespace glasssix::pumptop_helmet
 
 		exposing::param_string version() const
 		{
-			return "1.0.3";
+			return "1.0.5";
 		}
 
 	private:
