@@ -61,7 +61,8 @@ namespace glasssix::pedestrian
             cv::Mat cropped_image = image(cv::Range(roi_y, roi_y + roi_height), cv::Range(roi_x, roi_x + roi_width));
 
             std::vector<pedestrian::box_info_internal> run_detect_result;
-            run_detect(run_detect_result, cropped_image, param_map);
+            cv::Point roi_start(roi_x, roi_y);
+            run_detect(run_detect_result, cropped_image, roi_start, param_map);
 
             //mapping roi
             for (auto &it : run_detect_result)
@@ -76,7 +77,7 @@ namespace glasssix::pedestrian
             return results_box_info;
         }
 
-        void run_detect(std::vector<box_info_internal>& results, cv::Mat& image, std::map<std::string, float>& param_map) {
+        void run_detect(std::vector<box_info_internal>& results, cv::Mat& image, cv::Point& roi_start, std::map<std::string, float>& param_map) {
             float con_thres = param_map.count("conf_thres") ? param_map["conf_thres"] : 0.5f;
             float iou_thres = param_map.count("nms_thres") ? param_map["nms_thres"] : 0.6f;
             const int letter_h = 736;
@@ -96,10 +97,11 @@ namespace glasssix::pedestrian
                     box_list.push_back(obj_box);
                 }
             }
-            GenPipTools::letter_map_origin_location(box_list, letter_op);
             GenPipTools::nms_cpu(box_list, iou_thres);
+            GenPipTools::letter_map_origin_location(box_list, letter_op);
 
             for (auto person : box_list) {
+                person.add(roi_start);
                 box_info_internal box_info;
                 box_info.x1 = person.xmin;
                 box_info.x2 = person.xmax;
@@ -113,7 +115,7 @@ namespace glasssix::pedestrian
 
         std::string version()
         {
-            const std::string algo_module_version = "4.0.0";
+            const std::string algo_module_version = "4.1.0";
             std::string nn_frame_version = ioprocess_pipeline_->version();
             return fmt::format(R"({{"nn_frame_version":"{}", "algo_module_version":"{}"}})", nn_frame_version, algo_module_version);
         }

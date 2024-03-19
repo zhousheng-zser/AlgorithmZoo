@@ -43,7 +43,6 @@ namespace glasssix::flame
             CHECK_EQ(bitmap.size(), channels * height * width);
             
             cv::Mat image(cv::Size(width, height), CV_8UC3, const_cast<uint8_t*>(bitmap.data()));
-
             if(roi_x<0 || roi_x>width || roi_y>height || roi_y<0 ||roi_height<0 || (roi_height+roi_y) >height || roi_width<0 || (roi_width+roi_x) > width)
             {
                   throw exposing::abi_invalid_argument("incorrect roi in flame");
@@ -52,8 +51,8 @@ namespace glasssix::flame
 
 			std::vector<box_info_internal> results;
 			auto result = exposing::make_param_vector<flame::box_info>();
-
-			run_detect(results, cropped_image, param_map);
+            cv::Point roi_start(roi_x, roi_y);
+			run_detect(results, cropped_image, roi_start, param_map);
 
 			for (auto& i : results)
 			{
@@ -64,7 +63,7 @@ namespace glasssix::flame
 
         std::string version()
         {
-			const std::string algo_module_version = "4.0.1";
+			const std::string algo_module_version = "4.1.0";
 
 			std::string nn_frame_version = ioprocess_pipeline_->version();
 
@@ -78,7 +77,7 @@ namespace glasssix::flame
             using YoloBoxBase::YoloBoxBase; //Inheriting Constructors
         };
 
-        void run_detect(std::vector<box_info_internal>& results, cv::Mat& image, std::map<std::string, float>& param_map)
+        void run_detect(std::vector<box_info_internal>& results, cv::Mat& image, cv::Point& roi_start, std::map<std::string, float>& param_map)
         {
             float conf_threshold= param_map.count("conf_thres") ? param_map["conf_thres"] : 0.4f;
             float nms_threshold = param_map.count("nms_thres") ? param_map["nms_thres"] : 0.5f;
@@ -104,10 +103,11 @@ namespace glasssix::flame
                 }
             }
 
-            GenPipTools::letter_map_origin_location(box_list, letter_op);
             GenPipTools::nms_cpu(box_list, 0.4);
+            GenPipTools::letter_map_origin_location(box_list, letter_op);
 
             for (auto box : box_list) {
+                box.add(roi_start);
                 box_info_internal in_box_info;
                 in_box_info.x1 = box.xmin;
                 in_box_info.y1 = box.ymin;
