@@ -138,13 +138,13 @@ namespace glasssix::playphone
         bool overlap(cv::Rect phoneRect, cv::Rect handRect, float iou_thres)
         {
             cv::Rect inteRect = phoneRect & handRect;
-            float iou_phone = inteRect.area() * 0.1f / phoneRect.area();
+            float iou_phone = inteRect.area() * 1.f / phoneRect.area();
             return iou_phone > 0.1;
         }
 
         std::string version()
         {
-			const std::string algo_module_version = "2.6.0";
+			const std::string algo_module_version = "2.6.1";
 
 #if defined(USE_RKNNAPI) || defined(USE_RKNN2API)
 			//#if 0
