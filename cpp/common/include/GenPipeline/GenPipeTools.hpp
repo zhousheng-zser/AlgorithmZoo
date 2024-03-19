@@ -34,6 +34,7 @@ namespace GenPipTools {
 			float ratio_w = (float)W / (float)hope_w;
 			float ratio_h = (float)H / (float)hope_h;
 			if (ratio_w == ratio_h) {
+				resize_scale = (ratio_w + ratio_h) * 0.5;
 				cv::resize(img, resize_img, cv::Size2i{ hope_w, hope_h });
 				top_pad = 0;
 				left_pad = 0;
