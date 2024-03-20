@@ -157,9 +157,17 @@ namespace glasssix::pump_gate_status
             cv::Mat gray;
             cv::cvtColor(crop_image, gray, cv::COLOR_BGR2GRAY);
             cv::Mat edges;
-            cv::Canny(gray, edges, 50, 150, 3);
+
+            cv::Mat hist, blur;
+            // 直方图均衡化
+            cv::equalizeHist(gray, hist);
+            // 高斯模糊
+            cv::GaussianBlur(hist, blur, cv::Size(9, 9), 2);
+
+            cv::Canny(blur, edges, 50, 150, 3);
             std::vector<cv::Vec4i> points;
-            cv::HoughLinesP(edges, points, 1, CV_PI / 180, 50, 40, 10);
+
+            cv::HoughLinesP(edges, points, 1, CV_PI / 180, 40, 40, 10);
             int line = 0;
             for (int i = 0; i < points.size(); i++) {
                 int x1, x2, y1, y2;
@@ -277,7 +285,7 @@ namespace glasssix::pump_gate_status
     std::string gate_status_internal::version()
     {
 
-        const std::string nn_frame_version = "1.3.1";
+        const std::string nn_frame_version = "1.4.0";
 
         return fmt::format(R"({{"nn_frame_version":"{}", "algo_module_version":"{}"}})", nn_frame_version,"");
     }
