@@ -60,24 +60,24 @@ namespace glasssix::pedestrian
             cv::Mat image(cv::Size(width, height), CV_8UC3, const_cast<uint8_t*>(bitmap.data()));
             cv::Mat cropped_image = image(cv::Range(roi_y, roi_y + roi_height), cv::Range(roi_x, roi_x + roi_width));
 
-            std::vector<pedestrian::box_info_internal> run_detect_result;
-            cv::Point roi_start(roi_x, roi_y);
-            run_detect(run_detect_result, cropped_image, roi_start, param_map);
+            auto pedestrian_list = run_detect(cropped_image, param_map);
 
-            //mapping roi
-            for (auto &it : run_detect_result)
-            {
-                it.x1 += roi_x;
-                it.x2 += roi_x;
-                it.y1 += roi_y;
-                it.y2 += roi_y;
-                results_box_info.push_back(glasssix::exposing::make_as_first<box_info_impl>(it));
+            for (auto person : pedestrian_list) {
+                box_info_internal box_info;
+                person.add(roi_x, roi_y);
+                box_info.x1 = person.xmin;
+                box_info.x2 = person.xmax;
+                box_info.y1 = person.ymin;
+                box_info.y2 = person.ymax;
+                box_info.score = person.score;
+                box_info.category = 1;
+                results_box_info.push_back(glasssix::exposing::make_as_first<box_info_impl>(box_info));
             }
 
             return results_box_info;
         }
 
-        void run_detect(std::vector<box_info_internal>& results, cv::Mat& image, cv::Point& roi_start, std::map<std::string, float>& param_map) {
+        std::vector<PersonBBox> run_detect(cv::Mat& image, std::map<std::string, float>& param_map) {
             float con_thres = param_map.count("conf_thres") ? param_map["conf_thres"] : 0.5f;
             float iou_thres = param_map.count("nms_thres") ? param_map["nms_thres"] : 0.6f;
             const int letter_h = 736;
@@ -100,22 +100,12 @@ namespace glasssix::pedestrian
             GenPipTools::nms_cpu(box_list, iou_thres);
             GenPipTools::letter_map_origin_location(box_list, letter_op);
 
-            for (auto person : box_list) {
-                person.add(roi_start);
-                box_info_internal box_info;
-                box_info.x1 = person.xmin;
-                box_info.x2 = person.xmax;
-                box_info.y1 = person.ymin;
-                box_info.y2 = person.ymax;
-                box_info.score = person.score;
-                box_info.category = 1;
-                results.push_back(box_info);
-            }
+            return box_list;
         }
 
         std::string version()
         {
-            const std::string algo_module_version = "4.1.0";
+            const std::string algo_module_version = "4.1.1";
             std::string nn_frame_version = ioprocess_pipeline_->version();
             return fmt::format(R"({{"nn_frame_version":"{}", "algo_module_version":"{}"}})", nn_frame_version, algo_module_version);
         }
