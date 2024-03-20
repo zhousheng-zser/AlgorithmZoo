@@ -159,7 +159,7 @@ namespace glasssix::pump_gate_status
             cv::Mat edges;
             cv::Canny(gray, edges, 50, 150, 3);
             std::vector<cv::Vec4i> points;
-            cv::HoughLinesP(edges, points, 1, CV_PI / 180, 60, 40, 10);
+            cv::HoughLinesP(edges, points, 1, CV_PI / 180, 50, 40, 10);
             int line = 0;
             for (int i = 0; i < points.size(); i++) {
                 int x1, x2, y1, y2;
@@ -277,7 +277,7 @@ namespace glasssix::pump_gate_status
     std::string gate_status_internal::version()
     {
 
-        const std::string nn_frame_version = "1.3.0";
+        const std::string nn_frame_version = "1.3.1";
 
         return fmt::format(R"({{"nn_frame_version":"{}", "algo_module_version":"{}"}})", nn_frame_version,"");
     }
