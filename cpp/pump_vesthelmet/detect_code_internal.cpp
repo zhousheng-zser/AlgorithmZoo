@@ -80,13 +80,13 @@ namespace glasssix::pump_vesthelmet
 			posture_param_abi.add_or_update("conf_thres", posture_conf_thres);
 			exposing::param_vector<posture::box_info> posture_info_list_raw = posture_instance_.detect(bitmap, channels, height, width, 0, 0, width, height, posture_param_abi);
 
-cv::Mat vi = image.clone();
-std::string lg = "";
+//cv::Mat vi = image.clone();
+//std::string lg = "";
 
 			for (auto pinfo : posture_info_list_raw)
 			{
-lg += '_';
-if (lg != "__") continue;
+//lg += '_';
+//if (lg != "__") continue;
 				PostureInfo postureInfo{ pinfo };
 
 				if (postureInfo.if_pump_vesthelmet_bodyerr()) {
