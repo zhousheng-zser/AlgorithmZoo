@@ -101,9 +101,10 @@
         }
 
 
-        static std::vector<std::vector<int>> find_box(cv::Mat image, int min_area=0, int max_area=0, int min_rect_area=0, int max_rect_area=0,
+        std::vector<std::vector<int>> find_box(cv::Mat image, int min_area=0, int max_area=0, int min_rect_area=0, int max_rect_area=0,
             double min_w_h_ratio=-0.5f, double max_w_h_ratio=-0.5f, std::string class_name="place") {
             std::vector<std::vector<cv::Point>> contours;
+            std::vector<std::vector<cv::Point>> contours_copy;
             cv::findContours(image.clone(), contours, cv::RETR_EXTERNAL, cv::CHAIN_APPROX_SIMPLE);
 
             std::vector<std::vector<int>> xyxy_list;
@@ -112,8 +113,17 @@
             int h = image.rows;
 
             if( min_area ||min_area)
+            {
                 if(max_area==0 )
                     max_area = w*h;
+                for(auto& cnt : contours)
+                {
+                    auto area = cv::contourArea(cnt);
+                    if(area  <max_area && area>min_area  )
+                        contours_copy.push_back(cnt);
+                }
+                contours = contours_copy;
+            }
 
             if (min_rect_area || max_rect_area )
             {
@@ -128,7 +138,6 @@
                  if (max_w_h_ratio<0.f )
                     min_w_h_ratio=std::max(w, h);
             }
-
 
             if( !(min_area||max_area||min_rect_area||max_rect_area) &&min_w_h_ratio <0.f && max_w_h_ratio<0.f )
             {
