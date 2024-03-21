@@ -369,7 +369,7 @@
             );
 
             int work_equipment_number = work_equipment_contours.size();
-            bool has_equipment_status = work_equipment_number > WORK_EQUIPMENT_MIN_NUMBER;
+            bool has_equipment_status = work_equipment_number >= WORK_EQUIPMENT_MIN_NUMBER;
 
             return has_equipment_status;
         }
