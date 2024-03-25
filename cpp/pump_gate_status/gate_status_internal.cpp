@@ -133,6 +133,56 @@ namespace glasssix::pump_gate_status
             }
         }
 
+
+        int check_bench(cv::Mat &img_full) {
+            // 创建掩码图像并填充
+            cv::Mat mask = cv::Mat::zeros(img_full.size(), CV_8UC3);
+            std::vector<cv::Point> contours;
+            contours.push_back(cv::Point(743, 388));
+            contours.push_back(cv::Point(1002, 361));
+            contours.push_back(cv::Point(1520, 990));
+            contours.push_back(cv::Point(883, 1080));
+            std::vector<std::vector<cv::Point>> pts{ contours };
+            cv::fillPoly(mask, contours, cv::Scalar(255, 255, 255));
+            // 通过位运算提取ROI
+            cv::Mat dst;
+            cv::bitwise_and(img_full, mask, dst);
+            // 计算ROI的边界框
+            cv::Rect roi = cv::boundingRect(contours);
+            roi.width = std::min(roi.width, dst.cols - roi.x);
+            roi.height = std::min(roi.height, dst.rows - roi.y);
+            roi.x = std::max(roi.x, 0);
+            roi.y = std::max(roi.y, 0);
+            // 裁剪ROI
+            cv::Mat crop_image = dst(roi);
+            // 将裁剪的图像转换为灰度图
+            cv::Mat gray;
+            cv::cvtColor(crop_image, gray, cv::COLOR_BGR2GRAY);
+            // 直方图均衡化
+            cv::Mat hist;
+            cv::equalizeHist(gray, hist);
+            // 高斯模糊
+            cv::Mat blur;
+            cv::GaussianBlur(hist, blur, cv::Size(9, 9), 2);
+            // Canny边缘检测
+            cv::Mat edges;
+            cv::Canny(blur, edges, 50, 150, 3);
+            // 霍夫直线变换
+            std::vector<cv::Vec4i> lines;
+            cv::HoughLinesP(edges, lines, 1, CV_PI / 180, 40, 180, 20);
+            int line2 = 0;
+            // 绘制检测到的直线
+            for (size_t i = 0; i < lines.size(); i++) {
+                cv::Vec4i l = lines[i];
+                double slope = (l[3] - l[1]) / (double)(l[2] - l[0]);
+                if (slope >= -0.4 && slope <= -0.05) {
+                     // line(img_full, cv::Point(l[0] + roi.x, l[1] + roi.y), cv::Point(l[2] + roi.x, l[3] + roi.y), cv::Scalar(206, 27, 232), 2);
+                    line2++;
+                }
+            }
+            return line2;
+        }
+
         int statistic_gray_and_line(cv::Mat& img, cv::Mat& img_full)
         {
             cv::Mat HSV;
@@ -179,9 +229,10 @@ namespace glasssix::pump_gate_status
                 if (slope >= 1.7 && slope <= 2.7)
                     ++line;
             }
-            if (line > 0)
-                return 1;
-            return 0;
+            int line2 = check_bench(img_full);
+            if (line <= 0 && line2 <=5)
+                return 0;
+            return 1;
         }
 
         int gray_filter( cv::Mat &image,ROI& roi_door, cv::Scalar& gray_hsv_lower, cv::Scalar& gray_hsv_upper, int device_id, double ratio_arrived=0.18 ) //0 :有车      1: 没车
@@ -285,7 +336,7 @@ namespace glasssix::pump_gate_status
     std::string gate_status_internal::version()
     {
 
-        const std::string nn_frame_version = "1.4.0";
+        const std::string nn_frame_version = "1.5.0";
 
         return fmt::format(R"({{"nn_frame_version":"{}", "algo_module_version":"{}"}})", nn_frame_version,"");
     }

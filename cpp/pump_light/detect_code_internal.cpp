@@ -1,4 +1,4 @@
-#include <iostream>
+﻿#include <iostream>
 #include <cmath>
 #include <tuple>
 
@@ -45,7 +45,7 @@ namespace glasssix::pump_light
 
         std::string version()
         {
-            const std::string nn_frame_version = "1.2.0";
+            const std::string nn_frame_version = "1.3.0";
 
             return fmt::format(R"({{"nn_frame_version":"{}", "algo_module_version":"{}"}})", nn_frame_version, "");
         }
@@ -93,14 +93,12 @@ namespace glasssix::pump_light
             contours[3].x = static_cast<int>(x4);
             contours[3].y = static_cast<int>(y4);
 
-            // ����ı�������Ӧ������
             cv::Mat mask = cv::Mat::zeros(image.size(), CV_8UC3);
             std::vector<std::vector<cv::Point>> pts{ contours };
             cv::fillPoly(mask, pts, cv::Scalar(255, 255, 255));
             cv::Mat masked_image;
             cv::bitwise_and(hsv_frame, mask, masked_image);
 
-            // ���������������������
             cv::Mat red_mask, white_mask, orange_mask,grey_mask;
             cv::inRange(masked_image, cv::Scalar(156, 43, 46), cv::Scalar(180, 255, 255), red_mask);
             cv::inRange(masked_image, cv::Scalar(0, 0, 80), cv::Scalar(180, 43, 255), white_mask);
@@ -111,7 +109,6 @@ namespace glasssix::pump_light
             int orange_count = cv::countNonZero(orange_mask);
             int grey_count = cv::countNonZero(grey_mask);
 
-            // �����ı����������ʵ��������
             double total_pixels = cv::contourArea(contours);
 
             pump_light::box_info_internal ans;
@@ -120,9 +117,11 @@ namespace glasssix::pump_light
             ans.orange_ratio = orange_count / total_pixels;
             ans.grey_ratio = grey_count / total_pixels;
 
-            if ((ans.red_ratio > 0.45 && 0.2 > ans.white_ratio && ans.white_ratio > 0.05) || ans.grey_ratio > 0.6 || (ans.red_ratio > 0.45 && ans.orange_ratio > 0.1))
+            if ((ans.red_ratio > 0.45 && 0.2 > ans.white_ratio && ans.white_ratio > 0.05) || ans.grey_ratio > 0.6
+                || (ans.red_ratio > 0.45 && ans.orange_ratio > 0.1))
                 ans.light_status = false;
-            else if ((0.45 > ans.red_ratio && ans.red_ratio > 0.2) || (0.5 > ans.white_ratio && ans.white_ratio > 0.3) || (0.5 > ans.orange_ratio && ans.orange_ratio > 0.2))
+            else if ((0.45 > ans.red_ratio && ans.red_ratio > 0.2) || (0.3 > ans.white_ratio && ans.white_ratio > 0.1) ||
+                (0.5 > ans.orange_ratio && ans.orange_ratio > 0.2) || (0.45 > ans.grey_ratio && ans.grey_ratio > 0.25))
                 ans.light_status = true;
             else
                 ans.light_status = false;
