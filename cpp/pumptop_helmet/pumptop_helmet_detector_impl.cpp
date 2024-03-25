@@ -746,10 +746,10 @@ namespace glasssix::pumptop_helmet
 				float bia_x_ratio = std::abs(dis_boxcenter_x_middle) / img_middle_x; // 偏移系数=泵中心点与图片中心点距离绝对值/图片一半宽度
 				float bia_y_ratio = 1 - (pump_center_y / image_ori_all.rows);		 // 泵中心点纵坐标在图钟位置比例
 
-				// 针对宽高做不同程度缩小，宽都统一缩小0.75，上边高度缩小0.4，下边缩小0.5
+				// 针对宽高做不同程度缩小，宽都统一缩小0.75，上边高度缩小0.4，下边缩小0.75
 				float pump_w_ratio = 0.75 * scale_ratio;
 				float pump_y1_ratio = 0.4 * std::sqrt(bia_y_ratio);
-				float pump_y2_ratio = 0.5;
+				float pump_y2_ratio = 0.75;
 				float move_ratio = std::sqrt(scale_ratio) / 10.0f; // 泵顶区域移动系数
 
 				// 确定泵顶的初始四个点
@@ -924,8 +924,8 @@ namespace glasssix::pumptop_helmet
 					ratio_ret = point_reception::polygon::count_intersect_area_ratio_to_roi(people_pr, pumptop_pr);
 				}
 				flag = ratio_ret >= Threshold ? true : false;
-				// std::cout << "ratio_ret: " << ratio_ret << " - " << flag << std::endl;
 				//& 是否打印 人是否在泵顶
+				// std::cout << "ratio_ret: " << ratio_ret << " - " << flag << std::endl;
 				// if (distance >= 0 && flag)
 				// {
 				// 	std::cout << "\033[31mThis text will be red!  distance: *************************\033[0m"
@@ -936,7 +936,7 @@ namespace glasssix::pumptop_helmet
 				if (distance >= 0 && flag)
 				{
 					rect_peple_ori = people_rect;
-
+					//& 打印
 					// std::cout << "The point is inside the rectangle!" << std::endl;
 					// 人头检测
 					rect_head = head_detect(image_ori_all, rect_peple_ori, param_map, score); // 这里 rect_peple_ori 需要替换成人的原始坐标(而且还必须是满足是在泵顶区域要求的坐标)
@@ -959,8 +959,8 @@ namespace glasssix::pumptop_helmet
 				}
 				else
 				{
-					// std::cout << "The point is outside the rectangle!" << std::endl;
 					// //& 画不在泵顶里面的人体与底部中心
+					// std::cout << "The point is outside the rectangle!" << std::endl;
 					// cv::rectangle(img, cv::Point(people_rect.x, people_rect.y), cv::Point(people_rect.x + people_rect.width, people_rect.y + people_rect.height), cv::Scalar(255, 255, 0), 1);
 					// cv::circle(img, point_people_feet_center, 5, cv::Scalar(0, 0, 255), -1);
 				}
@@ -1079,7 +1079,7 @@ namespace glasssix::pumptop_helmet
 
 		exposing::param_string version() const
 		{
-			return "1.0.5";
+			return "1.0.6";
 		}
 
 	private:
