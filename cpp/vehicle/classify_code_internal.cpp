@@ -84,7 +84,7 @@ namespace glasssix::vehicle
                     // int img_h = roi_img.rows;
                     // cv::Mat hsv;
                     // cv::cvtColor(roi_img.clone(),hsv,cv::COLOR_BGR2HSV);
-                    vehicle_border_detect(image.clone(),roi_rect);
+                    std::vector<std::vector<int>> points = vehicle_border_detect(image.clone(),roi_rect);
                 }
                 vehicle_internal.score = vehicle.score;
 				vehicle_internal.category = 0;
@@ -210,22 +210,18 @@ namespace glasssix::vehicle
             }
         }
 
-        cv::Mat get_box_by_line(cv::Vec2f line, int image_w, int image_h)
+        std::vector<std::vector<int>> get_box_by_line(cv::Vec2f line, int image_w, int image_h)
         {
             float rho = line[0];
             float theta = line[1] - CV_PI / 2;
             int y = static_cast<int>(rho / cos(theta));
             int x = static_cast<int>((image_h - y) / tan(theta));
-            cv::Point points[6] = {cv::Point(0, 0), cv::Point(image_w, 0), cv::Point(image_w, image_h),
-                                   cv::Point(x, image_h), cv::Point(0, y), cv::Point(0, 0)};
-            const cv::Point *ppt[1] = {points};
-            int npt[] = {6};
-            cv::Mat new_box(image_h, image_w, CV_8U, cv::Scalar(0));
-            cv::fillPoly(new_box, ppt, npt, 1, cv::Scalar(255));
-            return new_box;
+            // cv::Point points[6] = {cv::Point(0, 0), cv::Point(image_w, 0), cv::Point(image_w, image_h),
+                                //    cv::Point(x, image_h), cv::Point(0, y), cv::Point(0, 0)};
+            return {{0, 0}, {image_w, 0}, {image_w, image_h}, {x, image_h}, {0, y}, {0, 0}};
         }
 
-        cv::Mat vehicle_border_detect(cv::Mat origin_image, cv::Rect detect_rect, std::string show_image_path = "") {
+        std::vector<std::vector<int>> vehicle_border_detect(cv::Mat origin_image, cv::Rect detect_rect, std::string show_image_path = "") {
             cv::Mat cut_image = origin_image(detect_rect);
             int image_h = cut_image.rows;
             int image_w = cut_image.cols;
@@ -242,7 +238,7 @@ namespace glasssix::vehicle
 
             cv::Vec2f line = get_line(canny);
 
-            cv::Mat new_box = get_box_by_line(line, image_w, image_h);
+            std::vector<std::vector<int>> new_box = get_box_by_line(line, image_w, image_h);
             return new_box;
         }
 
