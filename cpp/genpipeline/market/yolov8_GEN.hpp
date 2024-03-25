@@ -111,6 +111,7 @@ namespace {
 	}
 }
 
+// SCORE_LEN: class num
 // SOCRE_ORDER: 0 means raw out = [score + raw_location], 1 means raw out = [raw_location + score]
 // using template for packing function type (ref PostprocessingFunction = std::function<tensorMap(tensorMap)>) conveniently
 template<int SCORE_LEN = 1, bool SOCRE_ORDER = true>
