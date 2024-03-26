@@ -72,10 +72,11 @@ namespace glasssix::vehicle
                 box_info_internal vehicle_internal;
                 vehicle.add(roi_x, roi_y);
                 std::int32_t x1, y1, x2, y2;
-                x1 = vehicle_internal.x1 = vehicle.xmin;
-                y1 = vehicle_internal.y1 = vehicle.ymin;
-                x2 = vehicle_internal.x2 = vehicle.xmax;
-                y2 = vehicle_internal.y2 = vehicle.ymax;
+                x1 = vehicle.xmin;
+                y1 = vehicle.ymin;
+                x2 = vehicle.xmax;
+                y2 = vehicle.ymax;
+                std::vector<std::vector<int>> points;
                 {
                     // 获取车辆经过划线得到的多边形(目前是5个顶点)
                     cv::Rect roi_rect{x1, y1, x2 - x1, y2 - y1};
@@ -84,8 +85,22 @@ namespace glasssix::vehicle
                     // int img_h = roi_img.rows;
                     // cv::Mat hsv;
                     // cv::cvtColor(roi_img.clone(),hsv,cv::COLOR_BGR2HSV);
-                    std::vector<std::vector<int>> points = vehicle_border_detect(image.clone(),roi_rect);
+                    points = vehicle_border_detect(image.clone(), roi_rect);
+                    std::vector<cv::Point> Points = {cv::Point(points[0][0] + x1, points[0][1] + y1), cv::Point(points[1][0] + x1, points[1][1] + y1), cv::Point(points[2][0] + x1, points[2][1] + y1), cv::Point(points[3][0] + x1, points[3][1] + y1), cv::Point(points[4][0] + x1, points[4][1] + y1)};
+                    //& 画多边形
+                    cv::polylines(image, Points, true, cv::Scalar(0, 255, 0), 1);
+                    cv::imwrite("../last" + std::to_string(0) + ".jpg", image);
                 }
+                vehicle_internal.x1 = points[0][0] + x1;
+                vehicle_internal.y1 = points[0][1] + y1;
+                vehicle_internal.x2 = points[1][0] + x1;
+                vehicle_internal.y2 = points[1][1] + y1;
+                vehicle_internal.x3 = points[2][0] + x1;
+                vehicle_internal.y3 = points[2][1] + y1;
+                vehicle_internal.x4 = points[3][0] + x1;
+                vehicle_internal.y4 = points[3][1] + y1;
+                vehicle_internal.x5 = points[4][0] + x1;
+                vehicle_internal.y5 = points[4][1] + y1;
                 vehicle_internal.score = vehicle.score;
 				vehicle_internal.category = 0;
                 result.push_back(exposing::make_as_first<box_info_impl>(vehicle_internal));
