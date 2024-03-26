@@ -76,6 +76,22 @@ namespace glasssix::vehicle
                 y1 = vehicle.ymin;
                 x2 = vehicle.xmax;
                 y2 = vehicle.ymax;
+                {
+                    //判定区域是否合法
+                    if(x1 > x2 || y1 > y2)
+                        continue;
+                    x1 = std::max(0, x1);
+                    x1 = std::min(width, x1);
+
+                    x2 = std::max(0, x2);
+                    x2 = std::min(width, x2);
+
+                    y1 = std::max(0, y1);
+                    y1 = std::min(height, y1);
+
+                    y2 = std::max(0, y2);
+                    y2 = std::min(height, y2);
+                }
                 std::vector<std::vector<int>> points;
                 {
                     // 获取车辆经过划线得到的多边形(目前是5个顶点)
@@ -88,8 +104,8 @@ namespace glasssix::vehicle
                     points = vehicle_border_detect(image.clone(), roi_rect);
                     std::vector<cv::Point> Points = {cv::Point(points[0][0] + x1, points[0][1] + y1), cv::Point(points[1][0] + x1, points[1][1] + y1), cv::Point(points[2][0] + x1, points[2][1] + y1), cv::Point(points[3][0] + x1, points[3][1] + y1), cv::Point(points[4][0] + x1, points[4][1] + y1)};
                     //& 画多边形
-                    cv::polylines(image, Points, true, cv::Scalar(0, 255, 0), 1);
-                    cv::imwrite("../last" + std::to_string(0) + ".jpg", image);
+                    // cv::polylines(image, Points, true, cv::Scalar(0, 255, 0), 1);
+                    // cv::imwrite("../last" + std::to_string(0) + ".jpg", image);
                 }
                 vehicle_internal.x1 = points[0][0] + x1;
                 vehicle_internal.y1 = points[0][1] + y1;
@@ -137,7 +153,7 @@ namespace glasssix::vehicle
 
         std::string version()
         {
-            const std::string algo_module_version = "2.0.0";
+            const std::string algo_module_version = "2.1.0";
             std::string nn_frame_version = ioprocess_pipeline_->version();
             return fmt::format(R"({ {"nn_frame_version":"{}", "algo_module_version" : "{}"} })", nn_frame_version, algo_module_version);
         }
