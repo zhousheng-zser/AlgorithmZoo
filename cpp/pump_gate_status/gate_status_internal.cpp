@@ -140,8 +140,8 @@ namespace glasssix::pump_gate_status
             std::vector<cv::Point> contours;
             contours.push_back(cv::Point(743, 388));
             contours.push_back(cv::Point(1002, 361));
-            contours.push_back(cv::Point(1520, 990));
-            contours.push_back(cv::Point(883, 1080));
+            contours.push_back(cv::Point(1520, 850));
+            contours.push_back(cv::Point(883, 850));
             std::vector<std::vector<cv::Point>> pts{ contours };
             cv::fillPoly(mask, contours, cv::Scalar(255, 255, 255));
             // 通过位运算提取ROI
@@ -336,7 +336,7 @@ namespace glasssix::pump_gate_status
     std::string gate_status_internal::version()
     {
 
-        const std::string nn_frame_version = "1.5.0";
+        const std::string nn_frame_version = "1.5.1";
 
         return fmt::format(R"({{"nn_frame_version":"{}", "algo_module_version":"{}"}})", nn_frame_version,"");
     }
