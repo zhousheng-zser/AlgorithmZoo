@@ -26,10 +26,7 @@ namespace glasssix::pump_light
 {
     struct box_info_internal
     {
-		float white_ratio;
-		float red_ratio;
-		float orange_ratio;
-        float grey_ratio;
+        float score;
         bool light_status;
         exposing::param_string version;
     };
@@ -39,7 +36,7 @@ namespace glasssix::pump_light
     public:
         class impl;
 
-        detect_code_internal();
+        detect_code_internal(std::string_view model_directory, int device);
 
         virtual ~detect_code_internal();
 

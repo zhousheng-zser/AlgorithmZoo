@@ -18,7 +18,7 @@ namespace glasssix::pump_light
         detect_code_impl();
         ~detect_code_impl();
 
-        void init();
+        void init(const exposing::param_string& model_directory, std::int32_t device);
 
         exposing::param_string version() const;
 

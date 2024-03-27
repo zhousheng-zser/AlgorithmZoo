@@ -6,15 +6,14 @@
 
 namespace glasssix::pump_light
 {
-	detect_code_impl::detect_code_impl()
-	{	}
+	detect_code_impl::detect_code_impl() = default;
 
 	detect_code_impl::~detect_code_impl() = default;
 
 
-	void detect_code_impl::init()
+	void detect_code_impl::init(const exposing::param_string& model_directory, std::int32_t device)
 	{
-		impl_ = std::make_unique<detect_code_internal>();
+		impl_ = std::make_unique<detect_code_internal>(exposing::to_narrow_string(model_directory), device);
 	}
 
 	exposing::param_string detect_code_impl::version() const
@@ -26,9 +25,7 @@ namespace glasssix::pump_light
 		const exposing::param_hash_map<exposing::param_string, float>& param_map_abi) const
 	{
 		if (!impl_)
-		{
-			init();
-		}
+			throw exposing::abi_invalid_operation(u8"pump_light internal object not initialized");
 			
 		std::map<std::string, float> param_map;
 

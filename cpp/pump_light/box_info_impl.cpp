@@ -12,25 +12,10 @@ namespace glasssix::pump_light
 
 	box_info_impl::~box_info_impl()
 	= default;
-	
-	float box_info_impl::red_ratio() const
-	{
-		return internal_.red_ratio;
-	}
 
-	float box_info_impl::white_ratio() const
+	float box_info_impl::score() const
 	{
-		return internal_.white_ratio;
-	}
-
-	float box_info_impl::orange_ratio() const
-	{
-		return internal_.orange_ratio;
-	}
-
-	float box_info_impl::grey_ratio() const
-	{
-		return internal_.grey_ratio;
+		return internal_.score;
 	}
 
 	bool box_info_impl::light_status() const
