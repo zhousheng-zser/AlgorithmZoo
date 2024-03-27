@@ -71,10 +71,52 @@ namespace glasssix::vehicle
             {
                 box_info_internal vehicle_internal;
                 vehicle.add(roi_x, roi_y);
-                vehicle_internal.x1 = vehicle.xmin;
-                vehicle_internal.y1 = vehicle.ymin;
-                vehicle_internal.x2 = vehicle.xmax;
-                vehicle_internal.y2 = vehicle.ymax;
+                std::int32_t x1, y1, x2, y2;
+                x1 = vehicle.xmin;
+                y1 = vehicle.ymin;
+                x2 = vehicle.xmax;
+                y2 = vehicle.ymax;
+                {
+                    //判定区域是否合法
+                    if(x1 > x2 || y1 > y2)
+                        continue;
+                    x1 = std::max(0, x1);
+                    x1 = std::min(width, x1);
+
+                    x2 = std::max(0, x2);
+                    x2 = std::min(width, x2);
+
+                    y1 = std::max(0, y1);
+                    y1 = std::min(height, y1);
+
+                    y2 = std::max(0, y2);
+                    y2 = std::min(height, y2);
+                }
+                std::vector<std::vector<int>> points;
+                {
+                    // 获取车辆经过划线得到的多边形(目前是5个顶点)
+                    cv::Rect roi_rect{x1, y1, x2 - x1, y2 - y1};
+                    // cv::Mat roi_img = image(roi_rect).clone();
+                    // int img_w = roi_img.cols;
+                    // int img_h = roi_img.rows;
+                    // cv::Mat hsv;
+                    // cv::cvtColor(roi_img.clone(),hsv,cv::COLOR_BGR2HSV);
+                    points = vehicle_border_detect(image.clone(), roi_rect);
+                    std::vector<cv::Point> Points = {cv::Point(points[0][0] + x1, points[0][1] + y1), cv::Point(points[1][0] + x1, points[1][1] + y1), cv::Point(points[2][0] + x1, points[2][1] + y1), cv::Point(points[3][0] + x1, points[3][1] + y1), cv::Point(points[4][0] + x1, points[4][1] + y1)};
+                    //& 画多边形
+                    // cv::polylines(image, Points, true, cv::Scalar(0, 255, 0), 1);
+                    // cv::imwrite("../last" + std::to_string(0) + ".jpg", image);
+                }
+                vehicle_internal.x1 = points[0][0] + x1;
+                vehicle_internal.y1 = points[0][1] + y1;
+                vehicle_internal.x2 = points[1][0] + x1;
+                vehicle_internal.y2 = points[1][1] + y1;
+                vehicle_internal.x3 = points[2][0] + x1;
+                vehicle_internal.y3 = points[2][1] + y1;
+                vehicle_internal.x4 = points[3][0] + x1;
+                vehicle_internal.y4 = points[3][1] + y1;
+                vehicle_internal.x5 = points[4][0] + x1;
+                vehicle_internal.y5 = points[4][1] + y1;
                 vehicle_internal.score = vehicle.score;
 				vehicle_internal.category = 0;
                 result.push_back(exposing::make_as_first<box_info_impl>(vehicle_internal));
@@ -111,10 +153,126 @@ namespace glasssix::vehicle
 
         std::string version()
         {
-            const std::string algo_module_version = "2.0.0";
+            const std::string algo_module_version = "2.1.0";
             std::string nn_frame_version = ioprocess_pipeline_->version();
             return fmt::format(R"({ {"nn_frame_version":"{}", "algo_module_version" : "{}"} })", nn_frame_version, algo_module_version);
         }
+        // 输出五边形对应的函数
+        cv::Mat get_color_mask(cv::Mat image, int image_w, int image_h)
+        {
+            cv::Mat hsv;
+            cv::cvtColor(image, hsv, cv::COLOR_BGR2HSV);
+            cv::Mat mask = cv::Mat::zeros(image_h, image_w, CV_8U);
+            cv::Scalar lowerColor = cv::Scalar(35, 43, 30);
+            cv::Scalar upperColor = cv::Scalar(99, 255, 255);
+            cv::Mat color_range;
+            cv::inRange(hsv, lowerColor, upperColor, color_range);
+            cv::bitwise_or(mask, color_range, mask);
+            return mask;
+        }
+
+        cv::Rect convert_xywh_to_xyxy(cv::Rect xywh) {
+            int x1 = xywh.x;
+            int y1 = xywh.y;
+            int x2 = xywh.x + xywh.width;
+            int y2 = xywh.y + xywh.height;
+            return cv::Rect(x1, y1, x2 - x1, y2 - y1);
+        }
+
+
+        cv::Mat filter_lower_left_corner_mask(cv::Mat image, int image_w, int image_h)
+        {
+            double max_box_width = image_w / 4.0;
+            double max_box_height = image_h / 4.0;
+            std::vector<std::vector<cv::Point>> cnts;
+            cv::findContours(image, cnts, cv::RETR_EXTERNAL, cv::CHAIN_APPROX_SIMPLE);
+            std::vector<cv::Rect> xywh_list;
+            for (auto cnt : cnts)
+            {
+                cv::Rect rect = cv::boundingRect(cnt);
+                xywh_list.push_back(rect);
+            }
+            xywh_list.erase(std::remove_if(xywh_list.begin(), xywh_list.end(),
+                                           [max_box_width, max_box_height](cv::Rect xywh)
+                                           {
+                                               return xywh.width >= max_box_width && xywh.height >= max_box_height;
+                                           }),
+                            xywh_list.end());
+            std::vector<cv::Rect> xyxy_list;
+            for (auto xywh : xywh_list)
+            {
+                cv::Rect xyxy = convert_xywh_to_xyxy(xywh);
+                if (xyxy.x == 0 && xyxy.br().y == image_h)
+                {
+                    xyxy_list.push_back(xyxy);
+                }
+            }
+            cv::Mat filter_image;
+            if (!xyxy_list.empty())
+            {
+                cv::Mat the_mask = cv::Mat::zeros(image_h, image_w, CV_8U);
+                cv::Rect xyxy = xyxy_list[0];
+                the_mask(cv::Rect(xyxy.tl(), xyxy.br())) = 1;
+                cv::bitwise_and(image, image, filter_image, the_mask);
+            }
+            else
+            {
+                filter_image = image.clone();
+            }
+            return filter_image;
+        }
+
+        cv::Vec2f get_line(cv::Mat canny)
+        {
+            std::vector<cv::Vec2f> lines;
+            cv::HoughLines(canny, lines, 10, CV_PI / 180, 30);
+            if (!lines.empty())
+            {
+                lines.erase(std::remove_if(lines.begin(), lines.end(), [](cv::Vec2f line)
+                                           { return line[1] <= 2 || line[0] >= 200; }),
+                            lines.end());
+                std::sort(lines.begin(), lines.end(), [](cv::Vec2f a, cv::Vec2f b)
+                          { return a[0] > b[0]; });
+                return lines[0];
+            }
+            else
+            {
+                return cv::Vec2f(0, CV_PI / 2);
+            }
+        }
+
+        std::vector<std::vector<int>> get_box_by_line(cv::Vec2f line, int image_w, int image_h)
+        {
+            float rho = line[0];
+            float theta = line[1] - CV_PI / 2;
+            int y = static_cast<int>(rho / cos(theta));
+            int x = static_cast<int>((image_h - y) / tan(theta));
+            // cv::Point points[6] = {cv::Point(0, 0), cv::Point(image_w, 0), cv::Point(image_w, image_h),
+                                //    cv::Point(x, image_h), cv::Point(0, y), cv::Point(0, 0)};
+            return {{0, 0}, {image_w, 0}, {image_w, image_h}, {x, image_h}, {0, y}, {0, 0}};
+        }
+
+        std::vector<std::vector<int>> vehicle_border_detect(cv::Mat origin_image, cv::Rect detect_rect, std::string show_image_path = "") {
+            cv::Mat cut_image = origin_image(detect_rect);
+            int image_h = cut_image.rows;
+            int image_w = cut_image.cols;
+
+            cv::Mat mask = get_color_mask(cut_image.clone(), image_w, image_h);
+
+            cv::Mat open;
+            cv::morphologyEx(mask, open, cv::MORPH_OPEN, cv::getStructuringElement(cv::MORPH_RECT, cv::Size(11, 11)));
+
+            cv::Mat filter_open = filter_lower_left_corner_mask(open, image_w, image_h);
+
+            cv::Mat canny;
+            cv::Canny(filter_open, canny, 30, 150);
+
+            cv::Vec2f line = get_line(canny);
+
+            std::vector<std::vector<int>> new_box = get_box_by_line(line, image_w, image_h);
+            return new_box;
+        }
+
 
     private:
         std::shared_ptr<PrePostProcessGenPipeline> ioprocess_pipeline_;
