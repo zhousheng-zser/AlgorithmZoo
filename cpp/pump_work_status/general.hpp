@@ -6,15 +6,23 @@
 
     constexpr std::array<int, 3> LAMP_LOWER_COLOR = {0, 0, 221};
     constexpr std::array<int, 3> LAMP_HIGHER_COLOR = {180, 30, 255};
-    constexpr int LAMP_MIN_AREA_OF_BIG_ROOM = 40 * 40;
-    constexpr int LAMP_MAX_AREA_OF_BIG_ROOM = 300 * 300;
-    constexpr int LAMP_RECT_MIN_AREA_OF_BIG_ROOM = 40 * 40;
-    constexpr int LAMP_RECT_MAX_AREA_OF_BIG_ROOM = 300 * 300;
-    constexpr int LAMP_MAX_W_H_RATIO_OF_BIG_ROOM = 6;
+
+    constexpr int LAMP_MIN_AREA_OF_BIG_ROOM = 35 * 35;
+    constexpr int LAMP_MAX_AREA_OF_BIG_ROOM = 150 * 150;
     constexpr int LAMP_MIN_AREA_OF_SMALL_ROOM = 60 * 60;
-    constexpr int LAMP_MAX_AREA_OF_SMALL_ROOM = 300 * 300;
+    constexpr int LAMP_MAX_AREA_OF_SMALL_ROOM = 160 * 160;
+
+    constexpr int LAMP_RECT_MIN_AREA_OF_BIG_ROOM = 50 * 50;
+    constexpr int LAMP_RECT_MAX_AREA_OF_BIG_ROOM = 160 * 160;
+    constexpr int LAMP_RECT_MIN_AREA_OF_SMALL_ROOM = 60 * 60;
+    constexpr int LAMP_RECT_MAX_AREA_OF_SMALL_ROOM = 180 * 180;
+
+
+    constexpr int LAMP_MAX_W_H_RATIO_OF_BIG_ROOM = 4;
     constexpr int LAMP_MAX_W_H_RATIO_OF_SMALL_ROOM = 3;
-    constexpr int LAMP_MIN_LIGHT_BOX = 3;
+
+    constexpr int LAMP_MIN_LIGHT_BOX_OF_BIG_ROOM = 5; //NEW
+    constexpr int LAMP_MIN_LIGHT_BOX_OF_SMALL_ROOM = 3; //NEW
 
     constexpr double BASE_PLATE_ROTATE_ANGLE_RATE = 1.5;
     constexpr int BASE_PLATE_DETECT_HEIGHT = 100;
@@ -22,7 +30,7 @@
 
     constexpr int MIN_WORK_EQUIPMENT_AREA = 10 * 10;
     constexpr int MAX_WORK_EQUIPMENT_AREA = 1000 * 1000;
-    constexpr int WORK_EQUIPMENT_MIN_NUMBER = 0;
+    constexpr int WORK_EQUIPMENT_MIN_NUMBER = 2;
 
     constexpr double DETECT_THRESHOLD = 0.3;
     constexpr float PI = 3.141592653589793 ;
@@ -101,9 +109,10 @@
         }
 
 
-        static std::vector<std::vector<int>> find_box(cv::Mat image, int min_area=0, int max_area=0, int min_rect_area=0, int max_rect_area=0,
+        std::vector<std::vector<int>> find_box(cv::Mat image, int min_area=0, int max_area=0, int min_rect_area=0, int max_rect_area=0,
             double min_w_h_ratio=-0.5f, double max_w_h_ratio=-0.5f, std::string class_name="place") {
             std::vector<std::vector<cv::Point>> contours;
+            std::vector<std::vector<cv::Point>> contours_copy;
             cv::findContours(image.clone(), contours, cv::RETR_EXTERNAL, cv::CHAIN_APPROX_SIMPLE);
 
             std::vector<std::vector<int>> xyxy_list;
@@ -112,8 +121,17 @@
             int h = image.rows;
 
             if( min_area ||min_area)
+            {
                 if(max_area==0 )
                     max_area = w*h;
+                for(auto& cnt : contours)
+                {
+                    auto area = cv::contourArea(cnt);
+                    if(area  <max_area && area>min_area  )
+                        contours_copy.push_back(cnt);
+                }
+                contours = contours_copy;
+            }
 
             if (min_rect_area || max_rect_area )
             {
@@ -128,7 +146,6 @@
                  if (max_w_h_ratio<0.f )
                     min_w_h_ratio=std::max(w, h);
             }
-
 
             if( !(min_area||max_area||min_rect_area||max_rect_area) &&min_w_h_ratio <0.f && max_w_h_ratio<0.f )
             {
@@ -204,9 +221,9 @@
             if( big_paint_room)
                 light_box_list = find_box(open_light_mask, LAMP_MIN_AREA_OF_BIG_ROOM, LAMP_MAX_AREA_OF_BIG_ROOM, LAMP_RECT_MIN_AREA_OF_BIG_ROOM, LAMP_RECT_MAX_AREA_OF_BIG_ROOM, 0, LAMP_MAX_W_H_RATIO_OF_BIG_ROOM);
             else
-                light_box_list = find_box(open_light_mask, LAMP_MIN_AREA_OF_SMALL_ROOM, LAMP_MAX_AREA_OF_SMALL_ROOM, 0, 0, 0,  LAMP_MAX_W_H_RATIO_OF_SMALL_ROOM);
+                light_box_list = find_box(open_light_mask, LAMP_MIN_AREA_OF_SMALL_ROOM, LAMP_MAX_AREA_OF_SMALL_ROOM, LAMP_RECT_MIN_AREA_OF_SMALL_ROOM, LAMP_RECT_MAX_AREA_OF_SMALL_ROOM, 0, LAMP_MAX_W_H_RATIO_OF_SMALL_ROOM);
 
-            bool lamp_status = light_box_list.size() >= LAMP_MIN_LIGHT_BOX;
+            bool lamp_status = light_box_list.size() >= (big_paint_room?LAMP_MIN_LIGHT_BOX_OF_BIG_ROOM:LAMP_MIN_LIGHT_BOX_OF_SMALL_ROOM);
             return lamp_status;
         }
 
@@ -352,7 +369,7 @@
             );
 
             int work_equipment_number = work_equipment_contours.size();
-            bool has_equipment_status = work_equipment_number > WORK_EQUIPMENT_MIN_NUMBER;
+            bool has_equipment_status = work_equipment_number >= WORK_EQUIPMENT_MIN_NUMBER;
 
             return has_equipment_status;
         }

@@ -28,9 +28,9 @@ namespace glasssix::tumble
         }
 
         impl(const std::vector<std::string> &phai, std::string model_directory, int device) 
-            :detect_instance_(phai,  model_directory + std::string("/tumble_sim.rknn"), device), model_directory_(model_directory)
+            :detect_instance_(phai,  model_directory + std::string("/tumble_sim.rknn"), device), model_directory_(model_directory), class_instance_(phai,  model_directory + std::string("/tumble_cls.rknn"), device)
         {
-            init_data();
+            init_data_compatible(1280,1280);
         }       
 
         exposing::param_vector<tumble::box_info> detect(const exposing::param_span<std::uint8_t>& bitmap, int channels, int height, int width, int roi_x, int roi_y, int roi_width, int roi_height, std::map<std::string, float>& param_map)
@@ -97,50 +97,60 @@ namespace glasssix::tumble
 
     private:
 
-
-        /**
-		 * @fun sigmoid_x
-		 * @param 
-		 * @return sigmoid(x)
-		 */
 		inline float sigmoid_x(float x)
 		{
 			return static_cast<float>(1.f / (1.f + exp(-x)));
 		}
 
-
-        void init_data()
+        std::tuple<int,float> get_max_index(const float * result, int num)
         {
-        
-            posture_add_weight_1280.resize(33600*2);
-            posture_mul_weight_1280.resize(33600);
-            for (size_t i = 0; i < 33600; i++)
-            {
-                if(i<25600)
+            float max = result[0];
+            int index =0;
+            for (size_t i = 1; i < num; i++)
+                if( result[i]>max )
                 {
-                    posture_add_weight_1280[i] = i%160;
-                    posture_add_weight_1280[i+33600] = i/160 ;
-                    posture_mul_weight_1280[i] =8.f;
+                    index = i;
+                    max = result[i];
                 }
-                else if( i<32000)
+            return {index, max};
+        }
+
+        void init_data_compatible(int width,int height)
+        {
+            int size_mul_weight = width*height*21/1024; //33600
+            int size_add_weight = 2*size_mul_weight;  
+            int width_base = width/8;
+            int height_base = height/8;
+            int candicate_area = width_base*height_base; //160*160
+
+            add_weight.resize(size_add_weight);
+            mul_weight.resize(size_mul_weight);
+            for (size_t i = 0; i < candicate_area*21/16; i++)
+            {     
+                if(i< candicate_area  ) 
                 {
-                    posture_add_weight_1280[i] = (i -25600)% 80;
-                    posture_add_weight_1280[i+33600] = (i-25600)/80;
-                    posture_mul_weight_1280[i] = 16.f;
+                    add_weight[i] = i%(width_base); 
+                    add_weight[i+size_mul_weight] = i/(width_base) ; //
+                    mul_weight[i] = 8.f;
+                }
+                else if( i<int(std::round(i - candicate_area*1.25)))
+                {
+                    add_weight[i] = (i -candicate_area)% (width_base/2);
+                    add_weight[i+size_mul_weight] = (i-candicate_area)/ (width_base/2);
+                    mul_weight[i] = 16.f;
                 }
                 else
                 {
-                    posture_add_weight_1280[i] = (i -32000)% 40;
-                    posture_add_weight_1280[i+33600] = (i-32000)/40;
-                    posture_mul_weight_1280[i] = 32.f;
+                    add_weight[i] = int(std::round(i - candicate_area*1.25)) % (width_base/4);
+                    add_weight[i+size_mul_weight] =  int(std::round(i - candicate_area*1.25))/(width_base/4);
+                    mul_weight[i] = 32.f;
                 }
             }
-           
+            return ;
         }
 
         std::tuple<cv::Mat, float> preprocess_detection(cv::Mat src,int& pad_h,int& pad_w,  cv::Size input_shape = cv::Size(640, 640) )
         {
-
             float scale = std::min((float)input_shape.width/(float)src.cols, (float)input_shape.height/(float)src.rows);
             cv::Mat cut_image;
             cv::Mat mask_image(input_shape, CV_8UC3, cv::Scalar(114, 114, 114));
@@ -157,70 +167,23 @@ namespace glasssix::tumble
                 src.copyTo(mask_image);     
             }
             cv::cvtColor(mask_image, mask_image, cv::COLOR_BGR2RGB);
-
-            // cv::cvtColor(mask_image, mask_image, cv::COLOR_BGR2HSV);
-
-            // cv::Scalar lower_black(0, 0, 0); // 下限颜色 (B, G, R)
-            // cv::Scalar upper_black(180, 255, 60); // 上限颜色 (B, G, R)
-            
-            // cv::Mat black_mask;
-
-            // cv::inRange(mask_image, lower_black, upper_black, black_mask);
-            
-            // for (int i=0; i<mask_image.rows; i++)
-            // {   
-            //     for (int j=0;j<mask_image.cols;j++)
-            //     {
-            //         if(black_mask.at<uchar>(i,j)>0 )
-            //         {
-            //             mask_image.at<cv::Vec3b>(i,j)[0] = 0;
-            //             mask_image.at<cv::Vec3b>(i,j)[1] = 0;
-            //             mask_image.at<cv::Vec3b>(i,j)[2] = 62;//65
-            //         }
-            //     }
-            // }        
-            // cv::cvtColor(mask_image,mask_image, cv::COLOR_HSV2BGR);
-
             return {mask_image,scale};
         }
-        /**
-        * @fun sigmoid
-        */ 
+
         static inline float sigmoid(float x) {
             return static_cast<float>(1.f / (1.f + exp(-x)));
         }
 
-        /**
-         * @fun Softmax
-         * @param data, num
-         * @return softmax(data) between stride 
-         * @detail
-         */
-        void  Softmax(float *data, int num )
-        {
-            float sum = 0.f;
-            float temp[16] = {0};
-
-            // find max value in data
-            float max = data[0];
-            for(int i = 1; i < num; i++)
+        void  Softmax(float* data, int num )
+        {             
+            double L2_Sum=0.f;
+            for(size_t i=0; i<num; i++) 
             {
-                if(data[i] > max)
-                {
-                    max = data[i];
-                }
+                data[i]= ( exp(data[i] ) );
+                L2_Sum +=  data[i];
             }
-
-            for(int i = 0; i < num; i++)
-            {
-                temp[i] = exp(data[i] - max);
-
-                sum += temp[i];
-            }
-            for(int i = 0; i < num; i++)
-            {
-                data[i] = temp[i] / sum;
-            }
+            for(size_t i=0; i<num; i++) 
+                data[i] =  data[i] / L2_Sum ;
         }
 
         inline float de_sigmoid(float x)
@@ -230,86 +193,90 @@ namespace glasssix::tumble
             return static_cast<float> (log( x/(1-x)));
         }
 
-
-        void tranpose(const float* sou,
-                            float* dest,int sourows,int soucols)
+        void tranpose(const float* sou, float* dest, int sourows, int soucols)
         {
             for(int i=0;i< sourows;i++)
-            {
                 for(int j=0;j< soucols;j++)
-                {
                     dest[j*sourows+i]=sou[ i * soucols + j];    
-                }
-            }
         }
 
-
-        std::shared_ptr<memory::tensor<float>> Yovo8se_Concat_Test2(std::vector<std::shared_ptr<memory::tensor<float>>>& outs,float conf,int& candicate_num)
+        void box_result_move_to_disjoint_region(std::vector<std::vector<float>>&sou_data, std::vector<int>& category_mask, int bias=100000 )
         {
-            conf =de_sigmoid(conf);
-            int candidate_num=33600;
-            int class_num = 65;        
-            int stride_8=160;
-            int stride_16=80;
-            int stride_32=40;
+            for (size_t i = 0; i < sou_data.size(); i++)
+                sou_data[i][0] =  sou_data[i][0]+ category_mask[i]*bias;      
+        }
+
+        std::shared_ptr<memory::tensor<float>> Yovo8se_Concat(std::vector<std::shared_ptr<memory::tensor<float>>>& outs,float conf,int& candidate_num, std::vector<int>& category_mask,const int* add_weight, const int* mul_weight, int width = 1280, int height =1280 )
+        {
+            conf = de_sigmoid(conf);
+            int input = width*height;
+            int category = outs[0]->channels() - 64 ;
+            int box_tmp_size = 64;
+            int stride_8_num = input / 64;
+            int stride_16_num = input / 256;
+            int stride_32_num = input / 1024;
+
+            int totol_size = stride_8_num + stride_16_num + stride_32_num ;    
             //20 40 80 
-            const float *data160 = outs[2]->cpu_data();
-            const float *data80 = outs[1]->cpu_data();
-            const float *data40 = outs[0]->cpu_data();
+            const float *data_stride_8 = outs[2]->cpu_data();
+            const float *data_stride_16 = outs[1]->cpu_data();
+            const float *data_stride_32 = outs[0]->cpu_data();
 
             std::vector<int> match_index;
+#ifdef lxyyolo
+            const float* data_stride_8_conf = data_stride_8 ;
+            const float* data_stride_16_conf = data_stride_16;
+            const float* data_stride_32_conf = data_stride_32;  
+#else
+            const float* data_stride_8_conf = data_stride_8 + stride_8_num*64;
+            const float* data_stride_16_conf = data_stride_16 + stride_16_num*64;
+            const float* data_stride_32_conf = data_stride_32 + stride_32_num*64;
+#endif 
 
-            const float* data160_conf = data160+stride_8*stride_8*65;
-            for (size_t i = 0; i < stride_8*stride_8; i++)
-                if(data160_conf[i] >conf  )             
-                    match_index.push_back(i);
-
-            const float* data80_conf = data80+stride_16*stride_16*65;
-            for (size_t i = 0; i < stride_16*stride_16; i++)
-                if( data80_conf[i] >conf )
-                    match_index.push_back(i+25600);
-
-            const float* data40_conf = data40+stride_32*stride_32*65;
-            for (size_t i = 0; i < stride_32*stride_32; i++)
-                if( data40_conf[i] >conf  )
-                    match_index.push_back(i+32000);
-
-            //concat the 80*40 40*40 20*20 
-            std::vector<float> cat(66*candidate_num);//1*65*8400 = 64*8400 + 1*8400
-            for(int i=0;i<66;i++)
-            {
-                std::copy(data160+i*stride_8*stride_8, data160+(i+1)*stride_8*stride_8, cat.data()+i*candidate_num ); 
-                std::copy(data80+i*stride_16*stride_16, data80+(i+1)*stride_16*stride_16, cat.data()+i*candidate_num+stride_8*stride_8); 
-                std::copy(data40+i*stride_32*stride_32, data40+(i+1)*stride_32*stride_32, cat.data()+i*candidate_num+stride_8*stride_8+stride_16*stride_16 ); 
+            std::vector<float> cat(category*totol_size); //1*65*candidate_num = 64*candidate_num + 1*candidate_num        
+            for(int i=0; i<category; i++)
+            {   
+                std::copy(data_stride_8_conf+i*stride_8_num, data_stride_8_conf+(i+1)*stride_8_num, cat.data()+i*totol_size ); 
+                std::copy(data_stride_16_conf+i*stride_16_num, data_stride_16_conf+(i+1)*stride_16_num, cat.data()+i*totol_size+stride_8_num ); 
+                std::copy(data_stride_32_conf+i*stride_32_num, data_stride_32_conf+(i+1)*stride_32_num, cat.data()+i*totol_size+stride_8_num+stride_16_num ); 
             }
 
+            for (size_t i = 0; i < cat.size(); i++ )
+                if( cat[i] > conf  )    
+                {
+                    match_index.push_back(i%totol_size);
+                    category_mask.push_back(i/ totol_size);
+                }
 
-
-            //process the candidate xywh begin  
+            if(!match_index.size())
+            {
+                std::shared_ptr<glasssix::memory::tensor<float>> output0;
+                return output0;
+            }
+            
             //tranpose and softmax
-            std::vector<float> reshape_box(candidate_num*64);
-            tranpose(cat.data(),reshape_box.data(),64,candidate_num );
-
+            std::vector<float> reshape_box(totol_size*64);
+#ifdef lxyyolo
+            tranpose(data_stride_8  + stride_8_num*category   ,reshape_box.data(), 64, stride_8_num );
+            tranpose(data_stride_16 + stride_16_num*category  ,reshape_box.data()+stride_8_num*64 ,64,stride_16_num );
+            tranpose(data_stride_32 + stride_32_num*category  ,reshape_box.data()+(stride_8_num+stride_16_num)*64 , 64,stride_32_num );
+#else
+            tranpose(data_stride_8,reshape_box.data(), 64, stride_8_num );
+            tranpose(data_stride_16,reshape_box.data()+stride_8_num*64 ,64,stride_16_num );
+            tranpose(data_stride_32,reshape_box.data()+(stride_8_num+stride_16_num)*64 , 64,stride_32_num );
+#endif 
             candidate_num = match_index.size();
-
-            candicate_num = candidate_num;
             std::vector<float> reshape_boxtmp(candidate_num*64);
             std::shared_ptr<glasssix::memory::tensor<float>> output0
                 (new memory::tensor<float>(std::vector<int>{1, 5, candidate_num}, -1, memory::NCHW));
-
         
-            for (size_t i = 0; i < match_index.size(); i++)         
-                std::copy(reshape_box.data()+match_index[i]*64,reshape_box.data()+match_index[i]*64+64,reshape_boxtmp.data()+i*64);
+            for (size_t i = 0; i < match_index.size(); i++)
+                std::copy(reshape_box.data()+match_index[i]*64, reshape_box.data()+match_index[i]*64+64, reshape_boxtmp.data()+i*64);
 
             int index = 0;
             for(int i=0; i<candidate_num; i++)
-            {
                 for(int j=0; j<4; j++)
-                {
-                    Softmax(reshape_boxtmp.data()+ 16*index ,16 ) ;
-                    index++ ;
-                }
-            }
+                    Softmax(reshape_boxtmp.data()+ 16*index++ ,16 ) ;//inplace softamax
 
             std::vector<float> reshape_box2(16*4*candidate_num);
             for(int i=0; i<candidate_num; i++)
@@ -317,161 +284,165 @@ namespace glasssix::tumble
                     for(int k=0; k<16; k++)
                         reshape_box2[k*4*candidate_num +j*candidate_num +i ] = reshape_boxtmp[i*16*4 + j*16+k ];
 
-            //16个通道 1*1卷积
+            //16 channels 1*1convolution
             std::vector<float> conv(4*candidate_num,0);
-            
             for(int i=0;i<16;i++)
-            {
                 for(int j=0;j<4*candidate_num;j++)
-                {
-                    int location = 4*candidate_num;
-                    conv[j] = conv[j] +reshape_box2[i*location+j ]*i  ; 
-                }
-            }
+                    conv[j] = conv[j] +reshape_box2[i*4*candidate_num+j ]*i; 
 
-            std::vector<float>  concat(candidate_num*4);
-            for(int i=0;i<candidate_num*2;i++)
-            {              
-                int index = match_index[i];
-                if(i>=candidate_num  )          
-                    index = match_index[i - candidate_num ]+33600;
-                concat[i]                 = (conv[i+candidate_num*2] - conv[i] )/2.f + posture_add_weight_1280[ index] + 0.5;     
-                concat[i+candidate_num*2] = (conv[i+candidate_num*2] + conv[i] );      // add_data[i]-sub_data[i]) ;  
-            }
-
-            //concat the output
+            std::vector<float> concat(candidate_num*4);
             float * output = output0->mutable_cpu_data();
             for(int i=0;i<candidate_num;i++)
-            {
-                output[candidate_num*0 +i] = concat[candidate_num*0 +i]*posture_mul_weight_1280[ match_index[i]];    
-                output[candidate_num*1 +i] = concat[candidate_num*1 +i]*posture_mul_weight_1280[ match_index[i]];
-                output[candidate_num*2 +i] = concat[candidate_num*2 +i]*posture_mul_weight_1280[ match_index[i]];
-                output[candidate_num*3 +i] = concat[candidate_num*3 +i]*posture_mul_weight_1280[ match_index[i]];
-                output[candidate_num*4 +i] =  sigmoid_x(cat[33600*65 +match_index[i]]);
-            }          
+            {              
+                output[candidate_num*0 +i]= ((conv[i+candidate_num*2] - conv[i] )/2.f + add_weight[match_index[i]] + 0.5)*mul_weight[ match_index[i%candidate_num]] ;     
+                output[candidate_num*1 +i]= ((conv[i+candidate_num*3] - conv[i+candidate_num] )/2.f + add_weight[match_index[i]+totol_size ] + 0.5)*mul_weight[ match_index[i%candidate_num]] ;    
+                output[candidate_num*2 +i]= (conv[i+candidate_num*2]  + conv[i] ) * mul_weight[ match_index[i%candidate_num]];      
+                output[candidate_num*3 +i]= (conv[i+candidate_num*3]  + conv[i+candidate_num] ) * mul_weight[ match_index[i%candidate_num]]; 
+                output[candidate_num*4 +i]=  sigmoid_x(cat[totol_size*category_mask[i] + match_index[i]]);
+            }  
             return  output0;
         }
        
-        /*
-        @fun post_process
-        */
-        std::vector<std::vector<float>> post_process(std::shared_ptr<memory::tensor<float>>& net_result, cv::Mat & blob, int pad_h, int pad_w, float scale, int num,float threshold=0.45,float iou_thres=0.6 )
+        std::vector<std::vector<float>> XYXY2WH(std::shared_ptr<memory::tensor<float>>& net_result, int pad_h, int pad_w, float scale,
+                        int candicate_num, std::vector<int>& category_mask, float threshold=0.0,float iou_thres=0.8 )
         {
-            std::vector<std::vector<float>> output;
+                std::vector<std::vector<float>> output;
+                if(!candicate_num )
+                    return output;
+                int shape = 5;
+                const int candidate_num = candicate_num;
+                std::shared_ptr<glasssix::memory::tensor<float>> dest 
+                        (new glasssix::memory::tensor<float>(candidate_num, shape, -1, glasssix::memory::NCHW, nullptr));
+                tranpose( net_result->cpu_data(), dest->mutable_cpu_data(), shape, candidate_num);
+                const float *dest_ptr = dest->cpu_data(); 
 
-            int shape =5;
-            const int candidate_num=num;
-            std::shared_ptr<glasssix::memory::tensor<float>> dest 
-                    (new glasssix::memory::tensor<float>(candidate_num, shape, -1, glasssix::memory::NCHW, nullptr));
+                std::vector<cv::Rect2d> xywh_boxes;
+                std::vector<std::vector<float>> key_points;
+                std::vector<float> scores;
 
-            tranpose( net_result->cpu_data(), dest->mutable_cpu_data(), shape, candidate_num);
-            const float *dest_ptr = dest->cpu_data(); 
+                for(int i=0;i<candidate_num;i++)
+                {
+                        std::vector<float> temp(5);
+                        cv::Rect2d boxwh;
+                        boxwh.x      =  static_cast<double>((dest_ptr[shape*i] - dest_ptr[shape*i+2] / 2) - pad_w)*scale;
+                        boxwh.y      =  static_cast<double>((dest_ptr[shape*i+1] - dest_ptr[shape*i+3] / 2)- pad_h)*scale;
+                        boxwh.width  =  static_cast<double>(dest_ptr[shape*i+2])*scale ;
+                        boxwh.height =  static_cast<double>(dest_ptr[shape*i+3])*scale ;       
 
-            std::vector<float>  scores;
-            std::vector<int>    indices_body;//候选框顺序
-            std::vector<cv::Rect2d> xywh_boxes;
-            std::vector<std::vector<float>> key_points;
+                        temp[0]=boxwh.x;
+                        temp[1]=boxwh.y;
+                        temp[2]=boxwh.width;
+                        temp[3]=boxwh.height;
+                        temp[4]=dest_ptr[shape*i+4];
 
-            for(int i=0;i<candidate_num;i++)
-            {
-                if(dest_ptr[shape*i+4]>threshold)
-                { 
-                    indices_body.push_back(i);
-                    cv::Rect2d boxwh;
-                    boxwh.x      =  static_cast<double>(dest_ptr[shape*i] - dest_ptr[shape*i+2] / 2 );
-                    boxwh.y      =  static_cast<double>(dest_ptr[shape*i+1] - dest_ptr[shape*i+3]/2 );
-                    boxwh.width  =  static_cast<double>(dest_ptr[shape*i+2]);
-                    boxwh.height =  static_cast<double>(dest_ptr[shape*i+3]);       
-                    { 
-                        xywh_boxes.push_back(boxwh);
-                        scores.push_back(dest_ptr[shape*i+4]); 
-                        indices_body.push_back(i);
-                    }
+                        output.push_back(temp);
                 }
-            }
-
-            std::vector<int> indices_body_copy( indices_body.size());
-            for(int i=0;i<indices_body_copy.size();i++)
-            {
-                indices_body_copy[i]=i;
-            }
-            cv::dnn::NMSBoxes(xywh_boxes, scores, threshold, iou_thres, indices_body_copy, 1.f, 0);
-
-            for(int i=0; i< indices_body_copy.size();i++)
-            {
-                int index = indices_body_copy[i];
-                std::vector<float> temp_output(5);
-                temp_output[0]= (xywh_boxes[index].x - pad_w)*scale;
-                temp_output[1]= (xywh_boxes[index].y - pad_h)*scale;
-                temp_output[2]= (xywh_boxes[index].width + xywh_boxes[index].x - pad_w)*scale;
-                temp_output[3]= (xywh_boxes[index].height + xywh_boxes[index].y - pad_h)*scale;
-                temp_output[4]= scores[index];
-                output.emplace_back(temp_output);
-            }           
-            int k=0;
-            return output;
+                return output ;
         }
 
+        std::vector<int> nms_process(std::vector<std::vector<float>>& nms_input, float threshold=0.0,float iou_thres=0.9 )
+        {
+                std::vector<cv::Rect2d> xywh_boxes(nms_input.size());;
+                std::vector<float> scores(nms_input.size());
+                std::vector<int> indices_body(nms_input.size());;//候选框顺序
 
-        /**
-        * @fun run_detect
-        */
+                for (size_t i = 0; i < nms_input.size(); i++)
+                {
+                    cv::Rect2d boxwh;
+                    boxwh.x      =  nms_input[i][0];
+                    boxwh.y      =  nms_input[i][1];
+                    boxwh.width  =  nms_input[i][2];
+                    boxwh.height =  nms_input[i][3];   
+                    xywh_boxes[i]=boxwh;
+                    scores[i] = nms_input[i][4];   
+                    indices_body[i]=i;
+                }
+                std::vector<int> indices_body_copy( indices_body.size() );
+                for(int i=0;i<indices_body_copy.size();i++)           
+                    indices_body_copy[i]=i;
+                cv::dnn::NMSBoxes(xywh_boxes, scores, threshold, iou_thres, indices_body_copy, 1.f, 0);
+            
+                return indices_body_copy;
+        }
+
         std::vector<tumble::box_info_internal> run_detect(cv::Mat& image, std::map<std::string, float>& param_map)
         {
             float conf_thres = param_map.count("conf_thres") ? param_map["conf_thres"] : 0.6f;
             float iou_thres  = param_map.count("nms_thres") ? param_map["nms_thres"] : 0.65f;     
 
-            // std::cout<<"conf_thres:"<<conf_thres<<std::endl;
-            // preprocess
             auto new_shape = cv::Size(1280,  1280);
-
-            auto output_shape = cv::Size(image.cols, image.rows);
-            
             cv::Mat blob;
             float ratio = 0;
             int pad_h=0;  
             int pad_w=0;
 
             std::vector<std::shared_ptr<glasssix::memory::tensor<float>>> forwards;
-            std::vector<std::string>  phais;
             std::tie(blob, ratio) = preprocess_detection( image,pad_h,pad_w, new_shape ) ;
             auto  network_results = detect_instance_.forward(blob.data, { 1, blob.rows, blob.cols,blob.channels() }, RKNN_TENSOR_NHWC);
 
+            std::vector<int> category_mask;
             std::vector<std::string>  out_names={"355","340","output0"};
             for (size_t i=0;i< out_names.size(); i++)//对输出数据做处理
-            {
                 forwards.push_back(network_results[out_names[i]]);
-            }
-            int num =8400;
-            auto real_output = Yovo8se_Concat_Test2(forwards, conf_thres, num);//5*8400
 
-            auto nms_result = post_process(real_output, blob,pad_h,pad_w, 1.f/ratio,num);
+            int candicate_num =0;
+            auto real_output = Yovo8se_Concat(forwards,conf_thres,candicate_num,category_mask, add_weight.data(), mul_weight.data(), 1280,1280);//5*8400
+            auto nms_input  =  XYXY2WH(real_output, pad_h, pad_w, 1.f/ratio, candicate_num, category_mask);
+            box_result_move_to_disjoint_region( nms_input, category_mask, 100000);
+            auto nms_result_index = nms_process(nms_input, conf_thres, iou_thres);
+            box_result_move_to_disjoint_region( nms_input, category_mask, -100000);
 
             std::vector<tumble::box_info_internal> detect_result;
+            for (size_t i = 0; i < nms_result_index.size(); i++)
+            {   
+                int index = nms_result_index[i];
 
-            for(auto& people:nms_result)
-            {
-                tumble::box_info_internal box_info;
-                box_info.x1 =std::round( people[0])>0?std::round( people[0]):0  ;
-                box_info.y1 =std::round( people[1])>0?std::round( people[1]):0  ;
-                box_info.x2 =std::round( people[2])<image.cols?std::round( people[2]):image.cols ;
-                box_info.y2 =std::round( people[3])<image.rows?std::round( people[3]):image.rows ;
-                box_info.score = people[4];
+                yolo_result result( int(nms_input[index][0]),int(nms_input[index][1]),
+                                    int(nms_input[index][0]+nms_input[index][2]),  int(nms_input[index][1]+nms_input[index][3]),category_mask[index],nms_input[index][4] );    
                 
-                box_info.category = 1;
+                auto candidate_box = result.safe_yolo_result(image.cols,image.rows);
 
-                detect_result.push_back(box_info);
+                auto crop_img = image(cv::Range(candidate_box.y1 , candidate_box.y2), cv::Range(candidate_box.x1, candidate_box.x2)).clone();
+
+                auto class_new_shape = cv::Size(256,  256);
+                cv::Mat class_blob;
+                float class_ratio = 0;
+                int class_pad_h=0;  
+                int class_pad_w=0;
+                std::vector<std::shared_ptr<glasssix::memory::tensor<float>>> forwards;
+              
+                std::tie(class_blob, class_ratio) = preprocess_detection(crop_img, class_pad_h, class_pad_w, class_new_shape );
+                
+                auto class_result = class_instance_.forward(class_blob.data, { 1, class_blob.rows, class_blob.cols,class_blob.channels() }, RKNN_TENSOR_NHWC);
+                for (const auto& kv : class_result) 
+                {  
+                    auto& value = kv.second;  
+                    auto [max_index, max] = get_max_index( value->cpu_data(), value->count());
+                    if(max_index==0 && max>0.6 )
+                        detect_result.push_back( result.yolo_result2box() );
+                }  
             }
 
-           return detect_result;
+            // std::vector<tumble::box_info_internal> detect_result;
+            // for (size_t i = 0; i < nms_result_index.size(); i++)
+            // {   
+            //     int index = nms_result_index[i];
+            //     yolo_result result( int(nms_input[index][0]),int(nms_input[index][1]),
+            //                         int(nms_input[index][0]+nms_input[index][2]),  int(nms_input[index][1]+nms_input[index][3]),category_mask[index],nms_input[index][4] );
+            //     if(result.category==1)
+            //         detect_result.push_back( result.yolo_result2box());       
+            // }
+
+            return detect_result;
         }
 
     private:
         std::string model_directory_;
         int device_;
         glasssix::rknnwrapper::rknn_wrapper detect_instance_;
-        std::vector<float> posture_add_weight_1280;
-        std::vector<float> posture_mul_weight_1280;
+        glasssix::rknnwrapper::rknn_wrapper class_instance_;
+        std::vector<int> add_weight;
+        std::vector<int> mul_weight;
     };
 
     detect_code_internal::detect_code_internal(std::string_view model_directory, int device)

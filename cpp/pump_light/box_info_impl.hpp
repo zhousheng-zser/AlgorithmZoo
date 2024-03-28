@@ -15,10 +15,7 @@ namespace glasssix::pump_light
         box_info_impl(const box_info_internal& internal);
         ~box_info_impl();
 
-		float red_ratio() const;
-        float white_ratio() const;
-        float orange_ratio() const;
-        float grey_ratio() const;
+        float score() const;
         bool light_status() const;
         exposing::param_string version() const;
 

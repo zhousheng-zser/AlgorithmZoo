@@ -14,8 +14,14 @@ namespace glasssix::vehicle
     {
         std::int32_t x1;
         std::int32_t x2;
+        std::int32_t x3;
+        std::int32_t x4;
+        std::int32_t x5;
         std::int32_t y1;
         std::int32_t y2;
+        std::int32_t y3;
+        std::int32_t y4;
+        std::int32_t y5;
         float score;
         std::int32_t category;
     };

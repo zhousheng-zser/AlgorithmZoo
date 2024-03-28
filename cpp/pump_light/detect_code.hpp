@@ -20,7 +20,9 @@ namespace glasssix::exposing::impl
 
         struct type : abi_unknown_object
         {
-            virtual std::int32_t G6_ABI_CALL init() noexcept = 0;
+            virtual std::int32_t G6_ABI_CALL init(
+                abi_in_t<param_string> model_directory,
+                std::int32_t device) noexcept = 0;
 
             virtual std::int32_t G6_ABI_CALL detect(
                 abi_in_t<param_span<std::uint8_t>> bitmap,
@@ -38,10 +40,14 @@ namespace glasssix::exposing::impl
     struct interface_vtable<Derived, pump_light::detect_code> : interface_vtable_base<Derived, pump_light::detect_code>
     {
 
-        virtual std::int32_t G6_ABI_CALL init() noexcept override
+        virtual std::int32_t G6_ABI_CALL init(
+            abi_in_t<param_string> model_directory,
+            std::int32_t device) noexcept override
         {
             return abi_safe_call([&]
-                { this->self().init(); });
+                { this->self().init(
+                    create_from_abi<param_string>(model_directory),
+                    device); });
         }
 
         virtual std::int32_t G6_ABI_CALL detect(abi_in_t<param_span<std::uint8_t>> bitmap,
@@ -73,9 +79,13 @@ namespace glasssix::exposing::impl
         template <typename Derived>
         struct type : enable_self_abi_awareness<Derived, pump_light::detect_code>
         {
-            void init() const
+            void init(
+                const param_string& model_directory,
+                std::int32_t device) const
             {
-                check_abi_result(this->self_abi().init());
+                check_abi_result(this->self_abi().init(
+                    get_abi(model_directory),
+                    get_abi(device)));
             }
 
             pump_light::box_info detect(
