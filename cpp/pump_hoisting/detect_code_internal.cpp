@@ -13,7 +13,7 @@
 #include <abi/param_vector.hpp>
 #include <utility>
 #include "general.hpp"
-#define draw_pic 
+#define no_draw_pic 
 #define LIBRARY_ID_MAX 1073741824
 namespace glasssix::pump_hoisting
 {
@@ -80,13 +80,13 @@ namespace glasssix::pump_hoisting
             {
                 for( auto& current_box : all_pump_rect_boxes )
                 {
-                    auto match_id = get_match_id(library, current_box,0.5);
+                    auto match_id = get_match_id(library, current_box,0.2);
                     if( match_id != -1 )  
                     {
                         // float distance1 =get_distance_between_Rectangle(current_box, library[match_id] );
                         float distance = get_distance_between_Rectangle(current_box, library[match_id], false );
-                        float left_down_corner_distance = get_left_down_corner_distance_between_Rectangle(current_box,library[match_id]);
-                        float left_top_corner_distance = get_left_top_corner_distance_between_Rectangle(current_box,library[match_id]);
+                        float left_down_corner_distance = get_left_down_corner_distance_between_Rectangle(current_box,library[match_id],false);
+                        float left_top_corner_distance = get_left_top_corner_distance_between_Rectangle(current_box,library[match_id],false);
                         library[match_id].refresh( current_box.x1, current_box.y1, current_box.x2, current_box.y2   );
                         // if(  (abs(current_box.y2-current_box.y1)*0.08 > distance && distance > abs(current_box.y2-current_box.y1)*move_threshold) && left_down_corner_distance>0.08*abs(current_box.y2-current_box.y1)  && left_top_corner_distance>0.08*abs(current_box.y2-current_box.y1) ) //检测到移动了
                         if(  (abs(current_box.y2-current_box.y1)*0.8 > distance && distance > abs(current_box.y2-current_box.y1)*move_threshold) && left_down_corner_distance>0.08*abs(current_box.y2-current_box.y1)  && left_top_corner_distance>0.08*abs(current_box.y2-current_box.y1) ) //检测到移动了
