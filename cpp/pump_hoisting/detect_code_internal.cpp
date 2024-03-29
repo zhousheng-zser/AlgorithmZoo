@@ -13,7 +13,7 @@
 #include <abi/param_vector.hpp>
 #include <utility>
 #include "general.hpp"
-#define draw_pic 
+#define no_draw_pic 
 #define LIBRARY_ID_MAX 1073741824
 namespace glasssix::pump_hoisting
 {
