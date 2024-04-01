@@ -80,8 +80,8 @@ namespace glasssix::vehicle
                 x2 = vehicle.xmax;
                 y2 = vehicle.ymax;
                 //& 画原始的框
-                // cv::rectangle(image, cv::Point(x1, y1), cv::Point(x2, y2), cv::Scalar(0, 0, 255), 1);
-                // cv::imwrite("../last" + std::to_string(0) + ".jpg", image);
+                // cv::rectangle(image, cv::Point(x1, y1), cv::Point(x2, y2), cv::Scalar(0, 0, 255), 3);
+                // cv::imwrite("last" + std::to_string(0) + ".jpg", image);
 
                 {
                     // 判定区域是否合法
@@ -111,8 +111,8 @@ namespace glasssix::vehicle
                     points = vehicle_border_detect(image.clone(), roi_rect);
                     std::vector<cv::Point> Points = {cv::Point(points[0][0] + x1, points[0][1] + y1), cv::Point(points[1][0] + x1, points[1][1] + y1), cv::Point(points[2][0] + x1, points[2][1] + y1), cv::Point(points[3][0] + x1, points[3][1] + y1), cv::Point(points[4][0] + x1, points[4][1] + y1)};
                     //& 画多边形
-                    cv::polylines(image, Points, true, cv::Scalar(0, 255, 0), 1);
-                    cv::imwrite("../last" + std::to_string(0) + ".jpg", image);
+                    // cv::polylines(image, Points, true, cv::Scalar(0, 255, 0), 1);
+                    // cv::imwrite("last" + std::to_string(1) + ".jpg", image);
                 }
                 vehicle_internal.x1 = points[0][0] + x1;
                 vehicle_internal.y1 = points[0][1] + y1;
@@ -163,7 +163,7 @@ namespace glasssix::vehicle
 
         std::string version()
         {
-            const std::string algo_module_version = "2.1.0";
+            const std::string algo_module_version = "2.1.1";
             std::string nn_frame_version = ioprocess_pipeline_->version();
             return fmt::format(R"({ {"nn_frame_version":"{}", "algo_module_version" : "{}"} })", nn_frame_version, algo_module_version);
         }
@@ -297,6 +297,13 @@ namespace glasssix::vehicle
 
             cv::Mat canny;
             cv::Canny(filter_open, canny, 30, 150);
+            //& 画每个阶段的图片
+            // cv::imwrite("last_0_origin_image.jpg", origin_image);
+            // cv::imwrite("last_1_cut_image.jpg", cut_image);
+            // cv::imwrite("last_2_mask.jpg", mask);
+            // cv::imwrite("last_3_open.jpg", open);
+            // cv::imwrite("last_4_filter_open.jpg", filter_open);
+            // cv::imwrite("last_5_canny.jpg", canny);
 
             cv::Vec2f line = get_line(canny);
 
