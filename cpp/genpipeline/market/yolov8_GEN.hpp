@@ -2,8 +2,8 @@
 #include "../postprocessing/postprocessing_tools.hpp"
 #include <vector>
 
-//编译时能确认的后处理函数，直接从此处获取
-//运行时才绑定的后处理，则由由该hpp对应的cpp中的后处理封装类注册
+//缂栬瘧鏃惰兘纭鐨勫悗澶勭悊鍑芥暟锛岀洿鎺ヤ粠姝ゅ鑾峰彇
+//杩愯鏃舵墠缁戝畾鐨勫悗澶勭悊锛屽垯鐢辩敱璇pp瀵瑰簲鐨刢pp涓殑鍚庡鐞嗗皝瑁呯被娉ㄥ唽
 
 namespace {
 	/// native code

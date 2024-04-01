@@ -33,7 +33,7 @@
     constexpr int WORK_EQUIPMENT_MIN_NUMBER = 2;
 
     constexpr double DETECT_THRESHOLD = 0.3;
-    constexpr float PI = 3.141592653589793 ;
+    constexpr float PII = 3.141592653589793 ;
     constexpr int MIN_DETECT_SIZE = 30;
         
         static cv::Mat get_mask(cv::Mat& image, cv::Mat& mask_array, cv::Scalar fill_color=cv::Scalar(255, 255, 255), bool inverse=false) 
@@ -114,13 +114,10 @@
             std::vector<std::vector<cv::Point>> contours;
             std::vector<std::vector<cv::Point>> contours_copy;
             cv::findContours(image.clone(), contours, cv::RETR_EXTERNAL, cv::CHAIN_APPROX_SIMPLE);
-
             std::vector<std::vector<int>> xyxy_list;
-
             int w = image.cols;
             int h = image.rows;
-
-            if( min_area ||min_area)
+            if( min_area || max_area)
             {
                 if(max_area==0 )
                     max_area = w*h;
@@ -131,53 +128,54 @@
                         contours_copy.push_back(cnt);
                 }
                 contours = contours_copy;
+                contours_copy.clear();
             }
 
             if (min_rect_area || max_rect_area )
             {
                 if(!max_rect_area)
                     max_rect_area = w*h; 
+                for(auto& cnt : contours)
+                {
+                    cv::Rect rect = cv::boundingRect(cnt);
+                    auto area = rect.width*rect.height;
+                    if(area  >min_rect_area && area<max_rect_area  )
+                        contours_copy.push_back(cnt);
+                }
+                contours = contours_copy;
+                contours_copy.clear();
             }
 
             if (min_w_h_ratio>0.f || max_w_h_ratio>0.f)
             {
-                 if (min_w_h_ratio<0.f )
+                if (min_w_h_ratio<0.f )
                     min_w_h_ratio=0.f;
-                 if (max_w_h_ratio<0.f )
+                if (max_w_h_ratio<0.f )
                     min_w_h_ratio=std::max(w, h);
-            }
-
-            if( !(min_area||max_area||min_rect_area||max_rect_area) &&min_w_h_ratio <0.f && max_w_h_ratio<0.f )
-            {
-                for (const auto& cnt : contours) 
+                for(auto& cnt : contours)
                 {
                     cv::Rect rect = cv::boundingRect(cnt);
-                    std::vector<int> xywh = {rect.x, rect.y, rect.width, rect.height};
-                    xyxy_list.push_back(convert_xywh_to_xyxy(xywh));
+                    float length = std::max(rect.width, rect.height);
+                    float shorth = std::min(rect.width, rect.height);
+                    if( length/shorth  <max_w_h_ratio && length/shorth> min_w_h_ratio )
+                        contours_copy.push_back(cnt);
                 }
-                return xyxy_list;
+                contours = contours_copy;
+                contours_copy.clear();
             }
 
-            for (const auto& cnt : contours) {
+            for (const auto& cnt : contours) 
+            {
                 cv::Rect rect = cv::boundingRect(cnt);
-                int area = rect.width * rect.height;
-                double rect_area = rect.width * rect.height;
-                double w_h_ratio = std::max(rect.width, rect.height) / std::min(rect.width, rect.height);
-
-                if ((min_area <= area && area <= max_area) &&
-                    (min_rect_area <= rect_area && rect_area <= max_rect_area) &&
-                    (min_w_h_ratio <= w_h_ratio && w_h_ratio <= max_w_h_ratio)) 
-                    {
                         std::vector<int> xywh = {rect.x, rect.y, rect.width, rect.height};
                         xyxy_list.push_back(convert_xywh_to_xyxy(xywh));
-                    }
             }
-
             return xyxy_list;
         }
 
-        static  bool classify_lamp_status(cv::Mat& image, bool big_paint_room, std::vector<std::vector<int>>& mask_array) 
+       bool classify_lamp_status(cv::Mat image, bool big_paint_room, std::vector<std::vector<int>> mask_array, std::string show_image_path = "") 
         {
+            // 处理掩码数组
             std::vector<std::vector<int>> new_mask_array(mask_array.size()+2);
             for(int i =0; i < mask_array.size(); i++)
                 new_mask_array[i==0?i:i+2] = mask_array[i];
@@ -197,26 +195,29 @@
                     new_mask_array_mask.at<int>(i, j) = new_mask_array[i][j];
             
             cv::Mat mask = get_mask(image, new_mask_array_mask,cv::Scalar(255,255,255), true) ;
-            cv::Mat masked_image = image & mask;
+        
+            cv::Mat masked_image;// = image & mask;
+            cv::bitwise_and(image, mask, masked_image);
             cv::Mat erode_mask;
             cv::Mat erode_masked_image;
             cv::erode(mask, erode_mask, cv::getStructuringElement(cv::MORPH_RECT, cv::Size(150, 150)));
-            erode_masked_image = erode_mask&image;
+            // erode_masked_image = erode_mask&image;
+            cv::bitwise_and(image, erode_mask, erode_masked_image);
 
             // 对图像进行处理
             cv::Mat hsv;
             cv::cvtColor(erode_masked_image, hsv, cv::COLOR_BGR2HSV);
+
             // 对光源进行颜色识别
             cv::Mat light_mask;
             cv::inRange(hsv, LAMP_LOWER_COLOR, LAMP_HIGHER_COLOR, light_mask);
 
             // 进行形态学操作
             cv::Mat open_light_mask, close_light_mask;
-            cv::morphologyEx(light_mask, open_light_mask, cv::MORPH_OPEN, cv::getStructuringElement(cv::MORPH_RECT,big_paint_room ? cv::Size(11, 11): cv::Size(25, 25)));
-
+            cv::morphologyEx(light_mask, open_light_mask, cv::MORPH_OPEN, cv::getStructuringElement(cv::MORPH_RECT, big_paint_room ? cv::Size(11, 11): cv::Size(25, 25)));
+         
             cv::morphologyEx(open_light_mask, close_light_mask, cv::MORPH_CLOSE, cv::getStructuringElement(cv::MORPH_RECT, cv::Size(30, 30)));
-
-            // 查找光源的区域
+          
             std::vector<std::vector<int>> light_box_list;
             if( big_paint_room)
                 light_box_list = find_box(open_light_mask, LAMP_MIN_AREA_OF_BIG_ROOM, LAMP_MAX_AREA_OF_BIG_ROOM, LAMP_RECT_MIN_AREA_OF_BIG_ROOM, LAMP_RECT_MAX_AREA_OF_BIG_ROOM, 0, LAMP_MAX_W_H_RATIO_OF_BIG_ROOM);
@@ -224,14 +225,16 @@
                 light_box_list = find_box(open_light_mask, LAMP_MIN_AREA_OF_SMALL_ROOM, LAMP_MAX_AREA_OF_SMALL_ROOM, LAMP_RECT_MIN_AREA_OF_SMALL_ROOM, LAMP_RECT_MAX_AREA_OF_SMALL_ROOM, 0, LAMP_MAX_W_H_RATIO_OF_SMALL_ROOM);
 
             bool lamp_status = light_box_list.size() >= (big_paint_room?LAMP_MIN_LIGHT_BOX_OF_BIG_ROOM:LAMP_MIN_LIGHT_BOX_OF_SMALL_ROOM);
+
             return lamp_status;
         }
 
-        static bool classify_base_plate_status(cv::Mat& image, bool big_paint_room,  std::vector<std::vector<int>>& mask_array) 
+         bool classify_base_plate_status(cv::Mat& image, bool big_paint_room,  std::vector<std::vector<int>> mask_array) 
         {
+
             double angle = std::atan2(mask_array[mask_array.size()-1][0] - mask_array[0][0],
                                 mask_array[mask_array.size()-1][1] - mask_array[0][1])
-                                / PI * 180 * BASE_PLATE_ROTATE_ANGLE_RATE;
+                                / PII * 180 * BASE_PLATE_ROTATE_ANGLE_RATE;
             int image_h = image.rows, image_w = image.cols;
             cv::Point2f center(image_w / 2.0, image_h / 2.0);
             cv::Mat M = cv::getRotationMatrix2D(center, -1 * angle, 1);
@@ -239,8 +242,8 @@
             cv::Mat rotated_img;
             cv::warpAffine(image, rotated_img, M, cv::Size(image_w, image_h));
 
-            cv::Mat new_mask_array_mask(4, 2, CV_32SC1);
-            for (int i = 0; i < 4; ++i) 
+            cv::Mat new_mask_array_mask(mask_array.size(), 2, CV_32SC1);
+            for (int i = 0; i < mask_array.size(); ++i) 
                 for (int j = 0; j < 2; ++j) 
                     new_mask_array_mask.at<int>(i, j) = mask_array[i][j];
 
@@ -248,11 +251,9 @@
 
             cv::Mat rotated_mask;
             cv::warpAffine(mask, rotated_mask, M, cv::Size(image_w, image_h));
-
             cv::Mat gray_image;
             cv::cvtColor(rotated_mask, gray_image, cv::COLOR_BGR2GRAY);
-
-            std::vector<int> mask_box = find_box(gray_image)[0];
+            auto mask_box = find_box(gray_image)[0];
             int x, y, w, h;
             auto xywh = convert_xyxy_to_xywh(mask_box[0], mask_box[1], mask_box[2], mask_box[3]);
             x = xywh[0];
@@ -284,7 +285,6 @@
             cv::Mat black_hat;
             cv::morphologyEx(threshold, black_hat, cv::MORPH_BLACKHAT, cv::getStructuringElement(cv::MORPH_RECT, cv::Size(9, 80)));
 
-
             cv::Mat black_hat_gray;
             cv::cvtColor(cut_mask, black_hat_gray, cv::COLOR_BGR2GRAY);
 
@@ -294,17 +294,13 @@
             black_hat =  black_hat + black_hat_tmp;
 
             cv::Mat dilate;
-            cv::morphologyEx(black_hat, dilate, cv::MORPH_DILATE, cv::getStructuringElement(cv::MORPH_RECT, cv::Size(10, 5)));
+            cv::morphologyEx(black_hat, dilate, cv::MORPH_DILATE, cv::getStructuringElement(cv::MORPH_RECT, cv::Size(5, 10)));
 
             cv::Mat open;
-            cv::morphologyEx(dilate, open, cv::MORPH_OPEN, cv::getStructuringElement(cv::MORPH_RECT, cv::Size(cut_image_w / 4, cut_image_h * 0.9)));
-
-            // std::cout<<"cv::countNonZero(open): "<<cv::countNonZero(open)<<std::endl;
-
+            cv::morphologyEx(dilate, open, cv::MORPH_OPEN, cv::getStructuringElement(cv::MORPH_RECT, cv::Size( int(cut_image_w / 4), int(cut_image_h * 0.9) )));
             double floor_area_rate = cv::countNonZero(open) / static_cast<double>(cut_image_w * cut_image_h);
             bool has_base_plate = floor_area_rate <= FLOOR_AREA_RATE;
 
-            // std::cout<<" has_base_plate:"<<has_base_plate<<std::endl;
             return has_base_plate;
         }
 
@@ -374,7 +370,6 @@
             return has_equipment_status;
         }
 
-
         void clockwise_sort_by_left_corner( std::vector<std::vector<int>> &input_clockwise_sort )
         {
             float min_l2_zero_point = std::numeric_limits<float>::max();;  //xmin must be less than img cols
@@ -393,6 +388,4 @@
             for (size_t i = left_top_corner_index; i < (left_top_corner_index + input_clockwise_sort.size()); i++)
                 output_clockwise_sort[i-left_top_corner_index] = input_clockwise_sort[ i%input_clockwise_sort.size() ];
             input_clockwise_sort = output_clockwise_sort;
-            
-
         }
