@@ -237,14 +237,12 @@ public:
                             std::round(nms_input[index][5]),  nms_input[index][4], key_points
             );
             
-            cv::rectangle(image, cv::Point(int(nms_input[index][0]), int(nms_input[index][1])), 
-                    cv::Point(int(nms_input[index][0]+nms_input[index][2]), int(nms_input[index][1]+nms_input[index][3])), cv::Scalar(0, 255, 255), 2);
-            for (size_t j = 0; j < key_points.size(); j++)
-            {
-                cv::circle(image, cv::Point((int)key_points[j].x, (int)key_points[j].y), 3, cv::Scalar(0, 0, 255), 2);
-            }
+            // cv::rectangle(image, cv::Point(int(nms_input[index][0]), int(nms_input[index][1])), 
+            //         cv::Point(int(nms_input[index][0]+nms_input[index][2]), int(nms_input[index][1]+nms_input[index][3])), cv::Scalar(0, 255, 255), 2);
+            // for (size_t j = 0; j < key_points.size(); j++)
+            //     cv::circle(image, cv::Point((int)key_points[j].x, (int)key_points[j].y), 3, cv::Scalar(0, 0, 255), 2);
 	    }
-		cv::imwrite("0331.jpg", image);
+		// cv::imwrite("0331.jpg", image);
 		return out;
 		
 	};
