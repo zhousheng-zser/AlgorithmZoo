@@ -16,7 +16,7 @@ class BMNNBackend : public InferBackend {
 	std::unique_ptr<BMNNPipeline> pipeline;
 
 public:
-	static constexpr const char* backendType = "sophone_bmnn";
+	static constexpr const char* backendType = "sophon_bmnn";
 	static inline std::vector<std::string> modelFormats{ ".bmodel" };
 
 	BMNNBackend() = default;
@@ -27,7 +27,7 @@ public:
 
 	const std::string getVersion() override final {
 		//return pipeline->version(); // not implement
-		return "sophone_bmnn";
+		return "sophon_bmnn";
 	}
 
 	int initModel(std::string arch, std::string weight, int device) override final {

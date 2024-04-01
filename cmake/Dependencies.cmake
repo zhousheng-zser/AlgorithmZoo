@@ -7,11 +7,11 @@ if(USE_OPENMP)
 	add_compile_options(${OpenMP_CXX_FLAGS})
 endif()
 
-if(NOT ${SOPHONE_SDK} STREQUAL "")
+if(NOT ${SOPHON_SDK} STREQUAL "")
 	set(OpenCV_INCLUDE_DIRS
-		${SOPHONE_SDK}/include
-		${SOPHONE_SDK}/include/opencv4)
-	set(OpenCV_LIBRARY_DIRS ${SOPHONE_SDK}/lib)
+		${SOPHON_SDK}/include
+		${SOPHON_SDK}/include/opencv4)
+	set(OpenCV_LIBRARY_DIRS ${SOPHON_SDK}/lib)
 	set(OpenCV_LIBS opencv_imgproc opencv_core opencv_highgui opencv_imgcodecs opencv_videoio)
 else()
 	find_package(OpenCV 4.7)
