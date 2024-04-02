@@ -202,7 +202,7 @@ namespace glasssix::playphone
 	}
 
 	std::vector<ObjBox> RknnYolov8Pipline::detect(cv::Mat image, cv::Point image_start, float conf_thres, float iou_thres) {
-		constexpr int imageResize = 512;
+		constexpr int imageResize = 384;
 
 		//image = playphone_HSVCover_preprocess(image);
 		cv::Mat letter_img = letterbox(image, imageResize, imageResize);
