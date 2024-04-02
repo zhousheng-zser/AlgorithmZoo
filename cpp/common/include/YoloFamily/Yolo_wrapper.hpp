@@ -22,6 +22,14 @@ using namespace glasssix;
         return static_cast<float>(1.f / (1.f + exp(-x)));
     }
 
+    static void transpose021(const float* src, float* dst ,int object_length,int area )
+    {
+        for(int i=0; i<3; i++)
+            for (size_t j = 0; j < object_length; j++)
+                for (size_t k = 0; k < area; k++)
+                    dst[ i*area*object_length + k*object_length + j ] = src[i*object_length*area + j*area + k ];
+    }
+
     static void tranpose(const float* sou, float* dest, int sourows, int soucols)
     {
         for(int i=0;i< sourows;i++)
@@ -242,7 +250,7 @@ public:
             // for (size_t j = 0; j < key_points.size(); j++)
             //     cv::circle(image, cv::Point((int)key_points[j].x, (int)key_points[j].y), 3, cv::Scalar(0, 0, 255), 2);
 	    }
-		// cv::imwrite("0331.jpg", image);
+		// cv::imwrite("../0331.jpg", image);
 		return out;
 		
 	};
@@ -407,13 +415,85 @@ else
         }
 
 };
+
+
+template <typename T>
+class Yolov7 : public YoloBase< std::shared_ptr<T> > {
+public:
+    
+        Yolov7(int model_input_width, int model_input_height,  std::shared_ptr<T> pipe) : 
+        YoloBase< std::shared_ptr<T>>(model_input_width, model_input_height, pipe) {}
+
+        void preprocess_detection(cv::Mat& src,  cv::Size input_shape = cv::Size(640, 640) ,bool BGR2RGB=true )  override
+        {
+            this->pic_process_param_.ratio = std::min((float)input_shape.width/(float)src.cols, (float)input_shape.height/(float)src.rows);
+            cv::Mat cut_image;
+            if( src.rows != input_shape.height || src.cols != input_shape.width)
+            {      
+                cv::resize(src, cut_image, cv::Size((int)(src.cols * this->pic_process_param_.ratio), (int)(src.rows * this->pic_process_param_.ratio)), cv::INTER_LINEAR);
+                this->pic_process_param_.pad_h = std::round((input_shape.height - cut_image.rows) /2 ) ; 
+                this->pic_process_param_.pad_w = std::round((input_shape.width - cut_image.cols) /2 ) ; 
+                cv::copyMakeBorder(cut_image, this->infer_image, this->pic_process_param_.pad_h, input_shape.height-cut_image.rows-this->pic_process_param_.pad_h, this->pic_process_param_.pad_w, input_shape.width-cut_image.cols- this->pic_process_param_.pad_w, cv::BORDER_CONSTANT, cv::Scalar{ 114,114,114 });
+            }
+            else 
+                src.copyTo(this->infer_image);     
+            if(BGR2RGB)
+                cv::cvtColor(this->infer_image, this->infer_image, cv::COLOR_BGR2RGB);
+        }
+
+        std::vector<std::vector<float>> yoloconcat( std::vector<std::shared_ptr<memory::tensor<float>>>& outs, float conf_thres) override
+        {
+            const float anchors[3][6] = {{72,97, 123,164, 209,297}, {15,19, 23,30, 39,52},{4,5, 6,8, 10,12} };
+            const float stride[3] = { 32.0, 16.0, 8.0 }; 
+            std::vector<std::vector<float>> result;
+            for(int n = 0; n < 3; n++)
+            {
+                auto data_shape = outs[n]->data_shape();
+                int width  = data_shape[data_shape.size()-1];
+                int height = data_shape[data_shape.size()-2];
+                int object_length = data_shape[data_shape.size()-3]/3;
+                std::vector<float> reshape_data( outs[n]->count());
+                transpose021(outs[n]->cpu_data(), reshape_data.data(), object_length, width*height);
+                float *ptr_out = reshape_data.data();
+                for(int q = 0; q < 3; q++)
+                {
+                    const float anchor_w = anchors[n][q * 2];
+                    const float anchor_h = anchors[n][q * 2 + 1];
+                    for(int i = 0; i < width; i++)
+                        for(int j = 0; j < height; j++)
+                        {                          
+                            float box_score = sigmoid_x(ptr_out[4]);
+                            if (box_score * sigmoid_x(ptr_out[5]) > conf_thres) 
+                            {
+                                float cx = (sigmoid_x(ptr_out[0]) * 2.f - 0.5f + j) * stride[n];  // cx
+                                float cy = (sigmoid_x(ptr_out[1]) * 2.f - 0.5f + i) * stride[n];  // cy
+                                float w = powf(sigmoid_x(ptr_out[2]) * 2.f, 2.f) * anchor_w;      // w
+                                float h = powf(sigmoid_x(ptr_out[3]) * 2.f, 2.f) * anchor_h;      // h
+                                std::vector<float> element = { cx, cy, w, h, box_score, sigmoid_x(ptr_out[5])};
+                                for (size_t k = 0; k < (object_length -6)/3; k++)
+                                {
+                                    element.push_back((ptr_out[6 + k * 3 + 0] * 2.f - 0.5f + j) * stride[n]);
+                                    element.push_back((ptr_out[6 + k * 3 + 1] * 2.f - 0.5f + i) * stride[n]);
+                                    element.push_back(sigmoid_x(ptr_out[6 + k * 3 + 2]));
+                                }
+                                result.push_back(element);
+                            }
+                            ptr_out +=object_length;
+                        }               
+                }
+            }
+            return result;
+        }
+        
+};
 			
 
 
 // #include <GenPipeline/GenPipeline.hpp>  注意链接对应GenPipeline库
 // #include <YoloFamily/Yolo_wrapper.hpp>
 // int main() {
-    //cv::Mat image;
+// 	cv::Mat image;
+
     //姿态检测示例
     // std::shared_ptr<GenPipeline> net_posture_;
     // std::shared_ptr<Yolov8<GenPipeline, false,true>> yolov8_instance;
@@ -425,8 +505,8 @@ else
     // std::shared_ptr<Yolov8<GenPipeline, false,true>> yolov8_instance;
     // net_posture_ = std::make_shared<GenPipeline>(std::string(model_directory) + "/pump.rknn", device);
     // yolov8_instance = std::make_shared<Yolov8<GenPipeline,true>>(1152,640, net_posture_); //2个模板变量分别对应 GenPipeline ，(通用yolov8)是否是李鑫尧的yolo  第三个参数默认为false
-    
     // auto yolov8_detect = yolov8_instance->get_objects( image,conf_threshold,iou_threshold);
+
     // yolov8_detect包含了指定置信度及其iou的对应模型检测结果 std::vector<ObjectInfo>
 
 // }
