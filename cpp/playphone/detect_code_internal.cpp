@@ -144,7 +144,7 @@ namespace glasssix::playphone
 
         std::string version()
         {
-			const std::string algo_module_version = "2.6.1";
+			const std::string algo_module_version = "2.7.0";
 
 #if defined(USE_RKNNAPI) || defined(USE_RKNN2API)
 			//#if 0
