@@ -17,11 +17,15 @@
 #include <abi/param_vector.hpp>
 #include <utility>
 #include "general.hpp"
-
+#include <GenPipeline/GenPipeline.hpp>
+#include <YoloFamily/Yolo_wrapper.hpp>
 #define no_draw_pic 
+
 
 namespace glasssix::smoke
 {
+    bool compareByFifthElement(const ObjectInfo& a, const ObjectInfo& b) {
+                        return a.score > b.score;   }
     class detect_code_internal::impl
     {
     public:
@@ -31,12 +35,15 @@ namespace glasssix::smoke
         }
 
         impl(const std::vector<std::string> &phai, std::string model_directory, int device) 
-            :net_smoke_detect_(phai,  model_directory + std::string("/cigarette_detect.rknn"), device), model_directory_(model_directory)
         {
-            static bool ready = glasssix::exposing::get_component_loader().add_module_by_name("posture");
-            //posture_instance_ = glasssix::exposing::make_exported_interface<posture::detect_code>(exposing::param_string(model_directory), device,1);
-            init_data();
-        } 
+
+#if defined(USE_RKNNAPI) || defined(USE_RKNN2API)
+                net_smoke_detect_ = std::make_shared<GenPipeline>(std::string(model_directory) + "/cigarette_detect.rknn", device);
+#elif defined(USE_BMNN)
+                net_smoke_detect_ = std::make_shared<GenPipeline>(std::string(model_directory) + "/cigarette_detect.bmodel", device);
+#endif
+            yolov8_instance = std::make_shared<Yolov8<GenPipeline>>(320,320, net_smoke_detect_);
+        }
 
         exposing::param_vector<smoke::box_info> detect(const exposing::param_span<std::uint8_t>& bitmap, int channels, int height, int width, int roi_x, int roi_y, int roi_width, int roi_height, exposing::param_vector<posture::box_info> posture_info_list, std::map<std::string, float>& param_map)
         {
@@ -61,6 +68,7 @@ namespace glasssix::smoke
             auto  empty_map_abi             = exposing::make_param_hash_map<exposing::param_string, float>();
             float conf_threshold            = param_map.count("conf_thres") ? param_map["conf_thres"] : 0.6f;
             float smoke_conf_thres          = param_map.count("smoke_conf_thres") ? param_map["smoke_conf_thres"] : 0.7f;
+            float smoke_iou_thres           = param_map.count("smoke_iou_thres") ? param_map["smoke_iou_thres"] : 0.65f;
 
             empty_map_abi.add_or_update("conf_thres",conf_threshold);
             empty_map_abi.add_or_update("nms_thres", 0.45);
@@ -89,37 +97,20 @@ namespace glasssix::smoke
 
                 cv::Mat cigarette_detect = image(cv::Range(detect_rect.y1, detect_rect.y2), cv::Range(detect_rect.x1, detect_rect.x2));
                
-                auto smoke_detect_shape = cv::Size(320,  320);
-
-                cv::Mat cigarette_detect_blob;
-                float smoke_ratio = 0;
-                int smoke_pad_h=0;  
-                int smoke_pad_w=0;
-
-                std::tie(cigarette_detect_blob, smoke_ratio) = preprocess_detection( cigarette_detect,smoke_pad_h,smoke_pad_w, smoke_detect_shape ) ;
-                auto smoke_net_result = net_smoke_detect_.forward(cigarette_detect_blob.data, { 1, cigarette_detect_blob.rows, cigarette_detect_blob.cols,cigarette_detect_blob.channels() }, RKNN_TENSOR_NHWC);
-                std::vector<std::string>  somke_out_names={"440","425","410","output0"};
-
-                std::vector<std::shared_ptr<memory::tensor<float>>> smoke_forwards;
-                for (size_t i=0;i< somke_out_names.size(); i++)
-                    smoke_forwards.push_back(smoke_net_result[somke_out_names[i]]);
-                
-                int smoke_candicate_num=0;
-                auto smoke_output = Yovo8se_Concat_4B(smoke_forwards,smoke_conf_thres,smoke_candicate_num,posture_add_weight,posture_mul_weight);//5*8400
-                auto nms_results = smoke_post_process(smoke_output, smoke_pad_h,smoke_pad_w, 1.f/smoke_ratio,smoke_candicate_num);
+                auto cigarette_objects = yolov8_instance->get_objects( cigarette_detect, smoke_conf_thres, smoke_iou_thres );
 
                 Cigrate_box b(head_rect.x1,head_rect.y1,head_rect.x2,head_rect.y2) ;
 
-                if(nms_results.size()>0)
+                if(cigarette_objects.size()>0)
                 {
-                    std::sort( nms_results.begin(), nms_results.end(), compareByFifthElement   );
+                    std::sort( cigarette_objects.begin(), cigarette_objects.end(), compareByFifthElement   );
 
-                    auto cigrate = nms_results[0];
+                    auto cigrate = cigarette_objects[0];
                     {
-                        int cigratex1=std::round( cigrate[0] +detect_rect.x1)>0?std::round( cigrate[0] +detect_rect.x1):0  ;
-                        int cigratey1=std::round( cigrate[1] +detect_rect.y1)>0?std::round( cigrate[1] +detect_rect.y1):0  ;
-                        int cigratex2=std::round( cigrate[2] +detect_rect.x1)<image.cols?std::round( cigrate[2] +detect_rect.x1):image.cols ;
-                        int cigratey2=std::round( cigrate[3] +detect_rect.y1)<image.rows?std::round( cigrate[3] +detect_rect.y1):image.rows ;
+                        int cigratex1=std::round( cigrate.x1 +detect_rect.x1)>0?std::round( cigrate.x1 +detect_rect.x1):0  ;
+                        int cigratey1=std::round( cigrate.y1 +detect_rect.y1)>0?std::round( cigrate.y1 +detect_rect.y1):0  ;
+                        int cigratex2=std::round( cigrate.x2 +detect_rect.x1)<image.cols?std::round( cigrate.x2 +detect_rect.x1):image.cols ;
+                        int cigratey2=std::round( cigrate.y2 +detect_rect.y1)<image.rows?std::round( cigrate.y2 +detect_rect.y1):image.rows ;
                     
                         Cigrate_box a(cigratex1,cigratey1,cigratex2,cigratey2);
     #ifdef draw_pic
@@ -135,7 +126,7 @@ namespace glasssix::smoke
                             temp_box.x2 = postureInfo.x2;
                             temp_box.y1 = postureInfo.y1;
                             temp_box.y2 = postureInfo.y2;
-                            temp_box.confidence = cigrate[4];
+                            temp_box.confidence = cigrate.score;
 
                         if(iou>0.f)
                         {
@@ -162,83 +153,15 @@ namespace glasssix::smoke
         std::string version()
         {
             const std::string algo_module_version = "3.0.2";
-
-#if defined(USE_RKNNAPI) || defined(USE_RKNN2API)
-        //#if 0
-            std::string nn_frame_version = net_smoke_detect_.version();
-#else
-            std::string nn_frame_version = net_smoke_detect_.version();
-#endif
-        return fmt::format(R"({{"nn_frame_version":"{}", "algo_module_version":"{}"}})", nn_frame_version, algo_module_version);
+            std::string nn_frame_version = net_smoke_detect_->version();
+            return fmt::format(R"({{"nn_frame_version":"{}", "algo_module_version":"{}"}})", nn_frame_version, algo_module_version);
         }
 
     private:
-      
-        /**
-         * @fun post_process
-         * @param outs, conf_thres, iou_thres
-         * @return nms_bbox
-         */
-      
-
-        /**
-         * @fun run_detect
-         * @param image, param_map
-         * @return bbox
-         */
-
-
-        void init_data()
-        {
-            int stride_sum = 8500;
-            int stride_4 = 80*80; 
-            int stride_8 = 40*40;
-            int stride_16 = 20*20;
-            int stride_32 = 10*10;
-            posture_add_weight.resize(stride_sum*2);
-            posture_mul_weight.resize(stride_sum);
-            for(int i=0;i<stride_sum;i++)
-            {
-                if( i<stride_4)
-                {
-                    posture_add_weight[i]=i%80;
-                    posture_add_weight[i+stride_sum]=i/80;
-                    posture_mul_weight[i]=4.f;
-                }
-                else if(i<(stride_4+stride_8))
-                {
-                    posture_add_weight[i]=(i -stride_4)%40;
-                    posture_add_weight[i+stride_sum]= (i-stride_4)/40;
-                    posture_mul_weight[i]=8.f;
-                }
-                else if(i<(stride_4+stride_8 + stride_16))
-                {
-                    posture_add_weight[i]=(i -stride_4-stride_8)%20;
-                    posture_add_weight[i+stride_sum]=(i-stride_4-stride_8)/20;
-                    posture_mul_weight[i]=16.f;
-                }
-                else
-                {
-                    posture_add_weight[i]=(i -stride_4-stride_8-stride_16)%10;
-                    posture_add_weight[i+stride_sum]=(i - stride_4-stride_8-stride_16)/10;
-                    posture_mul_weight[i]=32.f;
-                }
-            }
-        }
-
-
-    private:
-#if defined(USE_RKNNAPI) || defined(USE_RKNN2API)
-
-		rknnwrapper::rknn_wrapper net_smoke_detect_;
-#else
-		std::unique_ptr<excalibur::pipeline<float>> net_smoke_detect_;
-#endif
+        std::shared_ptr<GenPipeline> net_smoke_detect_;
+        std::shared_ptr<Yolov8<GenPipeline>> yolov8_instance;
         std::string model_directory_;
-        // posture::detect_code posture_instance_;
         exposing::param_hash_map<exposing::param_string, float> posture_param_abi;
-        std::vector<float> posture_add_weight;
-        std::vector<float> posture_mul_weight;
         int device_ ;
 
     };
