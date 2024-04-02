@@ -250,7 +250,7 @@ public:
 };
 
 // YOLO 版本 8
-template <typename T, bool LxyYolo, bool Posture=false>
+template <typename T, bool LxyYolo=false, bool Posture=false>
 class Yolov8 : public YoloBase< std::shared_ptr<T> > {
 public:
     
@@ -413,8 +413,7 @@ else
 // #include <GenPipeline/GenPipeline.hpp>  注意链接对应GenPipeline库
 // #include <YoloFamily/Yolo_wrapper.hpp>
 // int main() {
-// 	cv::Mat image;
-
+    //cv::Mat image;
     //姿态检测示例
     // std::shared_ptr<GenPipeline> net_posture_;
     // std::shared_ptr<Yolov8<GenPipeline, false,true>> yolov8_instance;
@@ -426,8 +425,8 @@ else
     // std::shared_ptr<Yolov8<GenPipeline, false,true>> yolov8_instance;
     // net_posture_ = std::make_shared<GenPipeline>(std::string(model_directory) + "/pump.rknn", device);
     // yolov8_instance = std::make_shared<Yolov8<GenPipeline,true>>(1152,640, net_posture_); //2个模板变量分别对应 GenPipeline ，(通用yolov8)是否是李鑫尧的yolo  第三个参数默认为false
+    
     // auto yolov8_detect = yolov8_instance->get_objects( image,conf_threshold,iou_threshold);
-
     // yolov8_detect包含了指定置信度及其iou的对应模型检测结果 std::vector<ObjectInfo>
 
 // }

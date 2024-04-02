@@ -89,10 +89,10 @@ std::string version()
             for(auto& object : objects )
             {
                 box_info_internal temp_result;
-                temp_result.x1 = object.x1 + roi_x; //body[0]+ roi_x;
+                temp_result.x1 = object.x1 + roi_x; 
                 temp_result.y1 = object.y1 + roi_y;
-                temp_result.x2 = object.x1 + roi_x; //body[0]+ roi_x;
-                temp_result.y2 = object.y1 + roi_y;
+                temp_result.x2 = object.x2 + roi_x; 
+                temp_result.y2 = object.y2 + roi_y;
                 temp_result.score = object.score ;
                 temp_result.key_points = exposing::make_param_vector<float>();
                 for(int j=0;j<object.key_points.size();j++)
