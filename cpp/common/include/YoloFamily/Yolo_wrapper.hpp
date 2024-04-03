@@ -318,7 +318,6 @@ else
                 if(!candicate_index.size() )  continue;
                 std::vector<float> reshape_box( slice_box_size*64 );
                 std::vector<float> posture_reshape_box( slice_box_size*64 );
-                // std::cout<<"working\n";
                 tranpose(stride_data_xywh->mutable_cpu_data(), reshape_box.data(), 64, slice_box_size);
                 tranpose(stride_data_posture->mutable_cpu_data(), posture_reshape_box.data(), posture_shape[1], slice_box_size);
 
@@ -333,8 +332,7 @@ else
                         
                         for(int i=0;i<16;i++)
                             for(int j=0;j<4;j++)
-                                for (size_t k = 0; k < 1; k++)
-                                    centre_xywh[j*1 + k] = centre_xywh[j*1 + k] + temp_data[k*16*4+j*16+i]*i;//             i*4*candidate_num+j ]*i; 
+                                centre_xywh[j*1] = centre_xywh[j*1] + temp_data[j*16 + i]*i;
                         out_centre_xywh[0] = ((centre_xywh[2] - centre_xywh[0])/2.f + slice_index%data_shape[data_shape.size()-1] + 0.5f) * mul[index/2 ];
                         out_centre_xywh[1] = ((centre_xywh[3] - centre_xywh[1])/2.f + slice_index/data_shape[data_shape.size()-1] + 0.5f) * mul[index/2];
                         out_centre_xywh[2] = (centre_xywh[2] + centre_xywh[0]) * mul[index/2];
@@ -400,8 +398,7 @@ else
                         
                         for(int i=0;i<16;i++)
                             for(int j=0;j<4;j++)
-                                for (size_t k = 0; k < 1; k++)
-                                    centre_xywh[j*1 + k] = centre_xywh[j*1 + k] + temp_data[k*16*4+j*16+i]*i;//             i*4*candidate_num+j ]*i; 
+                                    centre_xywh[j*1] = centre_xywh[j*1] + temp_data[j*16 + i]*i;//             i*4*candidate_num+j ]*i; 
                         out_centre_xywh[0] = ((centre_xywh[2] - centre_xywh[0])/2.f + slice_index%data_shape[data_shape.size()-1] + 0.5f) * mul[index];
                         out_centre_xywh[1] = ((centre_xywh[3] - centre_xywh[1])/2.f + slice_index/data_shape[data_shape.size()-1] + 0.5f) * mul[index];
                         out_centre_xywh[2] = (centre_xywh[2] + centre_xywh[0]) * mul[index];
@@ -493,7 +490,6 @@ public:
 // #include <YoloFamily/Yolo_wrapper.hpp>
 // int main() {
 // 	cv::Mat image;
-
     //姿态检测示例
     // std::shared_ptr<GenPipeline> net_posture_;
     // std::shared_ptr<Yolov8<GenPipeline, false,true>> yolov8_instance;
@@ -505,8 +501,7 @@ public:
     // std::shared_ptr<Yolov8<GenPipeline, false,true>> yolov8_instance;
     // net_posture_ = std::make_shared<GenPipeline>(std::string(model_directory) + "/pump.rknn", device);
     // yolov8_instance = std::make_shared<Yolov8<GenPipeline,true>>(1152,640, net_posture_); //2个模板变量分别对应 GenPipeline ，(通用yolov8)是否是李鑫尧的yolo  第三个参数默认为false
+   
     // auto yolov8_detect = yolov8_instance->get_objects( image,conf_threshold,iou_threshold);
-
     // yolov8_detect包含了指定置信度及其iou的对应模型检测结果 std::vector<ObjectInfo>
-
 // }
