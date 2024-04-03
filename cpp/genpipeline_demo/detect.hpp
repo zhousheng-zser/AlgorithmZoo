@@ -33,7 +33,7 @@ static inline std::vector<WeldBBox> weld_yolo_detect(LabConfig& config, const st
 	/* ************************************************ */
 	/*       self-defined net tensors postprocessor     */
 	/* ************************************************ */
-	ioprocess_pipeline->set_postprocessing<true>(yolov8_GEN<2, 0>); // compile time decision
+	ioprocess_pipeline->set_postprocessing(yolov8_GEN<2, 0>); // compile time decision
 	//ioprocess_pipeline->set_postprocessing<true>(postprocessing_market, config.postFuncStr); // run time decision
 
 	// image preprocessing
@@ -96,6 +96,20 @@ static inline std::vector<PersonBBox> person_yolo_detect(LabConfig& config, cons
 	cv::Mat image = cv::imread(config.image);
 	GenPipTools::LetterInfo letter_op;
 	auto letter_img = GenPipTools::letter_image(image, config.infr_w, config.infr_h, letter_op, true);
+
+
+	// time cost calcu
+	constexpr int LOOP = 10;
+	if constexpr (LOOP > 0) {
+		for (int i = 0; i < 5; i++)
+			ioprocess_pipeline->forward(letter_img); //warm up
+		ioprocess_pipeline->profiler_tic();
+		for (int i = 0; i < LOOP; i++)
+			ioprocess_pipeline->forward(letter_img);
+		ioprocess_pipeline->profiler_toc();
+	}
+
+
 	auto tensor_out = ioprocess_pipeline->forward(letter_img).begin()->second;
 	const int vf_nums = tensor_out->height(); //vf, visual field
 	const int per_vf_len = tensor_out->width();
