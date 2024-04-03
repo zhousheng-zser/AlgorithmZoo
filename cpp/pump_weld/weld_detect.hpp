@@ -20,145 +20,40 @@
 
 namespace glasssix::pump_weld
 {
-    void image_threshold_pipeline(const cv::Mat& image, std::vector<cv::Mat>& background_threshold_list, std::vector<cv::Mat>& light_threshold_list) {
-        constexpr int LIGHT_BACKGROUND_THRESHOLD = 150;
-        constexpr int LIGHT_GRAY_THRESHOLD = 235;
-        cv::Mat gray, blurred, background_threshold, light_threshold;
 
-        cv::cvtColor(image, gray, cv::COLOR_BGRA2GRAY);
-        cv::GaussianBlur(gray, blurred, cv::Size(15, 15), 0, 0);
-        cv::threshold(blurred, background_threshold, LIGHT_BACKGROUND_THRESHOLD, 255, cv::THRESH_BINARY);
-        cv::threshold(blurred, light_threshold, LIGHT_GRAY_THRESHOLD, 255, cv::THRESH_BINARY);
-
-        background_threshold_list.push_back(background_threshold);
-        light_threshold_list.push_back(light_threshold);
-    }
-
-    std::tuple<int, cv::Mat, std::vector<cv::Mat>> mask_image_list(const std::vector<cv::Mat>& background_threshold_list, const std::vector<cv::Mat>& light_threshold_list) {
-        std::vector<int> background_threshold_sum;
-        background_threshold_sum.reserve(background_threshold_list.size());
-
-        // Compute the sum of non-zero pixels for each background threshold image  
-        std::transform(background_threshold_list.begin(), background_threshold_list.end(), std::back_inserter(background_threshold_sum),
-            [](const cv::Mat& img) { return cv::countNonZero(img); });
-
-        // Find the index of the image with the minimum sum of non-zero pixels  
-        auto min_it = std::min_element(background_threshold_sum.begin(), background_threshold_sum.end());
-        int background_image_idx = std::distance(background_threshold_sum.begin(), min_it);
-
-        // Get the original background mask  
-        cv::Mat ori_background_mask = background_threshold_list[background_image_idx];
-
-        // Perform morphological closing to remove small holes  
-        cv::Mat kernel = cv::getStructuringElement(cv::MORPH_RECT, cv::Size(51, 51));
-        cv::morphologyEx(ori_background_mask, ori_background_mask, cv::MORPH_CLOSE, kernel);
-
-        // Invert the background mask  
-        cv::Mat background_mask;
-        cv::bitwise_not(ori_background_mask, background_mask);
-
-        // Apply the background mask to each image in the light_threshold_list  
-        std::vector<cv::Mat> masked_image_list;
-        masked_image_list.reserve(light_threshold_list.size());
-        std::transform(light_threshold_list.begin(), light_threshold_list.end(), std::back_inserter(masked_image_list),
-            [&background_mask](const cv::Mat& img) {
-                cv::Mat masked_img;
-                cv::bitwise_and(img, background_mask, masked_img);
-                return masked_img;
-            });
-
-        // Return the index, original background mask, and the masked image list  
-        return std::make_tuple(background_image_idx, ori_background_mask, masked_image_list);
-    }
-
-    std::vector<cv::Rect> find_light_box(const cv::Mat& image) {
-        constexpr int LIGHT_MIN_AERO = 30 * 30;
-        constexpr int LIGHT_MAX_AERO = 200 * 200;
-        constexpr int LIGHT_MAX_W_H_RATIO = 3;
-
-        std::vector<std::vector<cv::Point>> contours;
-        cv::findContours(image, contours, cv::RETR_EXTERNAL, cv::CHAIN_APPROX_SIMPLE);
-
-        std::vector<cv::Rect> light_box_list;
-        for (const auto& cnt : contours) {
-            int area = cv::contourArea(cnt);
-            if (LIGHT_MIN_AERO <= area && area <= LIGHT_MAX_AERO) {
-				cv::Rect rect = cv::boundingRect(cnt);
-                double aspectRatio = std::max(rect.width, rect.height) / std::min(rect.width, rect.height);
-                if (aspectRatio <= LIGHT_MAX_W_H_RATIO) {
-                    light_box_list.push_back(rect);
-                }
-            }
-        }
-        return light_box_list;
-    }
-
-    std::array<std::vector<cv::Rect>, 8> get_light_box_list(std::vector<cv::Mat>& masked_light_threshold_list) {
-        std::array<std::vector<cv::Rect>, 8> time_light_box_list;
-        CHECK_EQ(masked_light_threshold_list.size(), 8);
-        for (int i = 0; i < 8; i++) {
-            time_light_box_list[i]=find_light_box(masked_light_threshold_list[i]);
-        }
-        return time_light_box_list;
-    }
-
-	float count_iou(cv::Rect rec_a, cv::Rect rec_b, bool for_a = true, bool for_b = true) {
+    float weld_count_iou(cv::Rect rec_a, cv::Rect rec_b, bool for_a = true, bool for_b = true) {
         auto a_xmin = rec_a.x;
         auto a_ymin = rec_a.y;
-        auto a_xmax = rec_a.x+ rec_a.width;
-        auto a_ymax = rec_a.y+ rec_a.height;
+        auto a_xmax = rec_a.x + rec_a.width;
+        auto a_ymax = rec_a.y + rec_a.height;
         auto b_xmin = rec_b.x;
         auto b_ymin = rec_b.y;
         auto b_xmax = rec_b.x + rec_b.width;
         auto b_ymax = rec_b.y + rec_b.height;
 
-		float x_A_and_B_min = std::max(a_xmin, b_xmin);//xmin
-		float y_A_and_B_min = std::max(a_ymin, b_ymin);//ymin
-		float x_A_and_B_max = std::min(a_xmax, b_xmax);//xmax
-		float y_A_and_B_max = std::min(a_ymax, b_ymax);//ymax
+        float x_A_and_B_min = std::max(a_xmin, b_xmin);//xmin
+        float y_A_and_B_min = std::max(a_ymin, b_ymin);//ymin
+        float x_A_and_B_max = std::min(a_xmax, b_xmax);//xmax
+        float y_A_and_B_max = std::min(a_ymax, b_ymax);//ymax
 
         // intersection area. If (xmax - xmin) is negative, no intersection between A and B, set the area to 0. same to (ymax - ymin).  
         float interArea = std::max(0.0f, x_A_and_B_max - x_A_and_B_min) *
-			std::max(0.0f, y_A_and_B_max - y_A_and_B_min);
+            std::max(0.0f, y_A_and_B_max - y_A_and_B_min);
 
-		float RecA_Area = rec_a.area(); 
-		float RecB_Area = rec_b.area();
+        float RecA_Area = rec_a.area();
+        float RecB_Area = rec_b.area();
 
-		float iou;
-		if (for_a && for_b) {
-			iou = interArea / (RecA_Area + RecB_Area - interArea);
-		}
-		else if (for_a) {
-			iou = interArea / RecA_Area;
-		}
-		else {
-			iou = interArea / RecB_Area;
-		}
-		return iou;
-	}
-
-	int get_longest_sub_string_length(std::string& light_info, char delimiter = '0') {
-        std::string longest_substring;
-        std::string current_substring;
-
-        for (char c : light_info) {
-            if (c == delimiter) {
-                if (current_substring.size() > longest_substring.size()) {
-                    longest_substring = current_substring;
-                }
-                current_substring.clear(); // reset sub str
-            }
-            else {
-                current_substring += c; // Add the char to the current substr.
-            }
+        float iou;
+        if (for_a && for_b) {
+            iou = interArea / (RecA_Area + RecB_Area - interArea);
         }
-
-        // Check if the last substring is the longest. 
-        if (current_substring.size() > longest_substring.size()) {
-            longest_substring = current_substring;
+        else if (for_a) {
+            iou = interArea / RecA_Area;
         }
-
-        return longest_substring.size();
+        else {
+            iou = interArea / RecB_Area;
+        }
+        return iou;
     }
 
     cv::Rect change_box_of_width_and_height(const cv::Rect& box, int width, int height, int image_w, int image_h, bool add_boundary = false) {
@@ -214,7 +109,7 @@ namespace glasssix::pump_weld
                 if (to_delete[i]) continue; // Skip if this rectangle is already marked for deletion 
                 for (size_t j = i + 1; j < box_list.size(); ++j) {
                     if (to_delete[j]) continue; // Skip if this rectangle is already marked for deletion  
-                    if (count_iou(box_list[i], box_list[j]) >= iou_threshold) {
+                    if (weld_count_iou(box_list[i], box_list[j]) >= iou_threshold) {
                         // ºÏ²¢¾ØÐÎ  
                         box_list[i] = get_outer_box(box_list[i], box_list[j]);
                         to_delete[j] = true; // Mark rectangle j for deletion 
@@ -268,11 +163,11 @@ namespace glasssix::pump_weld
         return cv::Rect(values[0], values[1], values[2], values[3]);
     }
 
-    std::vector<cv::Rect> get_weld_box(const std::array<std::vector<cv::Rect>, 8>& time_light_box_list) {
-		constexpr float MIN_IOU_BETWEEN_LIGHT_BOX = 0.3;
-		constexpr float MAX_IOU_BETWEEN_LIGHT_BOX = 0.95;
-		constexpr int WELD_MIN_LIGHT_FRAME = 4;
-		constexpr int WELD_MAX_LIGHT_FRAME = 6;
+    std::vector<cv::Rect> get_weld_box(const std::vector<std::vector<cv::Rect>>& time_light_box_list) {
+        constexpr float MIN_IOU_BETWEEN_LIGHT_BOX = 0.1;
+        constexpr float MAX_IOU_BETWEEN_LIGHT_BOX = 1.0;
+        constexpr int WELD_MIN_LIGHT_FRAME = 2;
+        constexpr int WELD_MAX_LIGHT_FRAME = 3;
 
         std::unordered_map<std::string, std::vector<int>> box_light_dict;
         std::vector<cv::Rect> weld_box_list;
@@ -286,7 +181,7 @@ namespace glasssix::pump_weld
 
                 for (const auto& pair : box_light_dict) {
                     cv::Rect existing_box = StringToRect(pair.first);
-                    float iou = count_iou(light_box, existing_box);
+                    float iou = weld_count_iou(light_box, existing_box);
                     if (MIN_IOU_BETWEEN_LIGHT_BOX <= iou && iou <= MAX_IOU_BETWEEN_LIGHT_BOX) {
                         new_box_flag = false;
                         std::vector<int> area_list = pair.second;
@@ -317,73 +212,16 @@ namespace glasssix::pump_weld
         }
 
         for (const auto& pair : box_light_dict) {
-            const std::string& box_str = pair.first;
+            cv::Rect box = StringToRect(pair.first);
             const std::vector<int>& area_list = pair.second;
+            int light_num = std::count_if(area_list.begin(), area_list.end(), [](int x) { return x > 0; });
 
-            cv::Rect box = StringToRect(box_str);
-
-            std::vector<std::vector<int>> continue_light_area_list;
-            std::vector<int> temp;
-            for (int area : area_list) {
-                if (area > 0) {
-                    temp.push_back(area);
-                }
-                else {
-                    if (!temp.empty()) {
-                        continue_light_area_list.push_back(temp);
-                        temp.clear();
-                    }
-                }
+            if (WELD_MIN_LIGHT_FRAME <= light_num && light_num <= WELD_MAX_LIGHT_FRAME) {
+                weld_box_list.push_back(box);
             }
-            if (!temp.empty()) {
-                continue_light_area_list.push_back(temp);
-            }
-
-            std::sort(continue_light_area_list.begin(), continue_light_area_list.end(),
-                [](const std::vector<int>& a, const std::vector<int>& b) {
-                return a.size() > b.size();
-                });
-
-            if (continue_light_area_list.empty()) {
-                continue;
-            }
-
-            const std::vector<int>& selected_area_list = continue_light_area_list.front();
-            if (selected_area_list.size() < WELD_MIN_LIGHT_FRAME || selected_area_list.size() > WELD_MAX_LIGHT_FRAME) {
-                continue;
-            }
-
-            int order = 0;
-            for (size_t i = 0; i < selected_area_list.size() - 1; ++i) {
-                order += (selected_area_list[i + 1] > selected_area_list[i]) ? 1 : -1;
-            }
-            if (std::abs(order) == static_cast<int>(selected_area_list.size()) - 1) {
-                continue;
-            }
-
-            weld_box_list.push_back(box);
         }
 
         return weld_box_list;
-    }
-
-    std::tuple<std::vector<cv::Rect>,std::vector<cv::Rect>> weld_detect(std::vector<cv::Mat>& BatchImgs, const int& height, const int& width, int candidate_box_width, int candidate_box_height) {
-        std::vector<cv::Mat> background_threshold_list;
-        std::vector<cv::Mat> light_threshold_list;
-
-        for (auto image : BatchImgs) {
-            image_threshold_pipeline(image, background_threshold_list, light_threshold_list);
-        }
-
-        auto [min_lt_background_idx, ori_background_mask, masked_light_threshold_list] = mask_image_list(background_threshold_list, light_threshold_list);
-
-        std::array<std::vector<cv::Rect>, 8> time_light_box_list = get_light_box_list(masked_light_threshold_list);
-
-        std::vector<cv::Rect> weld_box_list = get_weld_box(time_light_box_list);
-        auto candidate_box_list = weld_box_list;
-        get_candidate_box(candidate_box_list, width, height, candidate_box_width, candidate_box_height);
-
-		return { weld_box_list,candidate_box_list };
     }
 
 }

@@ -21,7 +21,6 @@ option(BUILD_MATIERIAL_OCR_SDK "Build matierial ocr SDK" OFF)
 option(BUILD_SAFE_PRODUCTION_SDK "Build safe production SDK" OFF)
 option(BUILD_GENERAL_CV_SDK "Build general cv SDK" OFF)
 option(BUILD_MODULE_FRAME_GEN "Build new module frame generator." OFF)
-option(BUILD_UNIT_TEST "Build unit test." OFF)
 option(BUILD_TEST_MODEL "Build test model." OFF)
 option(COSINE_DISTANCE "Use cosine distance in irsiviel." ON)
 option(USE_OPENMP "Use OpenMP" OFF)
@@ -47,15 +46,15 @@ endif()
 
 list(APPEND COMMON_LIBRARIES_NAMES primitives julius)
 
-# SOPHONE TPU BMNN
-if(NOT ${SOPHONE_SDK} STREQUAL "")
+# SOPHON TPU BMNN
+if(NOT ${SOPHON_SDK} STREQUAL "")
 	list(APPEND COMMON_LIBRARIES_NAMES bmlib bmrt bmcv yuv bmjpuapi bmjpulite)
 
-	# list(APPEND COMMON_INCLUDE_DIRS ${SOPHONE_SDK}/include) # no work
-	include_directories("${SOPHONE_SDK}/include/") # work
+	# list(APPEND COMMON_INCLUDE_DIRS ${SOPHON_SDK}/include) # no work
+	include_directories("${SOPHON_SDK}/include/") # work
 
-	list(APPEND COMMON_LIBRARY_DIRS ${SOPHONE_SDK}/lib) #2 select 1
-	#link_directories("${SOPHONE_SDK}/lib/")
+	list(APPEND COMMON_LIBRARY_DIRS ${SOPHON_SDK}/lib) #2 select 1
+	#link_directories("${SOPHON_SDK}/lib/")
 	add_definitions(-DUSE_BMNN)
 endif()
 
@@ -189,7 +188,6 @@ if(BUILD_SAFE_PRODUCTION_SDK)
 	add_subdirectory(Climb)
 	add_subdirectory(Wander)
 	add_subdirectory(Crowd)
-	#add_subdirectory(Pedestrian_labor)
 	add_subdirectory(Pump_Light)
 	add_subdirectory(Fighting)
 	add_subdirectory(Vehicle)
@@ -213,10 +211,6 @@ if(BUILD_GENERAL_CV_SDK)
 	#add_subdirectory(Pedestrian)
 endif()
 
-if(BUILD_UNIT_TEST)
-	add_subdirectory(UnitTest)
-endif()
-
 if(BUILD_MODULE_FRAME_GEN AND (CMAKE_CXX_COMPILER_ID STREQUAL "MSVC"))
 	add_subdirectory(Noah)
 	#add_subdirectory(Noahcode)
@@ -224,4 +218,5 @@ endif()
 
 if(BUILD_TEST_MODEL)
 	add_subdirectory(TestModel)
+	add_subdirectory(GenpipelineDemo)
 endif()

@@ -23,9 +23,21 @@ namespace glasssix::exposing::impl
 
             virtual std::int32_t G6_ABI_CALL x2(abi_out_t<std::int32_t> result) noexcept = 0;
 
+            virtual std::int32_t G6_ABI_CALL x3(abi_out_t<std::int32_t> result) noexcept = 0;
+
+            virtual std::int32_t G6_ABI_CALL x4(abi_out_t<std::int32_t> result) noexcept = 0;
+
+            virtual std::int32_t G6_ABI_CALL x5(abi_out_t<std::int32_t> result) noexcept = 0;
+
             virtual std::int32_t G6_ABI_CALL y1(abi_out_t<std::int32_t> result) noexcept = 0;
 
             virtual std::int32_t G6_ABI_CALL y2(abi_out_t<std::int32_t> result) noexcept = 0;
+
+            virtual std::int32_t G6_ABI_CALL y3(abi_out_t<std::int32_t> result) noexcept = 0;
+
+            virtual std::int32_t G6_ABI_CALL y4(abi_out_t<std::int32_t> result) noexcept = 0;
+
+            virtual std::int32_t G6_ABI_CALL y5(abi_out_t<std::int32_t> result) noexcept = 0;
 
             virtual std::int32_t G6_ABI_CALL score(abi_out_t<float> result) noexcept = 0;
 
@@ -55,6 +67,33 @@ namespace glasssix::exposing::impl
             );
         }
 
+        virtual std::int32_t G6_ABI_CALL x3(abi_out_t<std::int32_t> result) noexcept override
+        {
+            return abi_safe_call([&]
+                {
+                    *result = detach_abi(this->self().x3());
+                }
+            );
+        }
+
+        virtual std::int32_t G6_ABI_CALL x4(abi_out_t<std::int32_t> result) noexcept override
+        {
+            return abi_safe_call([&]
+                {
+                    *result = detach_abi(this->self().x4());
+                }
+            );
+        }
+
+        virtual std::int32_t G6_ABI_CALL x5(abi_out_t<std::int32_t> result) noexcept override
+        {
+            return abi_safe_call([&]
+                {
+                    *result = detach_abi(this->self().x5());
+                }
+            );
+        }
+
         virtual std::int32_t G6_ABI_CALL y1(abi_out_t<std::int32_t> result) noexcept override
         {
             return abi_safe_call([&]
@@ -69,6 +108,33 @@ namespace glasssix::exposing::impl
             return abi_safe_call([&]
                 {
                     *result = detach_abi(this->self().y2());
+                }
+            );
+        }
+
+        virtual std::int32_t G6_ABI_CALL y3(abi_out_t<std::int32_t> result) noexcept override
+        {
+            return abi_safe_call([&]
+                {
+                    *result = detach_abi(this->self().y3());
+                }
+            );
+        }
+
+        virtual std::int32_t G6_ABI_CALL y4(abi_out_t<std::int32_t> result) noexcept override
+        {
+            return abi_safe_call([&]
+                {
+                    *result = detach_abi(this->self().y4());
+                }
+            );
+        }
+
+        virtual std::int32_t G6_ABI_CALL y5(abi_out_t<std::int32_t> result) noexcept override
+        {
+            return abi_safe_call([&]
+                {
+                    *result = detach_abi(this->self().y5());
                 }
             );
         }
@@ -110,6 +176,23 @@ namespace glasssix::exposing::impl
                 std::int32_t result;
                 return (check_abi_result(this->self_abi().x2(put_abi(result))), result);
             }
+            std::int32_t x3() const
+            {
+                std::int32_t result;
+                return (check_abi_result(this->self_abi().x3(put_abi(result))), result);
+            }
+
+            std::int32_t x4() const
+            {
+                std::int32_t result;
+                return (check_abi_result(this->self_abi().x4(put_abi(result))), result);
+            }
+
+            std::int32_t x5() const
+            {
+                std::int32_t result;
+                return (check_abi_result(this->self_abi().x5(put_abi(result))), result);
+            }
 
             std::int32_t y1() const
             {
@@ -121,6 +204,24 @@ namespace glasssix::exposing::impl
             {
                 std::int32_t result;
                 return (check_abi_result(this->self_abi().y2(put_abi(result))), result);
+            }
+
+            std::int32_t y3() const
+            {
+                std::int32_t result;
+                return (check_abi_result(this->self_abi().y3(put_abi(result))), result);
+            }
+
+            std::int32_t y4() const
+            {
+                std::int32_t result;
+                return (check_abi_result(this->self_abi().y4(put_abi(result))), result);
+            }
+
+            std::int32_t y5() const
+            {
+                std::int32_t result;
+                return (check_abi_result(this->self_abi().y5(put_abi(result))), result);
             }
 
             float score() const

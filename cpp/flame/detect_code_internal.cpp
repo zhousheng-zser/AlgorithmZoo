@@ -18,7 +18,9 @@ namespace glasssix::flame
     class detect_code_internal::impl
     {
     public:
-        impl(const exposing::param_string model_directory, int device = -1)
+        impl() {}
+
+		impl(const exposing::param_string model_directory, int device = -1) :impl()
         {
             std::string model_dir = exposing::to_narrow_string(model_directory) + "/";
 
@@ -35,36 +37,44 @@ namespace glasssix::flame
 
         exposing::param_vector<flame::box_info> detect(const exposing::param_span<std::uint8_t>& bitmap, int channels, int height, int width, int roi_x, int roi_y, int roi_width, int roi_height, std::map<std::string, float>& param_map)
         {
+			auto result = exposing::make_param_vector<flame::box_info>();
+
             if (bitmap.empty())
             {
                 throw exposing::abi_invalid_argument("current frame is empty");
             }
             CHECK_EQ(channels, 3);
             CHECK_EQ(bitmap.size(), channels * height * width);
-            
-            cv::Mat image(cv::Size(width, height), CV_8UC3, const_cast<uint8_t*>(bitmap.data()));
-
             if(roi_x<0 || roi_x>width || roi_y>height || roi_y<0 ||roi_height<0 || (roi_height+roi_y) >height || roi_width<0 || (roi_width+roi_x) > width)
             {
                   throw exposing::abi_invalid_argument("incorrect roi in flame");
             }
+            
+            cv::Mat image(cv::Size(width, height), CV_8UC3, const_cast<uint8_t*>(bitmap.data()));
+
             cv::Mat cropped_image = image(cv::Range(roi_y,roi_y+roi_height), cv::Range(roi_x,roi_x+roi_width)).clone();
 
-			std::vector<box_info_internal> results;
-			auto result = exposing::make_param_vector<flame::box_info>();
+			auto flame_list = run_detect(cropped_image, param_map);
 
-			run_detect(results, cropped_image, param_map);
+            for (auto& flame : flame_list)
+            {
+                box_info_internal flame_internal;
+                flame.add(roi_x, roi_y);
+                flame_internal.x1 = flame.xmin;
+                flame_internal.y1 = flame.ymin;
+                flame_internal.x2 = flame.xmax;
+                flame_internal.y2 = flame.ymax;
+                flame_internal.score = flame.score;
+                flame_internal.category = 1;
+                result.push_back(exposing::make_as_first<box_info_impl>(flame_internal));
+            }
 
-			for (auto& i : results)
-			{
-				result.push_back(exposing::make_as_first<box_info_impl>(i));
-			}
 			return result;
         }
 
         std::string version()
         {
-			const std::string algo_module_version = "4.0.1";
+			const std::string algo_module_version = "4.1.1";
 
 			std::string nn_frame_version = ioprocess_pipeline_->version();
 
@@ -78,7 +88,7 @@ namespace glasssix::flame
             using YoloBoxBase::YoloBoxBase; //Inheriting Constructors
         };
 
-        void run_detect(std::vector<box_info_internal>& results, cv::Mat& image, std::map<std::string, float>& param_map)
+        std::vector<FlameBox> run_detect(cv::Mat& image, std::map<std::string, float>& param_map)
         {
             float conf_threshold= param_map.count("conf_thres") ? param_map["conf_thres"] : 0.4f;
             float nms_threshold = param_map.count("nms_thres") ? param_map["nms_thres"] : 0.5f;
@@ -104,20 +114,9 @@ namespace glasssix::flame
                 }
             }
 
-            GenPipTools::letter_map_origin_location(box_list, letter_op);
             GenPipTools::nms_cpu(box_list, 0.4);
-
-            for (auto box : box_list) {
-                box_info_internal in_box_info;
-                in_box_info.x1 = box.xmin;
-                in_box_info.y1 = box.ymin;
-                in_box_info.x2 = box.xmax;
-                in_box_info.y2 = box.ymax;
-                in_box_info.score = box.score;
-                in_box_info.category = 1;
-                results.push_back(in_box_info);
-            }
-
+            GenPipTools::letter_map_origin_location(box_list, letter_op);
+            return box_list;
         }
 
     private:

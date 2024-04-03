@@ -65,7 +65,7 @@ namespace glasssix::pump_vesthelmet
 			float head_min_w_thres = param_map_std.count("head_min_w_thres") ? param_map_std["head_min_w_thres"] : 24.0f;
 			//float vest_cls_thres = param_map_std.count("vest_cls_thres") ? param_map_std["vest_cls_thres"] : 0.7f;
 			//float helmet_cls_thres = param_map_std.count("helmet_cls_thres") ? param_map_std["helmet_cls_thres"] : 0.7f;
-			constexpr float is_vest_score_thres = 0.7;
+			constexpr float is_vest_score_thres = 0.8;
 			constexpr float no_helmet_score_thres = 0.7;
 
 			constexpr int NO_REF_VEST = -1;
@@ -80,8 +80,13 @@ namespace glasssix::pump_vesthelmet
 			posture_param_abi.add_or_update("conf_thres", posture_conf_thres);
 			exposing::param_vector<posture::box_info> posture_info_list_raw = posture_instance_.detect(bitmap, channels, height, width, 0, 0, width, height, posture_param_abi);
 
+//cv::Mat vi = image.clone();
+//std::string lg = "";
+
 			for (auto pinfo : posture_info_list_raw)
 			{
+//lg += '_';
+//if (lg != "__") continue;
 				PostureInfo postureInfo{ pinfo };
 
 				if (postureInfo.if_pump_vesthelmet_bodyerr()) {
@@ -92,8 +97,11 @@ namespace glasssix::pump_vesthelmet
 				if (vest_cls_rect.height <= 1 || vest_cls_rect.width <= 1) continue; //invalid input
 				auto vest_cls_region = safty_cut(image, vest_cls_rect);
 				//vest_cls_region = letterbox(vest_cls_region, 128, 128);
-				cv::resize(vest_cls_region, vest_cls_region, cv::Size2i{ 128, 128 });
 
+//cv::imwrite("/home/glasssix/yhc/AlgorithmZoo/cpp/pump_vesthelmet/vest_cls_region" + lg + ".png", vest_cls_region);
+//vest_cls_region = cv::imread("/home/glasssix/yhc/AlgorithmZoo/cpp/pump_vesthelmet/lQDPJ.jpg");
+
+				cv::resize(vest_cls_region, vest_cls_region, cv::Size2i{ 128, 128 });
 
 				cv::cvtColor(vest_cls_region, vest_cls_region, cv::COLOR_BGR2RGB);
 
@@ -101,8 +109,9 @@ namespace glasssix::pump_vesthelmet
 				auto vest_cls_rst = vest_cls_rst_map.begin()->second;
 				auto vest_cls_scores = vest_cls_rst->cpu_data();
 				float is_refvest_score = vest_cls_scores[1];
+				
+//printf("## is_refvest_score %f ¡ª¡ª t %f\n", is_refvest_score, is_vest_score_thres);
 
-				//printf("vest_cls_scores %f, %f\n",vest_cls_scores[0],vest_cls_scores[1]);
 				int refvest_status = IS_REF_VEST;
 				if (is_refvest_score < is_vest_score_thres) {
 					//printf("### NO_REF_VEST\n");
@@ -221,7 +230,7 @@ namespace glasssix::pump_vesthelmet
 
 		std::string version()
 		{
-			const std::string algo_module_version = "1.5.1";
+			const std::string algo_module_version = "1.5.2";
 			std::string nn_frame_version = "rknn";
 			return fmt::format(R"({ {"nn_frame_version":"{}", "algo_module_version" : "{}"} })", nn_frame_version, algo_module_version);
 		}

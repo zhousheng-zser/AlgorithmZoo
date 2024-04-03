@@ -106,8 +106,8 @@ namespace glasssix::playphone
                         // phone traversing match hands
                         for (auto& hand_region : hands_region)
                         {
+							auto is_overlap = overlap(phoneRect, hand_region, 0.1);
 
-                            auto is_overlap = overlap(phoneRect, hand_region);
                             if (is_overlap)
                             {
                                 if (phoneRect.area() >= hand_region.area() * 5) {
@@ -135,22 +135,16 @@ namespace glasssix::playphone
 
 
         // if rectA intersect rectB
-        bool overlap(cv::Rect rectA, cv::Rect rectB)
+        bool overlap(cv::Rect phoneRect, cv::Rect handRect, float iou_thres)
         {
-            auto minx = std::max(rectA.x, rectB.x);
-            auto miny = std::max(rectA.y, rectB.y);
-            auto maxx = std::min(rectA.x + rectA.width, rectB.x + rectB.width);
-            auto maxy = std::min(rectA.y + rectA.height, rectB.y + rectB.height);
-
-            if (minx > maxx || miny > maxy)
-                return false;
-            else
-                return true;
+            cv::Rect inteRect = phoneRect & handRect;
+            float iou_phone = inteRect.area() * 1.f / phoneRect.area();
+            return iou_phone > 0.1;
         }
 
         std::string version()
         {
-			const std::string algo_module_version = "2.5.0";
+			const std::string algo_module_version = "2.7.0";
 
 #if defined(USE_RKNNAPI) || defined(USE_RKNN2API)
 			//#if 0
