@@ -1,12 +1,3 @@
-//===----------------------------------------------------------------------===//
-//
-// Copyright (C) 2022 Sophgo Technologies Inc.  All rights reserved.
-//
-// SOPHON-DEMO is licensed under the 2-Clause BSD License except for the
-// third-party components.
-//
-//===----------------------------------------------------------------------===//
-
 #ifndef _BMNNPIPELINE_HPP_
 #define _BMNNPIPELINE_HPP_
 
@@ -47,111 +38,6 @@ private:
 
 	std::vector<float> mean_;
 	std::vector<float> std_;
-
-	bool convertRGB_ = false;
-
-
-	void wrapInputLayer(std::vector<cv::Mat>* input_channels, int batch_id) {
-		int h = m_net_h;
-		int w = m_net_w;
-
-		//init input_channels
-		if (m_input_tensor->get_dtype() == BM_INT8) {
-			int8_t* channel_base = m_input_int8;
-			channel_base += h * w * m_num_channels * batch_id;
-			for (int i = 0; i < m_num_channels; i++) {
-				cv::Mat channel(h, w, CV_8SC1, channel_base);
-				input_channels->push_back(channel);
-				channel_base += h * w;
-			}
-		}
-		else {
-			float* channel_base = m_input_float;
-			channel_base += h * w * m_num_channels * batch_id;
-			for (int i = 0; i < m_num_channels; i++) {
-				cv::Mat channel(h, w, CV_32FC1, channel_base);
-				input_channels->push_back(channel);
-				channel_base += h * w;
-			}
-		}
-	}
-
-	int pre_process(std::vector<cv::Mat>& images) {
-		//Safety check.
-		assert(images.size() <= max_batch);
-
-		//1. Preprocess input images in host memory.
-		for (int i = 0; i < max_batch; i++) {
-			std::vector<cv::Mat> input_channels;
-			wrapInputLayer(&input_channels, i);
-			if (i < images.size())
-				pre_process_image(images[i], &input_channels);
-			else {
-				cv::Mat tmp = cv::Mat::zeros(m_net_h, m_net_w, CV_32FC3);
-				pre_process_image(tmp, &input_channels);
-			}
-		}
-		//2. Attach to input tensor.
-		if (m_input_tensor->get_dtype() == BM_INT8) {
-			// dbg("m_input_int8");
-			bm_memcpy_s2d(m_bmContext->handle(), input_tensor.device_mem, (void*)m_input_int8);
-		}
-		else {
-
-			// dbg("m_input_float");
-			// std::vector<long unsigned int> m_input_shape{1,3,640,640};
-			// std::cout<<"#### save m_input_float"<<std::endl;
-			// npy::SAVE_ARRAY_TO_NUMPY(m_input_float,m_input_shape,"m_input.npy");
-			// auto test_model_onx_pede_input = npy::LoadNpy("pede_input.npy");
-			// pede_input_compare(test_model_onx_pede_input->mutable_cpu_data(),m_input_float,test_model_onx_pede_input->count());
-			// dbg(m_input_count);
-			// bm_memcpy_s2d(m_bmContext->handle(), input_tensor.device_mem, (void *)test_model_onx_pede_input->mutable_cpu_data());
-
-			bm_memcpy_s2d(m_bmContext->handle(), input_tensor.device_mem, (void*)m_input_float);
-		}
-
-		return 0;
-	}
-
-	void pre_process_image(const cv::Mat& img, std::vector<cv::Mat>* input_channels) {
-		/* Convert the input image to the input image format of the network. */
-		cv::Mat sample = img;
-		cv::Mat sample_resized(m_net_h, m_net_w, CV_8UC3, cv::SophonDevice(m_dev_id));
-		if (sample.size() != cv::Size(m_net_w, m_net_h)) {
-			cv::resize(sample, sample_resized, cv::Size(m_net_w, m_net_h));
-		}
-		else {
-			sample_resized = sample;
-		}
-		cv::Mat sample_resized_rgb(cv::SophonDevice(this->m_dev_id));
-		cv::cvtColor(sample_resized, sample_resized_rgb, cv::COLOR_BGR2RGB);
-
-		if (convertRGB_ == false) {
-			cv::cvtColor(sample_resized_rgb, sample_resized_rgb, cv::COLOR_BGR2RGB);
-		}
-
-		cv::Mat sample_float(cv::SophonDevice(this->m_dev_id));
-		sample_resized_rgb.convertTo(sample_float, CV_32FC3);
-
-		cv::Mat sample_normalized_0(cv::SophonDevice(this->m_dev_id));
-		cv::Mat sample_normalized(cv::SophonDevice(this->m_dev_id));
-
-		cv::add(sample_float, m_mean, sample_normalized_0);
-		cv::multiply(sample_normalized_0, m_std, sample_normalized);
-
-
-		// /*note: int8 in convert need mul input_scale*/
-		if (m_input_tensor->get_dtype() == BM_INT8) {
-			cv::Mat sample_int8(cv::SophonDevice(this->m_dev_id));
-			sample_normalized.convertTo(sample_int8, CV_8SC1, input_scale);
-			cv::split(sample_int8, *input_channels);
-		}
-		else {
-			cv::Mat sample_fp32(cv::SophonDevice(this->m_dev_id));
-			sample_normalized.convertTo(sample_fp32, CV_32FC3, input_scale);
-			cv::split(sample_fp32, *input_channels);
-		}
-	}
 
 public:
 	BMNNPipeline(std::shared_ptr<BMNNContext> context, int dev_id) : m_bmContext(context), m_dev_id(dev_id) {
@@ -238,30 +124,6 @@ public:
 
 		assert(output_num > 0);
 
-		////4. set mean and scale
-		//std::vector<float> mean_values;
-		//std::vector<float> scale_values;
-		//if (means.empty() || stds.empty())
-		//{
-		//	mean_values.push_back(0);
-		//	mean_values.push_back(0);
-		//	mean_values.push_back(0);
-
-		//	scale_values.push_back(0.00392157);
-		//	scale_values.push_back(0.00392157);
-		//	scale_values.push_back(0.00392157);
-		//}
-		//else
-		//{
-		//	for (auto& v : means) {
-		//		mean_values.push_back(-std::abs(v));
-		//	}
-		//	// mean_values = means;
-		//	scale_values = stds;
-		//}
-		////dbg(mean_values);
-		////dbg(scale_values);
-		//setStdMean(scale_values, mean_values);
 
 		//5. set device mem
 		bmrt_tensor(&input_tensor,
@@ -280,12 +142,19 @@ public:
 	std::unordered_map<std::string, std::shared_ptr<glasssix::memory::tensor<float>>> forward(cv::Mat image) {
 		int ret = 0;
 
-		std::vector<cv::Mat> input_images;
-		input_images.push_back(image);
+		cv::Mat sample_float(m_net_h, m_net_w, CV_32FC3, cv::SophonDevice(this->m_dev_id));
+		image.convertTo(sample_float, CV_32FC3);
 
-		// 1. preprocess
-		ret = pre_process(input_images);
-		CV_Assert(ret == 0);
+		cv::add(sample_float, m_mean, sample_float);	 // sample_float += m_mean
+		cv::multiply(sample_float, m_std, sample_float); // sample_float *= m_std
+		cv::Mat input_c0(m_net_h, m_net_w, CV_32FC1, m_input_float + 0 * m_net_h * m_net_w);
+		cv::Mat input_c1(m_net_h, m_net_w, CV_32FC1, m_input_float + 1 * m_net_h * m_net_w);
+		cv::Mat input_c2(m_net_h, m_net_w, CV_32FC1, m_input_float + 2 * m_net_h * m_net_w);
+		std::array<cv::Mat, 3> input_channels{ input_c0 ,input_c1 ,input_c2 };
+		cv::split(sample_float, input_channels); //eq split to m_input_float
+
+		bm_memcpy_s2d(m_bmContext->handle(), input_tensor.device_mem, (void*)m_input_float);
+
 		ret = m_bmNetwork->forward();
 		CV_Assert(ret == 0);
 
@@ -298,7 +167,6 @@ public:
 			outputTensors[i] = m_bmNetwork->outputTensor(i);
 		}
 
-
 		for (int i = 0; i < output_num; i++) {
 			auto m_output_tensor = outputTensors[i];
 
@@ -310,18 +178,26 @@ public:
 			// dbg(output_scale);
 			// dbg(out_shape.size());
 
-			auto top = std::make_shared<glasssix::memory::tensor<float>>(out_shape);
-			auto top_data = top->mutable_cpu_data();
-			for (size_t idx = 0; idx < top->count(); idx++) {
-				top_data[idx] = output_data[idx] * output_scale;
+			if (std::abs(output_scale - 1.f) < 0.0001) {
+				auto output_tensor = std::make_shared<glasssix::memory::tensor<float>>(out_shape);
+				std::copy(output_data, output_data + output_tensor->count(), output_tensor->mutable_cpu_data());
+
+				result_map[output_names[i]] = output_tensor;
 			}
+			else {
+				auto top = std::make_shared<glasssix::memory::tensor<float>>(out_shape);
+				auto top_data = top->mutable_cpu_data();
+				for (size_t idx = 0; idx < top->count(); idx++) {
+					top_data[idx] = output_data[idx] * output_scale;
+				}
 
-			// npy::SAVE_TENSOR_TO_NUMPY(top,"blur_512out_tensr.npy");
+				// npy::SAVE_TENSOR_TO_NUMPY(top,"blur_512out_tensr.npy");
 
-			std::string tensor_name = output_names[i];
-			// std::string tensor_name = "out" + std::to_string(i);
+				std::string tensor_name = output_names[i];
+				// std::string tensor_name = "out" + std::to_string(i);
 
-			result_map[tensor_name] = top;
+				result_map[tensor_name] = top;
+			}
 		}
 
 		return result_map;
@@ -340,7 +216,7 @@ public:
 					cpdata[i] = (cpdata[i] - std::abs(mean_[c])) * std_[c];
 			}
 		}
-		
+
 		// npy::SAVE_ARRAY_TO_NUMPY(input_ts->mutable_cpu_data(),{1,3,640,640},"m_input.npy");
 
 		bm_memcpy_s2d(m_bmContext->handle(), input_tensor.device_mem, (void*)input_ts->mutable_cpu_data());
@@ -349,7 +225,6 @@ public:
 		CV_Assert(ret == 0);
 
 		// dbg(output_num);
-
 		std::unordered_map<std::string, std::shared_ptr<glasssix::memory::tensor<float>>> result_map;
 
 		std::vector<std::shared_ptr<BMNNTensor>> outputTensors(output_num);
@@ -368,27 +243,31 @@ public:
 			// dbg(output_scale);
 			// dbg(out_shape.size());
 
-			auto top = std::make_shared<glasssix::memory::tensor<float>>(out_shape);
-			auto top_data = top->mutable_cpu_data();
-			for (size_t idx = 0; idx < top->count(); idx++) {
-				top_data[idx] = output_data[idx] * output_scale;
+			if (std::abs(output_scale - 1.f) < 0.0001) {
+				auto output_tensor = std::make_shared<glasssix::memory::tensor<float>>(out_shape);
+				std::copy(output_data, output_data + output_tensor->count(), output_tensor->mutable_cpu_data());
+
+				result_map[output_names[i]] = output_tensor;
 			}
+			else {
+				auto top = std::make_shared<glasssix::memory::tensor<float>>(out_shape);
+				auto top_data = top->mutable_cpu_data();
+				for (size_t idx = 0; idx < top->count(); idx++) {
+					top_data[idx] = output_data[idx] * output_scale;
+				}
 
-			// npy::SAVE_ARRAY_TO_NUMPY(output_data,out_shape,"blur_512out_array.npy");
-			// npy::SAVE_TENSOR_TO_NUMPY(top,"blur_512out_tensr.npy");
+				// npy::SAVE_ARRAY_TO_NUMPY(output_data,out_shape,"blur_512out_array.npy");
+				// npy::SAVE_TENSOR_TO_NUMPY(top,"blur_512out_tensr.npy");
 
-			std::string tensor_name = output_names[i];
-			// std::string tensor_name = "out" + std::to_string(i);
+				std::string tensor_name = output_names[i];
+				// std::string tensor_name = "out" + std::to_string(i);
 
-			result_map[tensor_name] = top;
+				result_map[tensor_name] = top;
+			}
 		}
 
 		return result_map;
 	}
-
-	//void set_convert_rgb(bool is_convert){
-	//  convertRGB_=is_convert;
-	//}
 
 };
 

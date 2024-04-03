@@ -61,17 +61,18 @@ public:
 	}
 
 	std::unordered_map<std::string, std::shared_ptr<glasssix::memory::tensor<float>>> forward(cv::Mat image)  override final {
-		std::shared_ptr<glasssix::memory::tensor<uint8_t>> input_tensor_u8(new glasssix::memory::tensor<uint8_t>(std::vector<int>{1, image.rows, image.cols, 3}, -1, glasssix::memory::NHWC));
+		//std::shared_ptr<glasssix::memory::tensor<uint8_t>> input_tensor_u8(new glasssix::memory::tensor<uint8_t>(std::vector<int>{1, image.rows, image.cols, 3}, -1, glasssix::memory::NHWC));
 
-		// instead data std::copy
-		for (int i = 0; i < image.rows; i++) {
-			auto row_ptr = image.ptr<uint8_t>(i);
-			std::copy(row_ptr, row_ptr + image.cols * image.channels(), input_tensor_u8->mutable_cpu_data() + i * image.cols * image.channels());
-		}
-		input_tensor_u8->convert_order();
+		//// instead data std::copy
+		//for (int i = 0; i < image.rows; i++) {
+		//	auto row_ptr = image.ptr<uint8_t>(i);
+		//	std::copy(row_ptr, row_ptr + image.cols * image.channels(), input_tensor_u8->mutable_cpu_data() + i * image.cols * image.channels());
+		//}
+		//input_tensor_u8->convert_order();
 
-		auto input_tensor_f32 = input_tensor_u8 | glasssix::memory::tensor_convert_to<float>;
-		return pipeline->forward(input_tensor_f32);
+		//auto input_tensor_f32 = input_tensor_u8 | glasssix::memory::tensor_convert_to<float>;
+		//return pipeline->forward(input_tensor_f32);
+		return pipeline->forward(image);
 	}
 
 	std::unordered_map<std::string, std::shared_ptr<glasssix::memory::tensor<float>>> forward(std::shared_ptr<glasssix::memory::tensor<float>> input_tensor) override final {
