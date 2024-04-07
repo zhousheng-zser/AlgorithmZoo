@@ -19,21 +19,16 @@ using PostprocessingFunction = std::function<
 /// PrePostProcessGenPipeline: ProxyPipeline Type, wrapping GenPipeline to add pre/post-processing steps.
 /// </summary>
 class PrePostProcessGenPipeline: public GenPipelineInterface {
-	//using ForwardResultType = std::unordered_map<std::string, std::shared_ptr<glasssix::memory::tensor<float>>>;
+	using ChronoClock = std::chrono::high_resolution_clock;
+	using TimePoint = std::chrono::time_point<ChronoClock>;
+	TimePoint start_{};
+
 public:
-
-	PrePostProcessGenPipeline() :pipeline_{nullptr}
-	{
-	}
-
-	PrePostProcessGenPipeline(std::shared_ptr<GenPipelineInterface> pipeline) : pipeline_(pipeline)
-	{
-	}
-
+	PrePostProcessGenPipeline() :pipeline_{ nullptr } {}
+	PrePostProcessGenPipeline(std::shared_ptr<GenPipelineInterface> pipeline) : pipeline_(pipeline) {}
 	~PrePostProcessGenPipeline() {}
 
 public:
-
 	virtual void set_pipeline(std::shared_ptr<GenPipelineInterface> pipeline) {
 		pipeline_ = pipeline;
 	}
@@ -42,11 +37,10 @@ public:
 		image_preprocess_function_ = image_preprocess_function;
 	}
 
-	template<bool SET_PROFILER = false>
 	void set_postprocessing(const std::map<std::string, PostprocessingFunction>& postprocessing_market, std::string ppfunc_name) {
 		if (postprocessing_market.count(ppfunc_name)) {
 			std::cout << pipTypeInfo() << " pipeline load postprocessing \"" << ppfunc_name << "\"" << std::endl;
-			set_postprocessing<SET_PROFILER>(postprocessing_market.at(ppfunc_name));
+			set_postprocessing(postprocessing_market.at(ppfunc_name));
 		}
 		else if (!ppfunc_name.empty()) {
 			std::cout << "postprocessing market not exits \"" << ppfunc_name << "\"" << std::endl;
@@ -57,7 +51,6 @@ public:
 		}
 	};
 
-	template<bool SET_PROFILER = false>
 	void set_postprocessing(PostprocessingFunction pp_function) {
 		if (pp_function != nullptr) {
 			postprocessing_function_ = pp_function;
@@ -65,7 +58,6 @@ public:
 		else {
 			LOG(WARNING) << "Setting Empty Postprocessing.";
 		}
-		//forward_profiler_ = SET_PROFILER;
 	}
 
 	std::unordered_map<std::string, std::shared_ptr<glasssix::memory::tensor<float>>> forward(cv::Mat image) {
@@ -76,26 +68,24 @@ public:
 				image = image_preprocess_function_(image);
 			}
 
-			std::chrono::steady_clock::time_point infr_start;
-			//if (forward_profiler_) infr_start = std::chrono::high_resolution_clock::now();
+			if (use_forward_probe_) {
+				start_ = ChronoClock::now();
+			}
 
 			rst_map = pipeline_->forward(image);
 
-			//if (forward_profiler_) {
-			//	const auto infr_duration = std::chrono::duration_cast<std::chrono::milliseconds>(std::chrono::high_resolution_clock::now() - infr_start);
-			//	profiler_infr_time_cost += std::chrono::milliseconds(static_cast<long long>(infr_duration.count()));
-			//	infr_cost_add_count++;
-			//}
+			if (use_forward_probe_) {
+				probe_infr_time_cost += std::chrono::duration_cast<std::chrono::milliseconds>(ChronoClock::now() - start_);
+				infr_cost_add_count++;
+			}
 
 			if (postprocessing_function_ != nullptr) {
-				//auto post_start = std::chrono::high_resolution_clock::now();
+				start_ = ChronoClock::now();
 				rst_map = postprocessing_function_(rst_map);
-
-				//if (forward_profiler_) {
-				//	const auto post_duration = std::chrono::duration_cast<std::chrono::milliseconds>(std::chrono::high_resolution_clock::now() - post_start);
-				//	profiler_post_time_cost += std::chrono::milliseconds(static_cast<long long>(post_duration.count()));
-				//	post_cost_add_count++;
-				//}
+				if (use_forward_probe_) {
+					probe_post_time_cost += std::chrono::duration_cast<std::chrono::milliseconds>(ChronoClock::now() - start_);
+					post_cost_add_count++;
+				}
 			}
 		}
 
@@ -130,20 +120,19 @@ public:
 		}
 	}
 
-	void clear_profiler_record() {
-		//infr_cost_add_count = 0;
-		//post_cost_add_count = 0;
-		//profiler_infr_time_cost = std::chrono::milliseconds{0};
-		//profiler_post_time_cost = std::chrono::milliseconds{0};
+	void profiler_tic() {
+		probe_clear_();
+		use_forward_probe_ = true;
 	}
 
-	//void show_avg_infer_post_cost() {
-	//	if (forward_profiler_) {
-	//		LOG(INFO) << "Loop " << infr_cost_add_count << ", show_avg_infr_cost = " << (infr_cost_add_count ? profiler_infr_time_cost.count() * 1.f / infr_cost_add_count : 0) << " ms";
-	//		LOG(INFO) << "Loop " << post_cost_add_count << ", show_avg_post_cost = " << (post_cost_add_count ? profiler_post_time_cost.count() * 1.f / post_cost_add_count : 0) << " ms";
-	//	}
-	//	clear_profiler_record();
-	//}
+	void profiler_toc() {
+		if (use_forward_probe_) {
+			LOG(INFO) << "Loop " << infr_cost_add_count << ", show_avg_infr_cost = " << (infr_cost_add_count ? probe_infr_time_cost.count() * 1.f / infr_cost_add_count : 0) << " ms";
+			LOG(INFO) << "Loop " << post_cost_add_count << ", show_avg_post_cost = " << (post_cost_add_count ? probe_post_time_cost.count() * 1.f / post_cost_add_count : 0) << " ms";
+		}
+		probe_clear_();
+		use_forward_probe_ = false;
+	}
 
 	template<typename RealPipeline = GenPipeline>
 	static inline std::shared_ptr<PrePostProcessGenPipeline> mkSharePipeline(std::string arch, std::string weight, int device = -1) {
@@ -160,10 +149,17 @@ private:
 	std::function<cv::Mat(cv::Mat)> image_preprocess_function_;
 	PostprocessingFunction postprocessing_function_;
 
-	//bool forward_profiler_ = false;
-	//unsigned int infr_cost_add_count = 0;
-	//unsigned int post_cost_add_count = 0;
-	//std::chrono::milliseconds profiler_infr_time_cost{0};
-	//std::chrono::milliseconds profiler_post_time_cost{0};
+	bool use_forward_probe_ = false;
+	size_t infr_cost_add_count = 0;
+	size_t post_cost_add_count = 0;
+	std::chrono::milliseconds probe_infr_time_cost{0};
+	std::chrono::milliseconds probe_post_time_cost{0};
+
+	void probe_clear_() {
+		infr_cost_add_count = 0;
+		post_cost_add_count = 0;
+		probe_infr_time_cost = std::chrono::milliseconds{ 0 };
+		probe_post_time_cost = std::chrono::milliseconds{ 0 };
+	}
 };
 
