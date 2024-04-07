@@ -3,6 +3,7 @@
 #define _GENERAL_PIPELINE_TOOLS_HPP_
 #include <opencv2/opencv.hpp>
 #include <type_traits>
+#include <algorithm>
 
 // YOLO Image Detect Suite Definition
 
@@ -238,6 +239,23 @@ namespace GenPipTools {
 			bbox.add(-letter_op.left_pad, -letter_op.top_pad);
 			bbox.mul_ratio(letter_op.resize_scale);
 		}
+	}
+
+	template<typename YoloBoxDerived>
+	static inline bool constraintRectBoundary(YoloBoxDerived& box, int height, int width) {
+		static_assert(std::is_base_of_v<YoloBoxBase, YoloBoxDerived>, "The element type must be derived from YoloBoxBase");
+		box.xmin = std::max(0.f, box.xmin);
+		box.xmin = std::min(float(width - 1), box.xmin);
+
+		box.xmax = std::max(0.f, box.xmax);
+		box.xmax = std::min(float(width - 1), box.xmax);
+
+		box.ymin = std::max(0.f, box.ymin);
+		box.ymin = std::min(float(height - 1), box.ymin);
+
+		box.ymax = std::max(0.f, box.ymax);
+		box.ymax = std::min(float(height - 1), box.ymax);
+		return box.xmin < box.xmax && box.ymin < box.ymax;
 	}
 
 	template<typename YoloBoxDerived>
