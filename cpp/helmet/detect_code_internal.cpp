@@ -21,25 +21,29 @@
 #include "Excalibur/operation_make_border.hpp"
 #include "Excalibur/operation_safty_cut.hpp"
 #include "Primitives/tensor_conversions.hpp"
-#if defined(USE_RKNNAPI) || defined(USE_RKNN2API)
-#include <RKNN2Wrapper/rknn2_wrapper.hpp>
-#endif
 #include <iomanip>
-#include <tuple>
+
+#include <GenPipeline/PrePostProcessGenPipeline.hpp>
 
 namespace glasssix::helmet
 {
     class detect_code_internal::impl
     {
     public:
-        impl(const exposing::param_string model_directory, int device = -1)
-            : impl{ get_model_params("helmet", false),  exposing::to_narrow_string(model_directory), device }
-        {
-        }
 
-        impl(const std::vector<std::string>& phai, std::string model_directory, int device)
-            :net_class_(phai, model_directory + std::string("/helmet_sim.rknn"), device)
+        impl() {}
+        impl(const exposing::param_string model_directory, int device) :impl()
         {
+            std::string model_dir = exposing::to_narrow_string(model_directory);
+            if (*model_dir.rbegin() != '/') model_dir += '/';
+#if defined(USE_RKNNAPI) || defined(USE_RKNN2API)
+            net_class_ = PrePostProcessGenPipeline::mkSharePipeline(model_dir + "helmet_sim.rknn", 0);
+#elif defined(USE_BMNN)
+            net_class_ = PrePostProcessGenPipeline::mkSharePipeline(model_dir + "helmet_sim.bmodel", 0);
+#else
+            net_class_ = PrePostProcessGenPipeline::mkSharePipeline(model_dir + "helmet_sim.onnx", 0);
+#endif
+            net_class_->manual_possible_normalization(0, 1.f / 255);
         }
 
         exposing::param_vector<helmet::box_info> detect(const exposing::param_span<std::uint8_t>& bitmap, int channels, int height, int width, 
@@ -56,9 +60,6 @@ namespace glasssix::helmet
             }
             CHECK_EQ(channels, 3);
             CHECK_EQ(bitmap.size(), channels * height * width);
-
-            cv::Mat image(cv::Size(width, height), CV_8UC3);
-            std::memcpy(image.data, bitmap.data(), sizeof(uint8_t) * channels * height * width);
 
             if (roi_x<0 || roi_x>width || roi_y > height || roi_y < 0 || roi_height<0 || (roi_height + roi_y) >height || roi_width<0 || (roi_width + roi_x) > width)
             {
@@ -95,13 +96,7 @@ namespace glasssix::helmet
         std::string version()
         {
             const std::string algo_module_version = "2.2.0";
-
-#if defined(USE_RKNNAPI) || defined(USE_RKNN2API)
-            //#if 0
-            std::string nn_frame_version = net_class_.version();
-#else
-            std::string nn_frame_version = net_class_.version();
-#endif
+            std::string nn_frame_version = net_class_->version();
             return fmt::format(R"({{"nn_frame_version":"{}", "algo_module_version":"{}"}})", nn_frame_version, algo_module_version);
 
         }
@@ -168,8 +163,7 @@ namespace glasssix::helmet
         {
             std::vector<box_info_internal> output;
 
-            cv::Mat image(cv::Size(width, height), CV_8UC3);
-            std::memcpy(image.data, bitmap.data(), sizeof(uint8_t) * 3 * height * width);
+            cv::Mat image(cv::Size(width, height), CV_8UC3, const_cast<uint8_t*>(bitmap.data()));
 
             for (auto& head : head_info)
             {
@@ -183,7 +177,7 @@ namespace glasssix::helmet
 
                 auto headimg = preprocess_detection(crop);
 
-                auto  network_result = net_class_.forward(headimg.data, { 1, headimg.rows, headimg.cols,headimg.channels() }, RKNN_TENSOR_NHWC);
+                auto  network_result = net_class_->forward(headimg);
 
                 float* helmet_conf = network_result["output0"]->mutable_cpu_data();
 
@@ -226,8 +220,7 @@ namespace glasssix::helmet
     private:
         std::string model_directory_;
         int device_;
-        // glasssix::rknnwrapper::rknn_wrapper net_detect_;
-        glasssix::rknnwrapper::rknn_wrapper net_class_;
+        std::shared_ptr<PrePostProcessGenPipeline> net_class_;
     };
 
     detect_code_internal::detect_code_internal(std::string_view model_directory, int device)
