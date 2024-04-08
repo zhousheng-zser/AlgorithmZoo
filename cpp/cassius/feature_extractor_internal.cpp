@@ -22,8 +22,8 @@ namespace glasssix::cassius
     namespace
     {
         constexpr std::size_t feature_size = 512;
-        constexpr std::size_t single_bitmap_width = 96;
-        constexpr std::size_t single_bitmap_height = 96;
+        constexpr std::size_t single_bitmap_width = 128;
+        constexpr std::size_t single_bitmap_height = 128;
         constexpr std::size_t single_bitmap_channels = 3;
         constexpr std::size_t single_bitmap_bytes = single_bitmap_channels * single_bitmap_width * single_bitmap_height;
     }
@@ -36,7 +36,7 @@ namespace glasssix::cassius
         {
         }
 
-        impl(const std::vector<std::string> &phai, std::string_view racy_path, int device) try : device_{device}, unicorn_{phai, std::string{racy_path}+std::string("/SimpleRepUnicorn96-N-part-deploy.rknn"), device}
+        impl(const std::vector<std::string> &phai, std::string_view racy_path, int device) try : device_{device}, unicorn_{phai, std::string{racy_path}+std::string("/SimpleRepUnicorn128.rknn"), device}
         {
         }
         catch (...)
@@ -47,24 +47,22 @@ namespace glasssix::cassius
         std::vector<std::vector<float>> get(exposing::param_span<std::uint8_t> bitmaps, std::size_t count, int order)
         {
             if (bitmaps.empty())
-            {
                 return {};
-            }
 
             std::vector<std::vector<float>> result;
 #if defined(USE_RKNNAPI) || defined(USE_RKNN2API)
 #ifdef USE_RKNNAPI
-            auto network_result = unicorn_.forward(bitmaps.data(), { static_cast<int>(count), 96, 96, 3 }, static_cast<rknn_tensor_format>(order));
-            if (auto iter = network_result.find("Conv_Conv_258/out0_0"); iter != network_result.end())
+            auto network_result = unicorn_.forward(bitmaps.data(), { static_cast<int>(count), 128, 128, 3 }, static_cast<rknn_tensor_format>(order));
+            if (auto iter = network_result.find("dequantize_at_636_107_out0_108"); iter != network_result.end())
 #else
             std::unordered_map<std::string, std::shared_ptr<memory::tensor<float>>> network_result;
-            network_result = unicorn_.forward(bitmaps.data(), { static_cast<int>(count), 96, 96, 3 }, rknn_tensor_format::RKNN_TENSOR_NHWC);
-            if (auto iter = network_result.find("predict"); iter != network_result.end())
+            network_result = unicorn_.forward(bitmaps.data(), { static_cast<int>(count), 128, 128, 3 }, rknn_tensor_format::RKNN_TENSOR_NHWC);
+            if (auto iter = network_result.find("834"); iter != network_result.end())
 #endif
 #else
             init_cache(bitmaps, count, order);
             auto network_result = unicorn_.forward(cache_ | memory::tensor_convert_to<float>);
-            if (auto iter = network_result.find("predict"); iter != network_result.end())
+            if (auto iter = network_result.find("834"); iter != network_result.end())
 #endif
             {
                 auto iter_conv5 = iter->second->cpu_data();
