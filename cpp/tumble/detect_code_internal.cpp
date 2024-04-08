@@ -13,6 +13,7 @@
 #include <opencv2/opencv.hpp>
 #include <abi/param_vector.hpp>
 #include <utility>
+//#include "dbg.h"
 
 namespace glasssix::tumble
 {
@@ -26,14 +27,19 @@ namespace glasssix::tumble
             std::string model_dir = exposing::to_narrow_string(model_directory);
             if (*model_dir.rbegin() != '/') model_dir += '/';
 #if defined(USE_RKNNAPI) || defined(USE_RKNN2API)
-            ioprocess_pipeline_ = PrePostProcessGenPipeline::mkSharePipeline(model_dir + "tumble_sim.rknn", 0);
+            iopipeline_det_ = PrePostProcessGenPipeline::mkSharePipeline(model_dir + "tumble_sim.rknn", 0);
+            iopipeline_cls_ = PrePostProcessGenPipeline::mkSharePipeline(model_dir + "tumble_cls.rknn", 0);
 #elif defined(USE_BMNN)
-            ioprocess_pipeline_ = PrePostProcessGenPipeline::mkSharePipeline(model_dir + "tumble_sim.bmodel", 0);
+            iopipeline_det_ = PrePostProcessGenPipeline::mkSharePipeline(model_dir + "tumble_sim.bmodel", 0);
+            iopipeline_cls_ = PrePostProcessGenPipeline::mkSharePipeline(model_dir + "tumble_cls.bmodel", 0);
 #else
-            ioprocess_pipeline_ = PrePostProcessGenPipeline::mkSharePipeline(model_dir + "tumble_sim.onnx", 0);
+            iopipeline_det_ = PrePostProcessGenPipeline::mkSharePipeline(model_dir + "tumble_sim.onnx", 0);
+            iopipeline_cls_ = PrePostProcessGenPipeline::mkSharePipeline(model_dir + "tumble_cls.onnx", 0);
 #endif
-            ioprocess_pipeline_->manual_possible_normalization(0, 1.f / 255);
-            ioprocess_pipeline_->set_postprocessing(yolov8_GEN<2, 1>);
+            iopipeline_cls_->manual_possible_normalization(0, 1.f / 255);
+
+            iopipeline_det_->manual_possible_normalization(0, 1.f / 255);
+            iopipeline_det_->set_postprocessing(yolov8_GEN<2, 1>);
         }
 
         exposing::param_vector<tumble::box_info> detect(const exposing::param_span<std::uint8_t>& bitmap, int channels, int height, int width, int roi_x, int roi_y, int roi_width, int roi_height, std::map<std::string, float>& param_map)
@@ -58,19 +64,48 @@ namespace glasssix::tumble
 
             for (auto& tman : tumble_list)
             {
-                box_info_internal box_info;
-                tman.add(roi_x, roi_y);
-                if (!GenPipTools::constraintRectBoundary(tman, height, width)) {
+                cv::Rect cls_region = tman.get_rect();
+                if (cls_region.area() < 4 || cls_region.width < 1 || cls_region.height < 1) {
                     continue;
                 }
+                auto cls_region_img = GenPipTools::safty_cut(cropped_image, cls_region);
+                auto cls_letter_img = GenPipTools::letter_image(cls_region_img, 256, 256, true);
 
-                box_info.x1 = tman.xmin;
-                box_info.x2 = tman.xmax;
-                box_info.y1 = tman.ymin;
-                box_info.y2 = tman.ymax;
-                box_info.score = tman.score;
-                box_info.category = tman.cid;
-                results_box_info.push_back(exposing::make_as_first<box_info_impl>(box_info));
+                auto tensor_out = iopipeline_cls_->forward(cls_letter_img).begin()->second;
+                float fall_cls_score = tensor_out->mutable_cpu_data()[0];
+                //dbg(tensor_out->data_shape());
+                //dbg(tensor_out->mutable_cpu_data()[0]);
+                //dbg(tensor_out->mutable_cpu_data()[1]);
+                //dbg(tensor_out->mutable_cpu_data()[2]);
+
+                if (fall_cls_score > 0.8) {
+					box_info_internal box_info;
+					tman.add(roi_x, roi_y);
+					if (!GenPipTools::constraintRectBoundary(tman, height, width)) {
+						continue;
+					}
+					box_info.x1 = tman.xmin;
+					box_info.x2 = tman.xmax;
+					box_info.y1 = tman.ymin;
+					box_info.y2 = tman.ymax;
+					box_info.score = fall_cls_score;
+					box_info.category = tman.cid;
+					results_box_info.push_back(exposing::make_as_first<box_info_impl>(box_info));
+                }
+                else {
+                    box_info_internal box_info;
+                    tman.add(roi_x, roi_y);
+                    if (!GenPipTools::constraintRectBoundary(tman, height, width)) {
+                        continue;
+                    }
+                    box_info.x1 = tman.xmin;
+                    box_info.x2 = tman.xmax;
+                    box_info.y1 = tman.ymin;
+                    box_info.y2 = tman.ymax;
+                    box_info.score = fall_cls_score;
+                    box_info.category = 0;
+                    results_box_info.push_back(exposing::make_as_first<box_info_impl>(box_info));
+                }
             }    
 
             return results_box_info;
@@ -93,7 +128,7 @@ namespace glasssix::tumble
 
             GenPipTools::LetterInfo letter_op;
             auto letter_img = GenPipTools::letter_image(image, letter_w, letter_h, letter_op, true);
-            auto tensor_out = ioprocess_pipeline_->forward(letter_img).begin()->second;
+            auto tensor_out = iopipeline_det_->forward(letter_img).begin()->second;
             const int vf_nums = tensor_out->height(); //vf, visual field
             const int per_vf_len = tensor_out->width();
             for (size_t idx = 0; idx < vf_nums; idx++) {
@@ -113,14 +148,15 @@ namespace glasssix::tumble
 
         std::string version()
         {
-			const std::string algo_module_version = "3.0.0";
-			std::string nn_frame_version = ioprocess_pipeline_->version();
+			const std::string algo_module_version = "3.1.0";
+			std::string nn_frame_version = iopipeline_det_->version();
 			return fmt::format(R"({{"nn_frame_version":"{}", "algo_module_version":"{}"}})", nn_frame_version, algo_module_version);
         }
 
 
     private:
-        std::shared_ptr<PrePostProcessGenPipeline> ioprocess_pipeline_;
+        std::shared_ptr<PrePostProcessGenPipeline> iopipeline_det_;
+        std::shared_ptr<PrePostProcessGenPipeline> iopipeline_cls_;
     };
 
     detect_code_internal::detect_code_internal(std::string_view model_directory, int device)
