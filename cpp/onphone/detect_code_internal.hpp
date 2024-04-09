@@ -14,84 +14,34 @@
 #include "../posture/box_info.hpp"
 #include "../head/box_info.hpp"
 
+#include <GenPipeline/GenPipeTools.hpp>
+
 namespace glasssix::onphone
 {
+	struct PhoneBox :public GenPipTools::YoloBoxBase {
+	public:
+		using YoloBoxBase::YoloBoxBase; //Inheriting Constructors
+	};
 
-	struct ObjBox {
-		float xmin;
-		float ymin;
-		float xmax;
-		float ymax;
-		float score;
-		int cid = 0;
-
-		ObjBox() = default;
-
-		ObjBox(float cx, float cy, float w, float h, float the_score) {
-			xmin = cx - w / 2;
-			xmax = cx + w / 2;
-			ymin = cy - h / 2;
-			ymax = cy + h / 2;
-			score = the_score;
+	struct HeadInfo :public GenPipTools::YoloBoxBase {
+	public:
+		HeadInfo(head::box_info& hinfo) {
+			xmin = hinfo.x1();
+			ymin = hinfo.y1();
+			xmax = hinfo.x2();
+			ymax = hinfo.y2();
+			score = hinfo.score();
 		}
 
 		cv::Rect DetPhoneRegion() {
 			int width = xmax - xmin;
 			int height = ymax - ymin;
-
 			int area = width * height;
-
 			int x1 = xmin - 0.25f * width;
 			int y1 = ymin + 0.50f * height;
 			return cv::Rect(x1, y1, width * 1.5, height * 0.75);
 		}
-
-		void add(cv::Point2f point) {
-			xmin += point.x;
-			ymin += point.y;
-			xmax += point.x;
-			ymax += point.y;
-		}
-		void add(int x, int y) {
-			xmin += x;
-			ymin += y;
-			xmax += x;
-			ymax += y;
-		}
-
-		void mul_ratio(float ratio) {
-			xmin = xmin * ratio;
-			ymin = ymin * ratio;
-			xmax = xmax * ratio;
-			ymax = ymax * ratio;
-		}
-
-		std::vector<cv::Point2f> points() {
-			std::vector<cv::Point2f> rect_points{
-				cv::Point2f(std::round(xmin),std::round(ymin)),
-				cv::Point2f(std::round(xmin),std::round(ymax)),
-				cv::Point2f(std::round(xmax),std::round(ymin)),
-				cv::Point2f(std::round(xmax),std::round(ymax)) };
-			return rect_points;
-		}
-
-		cv::Rect get_rect() {
-			return cv::Rect{
-				cv::Point(std::round(xmin), std::round(ymin)),
-				cv::Point(std::round(xmax), std::round(ymax)) };
-		}
-
-		cv::Point2f get_center() {
-			auto p1 = cv::Point2f(std::round(xmin), std::round(ymin));
-			auto p2 = cv::Point2f(std::round(xmax), std::round(ymax));
-			return (p1 + p2) / 2;
-		}
-
-		float get_area() {
-			return (xmax - xmin) * (ymax - ymin);
-		}
 	};
-
 
 	struct box_info_internal
 	{
@@ -104,7 +54,12 @@ namespace glasssix::onphone
 		exposing::param_vector<std::int32_t> phonelocal_list;
 		exposing::param_vector<float> phonescore_list;
 
-		void set(ObjBox& obj) {
+		box_info_internal() {
+			phonelocal_list = exposing::make_param_vector<std::int32_t>();
+			phonescore_list = exposing::make_param_vector<float>();
+		}
+
+		void set(HeadInfo& obj) {
 			x1 = obj.xmin;
 			y1 = obj.ymin;
 			x2 = obj.xmax;
