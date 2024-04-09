@@ -139,9 +139,6 @@ namespace glasssix::onphone
 				std::vector<PhoneBox> phone_list = phone_detect_exhib(man.phoneDetRegion, image, param_map);
 
 				box_info_internal rst_box_info;
-				rst_box_info.phonelocal_list = exposing::make_param_vector<std::int32_t>();
-				rst_box_info.phonescore_list = exposing::make_param_vector<float>();
-
 				rst_box_info.x1 = man.phoneDetRegion.x;
 				rst_box_info.y1 = man.phoneDetRegion.y;
 				rst_box_info.x2 = man.phoneDetRegion.x + man.phoneDetRegion.width;
