@@ -177,9 +177,9 @@ namespace glasssix::helmet
 
                 auto headimg = preprocess_detection(crop);
 
-                auto  network_result = net_class_->forward(headimg);
+                auto  tensor_out = net_class_->forward(headimg).begin()->second;//net has only single node out
 
-                float* helmet_conf = network_result["output0"]->mutable_cpu_data();
+                float* helmet_conf = tensor_out->mutable_cpu_data();
 
                 // Softmax(helmet_conf, 3);
 
