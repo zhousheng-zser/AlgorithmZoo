@@ -55,7 +55,6 @@ namespace glasssix::posture
         std::vector<ObjectInfo> postrue_detect_yolo(cv::Mat &detect_img,float bias,bool horizontal, float ratio, int throw_right, int throw_left,  float con_thres,float iou_thres)
         {
             bias = bias/ratio;
-            cv::imwrite( "posture_detact"+ std::to_string(bias)+".jpg", detect_img);
             auto objects = yolov8_instance->get_objects( detect_img, con_thres, iou_thres );
 
             auto delete_border_objects = throw_border_resulttest(objects, horizontal, throw_right,  throw_left,  detect_img.rows);  
@@ -75,7 +74,6 @@ namespace glasssix::posture
 
         }
 
-        
 
         exposing::param_vector<posture::box_info> detect(const exposing::param_span<std::uint8_t>& bitmap, int channels, int height, int width,
             int roi_x, int roi_y, int roi_width, int roi_height, std::map<std::string, float>& param_map)
@@ -89,15 +87,12 @@ namespace glasssix::posture
             CHECK_EQ(channels, 3);
             CHECK_EQ(bitmap.size(), channels * height * width);
 
-            cv::Mat image(cv::Size(width, height), CV_8UC3);
-            std::memcpy(image.data, bitmap.data(), sizeof(uint8_t) * channels * height * width);
+            cv::Mat image(cv::Size(width, height), CV_8UC3, const_cast<uint8_t*>(bitmap.data()));
 
             if (roi_x<0 || roi_x>width || roi_y > height || roi_y < 0 || roi_height<0 || (roi_height + roi_y) >height || roi_width<0 || (roi_width + roi_x) > width)
                 throw exposing::abi_invalid_argument("incorrect roi in posture");
 
             cv::Mat cropped_image = image(cv::Range(roi_y, roi_y + roi_height), cv::Range(roi_x, roi_x + roi_width));
-
-            cv::imwrite( "cropped_image.jpg", cropped_image);
 
             slide_pics_params pics_and_bias  = Sliding_Cut_Pic(cropped_image,640);
 
