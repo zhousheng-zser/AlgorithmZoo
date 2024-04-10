@@ -55,14 +55,11 @@ namespace glasssix::smoke
             CHECK_EQ(channels, 3);
             CHECK_EQ(bitmap.size(), channels * height * width);
             
-            cv::Mat image(cv::Size(width, height), CV_8UC3);
-            std::memcpy(image.data, bitmap.data(), sizeof (uint8_t) * channels * height * width);
+            cv::Mat image(cv::Size(width, height), CV_8UC3, const_cast<uint8_t*>(bitmap.data()));
                  
             if(roi_x<0 || roi_x>width || roi_y>height || roi_y<0 ||roi_height<0 || (roi_height+roi_y) >height || roi_width<0 || (roi_width+roi_x) > width)
-            {
                   throw exposing::abi_invalid_argument("incorrect roi in smoke");
-            }
-
+            
             std::vector<smoke::box_info_internal> results;
             auto result = exposing::make_param_vector<box_info>();
 
@@ -73,8 +70,8 @@ namespace glasssix::smoke
 
             empty_map_abi.add_or_update("conf_thres",conf_threshold);
             empty_map_abi.add_or_update("nms_thres", 0.45);
-
-            cv::Mat draw = image.clone();
+     cv::Mat draw = image.clone();
+       
 
             for (auto pinfo : posture_info_list) 
             {
