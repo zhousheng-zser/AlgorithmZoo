@@ -12,7 +12,6 @@
 #include <opencv2/core.hpp>
 #include <opencv2/highgui.hpp>
 #include <opencv2/imgproc.hpp>
-#include <RKNN2Wrapper/rknn2_wrapper.hpp>
 #include <cfloat>
 
 #ifdef USE_CUDA
@@ -57,8 +56,6 @@ namespace glasssix::leavepost
             CHECK_EQ(channels, 3);
             CHECK_EQ(bitmap.size(), channels * height * width);
 
-            cv::Mat image(cv::Size(width, height), CV_8UC3);
-            std::memcpy(image.data, bitmap.data(), sizeof (uint8_t) * channels * height * width);
             if(roi_x<0 || roi_x>width || roi_y>height || roi_y<0 ||roi_height<0 || (roi_height+roi_y) >height || roi_width<0 || (roi_width+roi_x) > width)
             {
                 throw exposing::abi_invalid_argument("incorrect roi in refvest");
