@@ -66,7 +66,7 @@
             //以短边为基准 滑动窗口
         
             cv::Mat temp_pic;
-            cv::resize(sou_img, temp_pic, cv::Size(std::round(sou_img.cols / scale_ratio), std::round(sou_img.rows / scale_ratio)), cv::INTER_LINEAR);
+            cv::resize(sou_img, temp_pic, cv::Size(std::round(sou_img.cols / scale_ratio), std::round(sou_img.rows / scale_ratio)), cv::INTER_CUBIC);
         
             //若长宽比小于1.5 只分割两次
             if(long_short_ratio<1.3 )
@@ -107,17 +107,17 @@
             if(horizontal)
             {
                 blob1 = temp_pic(cv::Range(0, img_size), cv::Range(0, img_size));
-                blob2 = temp_pic(cv::Range(0, img_size), cv::Range(temp_pic.cols/2-320 ,temp_pic.cols/2+320));
+                blob2 = temp_pic(cv::Range(0, img_size), cv::Range(temp_pic.cols/2-img_size/2 ,temp_pic.cols/2+img_size/2));
                 blob3 = temp_pic(cv::Range(0, img_size), cv::Range(temp_pic.cols-img_size, temp_pic.cols));
-                bias.push_back(temp_pic.cols/2-320);
+                bias.push_back(temp_pic.cols/2-img_size/2);
                 bias.push_back(temp_pic.cols-img_size);
             }
             else
             {
                 blob1 = temp_pic(cv::Range(0, img_size), cv::Range(0, img_size));
-                blob2 = temp_pic(cv::Range(temp_pic.rows/2-320 ,temp_pic.rows/2+320), cv::Range(0, img_size));
+                blob2 = temp_pic(cv::Range(temp_pic.rows/2-img_size/2 ,temp_pic.rows/2+img_size/2), cv::Range(0, img_size));
                 blob3 = temp_pic(cv::Range(temp_pic.rows-img_size, temp_pic.rows), cv::Range(0, img_size));
-                bias.push_back(temp_pic.rows/2-320);
+                bias.push_back(temp_pic.rows/2-img_size/2);
                 bias.push_back(temp_pic.rows-img_size);
             }
             mats.push_back(blob1);

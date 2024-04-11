@@ -30,18 +30,18 @@ namespace glasssix::posture
 
 #if defined(USE_RKNNAPI) || defined(USE_RKNN2API)
             if(model_type_)
-                net_posture_ = std::make_shared<GenPipeline>(std::string(model_directory) + "/posture640_17.rknn", device);
+                net_posture_ = std::make_shared<GenPipeline>(std::string(model_directory) + "/posture960_17.rknn", device);
             else
-                net_posture_ = std::make_shared<GenPipeline>(std::string(model_directory) + "/posture640_12.rknn", device);
+                net_posture_ = std::make_shared<GenPipeline>(std::string(model_directory) + "/posture960_17.rknn", device);
 
 #elif defined(USE_BMNN)
             if(model_type_==1)
-                net_posture_ = std::make_shared<GenPipeline>(std::string(model_directory) + "/posture640_17.bmodel", device);
+                net_posture_ = std::make_shared<GenPipeline>(std::string(model_directory) + "/posture960_17.bmodel", device);
             else
-                net_posture_ = std::make_shared<GenPipeline>(std::string(model_directory) + "/posture640_12.bmodel", device);
+                net_posture_ = std::make_shared<GenPipeline>(std::string(model_directory) + "/posture960_17.bmodel", device);
 #endif
             net_posture_->manual_possible_normalization(std::array<float,3>{0.f,0.f,0.f},std::array<float,3>{1.f / 255.f,1.f / 255.f,1.f / 255.f});
-            yolov8_instance = std::make_shared<Yolov8<GenPipeline,false,true>>(640, 640, net_posture_);
+            yolov8_instance = std::make_shared<Yolov8<GenPipeline,false,true>>(960, 960, net_posture_);
         }
 
         std::string version()
@@ -74,6 +74,7 @@ namespace glasssix::posture
 
         }
 
+        
 
         exposing::param_vector<posture::box_info> detect(const exposing::param_span<std::uint8_t>& bitmap, int channels, int height, int width,
             int roi_x, int roi_y, int roi_width, int roi_height, std::map<std::string, float>& param_map)
@@ -94,7 +95,7 @@ namespace glasssix::posture
 
             cv::Mat cropped_image = image(cv::Range(roi_y, roi_y + roi_height), cv::Range(roi_x, roi_x + roi_width));
 
-            slide_pics_params pics_and_bias  = Sliding_Cut_Pic(cropped_image,640);
+            slide_pics_params pics_and_bias  = Sliding_Cut_Pic(cropped_image,960);
 
             std::vector<ObjectInfo> Need_to_filter;
             for (size_t i = 0; i < pics_and_bias.imgs.size(); i++)
