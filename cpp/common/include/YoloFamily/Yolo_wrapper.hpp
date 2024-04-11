@@ -258,7 +258,7 @@ public:
 };
 
 // YOLO 版本 8
-template <typename T, bool LxyYolo=false, bool Posture=false>
+template <typename T, bool Exception=false, bool Posture=false>
 class Yolov8 : public YoloBase< std::shared_ptr<T> > {
 public:
     
@@ -294,7 +294,7 @@ else
         std::vector<std::vector<float>> yolov8concat_posture(std::vector<std::shared_ptr<memory::tensor<float>>>& outs,float conf )
         {
             conf = de_sigmoid(conf);
-            int category = outs[0]->channels() - 64;
+            int category = outs[1]->channels() - 64;
             std::vector<int> mul = {32,16,8};
             std::vector<std::vector<float>> output_new;
             for (size_t index = 0; index < outs.size(); index+=2 )
@@ -308,17 +308,18 @@ else
                 int slice_box_size = data_shape[data_shape.size()-2]*data_shape[data_shape.size()-1];
 
                 const float* conf_= stride_data_xywh->mutable_cpu_data() + slice_box_size * 64;
-
                 std::vector<int> candicate_index;
                 std::vector<int> category_label;
-                for (size_t slice_index = 0; slice_index < slice_box_size ; slice_index++)
+                for (size_t slice_index = 0; slice_index < slice_box_size*category ; slice_index++)
                     if(conf_[slice_index]>conf ) 
-                        candicate_index.push_back( slice_index );
+                    {
+                        candicate_index.push_back( slice_index % slice_box_size );
+                        category_label.push_back(slice_index / slice_box_size  );
+                    }
 
                 if(!candicate_index.size() )  continue;
                 std::vector<float> reshape_box( slice_box_size*64 );
                 std::vector<float> posture_reshape_box( slice_box_size*64 );
-                // std::cout<<"working\n";
                 tranpose(stride_data_xywh->mutable_cpu_data(), reshape_box.data(), 64, slice_box_size);
                 tranpose(stride_data_posture->mutable_cpu_data(), posture_reshape_box.data(), posture_shape[1], slice_box_size);
 
@@ -328,26 +329,40 @@ else
                         std::vector<float> temp_data(64);
                         std::vector<float> centre_xywh(4,0);
                         std::vector<float> out_centre_xywh(6+posture_shape[1],0);
+if constexpr (Exception)
+                        out_centre_xywh.resize(6+3*posture_shape[1]/2);
+else
+                        out_centre_xywh.resize(6+posture_shape[1]);
+
                         for (size_t softmaxmove = 0; softmaxmove < 4; softmaxmove++)
                             Softmax(reshape_box.data()+64*slice_index+softmaxmove*16, temp_data.data()+softmaxmove*16, 16 );
                         
                         for(int i=0;i<16;i++)
                             for(int j=0;j<4;j++)
-                                for (size_t k = 0; k < 1; k++)
-                                    centre_xywh[j*1 + k] = centre_xywh[j*1 + k] + temp_data[k*16*4+j*16+i]*i;//             i*4*candidate_num+j ]*i; 
+                                centre_xywh[j*1] = centre_xywh[j*1] + temp_data[j*16 + i]*i;
                         out_centre_xywh[0] = ((centre_xywh[2] - centre_xywh[0])/2.f + slice_index%data_shape[data_shape.size()-1] + 0.5f) * mul[index/2 ];
                         out_centre_xywh[1] = ((centre_xywh[3] - centre_xywh[1])/2.f + slice_index/data_shape[data_shape.size()-1] + 0.5f) * mul[index/2];
                         out_centre_xywh[2] = (centre_xywh[2] + centre_xywh[0]) * mul[index/2];
                         out_centre_xywh[3] = (centre_xywh[3] + centre_xywh[1]) * mul[index/2];
                         out_centre_xywh[4] = sigmoid_x (conf_[slice_index ]);
-                        out_centre_xywh[5] = 0; //default single classify
+                        out_centre_xywh[5] = category_label[index_current];
                         float *posture_data2 = posture_reshape_box.data() + posture_shape[1]*slice_index;
+
+if constexpr (Exception)
+                        for (size_t key_point = 0; key_point < posture_shape[1]/2; key_point++)
+                        {
+                            out_centre_xywh[6 + key_point*3 + 0] = (posture_data2[key_point*2+0]*2 + slice_index%data_shape[data_shape.size()-1])*mul[index/2 ];
+                            out_centre_xywh[6 + key_point*3 + 1] = (posture_data2[key_point*2+1]*2 + slice_index/data_shape[data_shape.size()-1])*mul[index/2 ];
+                            out_centre_xywh[6 + key_point*3 + 3] = 0.f;
+                        }
+else                      
                         for (size_t key_point = 0; key_point < posture_shape[1]/3; key_point++)
                         {
                             out_centre_xywh[6 + key_point*3 + 0] = (posture_data2[key_point*3+0]*2 + slice_index%data_shape[data_shape.size()-1])*mul[index/2 ];
                             out_centre_xywh[6 + key_point*3 + 1] = (posture_data2[key_point*3+1]*2 + slice_index/data_shape[data_shape.size()-1])*mul[index/2 ];
                             out_centre_xywh[6 + key_point*3 + 2] = sigmoid_x(posture_data2[key_point*3+2] );
                         }
+                       
                         output_new.push_back(out_centre_xywh);
                 }
             }
@@ -368,7 +383,7 @@ else
                 int slice_box_size = data_shape[data_shape.size()-2]*data_shape[data_shape.size()-1];
 
                 const float* conf_;
-if constexpr (LxyYolo) 
+if constexpr (Exception) 
                 conf_ = stride_data->mutable_cpu_data();
 else 
                 conf_ = stride_data->mutable_cpu_data() + slice_box_size * 64;
@@ -384,7 +399,7 @@ else
 
                 if(!candicate_index.size() )  continue;
                 std::vector<float> reshape_box( slice_box_size*64 );
-if constexpr (LxyYolo) 
+if constexpr (Exception) 
                 tranpose(stride_data->mutable_cpu_data() + slice_box_size * category, reshape_box.data(), 64, slice_box_size);
 else 
                 tranpose(stride_data->mutable_cpu_data(), reshape_box.data(), 64, slice_box_size);
@@ -400,8 +415,7 @@ else
                         
                         for(int i=0;i<16;i++)
                             for(int j=0;j<4;j++)
-                                for (size_t k = 0; k < 1; k++)
-                                    centre_xywh[j*1 + k] = centre_xywh[j*1 + k] + temp_data[k*16*4+j*16+i]*i;//             i*4*candidate_num+j ]*i; 
+                                    centre_xywh[j*1] = centre_xywh[j*1] + temp_data[j*16 + i]*i;//             i*4*candidate_num+j ]*i; 
                         out_centre_xywh[0] = ((centre_xywh[2] - centre_xywh[0])/2.f + slice_index%data_shape[data_shape.size()-1] + 0.5f) * mul[index];
                         out_centre_xywh[1] = ((centre_xywh[3] - centre_xywh[1])/2.f + slice_index/data_shape[data_shape.size()-1] + 0.5f) * mul[index];
                         out_centre_xywh[2] = (centre_xywh[2] + centre_xywh[0]) * mul[index];
@@ -493,7 +507,6 @@ public:
 // #include <YoloFamily/Yolo_wrapper.hpp>
 // int main() {
 // 	cv::Mat image;
-
     //姿态检测示例
     // std::shared_ptr<GenPipeline> net_posture_;
     // std::shared_ptr<Yolov8<GenPipeline, false,true>> yolov8_instance;
@@ -505,8 +518,7 @@ public:
     // std::shared_ptr<Yolov8<GenPipeline, false,true>> yolov8_instance;
     // net_posture_ = std::make_shared<GenPipeline>(std::string(model_directory) + "/pump.rknn", device);
     // yolov8_instance = std::make_shared<Yolov8<GenPipeline,true>>(1152,640, net_posture_); //2个模板变量分别对应 GenPipeline ，(通用yolov8)是否是李鑫尧的yolo  第三个参数默认为false
+   
     // auto yolov8_detect = yolov8_instance->get_objects( image,conf_threshold,iou_threshold);
-
     // yolov8_detect包含了指定置信度及其iou的对应模型检测结果 std::vector<ObjectInfo>
-
 // }

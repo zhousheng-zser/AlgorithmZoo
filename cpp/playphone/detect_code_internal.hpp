@@ -41,7 +41,7 @@ namespace glasssix::playphone
 			category = 1;
 		}
 
-		void set_phone(ObjBox& phone) {
+		void set_phone(PhoneBox& phone) {
 			phonelocal_list.clear();
 			phonescore_list.clear();
 			phonelocal_list.push_back(phone.xmin);
