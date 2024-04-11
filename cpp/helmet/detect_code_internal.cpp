@@ -24,6 +24,7 @@
 #include <iomanip>
 
 #include <GenPipeline/PrePostProcessGenPipeline.hpp>
+#include <GenPipeline/GenPipeTools.hpp>
 
 namespace glasssix::helmet
 {
@@ -95,7 +96,7 @@ namespace glasssix::helmet
 
         std::string version()
         {
-            const std::string algo_module_version = "2.2.0";
+            const std::string algo_module_version = "2.2.1";
             std::string nn_frame_version = net_class_->version();
             return fmt::format(R"({{"nn_frame_version":"{}", "algo_module_version":"{}"}})", nn_frame_version, algo_module_version);
 
@@ -167,8 +168,9 @@ namespace glasssix::helmet
 
             for (auto& head : head_info)
             {
+                cv::Rect headrect(head.x1, head.y1, head.x2 - head.x1, head.y2 - head.y1);
+                cv::Mat crop = GenPipTools::safty_cut(image, headrect);
 
-                cv::Mat crop = image(cv::Range(head.y1, head.y2), cv::Range(head.x1, head.x2));
                 if (crop.cols < 24 || crop.rows < 24)
                     continue;
 
