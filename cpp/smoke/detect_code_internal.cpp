@@ -41,7 +41,8 @@ namespace glasssix::smoke
                 net_smoke_detect_ = std::make_shared<GenPipeline>(std::string(model_directory) + "/cigarette_detect.rknn", device);
 #elif defined(USE_BMNN)
                 net_smoke_detect_ = std::make_shared<GenPipeline>(std::string(model_directory) + "/cigarette_detect.bmodel", device);
-#endif
+#endif      
+            net_smoke_detect_->manual_possible_normalization(std::array<float,3>{0.f,0.f,0.f},std::array<float,3>{1.f / 255.f,1.f / 255.f,1.f / 255.f});
             yolov8_instance = std::make_shared<Yolov8<GenPipeline>>(320,320, net_smoke_detect_);
         }
 
@@ -54,14 +55,11 @@ namespace glasssix::smoke
             CHECK_EQ(channels, 3);
             CHECK_EQ(bitmap.size(), channels * height * width);
             
-            cv::Mat image(cv::Size(width, height), CV_8UC3);
-            std::memcpy(image.data, bitmap.data(), sizeof (uint8_t) * channels * height * width);
+            cv::Mat image(cv::Size(width, height), CV_8UC3, const_cast<uint8_t*>(bitmap.data()));
                  
             if(roi_x<0 || roi_x>width || roi_y>height || roi_y<0 ||roi_height<0 || (roi_height+roi_y) >height || roi_width<0 || (roi_width+roi_x) > width)
-            {
                   throw exposing::abi_invalid_argument("incorrect roi in smoke");
-            }
-
+            
             std::vector<smoke::box_info_internal> results;
             auto result = exposing::make_param_vector<box_info>();
 
@@ -72,8 +70,8 @@ namespace glasssix::smoke
 
             empty_map_abi.add_or_update("conf_thres",conf_threshold);
             empty_map_abi.add_or_update("nms_thres", 0.45);
-
-            cv::Mat draw = image.clone();
+     cv::Mat draw = image.clone();
+       
 
             for (auto pinfo : posture_info_list) 
             {
