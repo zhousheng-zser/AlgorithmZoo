@@ -19,7 +19,7 @@
 #include "general.hpp"
 #include <GenPipeline/GenPipeline.hpp>
 #include <YoloFamily/Yolo_wrapper.hpp>
-#define draw_pic 
+#define no_draw_pic 
 
 namespace glasssix::smoke
 {
