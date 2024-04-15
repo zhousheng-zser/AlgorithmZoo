@@ -19,8 +19,7 @@
 #include "general.hpp"
 #include <GenPipeline/GenPipeline.hpp>
 #include <YoloFamily/Yolo_wrapper.hpp>
-#define no_draw_pic 
-
+#define draw_pic 
 
 namespace glasssix::smoke
 {
@@ -49,29 +48,23 @@ namespace glasssix::smoke
         exposing::param_vector<smoke::box_info> detect(const exposing::param_span<std::uint8_t>& bitmap, int channels, int height, int width, int roi_x, int roi_y, int roi_width, int roi_height, exposing::param_vector<posture::box_info> posture_info_list, std::map<std::string, float>& param_map)
         {
             if (bitmap.empty())
-            {
                 throw exposing::abi_invalid_argument("current frame is empty");
-            }
+
             CHECK_EQ(channels, 3);
             CHECK_EQ(bitmap.size(), channels * height * width);
-            
+
             cv::Mat image(cv::Size(width, height), CV_8UC3, const_cast<uint8_t*>(bitmap.data()));
-                 
+                  
             if(roi_x<0 || roi_x>width || roi_y>height || roi_y<0 ||roi_height<0 || (roi_height+roi_y) >height || roi_width<0 || (roi_width+roi_x) > width)
                   throw exposing::abi_invalid_argument("incorrect roi in smoke");
-            
+
             std::vector<smoke::box_info_internal> results;
             auto result = exposing::make_param_vector<box_info>();
 
-            auto  empty_map_abi             = exposing::make_param_hash_map<exposing::param_string, float>();
-            float conf_threshold            = param_map.count("conf_thres") ? param_map["conf_thres"] : 0.6f;
             float smoke_conf_thres          = param_map.count("smoke_conf_thres") ? param_map["smoke_conf_thres"] : 0.7f;
             float smoke_iou_thres           = param_map.count("smoke_iou_thres") ? param_map["smoke_iou_thres"] : 0.65f;
 
-            empty_map_abi.add_or_update("conf_thres",conf_threshold);
-            empty_map_abi.add_or_update("nms_thres", 0.45);
-     cv::Mat draw = image.clone();
-       
+            cv::Mat draw = image.clone();
 
             for (auto pinfo : posture_info_list) 
             {
@@ -81,11 +74,11 @@ namespace glasssix::smoke
                 safe_crop_rect head_rect = smoke_point.get_head_area(image.cols,image.rows);
 
 #ifdef draw_pic
-                // cv::rectangle(draw, cv::Point(detect_rect.x1, detect_rect.y1), cv::Point(detect_rect.x2, detect_rect.y2), cv::Scalar(0, 0, 255), 2);
-                // cv::rectangle(draw, cv::Point(head_rect.x1, head_rect.y1), cv::Point(head_rect.x2, head_rect.y2), cv::Scalar(255, 255, 0), 2);
-                // cv::circle(draw,  cv::Point(int( smoke_point.wrists[0].first.x ), int(smoke_point.wrists[0].first.y  ) ), 3, CV_RGB(0, 0,255), 3);  
-                // cv::circle(draw,  cv::Point(int( smoke_point.wrists[1].first.x ), int(smoke_point.wrists[1].first.y  ) ), 3, CV_RGB(0, 0,255), 3);  
-                // cv::imwrite("..//" + std::to_string(10)+".jpg",draw);
+                cv::rectangle(draw, cv::Point(detect_rect.x1, detect_rect.y1), cv::Point(detect_rect.x2, detect_rect.y2), cv::Scalar(0, 0, 255), 2);
+                cv::rectangle(draw, cv::Point(head_rect.x1, head_rect.y1), cv::Point(head_rect.x2, head_rect.y2), cv::Scalar(255, 255, 0), 2);
+                cv::circle(draw,  cv::Point(int( smoke_point.wrists[0].first.x ), int(smoke_point.wrists[0].first.y  ) ), 3, CV_RGB(0, 0,255), 3);  
+                cv::circle(draw,  cv::Point(int( smoke_point.wrists[1].first.x ), int(smoke_point.wrists[1].first.y  ) ), 3, CV_RGB(0, 0,255), 3);  
+                cv::imwrite("..//" + std::to_string(10)+".jpg",draw);
 #endif // draw
 
                 //获取头嘴框中心点到手腕最近距离
@@ -125,7 +118,14 @@ namespace glasssix::smoke
                             temp_box.y1 = postureInfo.y1;
                             temp_box.y2 = postureInfo.y2;
                             temp_box.confidence = cigrate.score;
-
+                            temp_box.key_points = exposing::make_param_vector<float>();
+                            for(int j=0; j<postureInfo.Kpoints.size(); j++)
+                            {
+                                temp_box.key_points.push_back(postureInfo.Kpoints[j].first.x);
+                                temp_box.key_points.push_back(postureInfo.Kpoints[j].first.y);
+                                temp_box.key_points.push_back(postureInfo.Kpoints[j].second);
+                            }
+                            
                         if(iou>0.f)
                         {
                             temp_box.category = 0;
@@ -141,9 +141,8 @@ namespace glasssix::smoke
             }
 
             for (auto& box : results)
-            {
                 result.push_back(exposing::make_as_first<box_info_impl>(box));
-            }   
+
             return result;
         }
 
