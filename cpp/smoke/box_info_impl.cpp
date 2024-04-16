@@ -43,5 +43,9 @@ namespace glasssix::smoke
 		return internal_.confidence;
 	}
 
-	
+	exposing::param_vector<float> box_info_impl::key_points() const
+	{
+		return internal_.key_points;
+	}
+
 }

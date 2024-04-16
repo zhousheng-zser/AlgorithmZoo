@@ -21,7 +21,7 @@ namespace glasssix::smoke
         int y2() const;
         int category() const;
         float confidence() const;
-
+        exposing::param_vector<float> key_points() const;
 
     private:
         box_info_internal internal_{};

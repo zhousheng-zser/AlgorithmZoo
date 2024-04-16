@@ -344,7 +344,7 @@ else
                         out_centre_xywh[1] = ((centre_xywh[3] - centre_xywh[1])/2.f + slice_index/data_shape[data_shape.size()-1] + 0.5f) * mul[index/2];
                         out_centre_xywh[2] = (centre_xywh[2] + centre_xywh[0]) * mul[index/2];
                         out_centre_xywh[3] = (centre_xywh[3] + centre_xywh[1]) * mul[index/2];
-                        out_centre_xywh[4] = sigmoid_x (conf_[slice_index ]);
+                        out_centre_xywh[4] = sigmoid_x (conf_[slice_index + slice_box_size*category_label[index_current]  ]);
                         out_centre_xywh[5] = category_label[index_current];
                         float *posture_data2 = posture_reshape_box.data() + posture_shape[1]*slice_index;
 

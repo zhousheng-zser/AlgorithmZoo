@@ -34,6 +34,7 @@ namespace glasssix::smoke
         int y2;
         int category;
         float confidence;
+        exposing::param_vector<float> key_points;
     };
 
     class detect_code_internal
