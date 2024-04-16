@@ -72,13 +72,25 @@ namespace glasssix::tumble
                 auto cls_letter_img = GenPipTools::letter_image(cls_region_img, 256, 256, true);
 
                 auto tensor_out = iopipeline_cls_->forward(cls_letter_img).begin()->second;
-                float fall_cls_score = tensor_out->mutable_cpu_data()[0];
+                auto tensor_out_data = tensor_out->mutable_cpu_data();
+
+                struct FallCls {
+					enum class Tag { Fall, HardFall };
+                    float score;
+                    Tag tag;
+                    FallCls(float* cls_data) :score(std::max(cls_data[0], cls_data[1])) {
+                        tag = cls_data[0] > cls_data[1]? Tag::Fall: Tag::HardFall;
+                    }
+                };
+                FallCls fall_cls(tensor_out_data);
+                //printf("cls %f,  %f,  %f\n", tensor_out_data[0], tensor_out_data[1], tensor_out_data[2]);
+
                 //dbg(tensor_out->data_shape());
                 //dbg(tensor_out->mutable_cpu_data()[0]);
                 //dbg(tensor_out->mutable_cpu_data()[1]);
                 //dbg(tensor_out->mutable_cpu_data()[2]);
 
-                if (fall_cls_score > 0.8) {
+                if (fall_cls.score > 0.8) {
 					box_info_internal box_info;
 					tman.add(roi_x, roi_y);
 					if (!GenPipTools::constraintRectBoundary(tman, height, width)) {
@@ -88,7 +100,7 @@ namespace glasssix::tumble
 					box_info.x2 = tman.xmax;
 					box_info.y1 = tman.ymin;
 					box_info.y2 = tman.ymax;
-					box_info.score = fall_cls_score;
+					box_info.score = fall_cls.score;
 					box_info.category = tman.cid;
 					results_box_info.push_back(exposing::make_as_first<box_info_impl>(box_info));
                 }
@@ -102,7 +114,7 @@ namespace glasssix::tumble
                     box_info.x2 = tman.xmax;
                     box_info.y1 = tman.ymin;
                     box_info.y2 = tman.ymax;
-                    box_info.score = fall_cls_score;
+                    box_info.score = fall_cls.score;
                     box_info.category = 0;
                     results_box_info.push_back(exposing::make_as_first<box_info_impl>(box_info));
                 }
@@ -148,7 +160,7 @@ namespace glasssix::tumble
 
         std::string version()
         {
-			const std::string algo_module_version = "3.1.0";
+			const std::string algo_module_version = "3.2.0";
 			std::string nn_frame_version = iopipeline_det_->version();
 			return fmt::format(R"({{"nn_frame_version":"{}", "algo_module_version":"{}"}})", nn_frame_version, algo_module_version);
         }
