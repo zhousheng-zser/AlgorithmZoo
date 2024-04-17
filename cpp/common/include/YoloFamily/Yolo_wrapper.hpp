@@ -65,6 +65,13 @@ using namespace glasssix;
         {}
     };
 
+    int safe_region(float location, int border )
+    {
+        location = location > 0.f? location:0.f;
+        location = location < border? location: border;
+        return std::round(location);
+    }
+
     struct ObjectInfo
     {
         int x1;
@@ -105,7 +112,22 @@ protected:
 public:
     YoloBase(int model_input_width,int model_input_height, T pipe) : pipeline(pipe),model_input_height_(model_input_height), model_input_width_(model_input_width)  {}
 
-	virtual void preprocess_detection(cv::Mat& src,  cv::Size input_shape = cv::Size(640, 640) ,bool BGR2RGB=true )=0;
+	void preprocess_detection(cv::Mat& src,  cv::Size input_shape = cv::Size(640, 640) , bool BGR2RGB=true ) 
+    {
+        this->pic_process_param_.ratio = std::min((float)input_shape.width/(float)src.cols, (float)input_shape.height/(float)src.rows);
+        cv::Mat cut_image;
+        if( src.rows != input_shape.height || src.cols != input_shape.width)
+        {      
+            cv::resize(src, cut_image, cv::Size((int)(src.cols * this->pic_process_param_.ratio), (int)(src.rows * this->pic_process_param_.ratio)), cv::INTER_LINEAR);
+            this->pic_process_param_.pad_h = std::round((input_shape.height - cut_image.rows) /2 ) ; 
+            this->pic_process_param_.pad_w = std::round((input_shape.width - cut_image.cols) /2 ) ; 
+            cv::copyMakeBorder(cut_image, this->infer_image, this->pic_process_param_.pad_h, input_shape.height-cut_image.rows-this->pic_process_param_.pad_h, this->pic_process_param_.pad_w, input_shape.width-cut_image.cols- this->pic_process_param_.pad_w, cv::BORDER_CONSTANT, cv::Scalar{ 114,114,114 });
+        }
+        else 
+            src.copyTo(this->infer_image);     
+        if(BGR2RGB)
+            cv::cvtColor(this->infer_image, this->infer_image, cv::COLOR_BGR2RGB);
+    }
 	
 	virtual std::vector<std::vector<float>> yoloconcat(std::vector<std::shared_ptr<glasssix::memory::tensor<float>>>& outs,float conf )=0;
 
@@ -208,13 +230,19 @@ public:
             sou_data[i][0] =  sou_data[i][0]+ sou_data[i][5]*bias;      
     }
 
+    // template<typename Pipeline_Type>  
+    // class CheckDerived : public std::conditional<std::is_base_of< glasssix::rknnwrapper::rknn_wrapper, Pipeline_Type>::value, std::true_type, std::false_type>::type { }; 
+
+
     // 获取检测到的对象
     std::vector<ObjectInfo> get_objects(cv::Mat image, float conf=0.5,float iou_threshold=0.65  ) 
 	{	
 		std::vector<ObjectInfo> out;
 		auto new_shape = cv::Size(model_input_width_, model_input_height_);
 		preprocess_detection(image,new_shape);
-		auto model_results = pipeline->forward(infer_image);  //最好做编译器检查 检查是不是pipeline是不是genpipeline继承类
+
+        auto model_results = pipeline->forward(infer_image);    // 最好做编译器检查 检查是不是pipeline是不是genpipeline继承类
+
 		std::vector<std::shared_ptr<memory::tensor<float>>> model_results_vector = sort_model_result(model_results);
 
 		auto real_output = yoloconcat(model_results_vector,conf);
@@ -235,13 +263,13 @@ public:
             
             for (size_t i = 0; i < (nms_input[index].size() - offset) / step; ++i) {  
                 key_points.emplace_back(  
-                    std::round(nms_input[index][offset + i * step]),  
-                    std::round(nms_input[index][offset + i * step + 1]),  
+                    safe_region(nms_input[index][offset + i * step], image.cols),  
+                    safe_region(nms_input[index][offset + i * step + 1], image.rows),  
                     nms_input[index][offset + i * step + 2]  
                 );  
             }
 
-            out.emplace_back(std::round(nms_input[index][0]), std::round(nms_input[index][1]),std::round(nms_input[index][0]+nms_input[index][2]), std::round(nms_input[index][1]+nms_input[index][3]),
+            out.emplace_back(safe_region(nms_input[index][0],image.cols), safe_region(nms_input[index][1], image.rows),safe_region(nms_input[index][0]+nms_input[index][2], image.cols), safe_region(nms_input[index][1]+nms_input[index][3], image.rows),
                             std::round(nms_input[index][5]),  nms_input[index][4], key_points
             );
             
@@ -264,24 +292,6 @@ public:
     
         Yolov8(int model_input_width, int model_input_height,  std::shared_ptr<T> pipe) : 
         YoloBase< std::shared_ptr<T>>(model_input_width, model_input_height, pipe) {}
-
-        void preprocess_detection(cv::Mat& src,  cv::Size input_shape = cv::Size(640, 640) ,bool BGR2RGB=true )  override
-        {
-            this->pic_process_param_.ratio = std::min((float)input_shape.width/(float)src.cols, (float)input_shape.height/(float)src.rows);
-            cv::Mat cut_image;
-            if( src.rows != input_shape.height || src.cols != input_shape.width)
-            {      
-                cv::resize(src, cut_image, cv::Size((int)(src.cols * this->pic_process_param_.ratio), (int)(src.rows * this->pic_process_param_.ratio)), cv::INTER_LINEAR);
-                this->pic_process_param_.pad_h = std::round((input_shape.height - cut_image.rows) /2 ) ; 
-                this->pic_process_param_.pad_w = std::round((input_shape.width - cut_image.cols) /2 ) ; 
-                cv::copyMakeBorder(cut_image, this->infer_image, this->pic_process_param_.pad_h, input_shape.height-cut_image.rows-this->pic_process_param_.pad_h, this->pic_process_param_.pad_w, input_shape.width-cut_image.cols- this->pic_process_param_.pad_w, cv::BORDER_CONSTANT, cv::Scalar{ 114,114,114 });
-            }
-            else 
-                src.copyTo(this->infer_image);     
-            if(BGR2RGB)
-                cv::cvtColor(this->infer_image, this->infer_image, cv::COLOR_BGR2RGB);
-        }
-
 
         std::vector<std::vector<float>> yoloconcat(std::vector<std::shared_ptr<memory::tensor<float>>>& outs,float conf ) override
         {
@@ -438,23 +448,6 @@ public:
         Yolov7(int model_input_width, int model_input_height,  std::shared_ptr<T> pipe) : 
         YoloBase< std::shared_ptr<T>>(model_input_width, model_input_height, pipe) {}
 
-        void preprocess_detection(cv::Mat& src,  cv::Size input_shape = cv::Size(640, 640) ,bool BGR2RGB=true )  override
-        {
-            this->pic_process_param_.ratio = std::min((float)input_shape.width/(float)src.cols, (float)input_shape.height/(float)src.rows);
-            cv::Mat cut_image;
-            if( src.rows != input_shape.height || src.cols != input_shape.width)
-            {      
-                cv::resize(src, cut_image, cv::Size((int)(src.cols * this->pic_process_param_.ratio), (int)(src.rows * this->pic_process_param_.ratio)), cv::INTER_LINEAR);
-                this->pic_process_param_.pad_h = std::round((input_shape.height - cut_image.rows) /2 ) ; 
-                this->pic_process_param_.pad_w = std::round((input_shape.width - cut_image.cols) /2 ) ; 
-                cv::copyMakeBorder(cut_image, this->infer_image, this->pic_process_param_.pad_h, input_shape.height-cut_image.rows-this->pic_process_param_.pad_h, this->pic_process_param_.pad_w, input_shape.width-cut_image.cols- this->pic_process_param_.pad_w, cv::BORDER_CONSTANT, cv::Scalar{ 114,114,114 });
-            }
-            else 
-                src.copyTo(this->infer_image);     
-            if(BGR2RGB)
-                cv::cvtColor(this->infer_image, this->infer_image, cv::COLOR_BGR2RGB);
-        }
-
         std::vector<std::vector<float>> yoloconcat( std::vector<std::shared_ptr<memory::tensor<float>>>& outs, float conf_thres) override
         {
             const float anchors[3][6] = {{72,97, 123,164, 209,297}, {15,19, 23,30, 39,52},{4,5, 6,8, 10,12} };
@@ -522,3 +515,6 @@ public:
     // auto yolov8_detect = yolov8_instance->get_objects( image,conf_threshold,iou_threshold);
     // yolov8_detect包含了指定置信度及其iou的对应模型检测结果 std::vector<ObjectInfo>
 // }
+
+
+
