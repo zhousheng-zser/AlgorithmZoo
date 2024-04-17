@@ -22,7 +22,7 @@ namespace glasssix::face_attributes
 	class face_attributes_detector_impl::impl
 	{
 	public:
-		impl();
+		impl() {};
 
 		impl(std::string_view model_directory, int device) :impl()
 		{
@@ -54,7 +54,7 @@ namespace glasssix::face_attributes
 			cv::Mat img(cv::Size(width, height),CV_8UC3,const_cast<uint8_t*>(bitmap.data()));
 // #if 1 || defined(USE_RKNNAPI) || defined(USE_RKNN2API)
 			// cv::Mat img(height, width, CV_8UC3, bitmap.data());
-			std::vector<std::uint8_t> temp(faces.size() * forward_input_bytes);
+			// std::vector<std::uint8_t> temp(faces.size() * forward_input_bytes);
 			for (size_t i = 0; i < faces.size(); i++)
 			{
 				cv::Mat crop_face;
@@ -62,26 +62,16 @@ namespace glasssix::face_attributes
 				refine(rect, height, width);
 				mat_safty_cut(img, crop_face, rect);
 				cv::resize(crop_face, crop_face, cv::Size(forward_input_width, forward_input_height));
-				auto  network_results = ioprocess_pipeline_->forward(crop_face);
-				//if (crop_face.isContinuous())
-				//	std::copy(crop_face.data, crop_face.data + forward_input_bytes, temp.data() + i * forward_input_bytes);
-				//else
-				//{
-				//	for (size_t j = 0; j < crop_face.rows; j++)
-				//		std::copy(crop_face.data, crop_face.data + j * forward_input_channels * forward_input_width, temp.data() + i * forward_input_bytes + j * forward_input_channels * forward_input_width);
-				//}
 				auto network_result = ioprocess_pipeline_->forward(crop_face);
-
 				const std::vector<std::string> out_names = { "gender", "age", "mask", "glass" };
-
 				auto gender_data = network_result[out_names[0]]->cpu_data();
 				auto age_data = network_result[out_names[1]]->cpu_data();
 				auto mask_data = network_result[out_names[2]]->cpu_data();
 				auto glass_data = network_result[out_names[3]]->cpu_data();
-				int gender_index = std::max_element(gender_data + i * 2, gender_data + (i + 1) * 2) - gender_data - i * 2;
-				int age_index = std::max_element(age_data + i * 4, age_data + (i + 1) * 4) - age_data - i * 4;
-				int mask_index = std::max_element(mask_data + i * 2, mask_data + (i + 1) * 2) - mask_data - i * 2;
-				int glass_index = std::max_element(glass_data + i * 2, glass_data + (i + 1) * 2) - glass_data - i * 2;
+				int gender_index = std::max_element(gender_data, gender_data + 2) - gender_data;
+				int age_index = std::max_element(age_data, age_data + 4) - age_data;
+				int mask_index = std::max_element(mask_data, mask_data + 2) - mask_data;
+				int glass_index = std::max_element(glass_data, glass_data + 2) - glass_data;
 				face_attributes::face_attribute_info_internal face_info{ gender_index, age_index, mask_index, glass_index };
 				results.push_back(glasssix::exposing::make_as_first<face_attributes::face_attribute_info_impl>(face_info));
 			}
