@@ -8,6 +8,7 @@
 #include "Primitives/tensor_conversions.hpp"
 #include <GenPipeline/PrePostProcessGenPipeline.hpp>
 #include <GenPipeline/GetPostprocessing.hpp>
+#include "../genpipeline/market/yolov8_GEN.hpp"
 
 namespace glasssix::face_attributes
 {
@@ -15,8 +16,6 @@ namespace glasssix::face_attributes
 	{
 		constexpr std::size_t forward_input_width = 96;
 		constexpr std::size_t forward_input_height = 96;
-		constexpr std::size_t forward_input_channels = 3;
-		constexpr std::size_t forward_input_bytes = forward_input_channels * forward_input_width * forward_input_height;
 	}
 
 	class face_attributes_detector_impl::impl
@@ -35,8 +34,8 @@ namespace glasssix::face_attributes
 		#else
 			ioprocess_pipeline_ = PrePostProcessGenPipeline::mkSharePipeline(model_dir + "face_attributes.onnx", 0);
 		#endif
-			ioprocess_pipeline_->manual_possible_normalization(0, 1.f / 255);
-			//ioprocess_pipeline_->set_postprocessing(yolov8_GEN<1, 1>);
+			ioprocess_pipeline_->manual_possible_normalization(127.5, 1.f / 127.5);
+			ioprocess_pipeline_->set_postprocessing(yolov8_GEN<1, 1>);
 		}
 		~impl()
 		{
@@ -52,9 +51,7 @@ namespace glasssix::face_attributes
 
 			auto results = exposing::make_param_vector<face_attributes::face_attribute_info>();
 			cv::Mat img(cv::Size(width, height),CV_8UC3,const_cast<uint8_t*>(bitmap.data()));
-// #if 1 || defined(USE_RKNNAPI) || defined(USE_RKNN2API)
-			// cv::Mat img(height, width, CV_8UC3, bitmap.data());
-			// std::vector<std::uint8_t> temp(faces.size() * forward_input_bytes);
+
 			for (size_t i = 0; i < faces.size(); i++)
 			{
 				cv::Mat crop_face;
@@ -62,7 +59,7 @@ namespace glasssix::face_attributes
 				refine(rect, height, width);
 				mat_safty_cut(img, crop_face, rect);
 				cv::resize(crop_face, crop_face, cv::Size(forward_input_width, forward_input_height));
-				auto network_result = ioprocess_pipeline_->forward(crop_face);
+				auto network_result = ioprocess_pipeline_->forward(crop_face).begin()->second;
 				const std::vector<std::string> out_names = { "gender", "age", "mask", "glass" };
 				auto gender_data = network_result[out_names[0]]->cpu_data();
 				auto age_data = network_result[out_names[1]]->cpu_data();
