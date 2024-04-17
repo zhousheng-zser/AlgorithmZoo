@@ -8,7 +8,6 @@
 #include "Primitives/tensor_conversions.hpp"
 #include <GenPipeline/PrePostProcessGenPipeline.hpp>
 #include <GenPipeline/GetPostprocessing.hpp>
-#include "../genpipeline/market/yolov8_GEN.hpp"
 
 namespace glasssix::face_attributes
 {
@@ -35,7 +34,6 @@ namespace glasssix::face_attributes
 			ioprocess_pipeline_ = PrePostProcessGenPipeline::mkSharePipeline(model_dir + "face_attributes.onnx", 0);
 		#endif
 			ioprocess_pipeline_->manual_possible_normalization(127.5, 1.f / 127.5);
-			ioprocess_pipeline_->set_postprocessing(yolov8_GEN<1, 1>);
 		}
 		~impl()
 		{
@@ -59,8 +57,12 @@ namespace glasssix::face_attributes
 				refine(rect, height, width);
 				mat_safty_cut(img, crop_face, rect);
 				cv::resize(crop_face, crop_face, cv::Size(forward_input_width, forward_input_height));
-				auto network_result = ioprocess_pipeline_->forward(crop_face).begin()->second;
+				auto network_result = ioprocess_pipeline_->forward(crop_face);
+				#if defined(USE_RKNNAPI) || defined(USE_RKNN2API) || defined WIN32
 				const std::vector<std::string> out_names = { "gender", "age", "mask", "glass" };
+				#elif defined(USE_BMNN)
+				const std::vector<std::string> out_names = { "gender", "age", "mask", "glass" };
+				#endif
 				auto gender_data = network_result[out_names[0]]->cpu_data();
 				auto age_data = network_result[out_names[1]]->cpu_data();
 				auto mask_data = network_result[out_names[2]]->cpu_data();
