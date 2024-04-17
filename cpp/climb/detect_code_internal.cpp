@@ -11,7 +11,6 @@
 #include <abi/param_vector.hpp>
 #include <utility>
 
-#include <RKNN2Wrapper/rknn2_wrapper.hpp>
 #include <opencv2/core.hpp>
 #include <opencv2/imgproc.hpp>
 #include <opencv2/dnn.hpp>
