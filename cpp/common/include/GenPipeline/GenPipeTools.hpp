@@ -7,7 +7,7 @@
 
 // YOLO Image Detect Suite Definition
 
-namespace GenPipTools {
+namespace GenPipeTools {
 
 	struct LetterInfo {
 		int top_pad = 0;
@@ -300,5 +300,7 @@ namespace GenPipTools {
 
 
 }
+
+#define GenPipTools GenPipeTools
 
 #endif //!_GENERAL_PIPELINE_TOOLS_HPP_

@@ -11,8 +11,9 @@ namespace glasssix::workcloth
 	classify_code_impl::~classify_code_impl() = default;
 
 	inline void change_color_hsv_cfg(std::unordered_map<int, std::vector<cv::Scalar>> &color_hsv_cfg , int id, const exposing::param_vector<int>& temp) {
-		for (int i = 0; i < temp.size(); i += 3)
-			color_hsv_cfg[id].push_back(cv::Scalar{temp[i],temp[i+1] ,temp[i+2]});
+		for (int i = 0; i < temp.size(); i += 3) {
+			color_hsv_cfg[id].push_back(cv::Scalar{ double(temp[i]),double(temp[i + 1]) ,double(temp[i + 2]) });
+		}
 	}
 
 	void classify_code_impl::init(const exposing::param_string& model_directory, std::int32_t device)
