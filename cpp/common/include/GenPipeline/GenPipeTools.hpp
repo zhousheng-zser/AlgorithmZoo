@@ -7,7 +7,7 @@
 
 // YOLO Image Detect Suite Definition
 
-namespace GenPipTools {
+namespace GenPipeTools {
 
 	struct LetterInfo {
 		int top_pad = 0;
@@ -84,38 +84,45 @@ namespace GenPipTools {
 
 	static inline cv::Mat safty_cut(cv::Mat& img, cv::Rect roi)
 	{
+		int img_height = img.rows;
+		int img_width = img.cols;
 		int width = roi.width;
 		int height = roi.height;
 		int x = roi.x;
 		int y = roi.y;
 
 		cv::Mat mat(height, width, img.type(), cv::Scalar(0));
-		int _x = x;
-		int _y = y;
-		int _width = width;
-		int _height = height;
-		if (x < 0)
-		{
-			_x = 0;
-			_width = width + x;
+
+		cv::Rect imgReg(0, 0, img.cols, img.rows);
+		auto intersection = roi & imgReg;
+		if (intersection.area() > 1) {
+			int _x = x;
+			int _y = y;
+			int _width = width;
+			int _height = height;
+			if (x < 0)
+			{
+				_x = 0;
+				_width = width + x;
+			}
+
+			if (_x + _width > img.cols)
+				_width = img.cols - _x;
+
+			if (y < 0)
+			{
+				_y = 0;
+				_height = height + y;
+			}
+
+			if (_y + _height > img.rows)
+				_height = img.rows - _y;
+
+			img(cv::Rect(_x, _y, _width, _height)).copyTo(mat(cv::Rect(_x - x, _y - y, _width, _height)));
 		}
 
-		if (_x + _width > img.cols)
-			_width = img.cols - _x;
-
-		if (y < 0)
-		{
-			_y = 0;
-			_height = height + y;
-		}
-
-		if (_y + _height > img.rows)
-			_height = img.rows - _y;
-
-		img(cv::Rect(_x, _y, _width, _height)).copyTo(mat(cv::Rect(_x - x, _y - y, _width, _height)));
 		return mat;
 	}
-
 
 	class YoloBoxBase {
 	public:
@@ -293,5 +300,7 @@ namespace GenPipTools {
 
 
 }
+
+#define GenPipTools GenPipeTools
 
 #endif //!_GENERAL_PIPELINE_TOOLS_HPP_
