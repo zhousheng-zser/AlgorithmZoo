@@ -123,7 +123,7 @@ namespace glasssix::climb
 
         std::string version()
 		{
-			const std::string algo_module_version = "1.2.0";
+			const std::string algo_module_version = "1.3.0";
             exposing::param_string nn_frame_version_param ;
             std::string nn_frame_version =  exposing::to_narrow_string(nn_frame_version_param);
 			return fmt::format(R"({{"nn_frame_version":"{}", "algo_module_version":"{}"}})", nn_frame_version, algo_module_version);
