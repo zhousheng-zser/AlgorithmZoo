@@ -30,8 +30,6 @@ namespace glasssix::climb
 
         impl(const std::vector<std::string> &phai, std::string model_directory, int device)
         {
-            // static bool ready = glasssix::exposing::get_component_loader().add_module_by_name("posture");
-            // posture_instance_ = glasssix::exposing::make_exported_interface<posture::detect_code>(exposing::param_string(model_directory), device,1);
         }
 
         exposing::param_vector<climb::box_info> detect(const exposing::param_span<std::uint8_t>& bitmap, int channels, int height, int width, int roi_x, int roi_y, int roi_width, int roi_height, exposing::param_vector<posture::box_info> posture_info_list, std::map<std::string, float>& param_map)
@@ -42,10 +40,6 @@ namespace glasssix::climb
             }
             CHECK_EQ(channels, 3);
             CHECK_EQ(bitmap.size(), channels * height * width);
-            
-            cv::Mat image(cv::Size(width, height), CV_8UC3);
-            std::memcpy(image.data, bitmap.data(), sizeof (uint8_t) * channels * height * width);
-                 
             if(roi_x<0 || roi_x>width || roi_y>height || roi_y<0 ||roi_height<0 || (roi_height+roi_y) >height || roi_width<0 || (roi_width+roi_x) > width)
             {
                   throw exposing::abi_invalid_argument("incorrect roi in climb");
@@ -86,10 +80,6 @@ namespace glasssix::climb
             empty_map_abi.add_or_update("conf_thres",con_thres);
             empty_map_abi.add_or_update("nms_thres", nms_thres);
             empty_map_abi.add_or_update("little_target_conf_thres",little_target_conf_thres);
-
-
-            // exposing::param_vector<posture::box_info> posture_info_list = posture_instance_.detect(bitmap, channels, height, width, 0, 0, width, height, empty_map_abi);
-            
             std::vector<std::vector<float>> nms_result;
 
             std::vector<PostureInfo> person_infos; 
@@ -104,12 +94,6 @@ namespace glasssix::climb
                 temp[2]=person_info.x2;
                 temp[3]=person_info.y2;
                 temp[4]=person_info.score;
-
-    // for (size_t i = 0; i < person_info.Kpoints.size(); i++)
-    // {   
-    //     cv::circle(image,  cv::Point(int( person_info.Kpoints[i].first.x ), int(person_info.Kpoints[i].first.y ) ), 3, cv::Scalar(0, 0, 255));
-    // }
-
                 nms_result.push_back(temp);
 
                 climb::box_info_internal box;
@@ -140,32 +124,10 @@ namespace glasssix::climb
         std::string version()
 		{
 			const std::string algo_module_version = "1.2.0";
-
-#if defined(USE_RKNNAPI) || defined(USE_RKNN2API)
-
-            // exposing::param_string nn_frame_version_param= posture_instance_.version();
-#else
-            // exposing::param_string nn_frame_version_param = posture_instance_.version();
-#endif      
             exposing::param_string nn_frame_version_param ;
             std::string nn_frame_version =  exposing::to_narrow_string(nn_frame_version_param);
 			return fmt::format(R"({{"nn_frame_version":"{}", "algo_module_version":"{}"}})", nn_frame_version, algo_module_version);
 		}
-
-    private:
-
-        /**  @fun letterbox
-         *   @param image scaleFill
-         *   @return letterbox(image)
-         *   @details Resize and pad image while meeting stride-multiple constrain
-         */
-
-
-    private:
-    
-        std::string model_directory_;
-        int device_;
-        // posture::detect_code posture_instance_;
 
     };
 
