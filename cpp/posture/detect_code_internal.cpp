@@ -89,17 +89,14 @@ namespace glasssix::posture
             CHECK_EQ(channels, 3);
             CHECK_EQ(bitmap.size(), channels * height * width);
 
-            cv::Mat image(cv::Size(width, height), CV_8UC3);
-            std::memcpy(image.data, bitmap.data(), sizeof(uint8_t) * channels * height * width);
+            cv::Mat image(cv::Size(width, height), CV_8UC3, const_cast<uint8_t*>(bitmap.data()));
 
             if (roi_x<0 || roi_x>width || roi_y > height || roi_y < 0 || roi_height<0 || (roi_height + roi_y) >height || roi_width<0 || (roi_width + roi_x) > width)
                 throw exposing::abi_invalid_argument("incorrect roi in posture");
 
             cv::Mat cropped_image = image(cv::Range(roi_y, roi_y + roi_height), cv::Range(roi_x, roi_x + roi_width));
 
-            cv::imwrite( "cropped_image.jpg", cropped_image);
-
-            slide_pics_params pics_and_bias  = Sliding_Cut_Pic(cropped_image,640);
+            // slide_pics_params pics_and_bias  = Sliding_Cut_Pic(cropped_image,640);
 
             std::vector<ObjectInfo> Need_to_filter;
             // for (size_t i = 0; i < pics_and_bias.imgs.size(); i++)
