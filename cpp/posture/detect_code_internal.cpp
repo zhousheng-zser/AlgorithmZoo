@@ -30,18 +30,18 @@ namespace glasssix::posture
 
 #if defined(USE_RKNNAPI) || defined(USE_RKNN2API)
             if(model_type_)
-                net_posture_ = std::make_shared<GenPipeline>(std::string(model_directory) + "/posture960_17.rknn", device);
+                net_posture_ = std::make_shared<GenPipeline>(std::string(model_directory) + "/posture1280_17.rknn", device);
             else
-                net_posture_ = std::make_shared<GenPipeline>(std::string(model_directory) + "/posture960_17.rknn", device);
+                net_posture_ = std::make_shared<GenPipeline>(std::string(model_directory) + "/posture1280_12.rknn", device);
 
 #elif defined(USE_BMNN)
             if(model_type_==1)
-                net_posture_ = std::make_shared<GenPipeline>(std::string(model_directory) + "/posture960_17.bmodel", device);
+                net_posture_ = std::make_shared<GenPipeline>(std::string(model_directory) + "/posture1280_17.bmodel", device);
             else
-                net_posture_ = std::make_shared<GenPipeline>(std::string(model_directory) + "/posture960_17.bmodel", device);
+                net_posture_ = std::make_shared<GenPipeline>(std::string(model_directory) + "/posture1280_12.bmodel", device);
 #endif
             net_posture_->manual_possible_normalization(std::array<float,3>{0.f,0.f,0.f},std::array<float,3>{1.f / 255.f,1.f / 255.f,1.f / 255.f});
-            yolov8_instance = std::make_shared<Yolov8<GenPipeline,false,true>>(960, 960, net_posture_);
+            yolov8_instance = std::make_shared<Yolov8<GenPipeline,false,true>>(1280, 1280, net_posture_);
         }
 
         std::string version()
@@ -55,6 +55,7 @@ namespace glasssix::posture
         std::vector<ObjectInfo> postrue_detect_yolo(cv::Mat &detect_img,float bias,bool horizontal, float ratio, int throw_right, int throw_left,  float con_thres,float iou_thres)
         {
             bias = bias/ratio;
+            cv::imwrite( "posture_detact"+ std::to_string(bias)+".jpg", detect_img);
             auto objects = yolov8_instance->get_objects( detect_img, con_thres, iou_thres );
 
             auto delete_border_objects = throw_border_resulttest(objects, horizontal, throw_right,  throw_left,  detect_img.rows);  
@@ -95,19 +96,19 @@ namespace glasssix::posture
 
             cv::Mat cropped_image = image(cv::Range(roi_y, roi_y + roi_height), cv::Range(roi_x, roi_x + roi_width));
 
-            slide_pics_params pics_and_bias  = Sliding_Cut_Pic(cropped_image,960);
+            // slide_pics_params pics_and_bias  = Sliding_Cut_Pic(cropped_image,640);
 
             std::vector<ObjectInfo> Need_to_filter;
-            for (size_t i = 0; i < pics_and_bias.imgs.size(); i++)
-            {   
-                if(  pics_and_bias.detect)
-                {
-                    auto results = postrue_detect_yolo(pics_and_bias.imgs[i], pics_and_bias.bias[i], pics_and_bias.horizontal, pics_and_bias.ratio, 
-                                                            pics_and_bias.throw_result_border[i*2],pics_and_bias.throw_result_border[i*2+1], con_thres,iou_thres );
-                    for(auto& result:results )
-                        Need_to_filter.push_back(result);
-                }
-            }
+            // for (size_t i = 0; i < pics_and_bias.imgs.size(); i++)
+            // {   
+            //     if(  pics_and_bias.detect)
+            //     {
+            //         auto results = postrue_detect_yolo(pics_and_bias.imgs[i], pics_and_bias.bias[i], pics_and_bias.horizontal, pics_and_bias.ratio, 
+            //                                                 pics_and_bias.throw_result_border[i*2],pics_and_bias.throw_result_border[i*2+1], con_thres,iou_thres );
+            //         for(auto& result:results )
+            //             Need_to_filter.push_back(result);
+            //     }
+            // }
 
             auto objects_of_full_figure = yolov8_instance->get_objects( cropped_image, con_thres, iou_thres );
 
