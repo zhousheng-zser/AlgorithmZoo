@@ -80,7 +80,7 @@ namespace glasssix::face_attributes
 
 		exposing::param_string version() const
 		{
-			return "1.0.3";
+			return "1.1.0";
 		}
 
 	private:

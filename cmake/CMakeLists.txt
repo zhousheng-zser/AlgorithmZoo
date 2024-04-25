@@ -3,7 +3,7 @@ cmake_minimum_required(VERSION 3.14.3)
 if(NOT DEFINED CMAKE_TOOLCHAIN_FILE)
 	message(WARNING "CMAKE_TOOLCHAIN_FILE: please specify cmake toolchain file in cmake command line.")
 endif()
-message(STATUS "XXXXXXXXXXXXXXXXXXXXXXXXXXXXX XXXXXXXXXXXXXXXXXXXXXXXX   CMAKE_TOOLCHAIN_FILE: ${CMAKE_TOOLCHAIN_FILE}")
+message(STATUS "CMAKE_TOOLCHAIN_FILE: ${CMAKE_TOOLCHAIN_FILE}")
 
 # For Visual Studio Generator (not Ninja), it is unnecessary to set CMAKE_MAKE_PROGRAM.
 if (NOT ${CMAKE_GENERATOR} MATCHES "Visual Studio")
@@ -16,7 +16,7 @@ endif()
 
 project(AlgorithmZoo C CXX)
 
-option(BUILD_FACE_SDK "Build Face SDK" ON)
+option(BUILD_FACE_SDK "Build Face SDK" OFF)
 option(BUILD_MATIERIAL_OCR_SDK "Build matierial ocr SDK" OFF)
 option(BUILD_SAFE_PRODUCTION_SDK "Build safe production SDK" OFF)
 option(BUILD_GENERAL_CV_SDK "Build general cv SDK" OFF)
