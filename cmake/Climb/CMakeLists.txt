@@ -5,6 +5,9 @@ file(GLOB header ${CMAKE_CURRENT_SOURCE_DIR}/../../cpp/climb/*.hpp)
 
 add_library(${module_name} SHARED ${src} ${header})
 
+target_link_libraries(${module_name} PRIVATE genpipeline)
+add_dependencies(${module_name} genpipeline)
+
 if(NOT (CMAKE_CXX_COMPILER_ID STREQUAL "MSVC"))
 	target_link_directories(${module_name} PRIVATE ${COMMON_LIBRARY_DIRS})
 endif()
@@ -19,4 +22,3 @@ endif()
 target_include_directories(${module_name} PRIVATE ${COMMON_INCLUDE_DIRS} )
 target_link_libraries(${module_name} PRIVATE ${COMMON_LIBRARIES} )
 target_link_libraries(${module_name} PRIVATE posture)
-add_dependencies(${module_name} posture)
