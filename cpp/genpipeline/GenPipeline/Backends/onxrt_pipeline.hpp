@@ -12,9 +12,11 @@
 #include "Primitives/tensor.hpp"
 #include "Primitives/fmt/format.h"
 #include <cassert>
-//#include "dbg.h"
 
+#ifdef BUILD_DEBUG_INFO
+//#include "dbg.h"
 //#include "../../../test_model/numpy_extensor/numpyExtensor.hpp"
+#endif // BUILD_DEBUG_INFO
 
 class ONNXRTPipeline {
 	// frame
@@ -122,7 +124,25 @@ public:
 		}
 	}
 
+
 	std::unordered_map<std::string, std::shared_ptr<glasssix::memory::tensor<float>>> forward(std::shared_ptr<glasssix::memory::tensor<float>> input_exbtensor) {
+		auto exbTensorShape = input_exbtensor->data_shape();
+		return forward(input_exbtensor->cpu_data(), input_exbtensor->data_shape(), input_exbtensor->order());
+	}
+
+	std::unordered_map<std::string, std::shared_ptr<glasssix::memory::tensor<float>>> forward(cv::Mat image) {
+		std::shared_ptr<glasssix::memory::tensor<uint8_t>> input_tensor_u8(new glasssix::memory::tensor<uint8_t>(std::vector<int>{1, image.rows, image.cols, 3}, -1, glasssix::memory::NHWC));
+#ifdef USE_BMNN
+		for (int i = 0; i < image.rows; i++) {
+			auto row_ptr = image.ptr<uint8_t>(i);
+			std::copy(row_ptr, row_ptr + image.cols * image.channels(), input_tensor_u8->mutable_cpu_data() + i * image.cols * image.channels());
+		}
+#else
+		std::copy(image.data, image.data + image.step[0] * image.rows, input_tensor_u8->mutable_cpu_data());
+#endif
+		input_tensor_u8->convert_order();
+		auto input_exbtensor = input_tensor_u8 | glasssix::memory::tensor_convert_to<float>;
+
 		if (!normalization_param_.empty()) {
 			CHECK_EQ(normalization_param_.size(), 2);
 			const std::array<float, 3> cls_mean = normalization_param_[0];
@@ -135,15 +155,25 @@ public:
 			}
 		}
 
-		auto exbTensorShape = input_exbtensor->data_shape();
+		return forward(input_exbtensor->cpu_data(), input_exbtensor->data_shape(), input_exbtensor->order());
+	}
 
-		std::vector<int64_t> input_Img_shape(exbTensorShape.begin(), exbTensorShape.end());
+	std::unordered_map<std::string, std::shared_ptr<glasssix::memory::tensor<float>>> forward(const float* input_data, std::vector<int> data_shape, int order) {
+#ifdef BUILD_DEBUG_INFO
+		//npy::SAVE_ARRAY_TO_NUMPY((float*)input_data, data_shape, "D:/onxinpt.npy");
+#endif
+		std::vector<int64_t> input_Img_shape(data_shape.begin(), data_shape.end());
+		int input_count = 1;
+		for (int number : input_Img_shape) {
+			input_count *= number;
+		}
+
 		Ort::MemoryInfo memory_info = Ort::MemoryInfo::CreateCpu(OrtArenaAllocator, OrtMemTypeDefault);
 
 		Ort::Value input_onxTensor = Ort::Value::CreateTensor<float>(
 			memory_info,
-			input_exbtensor->mutable_cpu_data(),
-			input_exbtensor->count(),
+			(float*)input_data,
+			input_count,
 			input_Img_shape.data(),
 			input_Img_shape.size()
 			);

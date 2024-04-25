@@ -13,7 +13,7 @@ namespace glasssix::fighting
         impl_ = std::make_unique<detect_code_internal>(exposing::to_narrow_string(model_directory), device, batch);
     }
 
-    float detect_code_impl::detect(exposing::param_span<std::uint8_t> bitmap, std::int32_t height, std::int32_t width, std::int32_t roi_x, std::int32_t roi_y, std::int32_t roi_width, std::int32_t roi_height, const exposing::param_hash_map<exposing::param_string,float>& param_map_abi)
+    exposing::param_vector<fighting::box_info> detect_code_impl::detect(exposing::param_span<std::uint8_t> bitmap, std::int32_t height, std::int32_t width, std::int32_t roi_x, std::int32_t roi_y, std::int32_t roi_width, std::int32_t roi_height, const exposing::param_hash_map<exposing::param_string,float>& param_map_abi)
     {
         std::map<std::string,float> param_map_std;
         for (auto it : param_map_abi) {

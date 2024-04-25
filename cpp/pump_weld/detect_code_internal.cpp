@@ -178,8 +178,8 @@ namespace glasssix::pump_weld
         };
 
 		std::pair<std::vector<std::vector<WlightBox>>, std::vector<MachineBox>> weld_yolo_seqdet(std::vector<cv::Mat>& BatchImgs, float wmachine_conf_thres, float wlight_conf_thres, float weld_machine_nms_thres) {
-            constexpr int infrW = 1152;
-            constexpr int infrH = 640;
+            constexpr int infrW = 1280;
+            constexpr int infrH = 736;
             constexpr bool ifCvtRGB = true;
 
             std::vector<std::vector<WlightBox>> wlight_list_batch;
