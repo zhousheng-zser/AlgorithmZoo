@@ -171,7 +171,7 @@ namespace {
 				vfp.block_id = i;
 				vfp.idx = vf_idx;
 
-				bool is_usefulVF = false;//true: useless vf
+				bool is_usefulVF = false;
 				for (auto categ_group_id = 0; categ_group_id < SCORE_SIZE_; categ_group_id++) {
 					float* categ_group_begin = group_score_begin + categ_group_id * visual_field_nums;
 

@@ -61,17 +61,6 @@ public:
 	}
 
 	std::unordered_map<std::string, std::shared_ptr<glasssix::memory::tensor<float>>> forward(cv::Mat image)  override final {
-		//std::shared_ptr<glasssix::memory::tensor<uint8_t>> input_tensor_u8(new glasssix::memory::tensor<uint8_t>(std::vector<int>{1, image.rows, image.cols, 3}, -1, glasssix::memory::NHWC));
-
-		//// instead data std::copy
-		//for (int i = 0; i < image.rows; i++) {
-		//	auto row_ptr = image.ptr<uint8_t>(i);
-		//	std::copy(row_ptr, row_ptr + image.cols * image.channels(), input_tensor_u8->mutable_cpu_data() + i * image.cols * image.channels());
-		//}
-		//input_tensor_u8->convert_order();
-
-		//auto input_tensor_f32 = input_tensor_u8 | glasssix::memory::tensor_convert_to<float>;
-		//return pipeline->forward(input_tensor_f32);
 		return pipeline->forward(image);
 	}
 
@@ -79,11 +68,8 @@ public:
 		return pipeline->forward(input_tensor);
 	}
 
-	std::unordered_map<std::string, std::shared_ptr<glasssix::memory::tensor<float>>> forward(const float* input_data, std::vector<int> data_shape, int order)  override final {
-		auto bottom = std::make_shared<glasssix::memory::tensor<float>>(data_shape);
-		auto count = std::accumulate(std::begin(data_shape), std::end(data_shape), 1, std::multiplies<int>());
-		std::copy(input_data, input_data + count, bottom->mutable_cpu_data());
-		return pipeline->forward(bottom);
+	std::unordered_map<std::string, std::shared_ptr<glasssix::memory::tensor<float>>> forward(const float* input_data, std::vector<int> data_shape, int order) override final {
+		return pipeline->forward(input_data, data_shape, order);
 	}
 
 	std::unordered_map<std::string, std::shared_ptr<glasssix::memory::tensor<float>>> forward(const std::uint8_t* input_data, std::vector<int> data_shape, int order)  override final {
