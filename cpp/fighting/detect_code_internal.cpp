@@ -27,12 +27,12 @@ namespace glasssix::fighting
 #else
 			std::string model_ext(".onnx");
 #endif
-			person_det_= PrePostProcessGenPipeline::mkSharePipeline(model_directory_ + "pedestrian" + model_ext, 0);
+			person_det_= PrePostProcessGenPipeline::mkSharePipeline(model_directory_ + "fight_pedestrian" + model_ext, 0);
 			person_det_->manual_possible_normalization(0, 1.f / 255);
 			person_det_->set_postprocessing(yolov8_GEN<1, 1>);
 
 			if (BATCH_ == 10) {
-				nonm_instance_ = std::make_unique<GenPipeline>(model_directory_ + "fight_10b.nnm" + model_ext, 0);// not normalization if rknn
+				nonm_instance_ = PrePostProcessGenPipeline::mkSharePipeline(model_directory_ + "fight_10b.nnm" + model_ext, 0); // not normalization if rknn
 				/// Version 3.0.0 and before
 				FIGHT_INFER_H_ = 256;
 				FIGHT_INFER_W_ = 460;
@@ -90,8 +90,7 @@ namespace glasssix::fighting
 			}
 
 			// Pedestrian detect
-			static constexpr int sample_step = 2;
-			std::vector<cv::Rect> person_box_list = get_person_box_by_detect_result_list(batchImages, height, width, sample_step, person_conf_thres, person_nms_thres);
+			std::vector<cv::Rect> person_box_list = get_person_box_by_detect_result_list(batchImages, height, width, {0,4,9}, person_conf_thres, person_nms_thres);
 
 			// Fighting detect
 			auto result = exposing::make_param_vector<fighting::box_info>();
@@ -120,14 +119,10 @@ namespace glasssix::fighting
 			std::vector<cv::Mat> batchImages,
 			int height,
 			int width,
-			int sample_step,
+			std::vector<int> sample_frame_idset,
 			const float person_conf_thres,
 			const float person_nms_thres)
 		{
-			if (sample_step <= 0) {
-				throw exposing::abi_invalid_argument("fighting incorrect person det sample_step");
-			}
-
 			std::vector<cv::Rect> person_box_list;
 			person_box_list.reserve(2 * BATCH_);
 
@@ -136,14 +131,14 @@ namespace glasssix::fighting
 #endif // BUILD_DEBUG_INFO
 
 			const float infer_ratio = FIGHT_INFER_W_ * 1.f / FIGHT_INFER_H_;
-			for (int i = 0; i < batchImages.size() / sample_step; i++) {
-				cv::Mat InteImageStp = batchImages[i * sample_step];
+			for (int f_id : sample_frame_idset) {
+				cv::Mat InteImageStp = batchImages[f_id];
 
 #ifdef BUILD_DEBUG_INFO
 				//auto VisFrame = InteImageStp.clone();
 #endif // BUILD_DEBUG_INFO
 
-				auto frame_persons = person_detect(i, InteImageStp, person_conf_thres, person_nms_thres);
+				auto frame_persons = person_detect(f_id, InteImageStp, person_conf_thres, person_nms_thres);
 				for (auto& frame_person : frame_persons) {
 #ifdef BUILD_DEBUG_INFO
 					//cv::rectangle(Vis, frame_person.get_rect(), { 150,0,150 }, 2);
@@ -190,12 +185,14 @@ namespace glasssix::fighting
 		}
 
 		std::vector<PersonBBox> person_detect(int frame_id, cv::Mat& image,float con_thres, float iou_thres) {
-			const int letter_h = 736;
-			const int letter_w = 1280;
-
+			const int letter_h = 480;
+			const int letter_w = 800;
+			//std::cout << "frame_id " << frame_id << std::endl;
 			GenPipTools::LetterInfo letter_op;
 			auto letter_img = GenPipTools::letter_image(image, letter_w, letter_h, letter_op, true);
+			//person_det_->profiler_tic();
 			auto tensor_out = person_det_->forward(letter_img).begin()->second;
+			//person_det_->profiler_toc();
 			const int vf_nums = tensor_out->height(); //vf, visual field
 			const int per_vf_len = tensor_out->width();
 			std::vector<PersonBBox> box_list;
@@ -235,6 +232,7 @@ namespace glasssix::fighting
 				cv::split(sample_float, input_channels); //eq split to f32ImgsArr
 			}
 
+			//nonm_instance_->profiler_tic();
 #ifdef USE_RKNN2API // rknn net only accept HWC, a trouble maker
 			/* NOTE: Transposing will allocate new memory for the result. No changed f32ImgsArr.data()`s internal values */
 			cv::Mat f32ImgsArr_TS_HW_C(BATCH_ * 3, HWStep, CV_32FC1, f32ImgsArr.data());
@@ -243,21 +241,21 @@ namespace glasssix::fighting
 #else
 			auto ts_f32_rst_map = nonm_instance_->forward(f32ImgsArr.data(), { 1, BATCH_ * 3, FIGHT_INFER_H_, FIGHT_INFER_W_ }, 0);
 #endif
+			//nonm_instance_->profiler_toc();
 			auto det_scores = ts_f32_rst_map.begin()->second->cpu_data();
 			return det_scores[0];
 		}
 
 		std::string version()
 		{
-			const std::string algo_module_version = "3.1.0";
+			const std::string algo_module_version = "3.2.0";
 			std::string nn_frame_version = nonm_instance_->version();
 			return fmt::format(R"({ {"nn_frame_version":"{}", "algo_module_version" : "{}"} })", nn_frame_version, algo_module_version);
 		}
 
 	private:
 		std::shared_ptr<PrePostProcessGenPipeline> person_det_;
-		std::unique_ptr<GenPipeline> nonm_instance_;
-		//std::unique_ptr<GenPipeline> instance_;
+		std::shared_ptr<PrePostProcessGenPipeline> nonm_instance_;
 		int BATCH_;
 		int FIGHT_INFER_H_;
 		int FIGHT_INFER_W_;
