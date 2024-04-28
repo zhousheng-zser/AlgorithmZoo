@@ -16,7 +16,7 @@ namespace glasssix::fighting
         detect_code_impl();
         ~detect_code_impl();
         void init(const exposing::param_string& model_directory, std::int32_t device, std::int32_t batch);
-        float detect(exposing::param_span<std::uint8_t> bitmap, std::int32_t height, std::int32_t width, std::int32_t roi_x, std::int32_t roi_y, std::int32_t roi_width, std::int32_t roi_height, const exposing::param_hash_map<exposing::param_string,float>& param_map_abi);
+        exposing::param_vector<fighting::box_info> detect(exposing::param_span<std::uint8_t> bitmap, std::int32_t height, std::int32_t width, std::int32_t roi_x, std::int32_t roi_y, std::int32_t roi_width, std::int32_t roi_height, const exposing::param_hash_map<exposing::param_string,float>& param_map_abi);
         exposing::param_string version() const;
 
     private:

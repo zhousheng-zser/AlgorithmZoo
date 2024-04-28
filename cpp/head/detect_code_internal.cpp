@@ -69,7 +69,7 @@ namespace glasssix::head
         };
 
         std::vector<HeadBox> run_detect(cv::Mat& image, std::map<std::string, float>& param_map) {
-            float conf_thres = param_map.count("conf_thres") ? param_map["conf_thres"] : 0.5f;
+            float conf_thres = param_map.count("conf_thres") ? param_map["conf_thres"] : 0.1f;
             float nms_thres = param_map.count("nms_thres") ? param_map["nms_thres"] : 0.6f;
 
             constexpr int infrW = 1280;

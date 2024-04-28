@@ -64,7 +64,6 @@ public:
 		return pipeline->forward(image.data, { 1, image.rows, image.cols, image.channels() }, RKNN_TENSOR_NHWC);
 	}
 
-	//����rknn��һ��������ò�Ҫ�ã���ƴ���ȱ��
 	std::unordered_map<std::string, std::shared_ptr<glasssix::memory::tensor<float>>> forward(std::shared_ptr<glasssix::memory::tensor<float>> input_tensor) override final {
 		return pipeline->forward(input_tensor->cpu_data(), input_tensor->data_shape(), static_cast<rknn_tensor_format>(input_tensor->order()));
 	}

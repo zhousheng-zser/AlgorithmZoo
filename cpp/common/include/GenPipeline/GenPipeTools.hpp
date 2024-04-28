@@ -7,7 +7,7 @@
 
 // YOLO Image Detect Suite Definition
 
-namespace GenPipTools {
+namespace GenPipeTools {
 
 	struct LetterInfo {
 		int top_pad = 0;
@@ -84,38 +84,45 @@ namespace GenPipTools {
 
 	static inline cv::Mat safty_cut(cv::Mat& img, cv::Rect roi)
 	{
+		int img_height = img.rows;
+		int img_width = img.cols;
 		int width = roi.width;
 		int height = roi.height;
 		int x = roi.x;
 		int y = roi.y;
 
 		cv::Mat mat(height, width, img.type(), cv::Scalar(0));
-		int _x = x;
-		int _y = y;
-		int _width = width;
-		int _height = height;
-		if (x < 0)
-		{
-			_x = 0;
-			_width = width + x;
+
+		cv::Rect imgReg(0, 0, img.cols, img.rows);
+		auto intersection = roi & imgReg;
+		if (intersection.area() > 1) {
+			int _x = x;
+			int _y = y;
+			int _width = width;
+			int _height = height;
+			if (x < 0)
+			{
+				_x = 0;
+				_width = width + x;
+			}
+
+			if (_x + _width > img.cols)
+				_width = img.cols - _x;
+
+			if (y < 0)
+			{
+				_y = 0;
+				_height = height + y;
+			}
+
+			if (_y + _height > img.rows)
+				_height = img.rows - _y;
+
+			img(cv::Rect(_x, _y, _width, _height)).copyTo(mat(cv::Rect(_x - x, _y - y, _width, _height)));
 		}
 
-		if (_x + _width > img.cols)
-			_width = img.cols - _x;
-
-		if (y < 0)
-		{
-			_y = 0;
-			_height = height + y;
-		}
-
-		if (_y + _height > img.rows)
-			_height = img.rows - _y;
-
-		img(cv::Rect(_x, _y, _width, _height)).copyTo(mat(cv::Rect(_x - x, _y - y, _width, _height)));
 		return mat;
 	}
-
 
 	class YoloBoxBase {
 	public:
@@ -133,25 +140,38 @@ namespace GenPipTools {
 		~YoloBoxBase() {};
 		// constructor accept center_point + size(HW) trans to xyxy, so named YoloBoxBase
 		YoloBoxBase(float cx, float cy, float w, float h, float the_score, int the_cid = -1) {
-			xmin = cx - w / 2;
-			xmax = cx + w / 2;
-			ymin = cy - h / 2;
-			ymax = cy + h / 2;
+			set_location(cx, cy, w, h);
 			score = the_score;
 			cid = the_cid;
 		}
 
 		// constructor accept center_point + size(HW) trans to xyxy, so named YoloBoxBase
 		YoloBoxBase(cv::Rect rect, float the_score, int the_cid = -1) {
-			xmin = rect.x;
-			xmax = rect.x + rect.width;
-			ymin = rect.y;
-			ymax = rect.y + rect.height;
+			set_location(rect);
 			score = the_score;
 			cid = the_cid;
 		}
 
 	public:
+		virtual void set_location(cv::Rect rect) final {
+			xmin = rect.x;
+			xmax = rect.x + rect.width;
+			ymin = rect.y;
+			ymax = rect.y + rect.height;
+		}
+
+		virtual void set_location(float cx, float cy, float w, float h) final {
+			xmin = cx - w / 2;
+			xmax = cx + w / 2;
+			ymin = cy - h / 2;
+			ymax = cy + h / 2;
+		}
+
+		virtual void reset_w_h_kepCenter(float w, float h) final {
+			auto center = get_center();
+			set_location(center.x, center.y, w, h);
+		}
+
 		/* ********************************* */
 		/* Overloading the addition Operator */
 
@@ -198,6 +218,14 @@ namespace GenPipTools {
 			ymin *= ratio;
 			xmax *= ratio;
 			ymax *= ratio;
+		}
+
+		//将box约束在如图片大小范围内
+		virtual void constraintRectBoundary(int width, int height) final {
+			auto rect = get_rect();
+			cv::Rect region(0, 0, width, height);
+			cv::Rect inteRect = rect & region;
+			set_location(inteRect);
 		}
 
 	public:
@@ -293,5 +321,7 @@ namespace GenPipTools {
 
 
 }
+
+#define GenPipTools GenPipeTools
 
 #endif //!_GENERAL_PIPELINE_TOOLS_HPP_

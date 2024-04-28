@@ -2,6 +2,7 @@
 #ifndef _FIGHTING_DETECT_CODE_HPP_
 #define _FIGHTING_DETECT_CODE_HPP_
 
+#include "box_info.hpp"
 #include <abi/consumer.hpp>
 
 namespace glasssix::fighting
@@ -33,8 +34,7 @@ namespace glasssix::exposing::impl
                 std::int32_t roi_width,
                 std::int32_t roi_height,
                 abi_in_t<exposing::param_hash_map<exposing::param_string,float>> param_map_abi,
-                abi_out_t<float> result) noexcept = 0;
-
+				abi_out_t<exposing::param_vector<fighting::box_info>> result) noexcept = 0;
             virtual std::int32_t G6_ABI_CALL version(abi_out_t<exposing::param_string> result) noexcept = 0;
 
         };
@@ -65,7 +65,7 @@ namespace glasssix::exposing::impl
             std::int32_t roi_width,
             std::int32_t roi_height,
             abi_in_t<exposing::param_hash_map<exposing::param_string,float>> param_map_abi,
-            abi_out_t<float> result) noexcept override
+            abi_out_t<exposing::param_vector<fighting::box_info>> result) noexcept override
         {
             return abi_safe_call([&]
                 {
@@ -110,7 +110,7 @@ namespace glasssix::exposing::impl
                     batch));
             }
 
-            float detect(
+            exposing::param_vector<fighting::box_info> detect(
                 exposing::param_span<std::uint8_t> bitmap,
                 std::int32_t height,
                 std::int32_t width,
@@ -120,7 +120,8 @@ namespace glasssix::exposing::impl
                 std::int32_t roi_height,
                 const exposing::param_hash_map<exposing::param_string,float>& param_map_abi) const
             {
-                float result;
+                exposing::param_vector<fighting::box_info> result{ nullptr };
+
                 return (check_abi_result(this->self_abi().detect(
                     get_abi(bitmap),
                     height,

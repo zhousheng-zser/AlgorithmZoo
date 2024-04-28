@@ -117,7 +117,7 @@ namespace glasssix::posture
 
             std::vector<std::vector<float>> nms_input;  
             for (const auto& var : Need_to_filter) 
-                nms_input.push_back({var.x1, var.y1, var.x2 - var.x1, var.y2 - var.y1, var.score});  
+                nms_input.push_back({float(var.x1), float(var.y1), float(var.x2 - var.x1), float(var.y2 - var.y1), float(var.score)});
 
             auto nms_result_index = object_nms(nms_input,iou_thres);
 

@@ -39,13 +39,45 @@ static inline void SAVE_TENSOR_TO_NUMPY(const std::shared_ptr<glasssix::memory::
     npy::SaveArrayAsNumpy(path, fortran_order, shape.size(), shape.data(), out_data);
 }
 
-static inline void SAVE_ARRAY_TO_NUMPY(float* input_tensor, std::vector<unsigned long> shape,std::string path = "xclbr_tensor.npy") {
+template<typename intTy>
+static inline void SAVE_ARRAY_TO_NUMPY(float* input_tensor, std::vector<intTy> data_shape, std::string path = "xclbr_tensor.npy") {
+    std::vector<unsigned long> shape(data_shape.begin(), data_shape.end());
     auto count = std::accumulate(std::begin(shape), std::end(shape), 1, std::multiplies<unsigned long>());
     const bool fortran_order{ false };
     std::vector<float> out_data(count);
     std::copy(input_tensor, input_tensor + count, out_data.data());
     npy::SaveArrayAsNumpy(path, fortran_order, shape.size(), shape.data(), out_data);
 }
+
+template<typename T>
+static inline float CosineSimilarity(T emb1, T emb2, int len)
+{
+    float dot = 0.f;
+    float emb1_sum = 0.f;
+    float emb2_sum = 0.f;
+    for (size_t i = 0; i < len; i++) {
+        //if(i>1000&&i<1020)
+        //	std::cout << std::fixed << std::setprecision(2) << emb1[i] << ", " << emb2[i] << " \tdf=" << std::setprecision(3) << emb1[i] - emb2[i] << std::endl;
+
+        dot += emb1[i] * emb2[i];
+        emb1_sum += emb1[i] * emb1[i];
+        emb2_sum += emb2[i] * emb2[i];
+    }
+
+    constexpr float zero_epsilo = 0.000001f; //1e-6
+
+    if (std::abs(dot) < zero_epsilo && std::sqrt(emb1_sum) * std::sqrt(emb2_sum) < zero_epsilo)
+    {
+        return 1.f; // rst = 0.f / 0,f -> 1
+    }
+    else
+    {
+        dot /= std::max(std::sqrt(emb1_sum) * std::sqrt(emb2_sum),
+            std::numeric_limits<float>::epsilon());
+        return dot;
+    }
+}
+
 
 }  // namespace npy
 

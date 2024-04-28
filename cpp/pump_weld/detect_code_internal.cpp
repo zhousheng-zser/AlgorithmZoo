@@ -70,7 +70,7 @@ namespace glasssix::pump_weld
             }
 
             float wmachine_conf_thres = param_map_std.count("wmachine_conf_thres") ? param_map_std["wmachine_conf_thres"] : 0.3f;
-            float wlight_conf_thres = param_map_std.count("wlight_conf_thres") ? param_map_std["wlight_conf_thres"] : 0.5f;
+            float wlight_conf_thres = param_map_std.count("wlight_conf_thres") ? param_map_std["wlight_conf_thres"] : 0.7f;
             float weld_machine_nms_thres = param_map_std.count("nms_thres") ? param_map_std["nms_thres"] : 0.4f;
             int candidate_box_width= param_map_std.count("candidate_box_width") ? param_map_std["candidate_box_width"] : 500.f;
 			int candidate_box_height = param_map_std.count("candidate_box_height") ? param_map_std["candidate_box_height"] : 500.f;
@@ -178,8 +178,8 @@ namespace glasssix::pump_weld
         };
 
 		std::pair<std::vector<std::vector<WlightBox>>, std::vector<MachineBox>> weld_yolo_seqdet(std::vector<cv::Mat>& BatchImgs, float wmachine_conf_thres, float wlight_conf_thres, float weld_machine_nms_thres) {
-            constexpr int infrW = 1152;
-            constexpr int infrH = 640;
+            constexpr int infrW = 1280;
+            constexpr int infrH = 736;
             constexpr bool ifCvtRGB = true;
 
             std::vector<std::vector<WlightBox>> wlight_list_batch;
@@ -231,7 +231,7 @@ namespace glasssix::pump_weld
 
         std::string version()
         {
-            const std::string algo_module_version = "2.0.1";
+            const std::string algo_module_version = "2.0.2";
 
             std::string nn_frame_version = ioprocess_pipeline_->version();
 
