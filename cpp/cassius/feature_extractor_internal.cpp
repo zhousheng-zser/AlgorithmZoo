@@ -51,21 +51,21 @@ namespace glasssix::cassius
             
             std::vector<std::vector<float>> result;
 #if defined(USE_RKNNAPI) || defined(USE_RKNN2API)
-            std::array<std::uint8_t,128*128*3> align_save;
+            std::array<std::uint8_t,128*128*3> face_nhwc;
             if( order == 0 ) 
                 for (size_t h = 0; h < 128; h++)
                     for (size_t w = 0; w < 128; w++)
                     {
-                        align_save[h*128*3 + w * 3 + 0] = bitmaps[0 * 128 * 128 + h * 128 + w];
-                        align_save[h*128*3 + w * 3 + 1] = bitmaps[1 * 128 * 128 + h * 128 + w];
-                        align_save[h*128*3 + w * 3 + 2] = bitmaps[2 * 128 * 128 + h * 128 + w];
+                        face_nhwc[h*128*3 + w * 3 + 0] = bitmaps[0 * 128 * 128 + h * 128 + w];
+                        face_nhwc[h*128*3 + w * 3 + 1] = bitmaps[1 * 128 * 128 + h * 128 + w];
+                        face_nhwc[h*128*3 + w * 3 + 2] = bitmaps[2 * 128 * 128 + h * 128 + w];
                     }
 #ifdef USE_RKNNAPI
-            auto network_result = unicorn_.forward(align_save.data(), { static_cast<int>(count), 128, 128, 3 }, static_cast<rknn_tensor_format>(order));
+            auto network_result = unicorn_.forward(face_nhwc.data(), { static_cast<int>(count), 128, 128, 3 }, static_cast<rknn_tensor_format>(order));
             if (auto iter = network_result.find("dequantize_at_636_107_out0_108"); iter != network_result.end())
 #else
             std::unordered_map<std::string, std::shared_ptr<memory::tensor<float>>> network_result;
-            network_result = unicorn_.forward(align_save.data(), { static_cast<int>(count), 128, 128, 3 }, rknn_tensor_format::RKNN_TENSOR_NHWC);
+            network_result = unicorn_.forward(face_nhwc.data(), { static_cast<int>(count), 128, 128, 3 }, rknn_tensor_format::RKNN_TENSOR_NHWC);
             if (auto iter = network_result.find("834"); iter != network_result.end())
 #endif
 #endif
