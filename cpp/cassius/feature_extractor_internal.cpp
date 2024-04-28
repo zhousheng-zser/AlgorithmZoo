@@ -48,25 +48,29 @@ namespace glasssix::cassius
         {
             if (bitmaps.empty())
                 return {};
-
+            
             std::vector<std::vector<float>> result;
 #if defined(USE_RKNNAPI) || defined(USE_RKNN2API)
+            std::array<std::uint8_t,128*128*3> align_save;
+            if( order == 0 ) 
+                for (size_t h = 0; h < 128; h++)
+                    for (size_t w = 0; w < 128; w++)
+                    {
+                        align_save[h*128*3 + w * 3 + 0] = bitmaps[0 * 128 * 128 + h * 128 + w];
+                        align_save[h*128*3 + w * 3 + 1] = bitmaps[1 * 128 * 128 + h * 128 + w];
+                        align_save[h*128*3 + w * 3 + 2] = bitmaps[2 * 128 * 128 + h * 128 + w];
+                    }
 #ifdef USE_RKNNAPI
-            auto network_result = unicorn_.forward(bitmaps.data(), { static_cast<int>(count), 128, 128, 3 }, static_cast<rknn_tensor_format>(order));
+            auto network_result = unicorn_.forward(align_save.data(), { static_cast<int>(count), 128, 128, 3 }, static_cast<rknn_tensor_format>(order));
             if (auto iter = network_result.find("dequantize_at_636_107_out0_108"); iter != network_result.end())
 #else
             std::unordered_map<std::string, std::shared_ptr<memory::tensor<float>>> network_result;
-            network_result = unicorn_.forward(bitmaps.data(), { static_cast<int>(count), 128, 128, 3 }, rknn_tensor_format::RKNN_TENSOR_NHWC);
+            network_result = unicorn_.forward(align_save.data(), { static_cast<int>(count), 128, 128, 3 }, rknn_tensor_format::RKNN_TENSOR_NHWC);
             if (auto iter = network_result.find("834"); iter != network_result.end())
 #endif
-#else
-            init_cache(bitmaps, count, order);
-            auto network_result = unicorn_.forward(cache_ | memory::tensor_convert_to<float>);
-            if (auto iter = network_result.find("834"); iter != network_result.end())
 #endif
             {
                 auto iter_conv5 = iter->second->cpu_data();
-
                 for (std::size_t i = 0; i < count; i++)
                 {
                     std::vector<float> feature(feature_size);
@@ -83,34 +87,10 @@ namespace glasssix::cassius
             return "1.0.0";
         }
 
-    private:
-        void init_cache(exposing::param_span<std::uint8_t> bitmaps, std::size_t count, int order)
-        {
-            if (cache_ == nullptr || cache_->num() != count || cache_->order() != order)
-            {
-                cache_ = order == memory::NCHW ? std::make_shared<memory::tensor<std::uint8_t>>(std::vector<int>{static_cast<int>(count), single_bitmap_channels, single_bitmap_height, single_bitmap_width}, -1, static_cast<memory::orderType>(order) /*, &memory::pool_allocator_default<std::uint8_t>::get()*/) : std::make_shared<memory::tensor<std::uint8_t>>(std::vector<int>{static_cast<int>(count), single_bitmap_height, single_bitmap_width, single_bitmap_channels}, -1, static_cast<memory::orderType>(order) /*, & memory::pool_allocator_default<std::uint8_t>::get()*/);
-            }
-            if (cache_->device() > 0)
-            {
-#ifdef USE_CUDA
-                cudaMemcpy(cache_->mutable_gpu_data(), bitmaps.data(), bitmaps.size(), cudaMemcpyHostToDevice);
-#else
-                NO_GPU;
-#endif
-            }
-
-            std::copy(bitmaps.begin(), bitmaps.end(), cache_->mutable_cpu_data());
-            if (cache_->order() == memory::NHWC)
-                cache_->convert_order();
-        }
-
         int device_;
 #if defined(USE_RKNNAPI) || defined(USE_RKNN2API)
         rknnwrapper::rknn_wrapper unicorn_;
-#else
-        excalibur::pipeline<float> unicorn_;
 #endif
-        std::shared_ptr<memory::tensor<std::uint8_t>> cache_;
     };
 
     feature_extractor_internal::feature_extractor_internal(std::int32_t model_type, std::string_view racy_path, int device, bool use_int8) : 
