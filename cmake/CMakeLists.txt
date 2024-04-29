@@ -57,6 +57,16 @@ if(NOT ${SOPHON_SDK} STREQUAL "")
 	#link_directories("${SOPHON_SDK}/lib/")
 	add_definitions(-DUSE_BMNN)
 endif()
+# SOPHON TPU BMNN
+if(NOT ${SOPHON_SDK} STREQUAL "")
+	# when sophon x64 need e.g. /opt/sophon/libsophon-current/
+	# however sophon arm cross compile, ${SOPHON_SDK} packed libsophon + opencv + ffmpeg and depended libs
+	list(APPEND COMMON_LIBRARIES_NAMES bmlib bmrt bmcv yuv bmjpuapi bmjpulite)
+	include_directories("${SOPHON_SDK}/include/")
+	list(APPEND COMMON_LIBRARY_DIRS ${SOPHON_SDK}/lib)
+	add_definitions(-DUSE_BMNN)
+endif()
+
 
 if(RKNNAPI_VERSION STREQUAL "1")
 	list(APPEND COMMON_LIBRARIES_NAMES rknn_api)

@@ -8,10 +8,26 @@ if(USE_OPENMP)
 endif()
 
 if(NOT ${SOPHON_SDK} STREQUAL "")
-	set(OpenCV_INCLUDE_DIRS
-		${SOPHON_SDK}/include
-		${SOPHON_SDK}/include/opencv4)
-	set(OpenCV_LIBRARY_DIRS ${SOPHON_SDK}/lib)
+	if(NOT DEFINED CMAKE_TOOLCHAIN_FILE)
+		# x64 sophon-opencv dependes ffmpeg
+		message(STATUS "Compile sophon x64.")
+		set(OpenCV_INCLUDE_DIRS
+			/opt/sophon/sophon-ffmpeg-latest/include
+			/opt/sophon/sophon-opencv-latest/include/opencv4
+		)
+		set(OpenCV_LIBRARY_DIRS
+			/opt/sophon/sophon-opencv-latest/lib
+			/opt/sophon/sophon-ffmpeg-latest/lib
+		)
+	else()
+		# arm sophon cross compile
+		message(STATUS "Compile sophon arm.")
+		set(OpenCV_INCLUDE_DIRS
+			${SOPHON_SDK}/include
+			${SOPHON_SDK}/include/opencv4)
+		set(OpenCV_LIBRARY_DIRS ${SOPHON_SDK}/lib)
+	endif()
+	
 	set(OpenCV_LIBS opencv_imgproc opencv_core opencv_highgui opencv_imgcodecs opencv_videoio)
 else()
 	find_package(OpenCV 4.7)
