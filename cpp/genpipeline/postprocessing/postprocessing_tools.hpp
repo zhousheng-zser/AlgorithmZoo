@@ -3,7 +3,7 @@
 	helper functions set for Postprocessor implement
 */
 
-#pragma once;
+#pragma once
 #include <Primitives/tensor.hpp>
 //#include "numpy_extensor/numpyExtensor.hpp"
 
