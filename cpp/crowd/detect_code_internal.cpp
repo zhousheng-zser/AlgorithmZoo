@@ -16,6 +16,11 @@
 #include <iomanip>
 #include <GenPipeline/GenPipeline.hpp>
 
+#if defined(USE_RKNNAPI) || defined(USE_RKNN2API)
+    #include <RKNN2Wrapper/rknn2_wrapper.hpp>
+#endif
+
+
 namespace glasssix::crowd
 {
     class detect_code_internal::impl
@@ -29,11 +34,14 @@ namespace glasssix::crowd
         impl( std::string model_directory, int device)
         {
 #if defined(USE_RKNNAPI) || defined(USE_RKNN2API)
-            net_crowd_ = std::make_shared<GenPipeline>(std::string(model_directory) + "/crowdcount_sim.rknn", device);
+            std::vector<std::string> phai;
+            net_segment0_ =  std::make_unique<rknnwrapper::rknn_wrapper> (phai,  std::string(model_directory) + std::string("/crowdcount_sim0.rknn"), device),
+            net_segment1_ =  std::make_unique<rknnwrapper::rknn_wrapper> (phai,   std::string(model_directory) + std::string("/crowdcount_sim1.rknn"), device);
 #elif defined(USE_BMNN)
             net_crowd_ = std::make_shared<GenPipeline>(std::string(model_directory) + "/crowdcount_sim.bmodel", device);
-#endif
             net_crowd_->manual_possible_normalization(std::array<float,3>{113.7f,104.4f,100.7f},std::array<float,3>{0.01360544, 0.014084507, 0.01383125864});
+#endif
+            
         }
 
         exposing::param_vector<crowd::box_info> detect(const exposing::param_span<std::uint8_t>& bitmap, int channels, int height, int width, int roi_x, int roi_y, int roi_width, int roi_height, int min_cluster_size, std::map<std::string, float>& param_map)
@@ -43,6 +51,8 @@ namespace glasssix::crowd
 
             if (bitmap.empty())
                 throw exposing::abi_invalid_argument("current frame is empty");
+            
+            int min_area_threshold = std::round(param_map.count("area_threshold") ? param_map["area_threshold"] : 30.f);
 
             CHECK_EQ(channels, 3);
             CHECK_EQ(bitmap.size(), channels * height * width);
@@ -82,7 +92,7 @@ namespace glasssix::crowd
                     int cropy1= i*640; 
                     int cropy2= (i+1)*640 > cropheight ? cropheight :(i+1)*640 ;
 
-                    auto result = run_segment(cropped_image,cropx1,cropx2,cropy1,cropy2);
+                    auto result = run_segment(cropped_image,cropx1,cropx2,cropy1,cropy2, min_area_threshold);
                     for( auto& it:result) 
                     {
                         it.x1*=pic_scale;
@@ -178,19 +188,22 @@ namespace glasssix::crowd
             
             for (int i = 1; i < numLabels; ++i)  // 忽略背景标签 0
             {
-                detect_list box;
-                box.x1 = stats.at<int>(i, cv::CC_STAT_LEFT);
-                box.y1 = stats.at<int>(i, cv::CC_STAT_TOP);
-                box.x2 = stats.at<int>(i, cv::CC_STAT_LEFT) + stats.at<int>(i, cv::CC_STAT_WIDTH);
-                box.y2 = stats.at<int>(i, cv::CC_STAT_TOP) + stats.at<int>(i, cv::CC_STAT_HEIGHT);
+                if( stats.at<int>(i, cv::CC_STAT_AREA) > min_area )
+                {
+                    detect_list box;
+                    box.x1 = stats.at<int>(i, cv::CC_STAT_LEFT);
+                    box.y1 = stats.at<int>(i, cv::CC_STAT_TOP);
+                    box.x2 = stats.at<int>(i, cv::CC_STAT_LEFT) + stats.at<int>(i, cv::CC_STAT_WIDTH);
+                    box.y2 = stats.at<int>(i, cv::CC_STAT_TOP) + stats.at<int>(i, cv::CC_STAT_HEIGHT);
 
-                result_part.push_back(box);
+                    result_part.push_back(box);
+                }
             }
             return result_part;
         }
 
 
-        std::vector<detect_list> post_process( const float* pred_map, const float* predict, int size=640)
+        std::vector<detect_list> post_process( const float* pred_map, const float* predict,int area_threshold, int size=640)
         {
             std::vector<int> binar_map (640*640);
             for (size_t i = 0; i < size*size; i++)
@@ -200,11 +213,11 @@ namespace glasssix::crowd
                 else
                     binar_map[i]=0;
             }
-            return get_boxInfo_from_Binar_map(binar_map);
+            return get_boxInfo_from_Binar_map(binar_map, area_threshold);
         }
 
         
-        std::vector<crowd::box_info_internal>  run_segment(cv::Mat& images, int cropx1,int cropx2,int cropy1,int cropy2 )
+        std::vector<crowd::box_info_internal>  run_segment(cv::Mat& images, int cropx1,int cropx2,int cropy1,int cropy2, int area_threshold )
         {   
             std::vector<box_info_internal> output;
             cv::Rect rect {cropx1, cropy1, cropx2 - cropx1, cropy2 - cropy1};
@@ -213,16 +226,43 @@ namespace glasssix::crowd
                 throw exposing::abi_invalid_argument("img size error in crowd");
 
             cv::cvtColor(blobs, blobs, cv::COLOR_BGR2RGB);
-            auto  net_crowd__result = net_crowd_->forward(blobs);
             
 #if defined(USE_RKNNAPI) || defined(USE_RKNN2API)
-            const float *predict = net_crowd__result["predict"]->cpu_data();
-            const float* pred_map = net_crowd__result["pred_map"]->cpu_data();
+            std::vector<std::shared_ptr<glasssix::memory::tensor<float>>> forward_result;
+            auto  network_results = net_segment0_->forward(blobs.data, { 1, blobs.rows, blobs.cols,blobs.channels() }, RKNN_TENSOR_NHWC);
+            forward_result.push_back(network_results["input.2292"]);
+            forward_result.push_back(network_results["pred_map"]);
+            std::vector<int> shape1 = {1, 720, 80, 80};
+            auto Mul_268 = std::make_shared<glasssix::memory::tensor<float>>(shape1, -1, glasssix::memory::NCHW);
+            std::vector<int> shape2 = {1, 1, 80, 80};
+            auto Mul_263 = std::make_shared<glasssix::memory::tensor<float>>(shape2, -1, glasssix::memory::NCHW);
+            auto input_188= std::make_shared<glasssix::memory::tensor<float>>(shape1, -1, glasssix::memory::NCHW);
+
+            resize_nearst(forward_result[0]->cpu_data(),Mul_268->mutable_cpu_data(), 160, 160, 80, 80, 720   );
+            resize_nearst(forward_result[1]->cpu_data(),Mul_263->mutable_cpu_data(), 640, 640, 80, 80, 1   );
+            Mul_77(Mul_268->cpu_data(), Mul_263->cpu_data(), input_188->mutable_cpu_data(), 80*80,720   );
+
+            std::vector<float> input_data( 720*80*80);
+
+            nchw2Nhwc(input_188->mutable_cpu_data(),input_data.data(),1,720,80,80 );
+            auto  network_result1 = net_segment1_->forward(input_data.data(), { 1, 80, 80,720 }, RKNN_TENSOR_NHWC);
+
+            /**
+            * @fun forward part end
+            * @param  none
+            * @return tensor(preprocess(image))
+            */
+
+            const float *predict = network_result1["predict"]->cpu_data();
+            const float* pred_map = forward_result[1]->cpu_data();
+
+
 #elif defined(USE_BMNN)
+            auto  net_crowd__result = net_crowd_->forward(blobs);
             const float *predict = net_crowd__result["predict_Resize_f32"]->cpu_data();
             const float* pred_map = net_crowd__result["pred_map_Sigmoid"]->cpu_data();
 #endif
-            auto result_part = post_process( pred_map, predict);
+            auto result_part = post_process( pred_map, predict,area_threshold);
 
             for (auto &iter: result_part)
             {       
@@ -240,7 +280,14 @@ namespace glasssix::crowd
     private:
         std::string model_directory_;
         int device_;
-        std::shared_ptr<GenPipeline> net_crowd_;
+#if defined(USE_RKNNAPI) || defined(USE_RKNN2API)
+            std::unique_ptr<glasssix::rknnwrapper::rknn_wrapper> net_segment0_;
+            std::unique_ptr<glasssix::rknnwrapper::rknn_wrapper> net_segment1_;
+
+#elif defined(USE_BMNN)
+            std::shared_ptr<GenPipeline> net_crowd_;
+#endif
+        
 
     };
 
