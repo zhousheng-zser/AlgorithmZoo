@@ -33,7 +33,7 @@ namespace glasssix::pumptop_helmet
 			net_detect_1 = std::make_unique<rknnwrapper::rknn_wrapper>(phais, std::string(model_directory) + "/" + "pumptop_helmet_pump.rknn", device);
 
 			// 算法传过来的模型名:人检测模型 1280T320-0108_Person_best_detection
-			net_detect_2 = std::make_shared<GenPipeline>(model_directory_ + "pumptop_helmet_person.rknn", device_);
+			net_detect_2 = std::make_shared<GenPipeline>(model_directory_ + "/pumptop_helmet_person.rknn", device_);
 			yolov8_instance = std::make_shared<Yolov8<GenPipeline>>(1280, 736, net_detect_2);
 
 			// 算法传过来的模型名:人头检测模型 640T320-200epft-baoshinegtivev2-atss-nwd-wop
