@@ -33,8 +33,7 @@ namespace glasssix::pumptop_helmet
 			net_detect_1 = std::make_unique<rknnwrapper::rknn_wrapper>(phais, std::string(model_directory) + "/" + "pumptop_helmet_pump.rknn", device);
 
 			// 算法传过来的模型名:人检测模型 1280T320-0108_Person_best_detection
-			net_detect_2 = PrePostProcessGenPipeline::mkSharePipeline(model_directory_ + "pumptop_helmet_person.rknn", device_);
-			net_detect_2->manual_possible_normalization(0, 1.f / 255);
+			net_detect_2 = std::make_shared<GenPipeline>(model_directory_ + "pumptop_helmet_person.rknn", device_);
 			yolov8_instance = std::make_shared<Yolov8<GenPipeline>>(1280, 736, net_detect_2);
 
 			// 算法传过来的模型名:人头检测模型 640T320-200epft-baoshinegtivev2-atss-nwd-wop
@@ -846,7 +845,6 @@ namespace glasssix::pumptop_helmet
 				int y1 = pump.y1;
 				int x2 = pump.x2;
 				int y2 = pump.y2;
-				int x1 = pump.x1;
 				float people_score = pump.score;
 
 				// 找到人的原始坐标
@@ -1063,7 +1061,7 @@ namespace glasssix::pumptop_helmet
 	private:
 		std::unique_ptr<rknnwrapper::rknn_wrapper> net_detect_1;
 		//std::unique_ptr<rknnwrapper::rknn_wrapper> net_detect_2; 
-		std::shared_ptr<PrePostProcessGenPipeline> net_detect_2;
+		std::shared_ptr<GenPipeline> net_detect_2;
 		std::unique_ptr<rknnwrapper::rknn_wrapper> net_detect_3;
 		std::unique_ptr<rknnwrapper::rknn_wrapper> net_detect_4;
 		std::shared_ptr<Yolov8<GenPipeline, false>> yolov8_instance;
