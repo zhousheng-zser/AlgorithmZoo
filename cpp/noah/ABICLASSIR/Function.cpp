@@ -210,7 +210,11 @@ std::string noah::Function::impl_function(std::string region) const {
 	for (auto& inparm : params) {
 		func += inparm.get_pack_suggest_constref() + ", ";
 	}
-	func = func.substr(0, func.find_last_of(','));
+	// this->params empty e.g.
+	// MAP<INT,STR> pts() -> map<int, if empty solve bug
+	// MAP<INT,STR> pts(int a, float b) ->map<int,str> pts(int a, float b,)  bug "," : substr to solve it
+	if(!params.empty())
+		func = func.substr(0, func.find_last_of(','));
 	func += ")";
 	return func;
 }
