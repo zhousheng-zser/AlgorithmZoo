@@ -78,6 +78,19 @@ static inline float CosineSimilarity(T emb1, T emb2, int len)
     }
 }
 
+static inline void Softmax(float* data, int num)
+{
+    double L2_Sum = 0.f;
+    for (size_t i = 0; i < num; i++)
+    {
+        data[i] = (exp(data[i]));
+        L2_Sum += data[i];
+    }
+    for (size_t i = 0; i < num; i++)
+    {
+        data[i] = data[i] / L2_Sum;
+    }
+}
 
 }  // namespace npy
 

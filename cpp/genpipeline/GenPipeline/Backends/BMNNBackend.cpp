@@ -42,6 +42,14 @@ public:
 		}
 	}
 
+	// invalid phai
+	int initModel(const std::vector<std::string>& phai, std::string weight, int device) override final {
+		auto model_pure = weight.substr(0, weight.find_last_of('.'));
+		auto target_model = model_pure + ".bmodel";
+		pipeline = std::make_unique<BMNNPipeline>(target_model, device);
+		return 0;
+	}
+
 	int initModel(std::string model, int device) override final {
 		auto model_pure = model.substr(0, model.find_last_of('.'));
 		auto target_model = model_pure + ".bmodel";
