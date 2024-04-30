@@ -14,6 +14,8 @@
 #include "Excalibur/operation_resize.hpp"
 #include "Primitives/tensor_conversions.hpp"
 #endif
+#include <GenPipeline/PrePostProcessGenPipeline.hpp>
+#include <YoloFamily/Yolo_wrapper.hpp>
 #include "poly.hpp"
 #include <thread>
 #include <chrono>
@@ -31,7 +33,9 @@ namespace glasssix::pumptop_helmet
 			net_detect_1 = std::make_unique<rknnwrapper::rknn_wrapper>(phais, std::string(model_directory) + "/" + "pumptop_helmet_pump.rknn", device);
 
 			// 算法传过来的模型名:人检测模型 1280T320-0108_Person_best_detection
-			net_detect_2 = std::make_unique<rknnwrapper::rknn_wrapper>(phais, std::string(model_directory) + "/" + "pumptop_helmet_person.rknn", device);
+			net_detect_2 = PrePostProcessGenPipeline::mkSharePipeline(model_directory_ + "pumptop_helmet_person.rknn", device_);
+			net_detect_2->manual_possible_normalization(0, 1.f / 255);
+			yolov8_instance = std::make_shared<Yolov8<GenPipeline>>(1280, 736, net_detect_2);
 
 			// 算法传过来的模型名:人头检测模型 640T320-200epft-baoshinegtivev2-atss-nwd-wop
 			net_detect_3 = std::make_unique<rknnwrapper::rknn_wrapper>(phais, std::string(model_directory) + "/" + "pumptop_helmet_head.rknn", device);
@@ -832,44 +836,18 @@ namespace glasssix::pumptop_helmet
 				// std::vector<cv::Point> pts = {vertices[0], vertices[1], vertices[2], vertices[3], vertices[0]}; // 构造多边形的顶点序列
 				// cv::polylines(img, pts, true, cv::Scalar(0, 255, 0), 1);
 			}
-			init_data1280();
-			auto new_shape = cv::Size(1280, 1280);
-			cv::Mat blob;
-			float ratio = 1.f;
-			int pad_h = 0;
-			int pad_w = 0;
 
-			std::tie(blob, ratio) = preprocess_detection(image, pad_h, pad_w, new_shape);
-			unsigned char *blobdata = blob.ptr<uchar>();
-			std::vector<int> v_blob;
-			v_blob.push_back(1);
-			v_blob.push_back(blob.rows);
-			v_blob.push_back(blob.cols);
-			v_blob.push_back(blob.channels());
-			auto network_results = net_detect_2->forward(blob.data, v_blob, RKNN_TENSOR_NHWC);
 
-			std::vector<std::string> out_names = {"355", "340", "output0"};
-
-			std::vector<std::shared_ptr<glasssix::memory::tensor<float>>> forwards;
-
-			for (size_t i = 0; i < out_names.size(); ++i)
-			{
-				forwards.push_back(network_results[out_names[i]]);
-			}
-
-			int candicate_num = 0;
-
-			auto real_output = Yovo8se_Concat1280(forwards, con_thres, candicate_num);
-
-			auto nms_result = post_process(real_output, blob, pad_h, pad_w, 1.f / ratio, candicate_num, con_thres, iou_thres);
+			auto nms_result = yolov8_instance->get_objects(image_ori_all, con_thres);
 			// 从结果里面拿取人的坐标
 			for (auto &pump : nms_result)
 			{
-				int x1 = std::round(pump[0]) > 0 ? std::round(pump[0]) : 0;
-				int y1 = std::round(pump[1]) > 0 ? std::round(pump[1]) : 0;
-				int x2 = std::round(pump[2]) < image.cols ? std::round(pump[2]) : image.cols;
-				int y2 = std::round(pump[3]) < image.rows ? std::round(pump[3]) : image.rows;
-				float people_score = pump[4];
+				int x1 = pump.x1;
+				int y1 = pump.y1;
+				int x2 = pump.x2;
+				int y2 = pump.y2;
+				int x1 = pump.x1;
+				float people_score = pump.score;
 
 				// 找到人的原始坐标
 				cv::Point people_ori_1 = {x1, y1};
@@ -1084,9 +1062,11 @@ namespace glasssix::pumptop_helmet
 
 	private:
 		std::unique_ptr<rknnwrapper::rknn_wrapper> net_detect_1;
-		std::unique_ptr<rknnwrapper::rknn_wrapper> net_detect_2;
+		//std::unique_ptr<rknnwrapper::rknn_wrapper> net_detect_2; 
+		std::shared_ptr<PrePostProcessGenPipeline> net_detect_2;
 		std::unique_ptr<rknnwrapper::rknn_wrapper> net_detect_3;
 		std::unique_ptr<rknnwrapper::rknn_wrapper> net_detect_4;
+		std::shared_ptr<Yolov8<GenPipeline, false>> yolov8_instance;
 
 		std::vector<std::string> phais;
 
