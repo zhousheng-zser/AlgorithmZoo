@@ -173,6 +173,12 @@ public:
 		return mkSharePipelineCommon_<PrePostProcessGenPipeline, RealPipeline>(model, device);
 	}
 
+	// Excalibur may use
+	template<typename RealPipeline = GenPipeline>
+	static inline std::shared_ptr<PrePostProcessGenPipeline> mkSharePipeline(std::vector<std::string> phai, std::string weight, int device = -1) {
+		return mkSharePipelineCommon_<PrePostProcessGenPipeline, RealPipeline>(phai, weight, device);
+	}
+
 private:
 	std::shared_ptr<GenPipelineInterface> pipeline_;
 	std::function<cv::Mat(cv::Mat)> image_preprocess_function_;
@@ -191,4 +197,3 @@ private:
 		probe_post_time_cost = std::chrono::milliseconds{ 0 };
 	}
 };
-

@@ -30,6 +30,11 @@ public:
         return 0;
     }
 
+	int initModel(const std::vector<std::string>& phai, std::string weight, int device) override final {
+		pipeline = std::make_unique<glasssix::excalibur::pipeline<float>>(phai, weight, device);
+		return 0;
+	}
+
     int initModel(std::string model, int device) override final {
         auto model_pure = model.substr(0, model.find_last_of('.'));
         auto phai = model_pure + ".phai";

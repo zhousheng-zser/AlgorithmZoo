@@ -20,6 +20,7 @@ public:
     virtual SupportManualNormalization manual_possible_normalization(std::array<float, 3> means, std::array<float, 3> stands) = 0;
 
     virtual int initModel(std::string arch, std::string weight, int device) = 0;
+    virtual int initModel(const std::vector<std::string>& phai, std::string weight, int device) = 0; //Excalibur only
     virtual int initModel(std::string model, int device) = 0;
 
     virtual std::unordered_map<std::string, std::shared_ptr<glasssix::memory::tensor<float>>> forward(cv::Mat image) = 0;

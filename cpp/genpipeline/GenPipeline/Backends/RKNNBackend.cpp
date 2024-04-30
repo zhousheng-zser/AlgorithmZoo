@@ -47,6 +47,15 @@ public:
 		}
 	}
 
+	// invalid phai
+	int initModel(const std::vector<std::string>& phai, std::string weight, int device) override final {
+		auto model_pure = weight.substr(0, weight.find_last_of('.'));
+		auto rkn_model = model_pure + ".rknn";
+		std::vector<std::string> phai;
+		pipeline = std::make_unique<rknnwrapper::rknn_wrapper>(phai, rkn_model, device);
+		return 0;
+	}
+
 	int initModel(std::string model, int device) override final {
 		auto model_pure = model.substr(0, model.find_last_of('.'));
 		auto rkn_model = model_pure + ".rknn";
