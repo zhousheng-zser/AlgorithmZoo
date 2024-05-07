@@ -11,3 +11,5 @@ cmake/debug/
 .history/
 
 /call
+/cmake/cmake-build-debug
+/cmake/cmake-build-release

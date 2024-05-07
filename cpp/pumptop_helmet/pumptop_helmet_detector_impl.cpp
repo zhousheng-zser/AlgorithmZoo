@@ -29,12 +29,13 @@ namespace glasssix::pumptop_helmet
 		impl(std::string_view model_directory, int device)
 			: model_directory_{std::string(model_directory)}, device_{device}
 		{
-			// 算法传过来的模型名:泵检测模型 640-v1_ori_TAL
-			net_detect_1 = std::make_unique<rknnwrapper::rknn_wrapper>(phais, std::string(model_directory) + "/" + "pumptop_helmet_pump.rknn", device);
+			// 算法传过来的模型名:泵检测模型 1280-v1_ori_TAL
+			net_detect_1 = std::make_shared<GenPipeline>(model_directory_ + "/pumptop_helmet_pump.rknn", device_);
+			yolov8_instance_1 = std::make_shared<Yolov8<GenPipeline>>(1280, 1280, net_detect_1);
 
 			// 算法传过来的模型名:人检测模型 1280T320-0108_Person_best_detection
 			net_detect_2 = std::make_shared<GenPipeline>(model_directory_ + "/pumptop_helmet_person.rknn", device_);
-			yolov8_instance = std::make_shared<Yolov8<GenPipeline>>(1280, 736, net_detect_2);
+			yolov8_instance_2 = std::make_shared<Yolov8<GenPipeline>>(1280, 736, net_detect_2);
 
 			// 算法传过来的模型名:人头检测模型 640T320-200epft-baoshinegtivev2-atss-nwd-wop
 			net_detect_3 = std::make_unique<rknnwrapper::rknn_wrapper>(phais, std::string(model_directory) + "/" + "pumptop_helmet_head.rknn", device);
@@ -653,47 +654,19 @@ namespace glasssix::pumptop_helmet
 		//~ 泵检测
 		std::vector<cv::Rect> pump_detect(cv::Mat &image, std::map<std::string, float> &param_map, std::vector<int> &categorys, std::vector<float> &scores, std::vector<float> &helmet_scores)
 		{
-			num++;
 			cv::Rect ori_rect;
 			std::vector<cv::Rect> result_rect;
-			// 预处理
-			init_data640();
 			float con_thres = param_map.count("pump_conf_thres") ? param_map["pump_conf_thres"] : 0.6f;
 			float iou_thres = param_map.count("nms_thres") ? param_map["nms_thres"] : 0.6f;
-			auto new_shape = cv::Size(640, 640);
-			cv::Mat blob;
-			float ratio = 1.f;
-			int pad_h = 0;
-			int pad_w = 0;
-
-			std::tie(blob, ratio) = preprocess_detection(image, pad_h, pad_w, new_shape);
-			unsigned char *blobdata = blob.ptr<uchar>();
-			std::vector<int> v_blob;
-			v_blob.push_back(1);
-			v_blob.push_back(blob.rows);
-			v_blob.push_back(blob.cols);
-			v_blob.push_back(blob.channels());
-			auto network_results = net_detect_1->forward(blob.data, v_blob, RKNN_TENSOR_NHWC);
-			std::vector<std::string> out_names = {"355", "340", "output0"};
-
-			std::vector<std::shared_ptr<glasssix::memory::tensor<float>>> forwards;
-
-			for (size_t i = 0; i < out_names.size(); ++i)
-			{
-				forwards.push_back(network_results[out_names[i]]);
-			}
-			int candicate_num = 1;
-
-			auto real_output = Yovo8se_Concat(forwards, con_thres, candicate_num);
-			auto nms_result = post_process(real_output, blob, pad_h, pad_w, 1.f / ratio, candicate_num, con_thres, iou_thres);
+			auto nms_result = yolov8_instance_1->get_objects(image, con_thres);
 			// 对泵的结果循环
 			for (auto &pump : nms_result)
 			{
-				int x1 = std::round(pump[0]) > 0 ? std::round(pump[0]) : 0;
-				int y1 = std::round(pump[1]) > 0 ? std::round(pump[1]) : 0;
-				int x2 = std::round(pump[2]) < image.cols ? std::round(pump[2]) : image.cols;
-				int y2 = std::round(pump[3]) < image.rows ? std::round(pump[3]) : image.rows;
-				std::string str = std::to_string(pump[4]);
+				int x1 = pump.x1;
+				int y1 = pump.y1;
+				int x2 = pump.x2;
+				int y2 = pump.y2;
+				std::string str = std::to_string(pump.score);
 
 				cv::Rect roiRect(x1, y1, x2 - x1, y2 - y1);
 				//& 画泵的分数
@@ -837,7 +810,7 @@ namespace glasssix::pumptop_helmet
 			}
 
 
-			auto nms_result = yolov8_instance->get_objects(image_ori_all, con_thres);
+			auto nms_result = yolov8_instance_2->get_objects(image_ori_all, con_thres);
 			// 从结果里面拿取人的坐标
 			for (auto &pump : nms_result)
 			{
@@ -1037,7 +1010,7 @@ namespace glasssix::pumptop_helmet
 
 			std::vector<std::string> out_names = {"output0"};
 
-			//& 直接拿结果
+			// 直接拿结果
 			auto result = network_results[out_names[0]]->cpu_data();
 
 			int index = std::max_element(result, result + 3) - result;
@@ -1059,12 +1032,12 @@ namespace glasssix::pumptop_helmet
 		}
 
 	private:
-		std::unique_ptr<rknnwrapper::rknn_wrapper> net_detect_1;
-		//std::unique_ptr<rknnwrapper::rknn_wrapper> net_detect_2; 
+		std::shared_ptr<GenPipeline> net_detect_1;
 		std::shared_ptr<GenPipeline> net_detect_2;
 		std::unique_ptr<rknnwrapper::rknn_wrapper> net_detect_3;
 		std::unique_ptr<rknnwrapper::rknn_wrapper> net_detect_4;
-		std::shared_ptr<Yolov8<GenPipeline, false>> yolov8_instance;
+		std::shared_ptr<Yolov8<GenPipeline, false>> yolov8_instance_1;
+		std::shared_ptr<Yolov8<GenPipeline, false>> yolov8_instance_2;
 
 		std::vector<std::string> phais;
 
