@@ -17,13 +17,9 @@ namespace glasssix::longinus
 		facedetector_impl();
 		~facedetector_impl();
 
-		void init(const exposing::param_string& models_directory, int algo_type, int model_type, float nms_threshold, std::int32_t device);
-		
+		void init(const exposing::param_string& str_params);
 		exposing::param_string version() const;
-		exposing::param_vector<face_info> detect(exposing::param_span<std::uint8_t> bitmap, std::int32_t channels, std::int32_t height, std::int32_t width, std::int32_t min_size, float threshold, std::int32_t order, bool do_attributing) const;
-		face_info single_trace(face_info face, exposing::param_span<std::uint8_t> bitmap, std::int32_t channels, std::int32_t height, std::int32_t width, std::int32_t order) const;
-		exposing::param_vector<exposing::param_vector<std::uint8_t>> center_scale_align(exposing::param_span<std::uint8_t> bitmap, std::int32_t channels, std::int32_t height, std::int32_t width,
-			float scale, std::int32_t order) const;
+		exposing::param_string execute(const exposing::param_hash_map<exposing::param_string, exposing::unknown_object>& input_params_map);
 	private:
 		int algo_type_;
 		std::unique_ptr<facedetector_base> impl_;

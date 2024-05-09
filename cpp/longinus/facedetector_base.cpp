@@ -472,10 +472,10 @@ namespace glasssix::longinus
         int y1 = bbox_data[1] * height / 10 + offset_y;
         int x2 = bbox_data[2] * width / 10 + width + offset_x;
         int y2 = bbox_data[3] * height / 10 + height + offset_y;
-        trackfaceinfo.rect.x = x1;
-        trackfaceinfo.rect.w = x2 - x1 + 1;
-        trackfaceinfo.rect.y = y1;
-        trackfaceinfo.rect.h = y2 - y1 + 1;
+        trackfaceinfo.rect.x = trackfaceinfo.ori_rect.x = x1;
+        trackfaceinfo.rect.w = trackfaceinfo.ori_rect.w = x2 - x1 + 1;
+        trackfaceinfo.rect.y = trackfaceinfo.ori_rect.y = y1;
+        trackfaceinfo.rect.h = trackfaceinfo.ori_rect.h = y2 - y1 + 1;
         trackfaceinfo.glass_index = std::max_element(glass_data, glass_data + 3) - glass_data;
         trackfaceinfo.mask_index = std::max_element(mask_data, mask_data + 2) - mask_data;
         for (size_t i = 0; i < 2; i++)
@@ -773,9 +773,12 @@ namespace glasssix::longinus
         return res;
     }
 #else
-    exposing::param_vector<exposing::param_vector<std::uint8_t>> facedetector_base::center_scale_align(exposing::param_span<std::uint8_t> bitmap, std::int32_t channels, std::int32_t height, std::int32_t width,
+    exposing::param_vector<std::uint8_t> facedetector_base::center_scale_align(exposing::param_span<std::uint8_t> bitmap, std::int32_t channels, std::int32_t height, std::int32_t width,
         float scale, std::int32_t order)
     {
+        CHECK_EQ(channels, 3);
+        CHECK_EQ(bitmap.size(), channels * height * width);
+
         if (bitmap.empty())
         {
             throw exposing::abi_invalid_argument("current frame is empty");
@@ -816,7 +819,6 @@ namespace glasssix::longinus
 
         std::shared_ptr<memory::tensor<uint8_t>> ROI, rotated_ROI, final_mat, final_mat_gray, resized_color_img;
         std::vector<std::shared_ptr<memory::tensor<uint8_t>>> src_vector;
-        auto res = exposing::make_param_vector<std::uint8_t, 2>();
 
         excalibur::rectangle<int> MarginRect = excalibur::rectangle<int>(ori_face.rect.x - ori_face.rect.w * 0.0f,
             ori_face.rect.y - ori_face.rect.h * 0.0f,
@@ -856,12 +858,9 @@ namespace glasssix::longinus
 
         excalibur::resize_cpu(final_mat, resized_color_img, 128, 128);
 
-        auto temp_vec = exposing::make_param_vector<std::uint8_t>();
-        temp_vec.resize(static_cast<size_t>(resized_color_img->count()));
-        temp_vec.copy_from({ resized_color_img->cpu_data(), static_cast<size_t>(resized_color_img->count()) }, 0);
-
-        res.push_back(temp_vec);
-
+        auto res = exposing::make_param_vector<std::uint8_t>();
+        res.resize(static_cast<size_t>(resized_color_img->count()));
+        res.copy_from({ resized_color_img->cpu_data(), static_cast<size_t>(resized_color_img->count()) }, 0);
         return res;
     }
 #endif
