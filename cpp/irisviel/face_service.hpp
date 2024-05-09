@@ -5,6 +5,7 @@
 #include "face_service_implemention.hpp"
 
 #include <abi/consumer.hpp>
+#include <algo_plugin_interface.hpp>
 
 namespace glasssix::irisviel
 {
@@ -21,7 +22,9 @@ namespace glasssix::exposing::impl
 
 		struct type : abi_unknown_object
 		{
-			virtual std::int32_t G6_ABI_CALL init(std::int32_t/*abi_in_t<irisviel::face_service_implemention>*/ implementation, std::int32_t single_database_capacity, std::int32_t dimension, abi_in_t<param_string> working_directory) noexcept = 0;
+			virtual std::int32_t G6_ABI_CALL init(abi_in_t<param_string> str_params) = 0;
+			virtual std::int32_t G6_ABI_CALL version(abi_out_t<param_string> result) noexcept = 0;
+			virtual std::int32_t G6_ABI_CALL execute(abi_in_t<param_hash_map<param_string, unknown_object>> input_params_map, abi_out_t<param_string> result) = 0;
 			virtual std::int32_t G6_ABI_CALL clear() noexcept = 0;
 			virtual std::int32_t G6_ABI_CALL remove_all() noexcept = 0;
 			virtual std::int32_t G6_ABI_CALL dimension(abi_out_t<std::int32_t> result) noexcept = 0;
@@ -48,9 +51,19 @@ namespace glasssix::exposing::impl
 	template<typename Derived>
 	struct interface_vtable<Derived, irisviel::face_service> : interface_vtable_base<Derived, irisviel::face_service>
 	{
-		virtual std::int32_t G6_ABI_CALL init(std::int32_t/*abi_in_t<irisviel::face_service_implemention>*/ implementation, std::int32_t single_database_capacity, std::int32_t dimension, abi_in_t<param_string> working_directory)  noexcept override
+		virtual std::int32_t G6_ABI_CALL init(abi_in_t<param_string> str_params) override
 		{
-			return abi_safe_call([&] { this->self().init(/*create_from_abi*/static_cast<irisviel::face_service_implemention>(implementation), single_database_capacity, dimension, create_from_abi<param_string>(working_directory)); });
+			return abi_safe_call([&] { this->self().init(create_from_abi<param_string>(str_params)); });
+		}
+
+		virtual std::int32_t G6_ABI_CALL version(abi_out_t<param_string> result) noexcept override
+		{
+			return abi_safe_call([&] { *result = detach_abi(this->self().version()); });
+		}
+
+		virtual std::int32_t G6_ABI_CALL execute(abi_in_t<param_hash_map<param_string, unknown_object>> input_params_map, abi_out_t<param_string> result) override
+		{
+			return abi_safe_call([&] { *result = detach_abi(this->self().execute(create_from_abi<param_hash_map<param_string, unknown_object>>(input_params_map))); });
 		}
 
 		virtual std::int32_t G6_ABI_CALL clear() noexcept override
@@ -159,9 +172,22 @@ namespace glasssix::exposing::impl
 		template<typename Derived>
 		struct type : enable_self_abi_awareness<Derived, irisviel::face_service>
 		{
-			void init(irisviel::face_service_implemention implementation, std::int32_t single_database_capacity, std::int32_t dimension, const param_string& working_directory) const
+			void init(const param_string& str_params)
 			{
-				check_abi_result(this->self_abi().init(get_abi(static_cast<std::int32_t>(implementation)), get_abi(single_database_capacity), get_abi(dimension), get_abi(working_directory)));
+				check_abi_result(this->self_abi().init(get_abi(str_params)));
+			}
+
+			param_string version() const
+			{
+				param_string result{ nullptr };
+
+				return (check_abi_result(this->self_abi().version(put_abi(result))), result);
+			}
+			param_string execute(const param_hash_map<param_string, unknown_object>& input_params_map)
+			{
+				param_string result{ nullptr };
+
+				return (check_abi_result(this->self_abi().execute(get_abi(input_params_map), put_abi(result))), result);
 			}
 
 			void clear() const
@@ -310,7 +336,7 @@ namespace glasssix::exposing::impl
 
 namespace glasssix::irisviel
 {
-	struct face_service : exposing::inherits<face_service>
+	struct face_service : exposing::inherits<face_service, exposing::nessus::algo_plugin_interface>
 	{
 		using inherits::inherits;
 	};

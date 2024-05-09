@@ -136,8 +136,6 @@ if(CMAKE_CXX_COMPILER_ID STREQUAL "MSVC")
 	set(CMAKE_STATIC_LIBRARY_PREFIX lib)
 endif()
 
-include(Dependencies.cmake)
-
 set(LIBRARY_OUTPUT_PATH ${PROJECT_BINARY_DIR}/lib)
 set(CMAKE_RUNTIME_OUTPUT_DIRECTORY ${PROJECT_BINARY_DIR}/bin)
 set(EXECUTABLE_OUTPUT_PATH ${PROJECT_BINARY_DIR}/bin)
@@ -150,6 +148,8 @@ if(BUILD_DEBUG_INFO)
 	add_definitions(-DBUILD_DEBUG_INFO)
 endif()
 
+include(Dependencies.cmake)
+add_subdirectory(3rdparty/jsoncpp)
 add_subdirectory(GenPipeline)
 
 if(BUILD_MATIERIAL_OCR_SDK)

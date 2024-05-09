@@ -17,10 +17,10 @@ namespace glasssix::selene
 	public:
 		feature_extractor_impl();
 		~feature_extractor_impl();
-		void init(const exposing::param_string& models_directory, int model_type, std::int32_t device, bool use_int8);
-		std::int32_t get_model_type() const;
+		void init(const exposing::param_string& str_params);
 		exposing::param_string version() const;
-		exposing::param_vector<exposing::param_vector<float>> get(exposing::param_span<std::uint8_t> bitmaps, std::uint64_t count, std::int32_t order) const;
+		exposing::param_string execute(const exposing::param_hash_map<exposing::param_string, exposing::unknown_object>& input_params_map);
+		std::int32_t get_model_type() const;
 	private:
 		std::unique_ptr<feature_extractor_internal> impl_;
 	};

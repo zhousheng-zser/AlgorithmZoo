@@ -3,6 +3,7 @@
 
 #include "record_impl.hpp"
 #include "search_result_impl.hpp"
+#include <json.h>
 
 #include <algorithm>
 #include <vector>
@@ -78,10 +79,214 @@ namespace glasssix::irisviel
     face_service_impl::~face_service_impl()
     {
     }
-
-    void face_service_impl::init(face_service_implemention implementation, std::int32_t single_database_capacity, std::int32_t dimension, exposing::utf8_string_view working_directory)
+    void face_service_impl::init(const exposing::param_string& str_params)
     {
-        impl_ = std::make_unique<face_service_internal>(implementation, single_database_capacity, dimension, exposing::to_narrow_string(working_directory));
+        Json::Reader reader(Json::Features::strictMode());
+        Json::Value root;
+        if (!reader.parse(exposing::to_narrow_string(str_params), root))
+            throw Json::Exception("parse json failed");
+        std::string working_directory = root["working_directory"].asString();
+        int implementation = root.get("implementation_type", Json::Int(0)).asInt();
+        int single_database_capacity = root.get("single_database_capacity", Json::Int(1000)).asInt();
+        int dimension = root["dimension"].asInt();
+
+        impl_ = std::make_unique<face_service_internal>(static_cast<face_service_implemention>(implementation), single_database_capacity, dimension, exposing::to_narrow_string(working_directory));
+    }
+    exposing::param_string face_service_impl::version() const
+    {
+        return u8"1.0.0";
+    }
+
+    exposing::param_string face_service_impl::execute(const exposing::param_hash_map<exposing::param_string, exposing::unknown_object>& input_params_map)
+    {
+        if (!impl_)
+            throw exposing::abi_invalid_operation(u8"irisviel internal object not initialized");
+
+        Json::Reader reader(Json::Features::strictMode());
+        Json::FastWriter writer;
+        Json::Value root, value;
+        if (!reader.parse(exposing::to_narrow_string(exposing::unbox<exposing::param_string>(input_params_map.get_value("params"))), root))
+            throw Json::Exception("parse json failed");
+
+        int command = root["command"].asInt();
+        switch (command)
+        {
+        case 0://load_databases
+            impl_->load_databases();
+            break;
+        case 1://search
+            {
+                auto assuming_top = root.get("top", Json::nullValue);
+                auto assuming_min_similarity = root.get("min_similarity", Json::nullValue);
+                bool has_top = assuming_top.isIntegral();
+                bool has_min_similarity = assuming_min_similarity.isNumeric();
+
+                std::vector<float> feature;
+                for (auto& i : root["feature"])
+                    feature.push_back(i.asFloat());
+
+                if (impl_->dimension() * sizeof(float) != feature.size())
+                    throw exposing::abi_invalid_argument(u8"impl_->dimension() * sizeof(float) != input_data.size()");
+
+                std::vector<database_search_result> result;
+                if (has_top && has_min_similarity)
+                {
+                    result = impl_->search(reinterpret_cast<float*>(feature.data()), assuming_min_similarity.asFloat(), std::optional<int>(assuming_top.asInt()));
+                }
+
+                if (has_top)
+                {
+                    result = impl_->search(reinterpret_cast<float*>(feature.data()), assuming_top.asInt());
+                }
+
+                if (has_min_similarity)
+                {
+                    result = impl_->search(reinterpret_cast<float*>(feature.data()), assuming_min_similarity.asFloat(), std::nullopt);
+                }
+
+                Json::Value record_array = Json::Value(Json::arrayValue);
+                for (size_t i = 0; i < result.size(); i++)
+                {
+                    Json::Value record;
+                    record["similarity"] = Json::Value(result[i].similarity);
+                    record["data"]["key"] = std::string(result[i].data->key());
+                    auto feature = result[i].data->feature();
+                    Json::Value feature_array = Json::Value(Json::arrayValue);
+                    for (size_t j = 0; j < feature.size(); j++)
+                        feature_array.append(Json::Value(feature[j]));
+                    record["data"]["feature"] = feature_array;
+
+                    record_array.append(record);
+                }
+                value["command_result"] = record_array;
+            }
+            break;
+        case 2://search_nf
+            {
+                auto assuming_top = root.get("top", Json::nullValue);
+                auto assuming_min_similarity = root.get("min_similarity", Json::nullValue);
+                bool has_top = assuming_top.isIntegral();
+                bool has_min_similarity = assuming_min_similarity.isNumeric();
+
+                std::vector<float> feature;
+                for (auto& i : root["feature"])
+                    feature.push_back(i.asFloat());
+
+                if (impl_->dimension() * sizeof(float) != feature.size())
+                    throw exposing::abi_invalid_argument(u8"impl_->dimension() * sizeof(float) != input_data.size()");
+
+                std::vector<database_search_result> result;
+                if (has_top && has_min_similarity)
+                {
+                    result = impl_->search_nf(reinterpret_cast<float*>(feature.data()), assuming_min_similarity.asFloat(), std::optional<int>(assuming_top.asInt()));
+                }
+                else
+                    throw exposing::abi_invalid_argument(u8"has_top && has_min_similarity");
+
+                Json::Value record_array = Json::Value(Json::arrayValue);
+                for (size_t i = 0; i < result.size(); i++)
+                {
+                    Json::Value record;
+                    record["similarity"] = Json::Value(result[i].similarity);
+                    record["data"]["key"] = std::string(result[i].data->key());
+
+                    record_array.append(record);
+                }
+                value["command_result"] = record_array;
+            }
+            break;
+        case 3://contains_key
+            {
+                auto key = root["key"].asString();
+                value["command_result"] = Json::Value(impl_->contains_key(key));
+            }
+        break;
+        case 4://clear
+            impl_->clear();
+        break;
+        case 5://remove_all
+            impl_->remove_all();
+            break;
+        case 6://remove_records
+            {
+                std::vector<std::string> keys;
+                for (auto& i : root["keys"])
+                    keys.push_back(i.asString());
+                std::vector<bool> ret = impl_->remove(keys);
+                Json::Value ret_array = Json::Value(Json::arrayValue);
+                for (auto& i : ret)
+                {
+                    Json::Value ret_i;
+                    ret_i["success"] = Json::Value(i);
+                    ret_i["reason"] = Json::Value(i ? u8"OK" : u8"Could not find the key.");
+                    ret_array.append(ret_i);
+                }
+                value["result"] = ret_array;
+            }
+            break;
+        case 7://add_records
+            {
+                std::vector<std::shared_ptr<database_record>> internal_records;
+                for (const auto& item : root["data"])
+                {
+                    std::vector<float> feature;
+                    for (const auto& i : item["feature"])
+                        feature.push_back(i.asFloat());
+
+                    auto internal_record = database_record::create(feature.size());
+
+                    internal_record->key(exposing::to_narrow_string(item["key"].asString()));
+                    internal_record->feature(feature);
+
+                    internal_records.emplace_back(internal_record);
+                }
+                auto ret = impl_->add(internal_records);
+
+                Json::Value ret_array = Json::Value(Json::arrayValue);
+                for (auto& i : ret)
+                {
+                    Json::Value ret_i;
+                    ret_i["success"] = Json::Value(i);
+                    ret_i["reason"] = Json::Value(i ? u8"OK" : u8"The key already exists.");
+                    ret_array.append(ret_i);
+                }
+                value["result"] = ret_array;
+            }
+            break;
+        case 8://update_records
+            {
+                std::vector<std::shared_ptr<database_record>> internal_records;
+                for (const auto& item : root["data"])
+                {
+                    std::vector<float> feature;
+                    for (const auto& i : item["feature"])
+                        feature.push_back(i.asFloat());
+
+                    auto internal_record = database_record::create(feature.size());
+
+                    internal_record->key(exposing::to_narrow_string(item["key"].asString()));
+                    internal_record->feature(feature);
+
+                    internal_records.emplace_back(internal_record);
+                }
+                auto ret = impl_->update(internal_records);
+
+                Json::Value ret_array = Json::Value(Json::arrayValue);
+                for (auto& i : ret)
+                {
+                    Json::Value ret_i;
+                    ret_i["success"] = Json::Value(i);
+                    ret_i["reason"] = Json::Value(i ? u8"OK" : u8"Could not find the key.");
+                    ret_array.append(ret_i);
+                }
+                value["result"] = ret_array;
+            }
+            break;
+        default:
+            break;
+        }
+        value["command"] = root["command"];
+        return exposing::to_param_string(writer.write(value));
     }
 
     void face_service_impl::clear() const

@@ -16,6 +16,8 @@
 #include "Primitives/tensor_conversions.hpp"
 #endif
 
+#include <json.h>
+
 namespace glasssix::face_attributes
 {
 	namespace
@@ -329,14 +331,71 @@ uchar * data2 =crop_face.ptr<uchar>();
 	face_attributes_detector_impl::~face_attributes_detector_impl()
 	{
 	}
-	void face_attributes_detector_impl::init(const exposing::param_string &models_directory, std::int32_t device)
+	void face_attributes_detector_impl::init(const exposing::param_string& str_params)
 	{
-		impl_ = std::make_unique<impl>(models_directory, device);
+		Json::Reader reader(Json::Features::strictMode());
+		Json::Value root;
+		if (!reader.parse(exposing::to_narrow_string(str_params), root))
+			throw Json::Exception("parse json failed");
+		std::string models_directory = root["models_directory"].asString();
+		int device = root.get("device", Json::Int(-1)).asInt();
+
+		impl_ = std::make_unique<impl>(exposing::to_param_string(models_directory), device);
 	}
 
 	exposing::param_string face_attributes_detector_impl::version() const
 	{
 		return exposing::to_param_string(impl_->version());
+	}
+
+	exposing::param_string face_attributes_detector_impl::execute(const exposing::param_hash_map<exposing::param_string, exposing::unknown_object>& input_params_map)
+	{
+		if (!impl_)
+			throw exposing::abi_invalid_operation(u8"romancia internal object not initialized");
+
+		Json::Reader reader(Json::Features::strictMode());
+		Json::FastWriter writer;
+		Json::Value root, value;
+		if (!reader.parse(exposing::to_narrow_string(exposing::unbox<exposing::param_string>(input_params_map.get_value("params"))), root))
+			throw Json::Exception("parse json failed");
+
+		auto input_data = exposing::unbox<exposing::param_span<std::uint8_t>>(input_params_map.get_value("input_data"));
+		auto output_data = exposing::unbox<exposing::param_span<std::uint8_t>>(input_params_map.get_value("output_data"));
+		int order = exposing::unbox<int>(input_params_map.get_value("order"));
+		auto data_shape = input_params_map.get_value("data_shape").as<exposing::param_vector<int>>();
+
+		if (data_shape[0] != 1)
+			throw exposing::abi_invalid_argument("data_shape[0] != 1");
+
+		auto faces = exposing::make_param_vector<longinus::face_info, 1>();
+		for (const auto& i : root["facerect_list"])
+		{
+			auto face = exposing::make_exported_interface<longinus::face_info>();
+			face.set_x(i["x"].asFloat());
+			face.set_y(i["y"].asFloat());
+			face.set_height(i["height"].asFloat());
+			face.set_width(i["width"].asFloat());
+			face.set_ori_x(i["ori_x"].asFloat());
+			face.set_ori_y(i["ori_y"].asFloat());
+			face.set_ori_height(i["ori_height"].asFloat());
+			face.set_ori_width(i["ori_width"].asFloat());
+			faces.push_back(face);
+		}
+		auto res = impl_->detect(faces, input_data, data_shape[1], data_shape[2], data_shape[3], order);
+
+		Json::Value res_array = Json::Value(Json::arrayValue);
+		for (const auto& i : res)
+		{
+			Json::Value attr;
+			attr["age"] = Json::Int(i.age());
+			attr["gender"] = Json::Int(i.gender());
+			attr["mask"] = Json::Int(i.mask());
+			attr["glass"] = Json::Int(i.glass());
+			res_array.append(attr);
+		}
+
+		value["face_attributes"] = res_array;
+		return exposing::to_param_string(writer.write(value));
 	}
 
 	exposing::param_vector<face_attribute_info> face_attributes_detector_impl::detect(const exposing::param_vector<longinus::face_info> &faces, exposing::param_span<std::uint8_t> bitmap, std::int32_t channels, std::int32_t height, std::int32_t width, std::int32_t order) const

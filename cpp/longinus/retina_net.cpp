@@ -809,6 +809,13 @@ namespace glasssix::longinus
                     face.pts.y[i] *= scale;
                 }
             }
+            else
+            {
+                face.ori_rect.x = face.rect.x;
+                face.ori_rect.y = face.rect.y;
+                face.ori_rect.h = face.rect.h;
+                face.ori_rect.w = face.rect.w;
+            }
 
             refine(face, height, width, true);
 

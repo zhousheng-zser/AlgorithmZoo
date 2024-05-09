@@ -1,32 +1,29 @@
 #pragma once
 
 #include <abi/consumer.hpp>
-#include <algo_plugin_interface.hpp>
 
-namespace glasssix::selene
+namespace glasssix::exposing::nessus
 {
-	struct feature_extractor;
+	struct algo_plugin_interface;
 }
 
 namespace glasssix::exposing::impl
 {
-	template<> struct abi<selene::feature_extractor>
+	template<> struct abi<nessus::algo_plugin_interface>
 	{
 		using identity_type = type_identity_interface;
-
-		static constexpr guid id{ "33592171-B28D-475E-9F18-3AC449B01C0F" };
+		static constexpr guid id{ "415DEBC1-B2D6-4D50-8BB6-1DDD7626AF8B" };
 
 		struct type : abi_unknown_object
 		{
 			virtual std::int32_t G6_ABI_CALL init(abi_in_t<param_string> str_params) = 0;
 			virtual std::int32_t G6_ABI_CALL version(abi_out_t<param_string> result) noexcept = 0;
 			virtual std::int32_t G6_ABI_CALL execute(abi_in_t<param_hash_map<param_string, unknown_object>> input_params_map, abi_out_t<param_string> result) = 0;
-			virtual std::int32_t G6_ABI_CALL get_model_type(abi_out_t<std::int32_t> result) noexcept = 0;
 		};
 	};
 
 	template<typename Derived>
-	struct interface_vtable<Derived, selene::feature_extractor> : interface_vtable_base<Derived, selene::feature_extractor>
+	struct interface_vtable<Derived, nessus::algo_plugin_interface> : interface_vtable_base<Derived, nessus::algo_plugin_interface>
 	{
 		virtual std::int32_t G6_ABI_CALL init(abi_in_t<param_string> str_params) override
 		{
@@ -42,17 +39,12 @@ namespace glasssix::exposing::impl
 		{
 			return abi_safe_call([&] { *result = detach_abi(this->self().execute(create_from_abi<param_hash_map<param_string, unknown_object>>(input_params_map))); });
 		}
-
-		virtual std::int32_t G6_ABI_CALL get_model_type(abi_out_t<std::int32_t> result) noexcept override
-		{
-			return abi_safe_call([&] { *result = detach_abi(this->self().get_model_type()); });
-		}
 	};
 
-	template<> struct abi_adapter<selene::feature_extractor>
+	template<> struct abi_adapter<nessus::algo_plugin_interface>
 	{
 		template<typename Derived>
-		struct type : enable_self_abi_awareness<Derived, selene::feature_extractor>
+		struct type : enable_self_abi_awareness<Derived, nessus::algo_plugin_interface>
 		{
 			void init(const param_string& str_params)
 			{
@@ -71,20 +63,13 @@ namespace glasssix::exposing::impl
 
 				return (check_abi_result(this->self_abi().execute(get_abi(input_params_map), put_abi(result))), result);
 			}
-
-			std::int32_t get_model_type() const
-			{
-				std::int32_t result;
-
-				return (check_abi_result(this->self_abi().get_model_type(put_abi(result))), result);
-			}
 		};
 	};
 }
 
-namespace glasssix::selene
+namespace glasssix::exposing::nessus
 {
-	struct feature_extractor : exposing::inherits<feature_extractor>
+	struct algo_plugin_interface : inherits<algo_plugin_interface>
 	{
 		using inherits::inherits;
 	};

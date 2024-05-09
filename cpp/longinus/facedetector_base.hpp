@@ -91,7 +91,7 @@ namespace glasssix::longinus
 		virtual exposing::param_vector<face_info> detect(exposing::param_span<std::uint8_t> bitmap, int channels, int height, int width, int min_size = 16, float threshold = 0.5, int order = 0, bool do_attributing = false) = 0;
 
 		face_info single_trace(face_info face, exposing::param_span<std::uint8_t> bitmap, int channels, int height, int width, int order = 0);
-		exposing::param_vector<exposing::param_vector<std::uint8_t>> center_scale_align(exposing::param_span<std::uint8_t> bitmap, std::int32_t channels, std::int32_t height, std::int32_t width, float scale, std::int32_t order = 1);
+		exposing::param_vector<std::uint8_t> center_scale_align(exposing::param_span<std::uint8_t> bitmap, std::int32_t channels, std::int32_t height, std::int32_t width, float scale, std::int32_t order = 1);
 
 		virtual std::string version() const = 0;
 #if defined(USE_RKNNAPI) || defined(USE_RKNN2API)
