@@ -43,7 +43,7 @@ namespace glasssix::longinus
     {
         //Excalibur needs to distinguish between float and int8 models, rknn and rknn2 does not
 #if defined(USE_RKNNAPI) || defined(USE_RKNN2API)
-        tracker_ = std::make_unique<rknnwrapper::rknn_wrapper>(get_model_params(std::string("pfld_land71_simp")), std::string(models_directory) + "/pfld_land71_simp.rknn", device);
+        tracker_ = PrePostProcessGenPipeline::mkSharePipeline(std::string(models_directory) + "pfld_land71_simp.rknn", device);
 
 #if defined(USE_RKNN2API)
 #if defined(BUILD_RV1106) 
@@ -63,7 +63,8 @@ namespace glasssix::longinus
 #endif
 #endif
 #else
-        tracker_ = std::make_unique<excalibur::pipeline<float>>(get_model_params(std::string("pfld_land71_simp")), std::string(models_directory) + "/pfld_land71_simp.racy", device);
+        tracker_ = std::shared_ptr<excalibur::pipeline<float>>(get_model_params(std::string("pfld_land71_simp")), std::string(models_directory) + "/pfld_land71_simp.racy", device);
+        retina_ = PrePostProcessGenPipeline::mkSharePipeline(std::string(models_directory) + "pfld_land71_simp.bmodel", 0);
 #endif
     }
 

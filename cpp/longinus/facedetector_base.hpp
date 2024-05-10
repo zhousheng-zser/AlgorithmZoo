@@ -3,13 +3,12 @@
 #include "face_info.hpp"
 #include <vector>
 
-#if defined(USE_RKNNAPI) || defined(USE_RKNN2API)
 #include <opencv2/opencv.hpp>
 #include <opencv2/imgproc/types_c.h>
-#endif
 
-#include <GenPipeline/GenPipeline.hpp>
 #include <YoloFamily/Yolo_wrapper.hpp>
+#include <GenPipeline/PrePostProcessGenPipeline.hpp>
+#include <GenPipeline/GenPipeTools.hpp>
 
 #if defined(BUILD_RV1106) 
 #include <fstream>
@@ -104,7 +103,7 @@ namespace glasssix::longinus
 
 	private:
         int device_;
-        std::unique_ptr<PrePostProcessGenPipeline> tracker_;
+        std::shared_ptr<PrePostProcessGenPipeline> tracker_;
 
 #if defined(USE_RKNN2API)
 #if defined(BUILD_RV1106) 

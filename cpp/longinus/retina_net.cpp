@@ -413,10 +413,10 @@ namespace glasssix::longinus
         switch (model_type)
         {
         case 0:
-            retina_ = PrePostProcessGenPipeline::mkSharePipeline(models_directory + "retina_320.rknn", 0);
+            retina_ = PrePostProcessGenPipeline::mkSharePipeline(std::string(models_directory) + "retina_320.rknn", 0);
             break;
         case 1:
-            retina_ = PrePostProcessGenPipeline::mkSharePipeline(models_directory + "retina_640.rknn", 0);
+            retina_ = PrePostProcessGenPipeline::mkSharePipeline(std::string(models_directory) + "retina_640.rknn", 0);
             break;
         default:
             throw exposing::abi_invalid_argument("Invalid model_type param!");

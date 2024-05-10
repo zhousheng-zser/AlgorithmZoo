@@ -26,7 +26,7 @@ namespace glasssix::longinus
     private:
 
         std::shared_ptr<GenPipeline> yolov7_face_;
-        std::shared_ptr<Yolov7<GenPipeline,false,true>> yolov7_instance;
+        std::shared_ptr<Yolov7<GenPipeline>> yolov7_instance;
         // std::string models_directory;
 
         int model_type_;

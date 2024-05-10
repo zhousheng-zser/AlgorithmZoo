@@ -34,7 +34,7 @@ namespace glasssix::longinus
         }
 #endif
             yolov7_face_->manual_possible_normalization(std::array<float,3>{0.f,0.f,0.f},std::array<float,3>{1.f / 255.f,1.f / 255.f,1.f / 255.f});
-            yolov7_instance = std::make_shared<Yolov7<GenPipeline,false,true>>(640,640, yolov7_face_);
+            yolov7_instance = std::make_shared<Yolov7<GenPipeline>>(640,640, yolov7_face_);
     }
 
     yolov7_net::~yolov7_net()
