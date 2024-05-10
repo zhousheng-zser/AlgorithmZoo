@@ -188,12 +188,22 @@ namespace glasssix::selene
 		auto native_result = impl_->get(exposing::param_span<std::uint8_t>(aligned.data(), aligned.size()), faces.size(), 0);
 
 		auto output_data = exposing::unbox<exposing::param_span<std::uint8_t>>(input_params_map.get_value("output_data"));
-		if(output_data.size() < faces.size() * 256)
-			throw exposing::abi_invalid_argument("output_data.size() < num * 256");
-
-		for (size_t i = 0; i < native_result.size(); i++)
+		if (output_data.size() >= faces.size() * 256)
 		{
-			std::copy(native_result[i].data() + i * 3 * 128 * 128, native_result[i].data() + (i + 1) * 3 * 128 * 128, output_data.data() + i * 256);
+			for (size_t i = 0; i < native_result.size(); i++)
+				std::copy(native_result[i].data() + i * 3 * 128 * 128, native_result[i].data() + (i + 1) * 3 * 128 * 128, output_data.data() + i * 256);
+		}
+		else
+		{
+			Json::Value features = Json::Value(Json::arrayValue);
+			for (const auto& i : native_result)
+			{
+				Json::Value feature = Json::Value(Json::arrayValue);
+				for (size_t j = 0; j < i.size(); j++)
+					feature.append(Json::Value(i[j]));
+				features.append(feature);
+			}
+			value["features"] = features;
 		}
 
 		value["dimension"] = Json::Int(256);

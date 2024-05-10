@@ -84,7 +84,7 @@ namespace glasssix::exposing::impl
 
 namespace glasssix::selene
 {
-	struct feature_extractor : exposing::inherits<feature_extractor>
+	struct feature_extractor : exposing::inherits<feature_extractor, exposing::nessus::algo_plugin_interface>
 	{
 		using inherits::inherits;
 	};

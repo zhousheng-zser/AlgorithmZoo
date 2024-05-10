@@ -158,7 +158,7 @@ namespace glasssix::irisviel
 
                     record_array.append(record);
                 }
-                value["command_result"] = record_array;
+                value["search_result"] = record_array;
             }
             break;
         case 2://search_nf
@@ -192,13 +192,13 @@ namespace glasssix::irisviel
 
                     record_array.append(record);
                 }
-                value["command_result"] = record_array;
+                value["search_result"] = record_array;
             }
             break;
         case 3://contains_key
             {
                 auto key = root["key"].asString();
-                value["command_result"] = Json::Value(impl_->contains_key(key));
+                value["contains_key_result"] = Json::Value(impl_->contains_key(key));
             }
         break;
         case 4://clear
@@ -221,7 +221,7 @@ namespace glasssix::irisviel
                     ret_i["reason"] = Json::Value(i ? u8"OK" : u8"Could not find the key.");
                     ret_array.append(ret_i);
                 }
-                value["result"] = ret_array;
+                value["remove_records_result"] = ret_array;
             }
             break;
         case 7://add_records
@@ -250,7 +250,7 @@ namespace glasssix::irisviel
                     ret_i["reason"] = Json::Value(i ? u8"OK" : u8"The key already exists.");
                     ret_array.append(ret_i);
                 }
-                value["result"] = ret_array;
+                value["add_records_result"] = ret_array;
             }
             break;
         case 8://update_records
@@ -279,7 +279,7 @@ namespace glasssix::irisviel
                     ret_i["reason"] = Json::Value(i ? u8"OK" : u8"Could not find the key.");
                     ret_array.append(ret_i);
                 }
-                value["result"] = ret_array;
+                value["update_records_result"] = ret_array;
             }
             break;
         default:
