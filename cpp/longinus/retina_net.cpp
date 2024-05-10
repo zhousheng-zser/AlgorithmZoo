@@ -194,25 +194,16 @@ namespace glasssix::longinus
             for (size_t i = 0; i < boxes.size(); i++)
             {
                 if (boxes[i].x < 0)
-                {
                     boxes[i].x = 0;
-                }
+
                 if (boxes[i].y < 0)
-                {
                     boxes[i].y = 0;
-                }
+
                 if (boxes[i].x + boxes[i].w > width)
-                {
                     boxes[i].w = width - boxes[i].x;
-                }
+
                 if (boxes[i].y + boxes[i].h > height)
-                {
                     boxes[i].h = height - boxes[i].y;
-                }
-                //        boxes[i].x1 = std::max<float>(std::min<float>(boxes[i].x1, width - 1), 0);
-                //        boxes[i].y1 = std::max<float>(std::min<float>(boxes[i].y1, height - 1), 0);
-                //        boxes[i].x2 = std::max<float>(std::min<float>(boxes[i].x2, width - 1), 0);
-                //        boxes[i].y2 = std::max<float>(std::min<float>(boxes[i].y2, height - 1), 0);
             }
         }
 
@@ -220,25 +211,17 @@ namespace glasssix::longinus
         {
             //Clip boxes to image boundaries.
             if (box.x < 0)
-            {
                 box.x = 0;
-            }
+                
             if (box.y < 0)
-            {
                 box.y = 0;
-            }
+
             if (box.x + box.w > width)
-            {
                 box.w = width - box.x;
-            }
+
             if (box.y + box.h > height)
-            {
                 box.h = height - box.y;
-            }
-            //    boxes[i].x1 = std::max<float>(std::min<float>(boxes[i].x1, width - 1), 0);
-            //    boxes[i].y1 = std::max<float>(std::min<float>(boxes[i].y1, height - 1), 0);
-            //    boxes[i].x2 = std::max<float>(std::min<float>(boxes[i].x2, width - 1), 0);
-            //    boxes[i].y2 = std::max<float>(std::min<float>(boxes[i].y2, height - 1), 0);
+
         }
 
         static inline std::vector<anchor_box> bbox_pred(std::vector<anchor_box> anchors, std::vector<std::vector<float>> regress)

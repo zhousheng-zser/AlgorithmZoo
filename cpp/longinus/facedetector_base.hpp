@@ -8,6 +8,9 @@
 #include <opencv2/imgproc/types_c.h>
 #endif
 
+#include <GenPipeline/GenPipeline.hpp>
+#include <YoloFamily/Yolo_wrapper.hpp>
+
 #ifdef USE_RKNNAPI
 #include "RKNNWrapper/rknn_wrapper.hpp"
 #elif defined(USE_RKNN2API)
