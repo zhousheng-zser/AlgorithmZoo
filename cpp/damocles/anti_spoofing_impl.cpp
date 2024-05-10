@@ -53,7 +53,7 @@ namespace glasssix::damocles
 		int command = root["command"].asInt();
 		switch (command)
 		{
-		case 0:
+		case 0://anti_spoofing
 			{
 				auto faces = exposing::make_param_vector<longinus::face_info, 1>();
 				for (const auto& i : root["facerect_list"])
@@ -74,10 +74,10 @@ namespace glasssix::damocles
 						prob_array.append(res[i][j]);
 					res_array.append(prob_array);
 				}
-				value["command_result"] = res_array;
+				value["spoofing_result"] = res_array;
 			}
 			break;
-		case 1:
+		case 1://presentation_attack_detect
 			{
 				int action_cmd = root["action_cmd"].asInt();
 				auto face = exposing::make_exported_interface<longinus::face_info>();
@@ -87,7 +87,7 @@ namespace glasssix::damocles
 				face.set_width(root["facerect"]["width"].asFloat());
 
 				bool ret = impl_->presentation_attack_detect(action_cmd, face, input_data, data_shape[1], data_shape[2], data_shape[3], order);
-				value["command_result"] = Json::Value(ret);
+				value["presentation_attack_result"] = Json::Value(ret);
 			}
 			break;
 		default:
