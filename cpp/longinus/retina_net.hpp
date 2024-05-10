@@ -7,6 +7,12 @@
 #include <map>
 #include <abi/consumer.hpp>
 
+#include <opencv2/core.hpp>
+#include <opencv2/dnn.hpp>
+#include <opencv2/imgproc.hpp>
+#include <GenPipeline/PrePostProcessGenPipeline.hpp>
+#include <GenPipeline/GenPipeTools.hpp>
+
 namespace glasssix::longinus
 {
     class retina_net : public facedetector_base
@@ -32,11 +38,8 @@ namespace glasssix::longinus
         virtual std::string version() const;
 
     private:
-#if defined(USE_RKNNAPI) || defined(USE_RKNN2API)
-        std::unique_ptr<rknnwrapper::rknn_wrapper> retina_;
-#else
-        std::unique_ptr<glasssix::excalibur::pipeline<float>> retina_;
-#endif
+
+        std::shared_ptr<PrePostProcessGenPipeline> retina_;
         int model_type_;
         float nms_threshold_;
         std::vector<float> ratio_;
