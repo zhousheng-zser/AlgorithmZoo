@@ -470,6 +470,7 @@ namespace glasssix::longinus
             anchors_fpn_[key] = anchors_fpn[i];
             num_anchors_[key] = anchors_fpn[i].size();
         }
+        
     }
 
     retina_net::~retina_net()

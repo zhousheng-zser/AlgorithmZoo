@@ -5,7 +5,7 @@
 #include "Primitives/tensor_conversions.hpp"
 
 using namespace glasssix;
-    void Softmax(float* data, float* dst_data, int num )
+    static void Softmax(float* data, float* dst_data, int num )
     {             
         double L2_Sum=0.f;
         for(size_t i=0; i<num; i++) 
@@ -65,7 +65,7 @@ using namespace glasssix;
         {}
     };
 
-    int safe_region(float location, int border )
+    static int safe_region(float location, int border )
     {
         location = location > 0.f? location:0.f;
         location = location < border? location: border;

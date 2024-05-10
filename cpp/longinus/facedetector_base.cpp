@@ -63,8 +63,7 @@ namespace glasssix::longinus
 #endif
 #endif
 #else
-        tracker_ = std::shared_ptr<excalibur::pipeline<float>>(get_model_params(std::string("pfld_land71_simp")), std::string(models_directory) + "/pfld_land71_simp.racy", device);
-        retina_ = PrePostProcessGenPipeline::mkSharePipeline(std::string(models_directory) + "pfld_land71_simp.bmodel", 0);
+        tracker_ = PrePostProcessGenPipeline::mkSharePipeline(std::string(models_directory) + "pfld_land71_simp.bmodel", 0);
 #endif
     }
 
