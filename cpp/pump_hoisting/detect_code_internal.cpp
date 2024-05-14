@@ -57,10 +57,9 @@ namespace glasssix::pump_hoisting
                     auto match_id = get_match_id(library, current_box,0.2);
                     if( match_id != -1 )  
                     {
-                        // float distance1 =get_distance_between_Rectangle(current_box, library[match_id] );
                         float distance = get_distance_between_Rectangle(current_box, library[match_id], false );
                         float left_down_corner_distance = get_left_down_corner_distance_between_Rectangle(current_box,library[match_id],false);
-                        float left_top_corner_distance = get_left_top_corner_distance_between_Rectangle(current_box,library[match_id],false);
+                        float left_top_corner_distance =  get_left_top_corner_distance_between_Rectangle(current_box,library[match_id],false);
                         library[match_id].refresh( current_box.x1, current_box.y1, current_box.x2, current_box.y2   );
                         // if(  (abs(current_box.y2-current_box.y1)*0.08 > distance && distance > abs(current_box.y2-current_box.y1)*move_threshold) && left_down_corner_distance>0.08*abs(current_box.y2-current_box.y1)  && left_top_corner_distance>0.08*abs(current_box.y2-current_box.y1) ) //检测到移动了
                         if(  (abs(current_box.y2-current_box.y1)*0.8 > distance && distance > abs(current_box.y2-current_box.y1)*move_threshold) && left_down_corner_distance>0.08*abs(current_box.y2-current_box.y1)  && left_top_corner_distance>0.08*abs(current_box.y2-current_box.y1) ) //检测到移动了
@@ -71,12 +70,12 @@ namespace glasssix::pump_hoisting
                             auto neighboor_quadrilateral=get_initial_quadrilateral(neighboorleft,current_box ,neighboorright );
                             auto quadrilateral_left  = std::get<0>(  neighboor_quadrilateral);
                             auto quadrilateral_right = std::get<1>(  neighboor_quadrilateral);
-                            if(!neighboorleft.is_invalid_rect() && calculate_distance(neighboorleft,current_box)<1000  )
+                            if(!neighboorleft.is_invalid_rect() && calculate_distance_adjacent_edge(neighboorleft,current_box)<1000  )
                             {
                                 Quadrilateral_scale(quadrilateral_left,0.8);
                                 dangerous_region.push_back(quadrilateral_left);
                             }
-                            if(!neighboorright.is_invalid_rect() && calculate_distance(neighboorright,current_box)<1000   )
+                            if(!neighboorright.is_invalid_rect() && calculate_distance_adjacent_edge(neighboorright,current_box)<1000   )
                             {
                                 Quadrilateral_scale(quadrilateral_right,0.8,false);
                                 dangerous_region.push_back(quadrilateral_right);
@@ -153,7 +152,6 @@ namespace glasssix::pump_hoisting
 #ifdef draw_pic
             for(auto& current_box : all_current_boxes)
             {
-                // std::cout<<current_box.score<<"   "<<current_box.x1<<"\n";
                 cv::rectangle(image, cv::Point(current_box.x1,current_box.y1),  
                                 cv::Point(current_box.x2,current_box.y2),  cv::Scalar(0,0,255) ,5);
             }
@@ -215,49 +213,11 @@ namespace glasssix::pump_hoisting
         }
         std::string version()
         {
-            const std::string algo_module_version = "3.0.2";
-// #if defined(USE_RKNNAPI) || defined(USE_RKNN2API)
-//         //#if 0
-//             std::string nn_frame_version = net_pump_hoisting_detect_.version();
-// #else
-//             std::string nn_frame_version = net_pump_hoisting_detect_.version();
-// #endif      
+            const std::string algo_module_version = "3.0.2";   
             std::string nn_frame_version = "dsdsd";
             return fmt::format(R"({{"nn_frame_version":"{}", "algo_module_version":"{}"}})", nn_frame_version, algo_module_version);
         }
-    private:
-       void init_data_compatible(int width,int height)
-        {
-            int size_mul_weight = width*height*21/1024; 
-            int size_add_weight = 2*size_mul_weight;  
-            int width_base = width/8;
-            int height_base = height/8;
-            int candicate_area = width_base*height_base;
-            add_weight.resize(size_add_weight);
-            mul_weight.resize(size_mul_weight);
-            for (size_t i = 0; i < candicate_area*21/16; i++)
-            {     
-                if(i< candicate_area  ) 
-                {
-                    add_weight[i] = i%(width_base); 
-                    add_weight[i+size_mul_weight] = i/(width_base) ; 
-                    mul_weight[i] =8.f;
-                }
-                else if( i<int(std::round(i - candicate_area*1.25)))
-                {
-                    add_weight[i] = (i -candicate_area)% (width_base/2);
-                    add_weight[i+size_mul_weight] = (i-candicate_area)/ (width_base/2);
-                    mul_weight[i] = 16.f;
-                }
-                else
-                {
-                    add_weight[i] = int(std::round(i - candicate_area*1.25)) % (width_base/4);
-                    add_weight[i+size_mul_weight] =  int(std::round(i - candicate_area*1.25))/(width_base/4);
-                    mul_weight[i] = 32.f;
-                }
-            }
-            return ;    
-        }
+  
     private:
 #if defined(USE_RKNNAPI) || defined(USE_RKNN2API)
 
