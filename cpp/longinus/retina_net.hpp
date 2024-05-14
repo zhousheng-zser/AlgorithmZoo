@@ -7,10 +7,6 @@
 #include <map>
 #include <abi/consumer.hpp>
 
-#include <opencv2/core.hpp>
-#include <opencv2/dnn.hpp>
-#include <opencv2/imgproc.hpp>
-
 namespace glasssix::longinus
 {
     class retina_net : public facedetector_base

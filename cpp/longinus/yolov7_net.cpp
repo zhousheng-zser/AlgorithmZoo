@@ -1,7 +1,6 @@
 #include "yolov7_net.hpp"
 #include "hardcode.hpp"
 #include "face_info_impl.hpp"
-#include <opencv2/opencv.hpp>
 
 #include "tensor_conversions.hpp"
 #include "Excalibur/operation_safty_cut.hpp"
