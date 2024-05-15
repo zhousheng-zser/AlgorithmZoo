@@ -35,7 +35,7 @@ namespace glasssix::flame
 			throw Json::Exception("parse json failed");
 
 		std::cout << root.toStyledString() << std::endl;
-		Json::Value params = root.get("dparams", Json::Value());
+		Json::Value params = root.get("dyparams", Json::Value());
 
 		std::map<std::string, float> dparam_map;
 
