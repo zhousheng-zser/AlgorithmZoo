@@ -32,10 +32,10 @@ namespace glasssix::pumptop_helmet
 		pumptop_helmet_detector_impl();
 		~pumptop_helmet_detector_impl();
 
-		void init(const exposing::param_string& models_directory, std::int32_t device);
-
+		void init(const exposing::param_string& str_params);
+		exposing::param_string execute(const exposing::param_hash_map<exposing::param_string, exposing::unknown_object>& input_params_map);
 		exposing::param_string version() const;
-		exposing::param_vector<pumptop_helmet_info> detect(exposing::param_span<std::uint8_t> bitmap, std::int32_t channels, std::int32_t height, std::int32_t width, const exposing::param_hash_map<exposing::param_string,float>& param_map) const;
+
 	private:
 		std::unique_ptr<impl> impl_;
 	};
