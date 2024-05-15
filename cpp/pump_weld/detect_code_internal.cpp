@@ -70,7 +70,7 @@ namespace glasssix::pump_weld
             }
 
             float wmachine_conf_thres = param_map_std.count("wmachine_conf_thres") ? param_map_std["wmachine_conf_thres"] : 0.3f;
-            float wlight_conf_thres = param_map_std.count("wlight_conf_thres") ? param_map_std["wlight_conf_thres"] : 0.7f;
+            float wlight_conf_thres = param_map_std.count("wlight_conf_thres") ? param_map_std["wlight_conf_thres"] : 0.6f;
             float weld_machine_nms_thres = param_map_std.count("nms_thres") ? param_map_std["nms_thres"] : 0.4f;
             int candidate_box_width= param_map_std.count("candidate_box_width") ? param_map_std["candidate_box_width"] : 500.f;
 			int candidate_box_height = param_map_std.count("candidate_box_height") ? param_map_std["candidate_box_height"] : 500.f;
@@ -231,7 +231,7 @@ namespace glasssix::pump_weld
 
         std::string version()
         {
-            const std::string algo_module_version = "2.0.2";
+            const std::string algo_module_version = "2.0.3";
 
             std::string nn_frame_version = ioprocess_pipeline_->version();
 
