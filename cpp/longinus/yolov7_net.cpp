@@ -1,6 +1,7 @@
 #include "yolov7_net.hpp"
 #include "hardcode.hpp"
 #include "face_info_impl.hpp"
+#include <opencv2/opencv.hpp>
 
 #include "tensor_conversions.hpp"
 #include "Excalibur/operation_safty_cut.hpp"
@@ -15,7 +16,7 @@ namespace glasssix::longinus
         model_type_{ model_type },
         nms_threshold_{ nms_threshold }
     {
-#if defined(USE_RKNNAPI) || defined(USE_RKNN2API)
+#if defined(USE_RKNNAPI) || defined(USE_RKNN2API) || defined(USE_BMNN)
         switch (model_type)
         {
             case 0:
@@ -33,7 +34,7 @@ namespace glasssix::longinus
         }
 #endif
             yolov7_face_->manual_possible_normalization(std::array<float,3>{0.f,0.f,0.f},std::array<float,3>{1.f / 255.f,1.f / 255.f,1.f / 255.f});
-            yolov7_instance = std::make_shared<Yolov7<GenPipeline>>(640,640, yolov7_face_);
+            yolov7_instance = std::make_shared<Yolov7<GenPipeline,false,true>>(640,640, yolov7_face_);
     }
 
     yolov7_net::~yolov7_net()
@@ -53,8 +54,12 @@ namespace glasssix::longinus
 
         cv::Mat cache_temp(height, width, CV_8UC3, bitmap.data());
 
+        std::cout<<"yolo face_object "<<std::endl;
+
         auto face_object = yolov7_instance->get_objects( cache_temp, threshold, nms_threshold_ );
 
+
+        std::cout<<face_object.size()<<"dsdsfsdfdf"<<std::endl;
         std::vector<face_info_internal> face_infos;
         for (auto it : face_object)
         {
