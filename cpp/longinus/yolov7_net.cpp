@@ -16,7 +16,7 @@ namespace glasssix::longinus
         model_type_{ model_type },
         nms_threshold_{ nms_threshold }
     {
-#if defined(USE_RKNNAPI) || defined(USE_RKNN2API) || defined(USE_BMNN)
+#if defined(USE_RKNNAPI) || defined(USE_RKNN2API)
         switch (model_type)
         {
             case 0:
@@ -33,7 +33,7 @@ namespace glasssix::longinus
                 yolov7_face_ = std::make_shared<GenPipeline>(std::string(models_directory) + "/yolov7_640.bmodel", device);
         }
 #endif
-            yolov7_face_->manual_possible_normalization(std::array<float,3>{0.f,0.f,0.f},std::array<float,3>{1.f / 255.f,1.f / 255.f,1.f / 255.f});
+            yolov7_face_->manual_possible_normalization(std::array<float,3>{104.f,117.f,124.f},std::array<float,3>{0.00961538f / 255.f,0.008547f / 255.f,0.00806451f / 255.f});
             yolov7_instance = std::make_shared<Yolov7<GenPipeline,false,true>>(640,640, yolov7_face_);
     }
 

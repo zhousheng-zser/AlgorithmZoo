@@ -436,6 +436,7 @@ namespace glasssix::longinus
                 break;
             }
 #endif
+        retina_->manual_possible_normalization(std::array<float,3>{104.f,117.f,124.f},std::array<float,3>{0.00961538f / 255.f,0.008547f / 255.f,0.00806451f / 255.f});
 
         ratio_ = { 1.0 };
         //anchor setting
