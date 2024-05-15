@@ -162,6 +162,12 @@ using namespace glasssix;
         return distance;
     }
 
+    int calculate_distance_adjacent_edge(Rectangle rect1, Rectangle rect2) 
+    {
+        int distance = std::min(std::abs(rect1.x2 - rect2.x1), std::abs(rect2.x2 - rect1.x1));
+        return distance;
+    }
+
     std::pair<Rectangle, Rectangle> find_nearest_rectangles(std::vector<Rectangle> rectangles, Rectangle target_rect) 
     {
         Rectangle left_nearest (0, 0, 0, 0,0);
@@ -259,7 +265,9 @@ using namespace glasssix;
         }
 
         if( min_distance > abs(Rect.x2-Rect.x1)*ratio )
+        {
             id = -1;
+        }
         return id;
     }
 
