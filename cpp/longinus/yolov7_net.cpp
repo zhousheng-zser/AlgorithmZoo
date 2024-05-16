@@ -16,25 +16,42 @@ namespace glasssix::longinus
         model_type_{ model_type },
         nms_threshold_{ nms_threshold }
     {
+        int width = 0;
+        int height = 0;
 #if defined(USE_RKNNAPI) || defined(USE_RKNN2API)
         switch (model_type)
         {
             case 0:
                 yolov7_face_ = std::make_shared<GenPipeline>(std::string(models_directory) + "/yolov7_320.rknn", device);
+                width = 320;
+                height = 320;
+                break;
             case 1:
                 yolov7_face_ = std::make_shared<GenPipeline>(std::string(models_directory) + "/yolov7_640.rknn", device);
+                width = 640;
+                height = 640;
+                break;
         }
 #elif defined(USE_BMNN)
         switch (model_type)
         {
             case 0:
                 yolov7_face_ = std::make_shared<GenPipeline>(std::string(models_directory) + "/yolov7_320.bmodel", device);
+                width = 320;
+                height = 320;
+                break;
             case 1:
                 yolov7_face_ = std::make_shared<GenPipeline>(std::string(models_directory) + "/yolov7_640.bmodel", device);
+                width = 640;
+                height = 640;
+                break;
         }
 #endif
-            yolov7_face_->manual_possible_normalization(std::array<float,3>{104.f,117.f,124.f},std::array<float,3>{0.00961538f / 255.f,0.008547f / 255.f,0.00806451f / 255.f});
-            yolov7_instance = std::make_shared<Yolov7<GenPipeline,false,true>>(640,640, yolov7_face_);
+            // yolov7_face_->manual_possible_normalization(std::array<float,3>{104.f,117.f,124.f},std::array<float,3>{0.00961538f / 255.f,0.008547f / 255.f,0.00806451f / 255.f});
+
+            yolov7_face_->manual_possible_normalization(std::array<float,3>{0.f,0.f,0.f},std::array<float,3>{1.f / 255.f,1.f / 255.f,1.f / 255.f});
+
+            yolov7_instance = std::make_shared<Yolov7<GenPipeline,false,true>>(width,height, yolov7_face_);
     }
 
     yolov7_net::~yolov7_net()
@@ -54,12 +71,10 @@ namespace glasssix::longinus
 
         cv::Mat cache_temp(height, width, CV_8UC3, bitmap.data());
 
-        std::cout<<"yolo face_object "<<std::endl;
 
         auto face_object = yolov7_instance->get_objects( cache_temp, threshold, nms_threshold_ );
 
 
-        std::cout<<face_object.size()<<"dsdsfsdfdf"<<std::endl;
         std::vector<face_info_internal> face_infos;
         for (auto it : face_object)
         {

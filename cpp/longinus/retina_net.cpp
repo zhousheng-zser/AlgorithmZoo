@@ -436,7 +436,7 @@ namespace glasssix::longinus
                 break;
             }
 #endif
-        retina_->manual_possible_normalization(std::array<float,3>{104.f,117.f,124.f},std::array<float,3>{0.00961538f / 255.f,0.008547f / 255.f,0.00806451f / 255.f});
+        retina_->manual_possible_normalization(std::array<float,3>{0.f,0.f,0.f},std::array<float,3>{1.f,1.f,1.f});
 
         ratio_ = { 1.0 };
         //anchor setting
@@ -515,15 +515,17 @@ namespace glasssix::longinus
         cv::Mat cache_forward;
         cv::resize(cache_temp, cache_forward, cv::Size(std::round(width / scale), std::round(height / scale)));
         cv::copyMakeBorder(cache_forward, cache_forward, 0, hs - std::round(height / scale), 0, ws - std::round(width / scale), cv::BORDER_CONSTANT, cv::Scalar::all(0));
+	std::cout << " debug_zj " << __LINE__ << std::endl;
 
-#ifdef USE_RKNNAPI
-        const char* score_suffix[3] = { "_74_125","_98_128","_122_131" };
-        const char* bbox_suffix[3] = { "_75_126","_99_129","_123_132" };
-        const char* landmark_suffix[3] = { "_76_127","_100_130","_124_133" };
-#else
+#if defined (USE_RKNNAPI) || defined(USE_RKNN2API)
         const char* score_suffix[3] = { "","","" };
         const char* bbox_suffix[3] = { "","","" };
         const char* landmark_suffix[3] = { "","","" };
+
+#else
+        const char* score_suffix[3] = { "","","" };
+        const char* bbox_suffix[3] = { "_f32","_f32","_f32" };
+        const char* landmark_suffix[3] = { "_f32","_f32","_f32" };
 #endif
         auto blob_data = retina_->forward(cache_forward);
 

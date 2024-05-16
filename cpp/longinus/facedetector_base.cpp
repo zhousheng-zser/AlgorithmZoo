@@ -64,6 +64,7 @@ namespace glasssix::longinus
 #endif
 #else
         tracker_ = PrePostProcessGenPipeline::mkSharePipeline(std::string(models_directory) + "/pfld_land71_simp.bmodel", 0);
+        tracker_->manual_possible_normalization(std::array<float,3>{104.f,117.f,124.f},std::array<float,3>{0.00961538f,0.008547f,0.00806451f});
 #endif
     }
 
@@ -231,13 +232,14 @@ namespace glasssix::longinus
 
         cv::resize(face, face, cv::Size(80, 80));
         auto res = tracker_->forward(face);
+#if defined(USE_RKNNAPI) || defined(USE_RKNN2API) 
 #ifdef USE_RKNNAPI
         trackfaceinfo.score = res["Softmax_Softmax_103/out0_2"]->cpu_data()[1];
         const float* glass_data = res["Softmax_Softmax_76/out0_3"]->cpu_data();
         const float* mask_data = res["Softmax_Softmax_79/out0_4"]->cpu_data();
         const float* landmark_data = res["MatMul_MatMul_124/out0_1"]->cpu_data();
         const float* bbox_data = res["MatMul_MatMul_113/out0_0"]->cpu_data();
-#else
+#elif defined(USE_RKNN2API)
         trackfaceinfo.score = res["188"]->cpu_data()[1];
         const float* glass_data = res["157"]->cpu_data();
         const float* mask_data = res["161"]->cpu_data();
@@ -262,11 +264,21 @@ namespace glasssix::longinus
         //    }
         //}
 #else
+#if defined(USE_RKNN2API)
         const float* landmark_data = res["215"]->cpu_data();
+#endif
 #endif
         const float* bbox_data = res["output"]->cpu_data();
 #endif
+#endif
 
+#if defined(USE_BMNN)
+        trackfaceinfo.score = res["188_Softmax"]->cpu_data()[1];
+        const float* glass_data = res["157_Softmax"]->cpu_data();
+        const float* mask_data = res["161_Softmax"]->cpu_data();
+        const float* landmark_data = res["215_MatMul_f32"]->cpu_data();
+        const float* bbox_data = res["output_MatMul_f32"]->cpu_data();
+#endif
         int x1 = bbox_data[0] * width / 10 + offset_x;
         int y1 = bbox_data[1] * height / 10 + offset_y;
         int x2 = bbox_data[2] * width / 10 + width + offset_x;
