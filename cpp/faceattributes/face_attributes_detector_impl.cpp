@@ -61,7 +61,7 @@ namespace glasssix::face_attributes
 				#if defined(USE_RKNNAPI) || defined(USE_RKNN2API) || defined WIN32
 				const std::vector<std::string> out_names = { "gender", "age", "mask", "glass" };
 				#elif defined(USE_BMNN)
-				const std::vector<std::string> out_names = { "gender", "age", "mask", "glass" };
+				const std::vector<std::string> out_names = { "gender_MatMul_f32", "age_MatMul_f32", "mask_MatMul_f32", "glass_MatMul_f32" };
 				#endif
 				auto gender_data = network_result[out_names[0]]->cpu_data();
 				auto age_data = network_result[out_names[1]]->cpu_data();

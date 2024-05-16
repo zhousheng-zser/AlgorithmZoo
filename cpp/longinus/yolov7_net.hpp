@@ -1,4 +1,5 @@
 #pragma once
+
 #include "face_info.hpp"
 #include "facedetector_base.hpp"
 
@@ -23,11 +24,11 @@ namespace glasssix::longinus
         virtual std::string version() const;
 
     private:
-#if defined(USE_RKNNAPI) || defined(USE_RKNN2API)
-        std::unique_ptr<rknnwrapper::rknn_wrapper> yolov7_;
-#else
-        std::unique_ptr<glasssix::excalibur::pipeline<float>> yolov7_;
-#endif
+
+        std::shared_ptr<GenPipeline> yolov7_face_;
+        std::shared_ptr<Yolov7<GenPipeline,false,true>> yolov7_instance;
+        // std::string models_directory;
+
         int model_type_;
         float nms_threshold_;
     };
