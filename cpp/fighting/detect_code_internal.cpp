@@ -76,7 +76,7 @@ namespace glasssix::fighting
 			}
 
 			const float fight_thres = param_map_std.count("fight_thres") ? param_map_std["fight_thres"] : 0.7f;
-			const float person_conf_thres = param_map_std.count("person_conf_thres") ? param_map_std["person_conf_thres"] : 0.6f;
+			const float person_conf_thres = param_map_std.count("person_conf_thres") ? param_map_std["person_conf_thres"] : 0.4f;
 			const float person_nms_thres = 0.6f;
 
 
@@ -185,8 +185,8 @@ namespace glasssix::fighting
 		}
 
 		std::vector<PersonBBox> person_detect(int frame_id, cv::Mat& image,float con_thres, float iou_thres) {
-			const int letter_h = 480;
-			const int letter_w = 800;
+			const int letter_h = 384;
+			const int letter_w = 640;
 			//std::cout << "frame_id " << frame_id << std::endl;
 			GenPipTools::LetterInfo letter_op;
 			auto letter_img = GenPipTools::letter_image(image, letter_w, letter_h, letter_op, true);
@@ -248,7 +248,7 @@ namespace glasssix::fighting
 
 		std::string version()
 		{
-			const std::string algo_module_version = "3.2.0";
+			const std::string algo_module_version = "3.2.1";
 			std::string nn_frame_version = nonm_instance_->version();
 			return fmt::format(R"({ {"nn_frame_version":"{}", "algo_module_version" : "{}"} })", nn_frame_version, algo_module_version);
 		}
