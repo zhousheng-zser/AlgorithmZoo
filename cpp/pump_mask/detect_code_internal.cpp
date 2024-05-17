@@ -249,32 +249,32 @@ namespace glasssix::pump_mask
                         for (int j = 0; j < num_grid_y; j++)
                         {
                             float* pdata = ptr_out + ind * category;
-                            float box_score = sigmoid_x(pdata[4]);
+                            float box_score = yolo_wrapper::sigmoid_x(pdata[4]);
 
-                            float cx = (sigmoid_x(pdata[0]) * 2.f - 0.5f + j) * stride[n];  // cx
-                            float cy = (sigmoid_x(pdata[1]) * 2.f - 0.5f + i) * stride[n];  // cy
-                            float w = powf(sigmoid_x(pdata[2]) * 2.f, 2.f) * anchor_w;      // w
-                            float h = powf(sigmoid_x(pdata[3]) * 2.f, 2.f) * anchor_h;      // h
+                            float cx = (yolo_wrapper::sigmoid_x(pdata[0]) * 2.f - 0.5f + j) * stride[n];  // cx
+                            float cy = (yolo_wrapper::sigmoid_x(pdata[1]) * 2.f - 0.5f + i) * stride[n];  // cy
+                            float w = powf(yolo_wrapper::sigmoid_x(pdata[2]) * 2.f, 2.f) * anchor_w;      // w
+                            float h = powf(yolo_wrapper::sigmoid_x(pdata[3]) * 2.f, 2.f) * anchor_h;      // h
 
 
-                            float x1 = powf(sigmoid_x(pdata[4]) * 2.f, 2.f) * anchor_w;      // h
-                            float y1 = powf(sigmoid_x(pdata[5]) * 2.f, 2.f) * anchor_h;      // h
+                            float x1 = powf(yolo_wrapper::sigmoid_x(pdata[4]) * 2.f, 2.f) * anchor_w;      // h
+                            float y1 = powf(yolo_wrapper::sigmoid_x(pdata[5]) * 2.f, 2.f) * anchor_h;      // h
 
-                            float x2 = powf(sigmoid_x(pdata[7]) * 2.f, 2.f) * anchor_w;      // h
-                            float y2 = powf(sigmoid_x(pdata[8]) * 2.f, 2.f) * anchor_h;      // h
+                            float x2 = powf(yolo_wrapper::sigmoid_x(pdata[7]) * 2.f, 2.f) * anchor_w;      // h
+                            float y2 = powf(yolo_wrapper::sigmoid_x(pdata[8]) * 2.f, 2.f) * anchor_h;      // h
 
-                            std::vector<float> element = { cx, cy, w, h, box_score, sigmoid_x(pdata[5]) };
+                            std::vector<float> element = { cx, cy, w, h, box_score, yolo_wrapper::sigmoid_x(pdata[5]) };
                             for (size_t k = 0; k < 5; k++)
                             {
                                 float point_x = ((pdata[6 + k * 3 + 0]) * 2.f - 0.5f + j) * stride[n];
                                 float point_y = ((pdata[6 + k * 3 + 1]) * 2.f - 0.5f + i) * stride[n];
-                                float score = sigmoid_x(pdata[6 + k * 3 + 2]);
+                                float score = yolo_wrapper::sigmoid_x(pdata[6 + k * 3 + 2]);
                                 element.push_back(point_x);
                                 element.push_back(point_y);
                                 element.push_back(score);
                             }
 
-                            if (box_score * sigmoid_x(pdata[5]) > 0.45)
+                            if (box_score * yolo_wrapper::sigmoid_x(pdata[5]) > 0.45)
                                 result.push_back(element);
 
                             ind++;

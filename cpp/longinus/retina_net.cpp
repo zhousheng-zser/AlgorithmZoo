@@ -515,7 +515,6 @@ namespace glasssix::longinus
         cv::Mat cache_forward;
         cv::resize(cache_temp, cache_forward, cv::Size(std::round(width / scale), std::round(height / scale)));
         cv::copyMakeBorder(cache_forward, cache_forward, 0, hs - std::round(height / scale), 0, ws - std::round(width / scale), cv::BORDER_CONSTANT, cv::Scalar::all(0));
-	std::cout << " debug_zj " << __LINE__ << std::endl;
 
 #if defined (USE_RKNNAPI) || defined(USE_RKNN2API)
         const char* score_suffix[3] = { "","","" };
