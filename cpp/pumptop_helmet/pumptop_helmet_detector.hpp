@@ -33,9 +33,9 @@ namespace glasssix::exposing::impl
 		{
 			return abi_safe_call([&] { this->self().init(create_from_abi<param_string>(str_params)); });
 		}
-		virtual std::int32_t G6_ABI_CALL execute(abi_in_t<param_hash_map<param_string, unknown_object>> input_params_map, abi_out_t<param_string> result)
+		virtual std::int32_t G6_ABI_CALL execute(abi_in_t<param_hash_map<param_string, unknown_object>> input_params_map, abi_out_t<param_string> result)noexcept override
 		{
-			return abi_safe_call([&] { *result = detach_abi(this->self().execute(create_from_abi<param_hash_map<param_string, unknown_object>>(input_params_map));});
+			return abi_safe_call([&] { *result = detach_abi(this->self().execute(create_from_abi<param_hash_map<param_string, unknown_object>>(input_params_map)));});
 		}
 
 		virtual std::int32_t G6_ABI_CALL version(abi_out_t<param_string> result) noexcept override
@@ -51,7 +51,7 @@ namespace glasssix::exposing::impl
 		{
 			void init(const exposing::param_string& str_params) const
 			{
-				check_abi_result(this->self_abi().init(get_abi(models_directory)));
+				check_abi_result(this->self_abi().init(get_abi(str_params)));
 			}
 
 			param_string execute(const param_hash_map<param_string, unknown_object>& input_params_map)
