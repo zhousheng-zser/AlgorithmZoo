@@ -1127,18 +1127,20 @@ namespace glasssix::pumptop_helmet
 		{
 			int category = Json::Int(result[i].category());
 			// Json::Value jarray_box;
-			if (category == 1)
+			if (category == 0)
 			{
 				jarray_box["x1"] = Json::Int(result[i].x1());
 				jarray_box["y1"] = Json::Int(result[i].y1());
 				jarray_box["x2"] = Json::Int(result[i].x2());
 				jarray_box["y2"] = Json::Int(result[i].y2());
 				jarray_box["score"] = Json::Value(result[i].score());
+				jarray_box["helmet_score"] = Json::Value(result[i].helmet_score());
+				jarray_box["category"] = Json::Value(result[i].category());
 				jarray_fire_detected.append(jarray_box);
 			}
 		}
 
-		value["detect_info"]["fire_list"] = jarray_fire_detected;
+		value["detect_info"]["person_list"] = jarray_fire_detected;
 		return exposing::to_param_string(writer.write(value));
 	}
 
