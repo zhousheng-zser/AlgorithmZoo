@@ -74,7 +74,7 @@ namespace glasssix::refvest
 
                 static constexpr int NO_REF_VEST = 0;
                 static constexpr int IS_REF_VEST = 1;
-                static constexpr float IS_REF_THRESH = con_thres;
+                static float IS_REF_THRESH = con_thres;
 
                 refvest::box_info_internal item;
                 item.x1 = postureInfo.xmin;
