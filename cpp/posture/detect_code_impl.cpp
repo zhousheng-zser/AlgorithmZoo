@@ -19,8 +19,9 @@ namespace glasssix::posture
 		if (!reader.parse(exposing::to_narrow_string(str_params), root))
 			throw Json::Exception("parse json failed");
 		std::string model_directory = root["models_directory"].asString();
+		int model_type = root.get("device", Json::Int(-1)).asInt();
 		int device = root.get("device", Json::Int(-1)).asInt();
-		impl_ = std::make_unique<detect_code_internal>(model_directory, device);
+		impl_ = std::make_unique<detect_code_internal>(model_directory, device, model_type);
 	}
 	exposing::param_string detect_code_impl::version() const
 	{
