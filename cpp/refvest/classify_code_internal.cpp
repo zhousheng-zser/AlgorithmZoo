@@ -39,6 +39,8 @@ namespace glasssix::refvest
 
         exposing::param_vector<refvest::box_info> detect(const exposing::param_span<std::uint8_t>& bitmap, int channels, int height, int width, int roi_x, int roi_y, int roi_width, int roi_height, exposing::param_vector<posture::box_info> posture_info_list, std::map<std::string, float>& param_map)
         {
+
+            float con_thres = param_map.count("conf_thres") ? param_map["conf_thres"] : 0.8f;
             if (bitmap.empty())
             {
                 throw exposing::abi_invalid_argument("current frame is empty");
@@ -72,7 +74,7 @@ namespace glasssix::refvest
 
                 static constexpr int NO_REF_VEST = 0;
                 static constexpr int IS_REF_VEST = 1;
-                static constexpr float IS_REF_THRESH = 0.8f;
+                static constexpr float IS_REF_THRESH = con_thres;
 
                 refvest::box_info_internal item;
                 item.x1 = postureInfo.xmin;
