@@ -1,6 +1,7 @@
 #include <iostream>
 #include <cmath>
 #include <tuple>
+#include "json.h"
 
 #include "detect_code_internal.hpp"
 #include "box_info_impl.hpp"
@@ -33,8 +34,14 @@ namespace glasssix::helmet
     public:
 
         impl() {}
-        impl(const exposing::param_string model_directory, int device) :impl()
+        impl(const exposing::param_string & str_params) :impl()
         {
+            Json::Reader reader(Json::Features::strictMode());
+            Json::Value root;
+            if (!reader.parse(exposing::to_narrow_string(str_params), root))
+                throw Json::Exception("parse json failed");
+            std::string model_directory = root["models_directory"].asString();
+            int device = root.get("device", Json::Int(-1)).asInt();
             std::string model_dir = exposing::to_narrow_string(model_directory);
             if (*model_dir.rbegin() != '/') model_dir += '/';
 #if defined(USE_RKNNAPI) || defined(USE_RKNN2API)
@@ -225,8 +232,8 @@ namespace glasssix::helmet
         std::shared_ptr<PrePostProcessGenPipeline> net_class_;
     };
 
-    detect_code_internal::detect_code_internal(std::string_view model_directory, int device)
-        : impl_{ std::make_unique<impl>(model_directory, device) }
+    detect_code_internal::detect_code_internal(const exposing::param_string & str_params)
+        : impl_{ std::make_unique<impl>(str_params) }
     {
     }
 
