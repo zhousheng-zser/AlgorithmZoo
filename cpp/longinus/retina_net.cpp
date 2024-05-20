@@ -14,19 +14,7 @@
 #include "Primitives/tensor_conversions.hpp"
 #include "hardcode.hpp"
 
-#ifdef USE_RKNNAPI
-#include "RKNNWrapper/rknn_wrapper.hpp"
-#include <opencv2/opencv.hpp>
-#include <opencv2/imgproc/types_c.h>
-#elif defined(USE_RKNN2API)
-#include "../../common/include/RKNN2Wrapper/rknn2_wrapper.hpp"
-#include <opencv2/opencv.hpp>
-#include <opencv2/imgproc/types_c.h>
-#if defined(BUILD_RV1106) 
-#include <fstream>
-#include "Julius/julius_gemv.hpp"
-#endif
-#endif
+
 
 
 namespace glasssix::longinus
@@ -194,25 +182,16 @@ namespace glasssix::longinus
             for (size_t i = 0; i < boxes.size(); i++)
             {
                 if (boxes[i].x < 0)
-                {
                     boxes[i].x = 0;
-                }
+
                 if (boxes[i].y < 0)
-                {
                     boxes[i].y = 0;
-                }
+
                 if (boxes[i].x + boxes[i].w > width)
-                {
                     boxes[i].w = width - boxes[i].x;
-                }
+
                 if (boxes[i].y + boxes[i].h > height)
-                {
                     boxes[i].h = height - boxes[i].y;
-                }
-                //        boxes[i].x1 = std::max<float>(std::min<float>(boxes[i].x1, width - 1), 0);
-                //        boxes[i].y1 = std::max<float>(std::min<float>(boxes[i].y1, height - 1), 0);
-                //        boxes[i].x2 = std::max<float>(std::min<float>(boxes[i].x2, width - 1), 0);
-                //        boxes[i].y2 = std::max<float>(std::min<float>(boxes[i].y2, height - 1), 0);
             }
         }
 
@@ -220,25 +199,17 @@ namespace glasssix::longinus
         {
             //Clip boxes to image boundaries.
             if (box.x < 0)
-            {
                 box.x = 0;
-            }
+                
             if (box.y < 0)
-            {
                 box.y = 0;
-            }
+
             if (box.x + box.w > width)
-            {
                 box.w = width - box.x;
-            }
+
             if (box.y + box.h > height)
-            {
                 box.h = height - box.y;
-            }
-            //    boxes[i].x1 = std::max<float>(std::min<float>(boxes[i].x1, width - 1), 0);
-            //    boxes[i].y1 = std::max<float>(std::min<float>(boxes[i].y1, height - 1), 0);
-            //    boxes[i].x2 = std::max<float>(std::min<float>(boxes[i].x2, width - 1), 0);
-            //    boxes[i].y2 = std::max<float>(std::min<float>(boxes[i].y2, height - 1), 0);
+
         }
 
         static inline std::vector<anchor_box> bbox_pred(std::vector<anchor_box> anchors, std::vector<std::vector<float>> regress)
@@ -442,18 +413,30 @@ namespace glasssix::longinus
         switch (model_type)
         {
         case 0:
-            retina_ = std::make_unique<rknnwrapper::rknn_wrapper>(get_model_params(std::string("retina")), std::string(models_directory) + "/retina_320.rknn", device);
+            retina_ = PrePostProcessGenPipeline::mkSharePipeline(std::string(models_directory) + "/retina_320.rknn", 0);
             break;
         case 1:
-            retina_ = std::make_unique<rknnwrapper::rknn_wrapper>(get_model_params(std::string("retina")), std::string(models_directory) + "/retina_640.rknn", device);
+            retina_ = PrePostProcessGenPipeline::mkSharePipeline(std::string(models_directory) + "/retina_640.rknn", 0);
             break;
         default:
             throw exposing::abi_invalid_argument("Invalid model_type param!");
             break;
         }
 #else
-        retina_ = std::make_unique<excalibur::pipeline<float>>(get_model_params(std::string("retina")), std::string(models_directory) + "/retina.racy", device);
+        switch (model_type)
+        {
+            case 0:
+                retina_ = PrePostProcessGenPipeline::mkSharePipeline(std::string(models_directory) + "/retina_320.bmodel", 0);
+                break;
+            case 1:
+                retina_ = PrePostProcessGenPipeline::mkSharePipeline(std::string(models_directory) + "/retina_640.bmodel", 0);
+                break;
+            default:
+                throw exposing::abi_invalid_argument("Invalid model_type param!");
+                break;
+            }
 #endif
+        retina_->manual_possible_normalization(std::array<float,3>{0.f,0.f,0.f},std::array<float,3>{1.f,1.f,1.f});
 
         ratio_ = { 1.0 };
         //anchor setting
@@ -488,13 +471,13 @@ namespace glasssix::longinus
             anchors_fpn_[key] = anchors_fpn[i];
             num_anchors_[key] = anchors_fpn[i].size();
         }
+        
     }
 
     retina_net::~retina_net()
     {
     }
 
-#if defined(USE_RKNNAPI) || defined(USE_RKNN2API)
     exposing::param_vector<face_info> retina_net::detect(exposing::param_span<std::uint8_t> bitmap, int channels, int height, int width, int min_size, float threshold, int order, bool do_attributing)
     {
         int fix_size = 320;
@@ -522,7 +505,7 @@ namespace glasssix::longinus
         CHECK_EQ(channels, 3);
         CHECK_EQ(bitmap.size(), channels * height * width);
 
-        cv::Mat cache_temp(height, width, CV_8UC3, bitmap.data());
+        cv::Mat cache_temp(height, width, CV_8UC3, const_cast<uint8_t*>(bitmap.data()));
 
         int max_edge = std::max(width, height);
         float scale = max_edge * 1.0f / fix_size;
@@ -533,16 +516,17 @@ namespace glasssix::longinus
         cv::resize(cache_temp, cache_forward, cv::Size(std::round(width / scale), std::round(height / scale)));
         cv::copyMakeBorder(cache_forward, cache_forward, 0, hs - std::round(height / scale), 0, ws - std::round(width / scale), cv::BORDER_CONSTANT, cv::Scalar::all(0));
 
-#ifdef USE_RKNNAPI
-        const char* score_suffix[3] = { "_74_125","_98_128","_122_131" };
-        const char* bbox_suffix[3] = { "_75_126","_99_129","_123_132" };
-        const char* landmark_suffix[3] = { "_76_127","_100_130","_124_133" };
-#else
+#if defined (USE_RKNNAPI) || defined(USE_RKNN2API)
         const char* score_suffix[3] = { "","","" };
         const char* bbox_suffix[3] = { "","","" };
         const char* landmark_suffix[3] = { "","","" };
+
+#else
+        const char* score_suffix[3] = { "","","" };
+        const char* bbox_suffix[3] = { "_f32","_f32","_f32" };
+        const char* landmark_suffix[3] = { "_f32","_f32","_f32" };
 #endif
-        auto blob_data = retina_->forward(cache_forward.data, { 1, hs, ws, 3 }, RKNN_TENSOR_NHWC);
+        auto blob_data = retina_->forward(cache_forward);
 
         std::string name_bbox = "face_rpn_bbox_pred_";
         std::string name_score = "face_rpn_cls_prob_reshape_";
@@ -687,178 +671,7 @@ namespace glasssix::longinus
 
         return faces;
     }
-#else
-    exposing::param_vector<face_info> retina_net::detect(exposing::param_span<std::uint8_t> bitmap, int channels, int height, int width, int min_size, float threshold, int order, bool do_attributing)
-    {
-        if (bitmap.empty())
-        {
-            throw exposing::abi_invalid_argument("current frame is empty");
-        }
 
-        CHECK_EQ(channels, 3);
-        CHECK_EQ(bitmap.size(), channels * height * width);
-
-        std::shared_ptr<memory::tensor<std::uint8_t>> cache_temp;
-        init_cache(bitmap, channels, height, width, order, cache_temp);
-
-        if (min_size < 16)
-            min_size = 16;
-
-        float scale = min_size / 16.0f;
-        int ws = (int(width / scale) + 31) / 32 * 32;
-        int hs = (int(height / scale) + 31) / 32 * 32;
-
-        std::shared_ptr<memory::tensor<std::uint8_t>> cache_forward;
-        excalibur::resize_cpu(cache_temp, cache_forward, int(height / scale), int(width / scale));
-        excalibur::make_border(cache_forward, cache_forward, 0, hs - int(height / scale), 0, ws - int(width / scale));
-
-        auto blob_data = retina_->forward(cache_forward | memory::tensor_convert_to<float>);
-
-        std::string name_bbox = "face_rpn_bbox_pred_";
-        std::string name_score = "face_rpn_cls_prob_reshape_";
-        std::string name_landmark = "face_rpn_landmark_pred_";
-
-        std::vector<face_info_internal> face_infos;
-        for (size_t i = 0; i < feat_stride_fpn_.size(); i++)
-        {
-            std::string key = "stride" + std::to_string(feat_stride_fpn_[i]);
-            int stride = feat_stride_fpn_[i];
-
-            std::string str = name_score + key;
-            auto score_blob = blob_data[str];
-            auto score_blob_count = score_blob->count();
-            const float *scoreB = score_blob->cpu_data() + score_blob_count / 2;
-            const float *scoreE = scoreB + score_blob_count / 2;
-            std::vector<float> score = std::vector<float>(scoreB, scoreE);
-
-            str = name_bbox + key;
-            auto bbox_blob = blob_data[str];
-            auto bbox_blob_count = bbox_blob->count();
-            const float *bboxB = bbox_blob->cpu_data();
-            const float *bboxE = bboxB + bbox_blob_count;
-            std::vector<float> bbox_delta = std::vector<float>(bboxB, bboxE);
-
-            str = name_landmark + key;
-            auto landmark_blob = blob_data[str];
-            auto landmark_blob_count = landmark_blob->count();
-            const float *landmarkB = landmark_blob->cpu_data();
-            const float *landmarkE = landmarkB + landmark_blob_count;
-            std::vector<float> landmark_delta = std::vector<float>(landmarkB, landmarkE);
-
-            int score_width = score_blob->width();
-            int score_height = score_blob->height();
-            size_t count = score_width * score_height;
-            size_t num_anchor = num_anchors_[key];
-
-            //store order: h * w * num_anchor
-            std::vector<anchor_box> anchors = anchors_plane(score_height, score_width, stride, anchors_fpn_[key]);
-
-            for (size_t num = 0; num < num_anchor; num++)
-            {
-                for (size_t j = 0; j < count; j++)
-                {
-                    float conf = score[j + count * num];
-                    if (conf <= threshold)
-                    {
-                        continue;
-                    }
-
-                    float dx = bbox_delta[j + count * (0 + num * 4)];
-                    float dy = bbox_delta[j + count * (1 + num * 4)];
-                    float dw = bbox_delta[j + count * (2 + num * 4)];
-                    float dh = bbox_delta[j + count * (3 + num * 4)];
-                    auto regress = std::vector<float>{dx, dy, dw, dh};
-
-                    // regression face bbox
-                    anchor_box rect = bbox_pred(anchors[j + count * num], regress);
-                    //Out of bounds
-                    clip_box(rect, ws, hs);
-
-                    face_pts pts;
-                    for (size_t k = 0; k < 5; k++)
-                    {
-                        pts.x[k] = landmark_delta[j + count * (num * 10 + k * 2)];
-                        pts.y[k] = landmark_delta[j + count * (num * 10 + k * 2 + 1)];
-                    }
-                    //regression facial landmark
-                    face_pts landmarks = landmark_pred(anchors[j + count * num], pts);
-
-                    face_info_internal tmp;
-                    tmp.score = conf;
-                    tmp.rect = rect;
-                    tmp.pts = landmarks;
-                    face_infos.push_back(tmp);
-                }
-            }
-        }
-
-        face_infos = nms(face_infos, nms_threshold_);
-
-        std::vector<face_info_internal> temp_vec;
-        for (auto &face : face_infos)
-        {
-            if (scale != 1.0f)
-            {
-                face.ori_rect.x = face.rect.x *= scale;
-                face.ori_rect.y = face.rect.y *= scale;
-                face.ori_rect.h = face.rect.h *= scale;
-                face.ori_rect.w = face.rect.w *= scale;
-                for (size_t i = 0; i < std::size(face.pts.x); i++)
-                {
-                    face.pts.x[i] *= scale;
-                    face.pts.y[i] *= scale;
-                }
-            }
-
-            refine(face, height, width, true);
-
-            if (do_attributing)
-            {
-
-                if (face.rect.h * face.rect.w <= 0)
-                    throw exposing::abi_invalid_argument("face.rect.h * face.rect.w <= 0");
-
-                excalibur::rectangle<float> rect(face.rect.x, face.rect.y, face.rect.h, face.rect.w);
-                std::shared_ptr<memory::tensor<std::uint8_t>> faceROI_in_frame;
-                excalibur::safty_cut_cpu(cache_temp, faceROI_in_frame, &rect);
-
-                face.headpose[0] = face.headpose[1] = face.headpose[2] = std::numeric_limits<float>::min();
-                face.clarity = std::numeric_limits<float>::min();
-                face.is_alive = false;
-                face.has_mask = std::numeric_limits<float>::min();
-
-                //float score = face.score;
-                tracking_landmark(faceROI_in_frame, face, rect.x, rect.y);
-                //face.score = score;
-                refine(face, height, width, true);
-            }
-
-            excalibur::point<float> center_eye = excalibur::point<float>((face.pts.x[0] + face.pts.x[1]) / 2, (face.pts.y[0] + face.pts.y[1] / 2));
-            excalibur::point<float> center_mouth = excalibur::point<float>((face.pts.x[3] + face.pts.x[4]) / 2, (face.pts.y[3] + face.pts.y[4]) / 2);
-            double distance = std::sqrt((center_eye.x - center_mouth.x) * (center_eye.x - center_mouth.x) + (center_eye.y - center_mouth.y) * (center_eye.y - center_mouth.y));
-
-            if (face.score > threshold && distance > std::numeric_limits<double>::epsilon())
-            {
-                temp_vec.push_back(face);
-            }
-        }
-
-        std::sort(temp_vec.begin(), temp_vec.end(), [](const face_info_internal &a, const face_info_internal &b)
-                    { return a.rect.h * a.rect.w > b.rect.h * b.rect.w; });
-
-        if (temp_vec.size() > 0)
-        {
-            cache0_.swap(cache1_);
-            cache1_.swap(cache_temp);
-        }
-
-        auto faces = exposing::make_param_vector<face_info>();
-        for (auto &i : temp_vec)
-            faces.push_back(exposing::make_as_first<face_info_impl>(i));
-
-        return faces;
-    }
-#endif
 
     std::string retina_net::version() const
     {

@@ -39,6 +39,7 @@ void noah::Projcet::write_impl_cpp_Exp_(const std::string& file_path, const ABIC
 		// map self
 		{noah::BasicAType::AT_MAP,"std::map"},
 		{noah::BasicAType::AT_STR,"std::string"},
+		{noah::BasicAType::AT_PAIR,"std::pair"},
 		{noah::BasicAType::AT_INT32,"int"},
 	};
 
@@ -145,6 +146,7 @@ void noah::Projcet::write_impl_cpp_Ast_(const std::string& file_path, const ABIC
 		// map self
 		{noah::BasicAType::AT_MAP,"std::map"},
 		{noah::BasicAType::AT_STR,"std::string"},
+		{noah::BasicAType::AT_PAIR,"std::pair"},
 		{noah::BasicAType::AT_INT32,"int"},
 	};
 

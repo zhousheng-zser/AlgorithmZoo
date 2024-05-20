@@ -140,7 +140,6 @@ public:
 
 //CHECK
 	std::unordered_map<std::string, std::shared_ptr<glasssix::memory::tensor<float>>> forward(cv::Mat image) {
-		int ret = 0;
 
 		cv::Mat sample_float(m_net_h, m_net_w, CV_32FC3, cv::SophonDevice(this->m_dev_id));
 		image.convertTo(sample_float, CV_32FC3);
@@ -153,73 +152,16 @@ public:
 		std::array<cv::Mat, 3> input_channels{ input_c0 ,input_c1 ,input_c2 };
 		cv::split(sample_float, input_channels); //eq split to m_input_float
 
-		bm_memcpy_s2d(m_bmContext->handle(), input_tensor.device_mem, (void*)m_input_float);
-
-		ret = m_bmNetwork->forward();
-		CV_Assert(ret == 0);
-
-		// dbg(output_num);
-
-		std::unordered_map<std::string, std::shared_ptr<glasssix::memory::tensor<float>>> result_map;
-
-		std::vector<std::shared_ptr<BMNNTensor>> outputTensors(output_num);
-		for (int i = 0; i < output_num; i++) {
-			outputTensors[i] = m_bmNetwork->outputTensor(i);
-		}
-
-		for (int i = 0; i < output_num; i++) {
-			auto m_output_tensor = outputTensors[i];
-
-			float* output_data = (float*)m_output_tensor->get_cpu_data();
-			float output_scale = m_output_tensor->get_scale();
-			auto NetworkShape = m_output_tensor->get_shape();
-			std::vector<int> out_shape(NetworkShape->dims, NetworkShape->dims + NetworkShape->num_dims);
-
-			// dbg(output_scale);
-			// dbg(out_shape.size());
-
-			if (std::abs(output_scale - 1.f) < 0.0001) {
-				auto output_tensor = std::make_shared<glasssix::memory::tensor<float>>(out_shape);
-				std::copy(output_data, output_data + output_tensor->count(), output_tensor->mutable_cpu_data());
-
-				result_map[output_names[i]] = output_tensor;
-			}
-			else {
-				auto top = std::make_shared<glasssix::memory::tensor<float>>(out_shape);
-				auto top_data = top->mutable_cpu_data();
-				for (size_t idx = 0; idx < top->count(); idx++) {
-					top_data[idx] = output_data[idx] * output_scale;
-				}
-
-				// npy::SAVE_TENSOR_TO_NUMPY(top,"blur_512out_tensr.npy");
-
-				std::string tensor_name = output_names[i];
-				// std::string tensor_name = "out" + std::to_string(i);
-
-				result_map[tensor_name] = top;
-			}
-		}
-
-		return result_map;
+		return forward(m_input_float, { 1,3,image.rows,image.cols }, 0);
 	}
 
 	std::unordered_map<std::string, std::shared_ptr<glasssix::memory::tensor<float>>> forward(std::shared_ptr<glasssix::memory::tensor<float>> input_ts) {
-		// printf("bmnn_pipeline.hpp:334");
-		// dbg(mean_);
-		// dbg(std_);
-		//normal
-		if (input_ts->channels() == 3 && input_ts->order() == glasssix::memory::orderType::NCHW && mean_.size() == 3 && std_.size() == 3) {
-			int HWStep = input_ts->width() * input_ts->height();
-			for (int c = 0; c < input_ts->channels(); c++) {
-				auto cpdata = input_ts->mutable_cpu_data() + c * HWStep;
-				for (int i = 0; i < HWStep; i++)
-					cpdata[i] = (cpdata[i] - std::abs(mean_[c])) * std_[c];
-			}
-		}
+		return forward(input_ts->cpu_data(), input_ts->data_shape(), input_ts->order());
+	}
 
-		// npy::SAVE_ARRAY_TO_NUMPY(input_ts->mutable_cpu_data(),{1,3,640,640},"m_input.npy");
+	std::unordered_map<std::string, std::shared_ptr<glasssix::memory::tensor<float>>> forward(const float* input_data, std::vector<int> data_shape, int order) {
 
-		bm_memcpy_s2d(m_bmContext->handle(), input_tensor.device_mem, (void*)input_ts->mutable_cpu_data());
+		bm_memcpy_s2d(m_bmContext->handle(), input_tensor.device_mem, (void*)input_data);
 
 		int ret = m_bmNetwork->forward();
 		CV_Assert(ret == 0);

@@ -14,9 +14,13 @@
 #include "Excalibur/operation_resize.hpp"
 #include "Primitives/tensor_conversions.hpp"
 #endif
+#include <GenPipeline/PrePostProcessGenPipeline.hpp>
+#include <YoloFamily/Yolo_wrapper.hpp>
 #include "poly.hpp"
 #include <thread>
 #include <chrono>
+
+// #define RECTANGLE
 namespace glasssix::pumptop_helmet
 {
 	class pumptop_helmet_detector_impl::impl
@@ -27,11 +31,13 @@ namespace glasssix::pumptop_helmet
 		impl(std::string_view model_directory, int device)
 			: model_directory_{std::string(model_directory)}, device_{device}
 		{
-			// 算法传过来的模型名:泵检测模型 640-v1_ori_TAL
-			net_detect_1 = std::make_unique<rknnwrapper::rknn_wrapper>(phais, std::string(model_directory) + "/" + "pumptop_helmet_pump.rknn", device);
+			// 算法传过来的模型名:泵检测模型 1280-v1_ori_TAL
+			net_detect_1 = std::make_shared<GenPipeline>(model_directory_ + "/pumptop_helmet_pump.rknn", device_);
+			yolov8_instance_1 = std::make_shared<Yolov8<GenPipeline>>(1280, 1280, net_detect_1);
 
 			// 算法传过来的模型名:人检测模型 1280T320-0108_Person_best_detection
-			net_detect_2 = std::make_unique<rknnwrapper::rknn_wrapper>(phais, std::string(model_directory) + "/" + "pumptop_helmet_person.rknn", device);
+			net_detect_2 = std::make_shared<GenPipeline>(model_directory_ + "/pumptop_helmet_person.rknn", device_);
+			yolov8_instance_2 = std::make_shared<Yolov8<GenPipeline>>(1280, 736, net_detect_2);
 
 			// 算法传过来的模型名:人头检测模型 640T320-200epft-baoshinegtivev2-atss-nwd-wop
 			net_detect_3 = std::make_unique<rknnwrapper::rknn_wrapper>(phais, std::string(model_directory) + "/" + "pumptop_helmet_head.rknn", device);
@@ -650,52 +656,26 @@ namespace glasssix::pumptop_helmet
 		//~ 泵检测
 		std::vector<cv::Rect> pump_detect(cv::Mat &image, std::map<std::string, float> &param_map, std::vector<int> &categorys, std::vector<float> &scores, std::vector<float> &helmet_scores)
 		{
-			num++;
 			cv::Rect ori_rect;
 			std::vector<cv::Rect> result_rect;
-			// 预处理
-			init_data640();
 			float con_thres = param_map.count("pump_conf_thres") ? param_map["pump_conf_thres"] : 0.6f;
 			float iou_thres = param_map.count("nms_thres") ? param_map["nms_thres"] : 0.6f;
-			auto new_shape = cv::Size(640, 640);
-			cv::Mat blob;
-			float ratio = 1.f;
-			int pad_h = 0;
-			int pad_w = 0;
-
-			std::tie(blob, ratio) = preprocess_detection(image, pad_h, pad_w, new_shape);
-			unsigned char *blobdata = blob.ptr<uchar>();
-			std::vector<int> v_blob;
-			v_blob.push_back(1);
-			v_blob.push_back(blob.rows);
-			v_blob.push_back(blob.cols);
-			v_blob.push_back(blob.channels());
-			auto network_results = net_detect_1->forward(blob.data, v_blob, RKNN_TENSOR_NHWC);
-			std::vector<std::string> out_names = {"355", "340", "output0"};
-
-			std::vector<std::shared_ptr<glasssix::memory::tensor<float>>> forwards;
-
-			for (size_t i = 0; i < out_names.size(); ++i)
-			{
-				forwards.push_back(network_results[out_names[i]]);
-			}
-			int candicate_num = 1;
-
-			auto real_output = Yovo8se_Concat(forwards, con_thres, candicate_num);
-			auto nms_result = post_process(real_output, blob, pad_h, pad_w, 1.f / ratio, candicate_num, con_thres, iou_thres);
+			auto nms_result = yolov8_instance_1->get_objects(image, con_thres);
 			// 对泵的结果循环
 			for (auto &pump : nms_result)
 			{
-				int x1 = std::round(pump[0]) > 0 ? std::round(pump[0]) : 0;
-				int y1 = std::round(pump[1]) > 0 ? std::round(pump[1]) : 0;
-				int x2 = std::round(pump[2]) < image.cols ? std::round(pump[2]) : image.cols;
-				int y2 = std::round(pump[3]) < image.rows ? std::round(pump[3]) : image.rows;
-				std::string str = std::to_string(pump[4]);
+				int x1 = pump.x1;
+				int y1 = pump.y1;
+				int x2 = pump.x2;
+				int y2 = pump.y2;
+				std::string str = std::to_string(pump.score);
 
 				cv::Rect roiRect(x1, y1, x2 - x1, y2 - y1);
 				//& 画泵的分数
-				// cv::putText(image, str, cv::Point(x2 + 10, y2 + 10), 0, 0.8, cv::Scalar(0, 0, 255));
-				// std::this_thread::sleep_for(std::chrono::milliseconds(200));
+#if defined(RECTANGLE)
+				 cv::putText(image, str, cv::Point(x2 + 10, y2 + 10), 0, 0.8, cv::Scalar(0, 0, 255));
+				 std::this_thread::sleep_for(std::chrono::milliseconds(200));
+#endif
 				// 人检测
 				int category;
 				float score;
@@ -826,50 +806,24 @@ namespace glasssix::pumptop_helmet
 #endif
 				vec_pump_top = vertices;
 
-				//& 画泵
-				// cv::rectangle(image, cv::Point(rect.x, rect.y), cv::Point(rect.x + rect.width, rect.y + rect.height), cv::Scalar(0, 0, 255), 1);
-				//& 画泵顶区域
-				// std::vector<cv::Point> pts = {vertices[0], vertices[1], vertices[2], vertices[3], vertices[0]}; // 构造多边形的顶点序列
-				// cv::polylines(img, pts, true, cv::Scalar(0, 255, 0), 1);
-			}
-			init_data1280();
-			auto new_shape = cv::Size(1280, 1280);
-			cv::Mat blob;
-			float ratio = 1.f;
-			int pad_h = 0;
-			int pad_w = 0;
-
-			std::tie(blob, ratio) = preprocess_detection(image, pad_h, pad_w, new_shape);
-			unsigned char *blobdata = blob.ptr<uchar>();
-			std::vector<int> v_blob;
-			v_blob.push_back(1);
-			v_blob.push_back(blob.rows);
-			v_blob.push_back(blob.cols);
-			v_blob.push_back(blob.channels());
-			auto network_results = net_detect_2->forward(blob.data, v_blob, RKNN_TENSOR_NHWC);
-
-			std::vector<std::string> out_names = {"355", "340", "output0"};
-
-			std::vector<std::shared_ptr<glasssix::memory::tensor<float>>> forwards;
-
-			for (size_t i = 0; i < out_names.size(); ++i)
-			{
-				forwards.push_back(network_results[out_names[i]]);
+				//& 画泵与泵顶区域
+#if defined(RECTANGLE)
+				 cv::rectangle(image, cv::Point(rect.x, rect.y), cv::Point(rect.x + rect.width, rect.y + rect.height), cv::Scalar(0, 0, 255), 1);
+				 std::vector<cv::Point> pts = {vertices[0], vertices[1], vertices[2], vertices[3], vertices[0]}; // 构造多边形的顶点序列
+				 cv::polylines(img, pts, true, cv::Scalar(0, 255, 0), 1);
+#endif
 			}
 
-			int candicate_num = 0;
 
-			auto real_output = Yovo8se_Concat1280(forwards, con_thres, candicate_num);
-
-			auto nms_result = post_process(real_output, blob, pad_h, pad_w, 1.f / ratio, candicate_num, con_thres, iou_thres);
+			auto nms_result = yolov8_instance_2->get_objects(image_ori_all, con_thres);
 			// 从结果里面拿取人的坐标
 			for (auto &pump : nms_result)
 			{
-				int x1 = std::round(pump[0]) > 0 ? std::round(pump[0]) : 0;
-				int y1 = std::round(pump[1]) > 0 ? std::round(pump[1]) : 0;
-				int x2 = std::round(pump[2]) < image.cols ? std::round(pump[2]) : image.cols;
-				int y2 = std::round(pump[3]) < image.rows ? std::round(pump[3]) : image.rows;
-				float people_score = pump[4];
+				int x1 = pump.x1;
+				int y1 = pump.y1;
+				int x2 = pump.x2;
+				int y2 = pump.y2;
+				float people_score = pump.score;
 
 				// 找到人的原始坐标
 				cv::Point people_ori_1 = {x1, y1};
@@ -925,19 +879,23 @@ namespace glasssix::pumptop_helmet
 				}
 				flag = ratio_ret >= Threshold ? true : false;
 				//& 是否打印 人是否在泵顶
-				// std::cout << "ratio_ret: " << ratio_ret << " - " << flag << std::endl;
-				// if (distance >= 0 && flag)
-				// {
-				// 	std::cout << "\033[31mThis text will be red!  distance: *************************\033[0m"
-				// 			  << "" << distance << std::endl;
-				// }
-				// else
-				// 	std::cout << "distance: *************************" << distance << std::endl;
+#if defined(RECTANGLE)
+				 std::cout << "ratio_ret: " << ratio_ret << " - " << flag << std::endl;
+				 if (distance >= 0 && flag)
+				 {
+				 	std::cout << "\033[31mThis text will be red!  distance: *************************\033[0m"
+				 			  << "" << distance << std::endl;
+				 }
+				 else
+				 	std::cout << "distance: *************************" << distance << std::endl;
+#endif
 				if (distance >= 0 && flag)
 				{
 					rect_peple_ori = people_rect;
 					//& 打印
-					// std::cout << "The point is inside the rectangle!" << std::endl;
+#if defined(RECTANGLE)
+					std::cout << "The point is inside the rectangle!" << std::endl;
+#endif
 					// 人头检测
 					rect_head = head_detect(image_ori_all, rect_peple_ori, param_map, score); // 这里 rect_peple_ori 需要替换成人的原始坐标(而且还必须是满足是在泵顶区域要求的坐标)
 					//! 这里需要对人头检测进行判空,不然 人头分类检测 拿到的就是空数据,会报错
@@ -949,24 +907,29 @@ namespace glasssix::pumptop_helmet
 					// 人头分类检测
 					category = helmet_detect(image_ori_all, rect_head, param_map, helmet_score);
 					//& 画泵顶区域的人体与人体底部中心
-					// cv::rectangle(img, cv::Point(rect_peple_ori.x, rect_peple_ori.y), cv::Point(rect_peple_ori.x + rect_peple_ori.width, rect_peple_ori.y + rect_peple_ori.height), cv::Scalar(0, 0, 255), 1);
-					// cv::circle(img, point_people_feet_center, 5, cv::Scalar(0, 0, 255), -1);
-					// cv::putText(img, std::to_string(people_score), cv::Point(rect_peple_ori.x + 10, rect_peple_ori.y + 10), 0, 1.5, cv::Scalar(0, 0, 255));
+#if defined(RECTANGLE)
+					 cv::rectangle(img, cv::Point(rect_peple_ori.x, rect_peple_ori.y), cv::Point(rect_peple_ori.x + rect_peple_ori.width, rect_peple_ori.y + rect_peple_ori.height), cv::Scalar(0, 0, 255), 1);
+					 cv::circle(img, point_people_feet_center, 5, cv::Scalar(0, 0, 255), -1);
+					 cv::putText(img, std::to_string(people_score), cv::Point(rect_peple_ori.x + 10, rect_peple_ori.y + 10), 0, 1.5, cv::Scalar(0, 0, 255));
 
 					//& 画人头
-					// cv::rectangle(img, cv::Point(rect_head.x, rect_head.y), cv::Point(rect_head.x + rect_head.width, rect_head.y + rect_head.height), cv::Scalar(0, 0, 255), 1);
-					// cv::putText(img, std::to_string(score) + "___" + std::to_string(helmet_score), cv::Point(rect_head.x + 10, rect_head.y + 10), 0, 1.5, cv::Scalar(0, 0, 255));
+					 cv::rectangle(img, cv::Point(rect_head.x, rect_head.y), cv::Point(rect_head.x + rect_head.width, rect_head.y + rect_head.height), cv::Scalar(0, 0, 255), 1);
+					 cv::putText(img, std::to_string(score) + "___" + std::to_string(helmet_score), cv::Point(rect_head.x + 10, rect_head.y + 10), 0, 1.5, cv::Scalar(0, 0, 255));
 				}
 				else
 				{
-					// //& 画不在泵顶里面的人体与底部中心
-					// std::cout << "The point is outside the rectangle!" << std::endl;
-					// cv::rectangle(img, cv::Point(people_rect.x, people_rect.y), cv::Point(people_rect.x + people_rect.width, people_rect.y + people_rect.height), cv::Scalar(255, 255, 0), 1);
-					// cv::circle(img, point_people_feet_center, 5, cv::Scalar(0, 0, 255), -1);
+					 //& 画不在泵顶里面的人体与底部中心
+					 std::cout << "The point is outside the rectangle!" << std::endl;
+					 cv::rectangle(img, cv::Point(people_rect.x, people_rect.y), cv::Point(people_rect.x + people_rect.width, people_rect.y + people_rect.height), cv::Scalar(255, 255, 0), 1);
+					 cv::circle(img, point_people_feet_center, 5, cv::Scalar(0, 0, 255), -1);
 				}
 			}
 			//& 写入图片文件
-			// cv::imwrite("../last" + std::to_string(num) + ".jpg", img);
+			 cv::imwrite("../last" + std::to_string(num) + ".jpg", img);
+#else
+				}
+			}
+#endif
 			if (category == -1)
 			{
 				return {};
@@ -1061,7 +1024,7 @@ namespace glasssix::pumptop_helmet
 
 			std::vector<std::string> out_names = {"output0"};
 
-			//& 直接拿结果
+			// 直接拿结果
 			auto result = network_results[out_names[0]]->cpu_data();
 
 			int index = std::max_element(result, result + 3) - result;
@@ -1083,10 +1046,12 @@ namespace glasssix::pumptop_helmet
 		}
 
 	private:
-		std::unique_ptr<rknnwrapper::rknn_wrapper> net_detect_1;
-		std::unique_ptr<rknnwrapper::rknn_wrapper> net_detect_2;
+		std::shared_ptr<GenPipeline> net_detect_1;
+		std::shared_ptr<GenPipeline> net_detect_2;
 		std::unique_ptr<rknnwrapper::rknn_wrapper> net_detect_3;
 		std::unique_ptr<rknnwrapper::rknn_wrapper> net_detect_4;
+		std::shared_ptr<Yolov8<GenPipeline, false>> yolov8_instance_1;
+		std::shared_ptr<Yolov8<GenPipeline, false>> yolov8_instance_2;
 
 		std::vector<std::string> phais;
 

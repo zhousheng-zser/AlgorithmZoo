@@ -4,6 +4,7 @@
 #include "Excalibur/pipeline.hpp"
 #include "Primitives/tensor_conversions.hpp"
 #include <ctime>
+#include <YoloFamily/Yolo_wrapper.hpp>
 
 using namespace glasssix;
 
@@ -84,37 +85,6 @@ using namespace glasssix;
         int x1, y1, x2, y2, x3, y3, x4, y4;
     };
 
-       static inline float sigmoid_x(float x)
-    {
-        return static_cast<float>(1.f / (1.f + exp(-x)));
-    }
-
-    void tranpose(const float* sou, float* dest, int sourows, int soucols)
-    {
-        for(int i=0;i< sourows;i++)
-            for(int j=0;j< soucols;j++)
-                dest[j*sourows+i]=sou[ i * soucols + j];    
-    }
-
-    void  Softmax(float* data, int num )
-    {             
-        double L2_Sum=0.f;
-        for(size_t i=0; i<num; i++) 
-        {
-            data[i]= ( exp(data[i] ) );
-            L2_Sum +=  data[i];
-        }
-        for(size_t i=0; i<num; i++) 
-            data[i] =  data[i] / L2_Sum ;
-    }
-
-    inline float de_sigmoid(float x)
-    {
-        if(x>=1 ||x<0)
-            return NAN;
-        return static_cast<float> (log( x/(1-x)));
-    }
-
     std::pair<Quadrilateral,Quadrilateral> get_initial_quadrilateral( Rectangle& RectLeft, Rectangle& RectCentre, Rectangle& RectRight )
     {      
 
@@ -186,6 +156,13 @@ using namespace glasssix;
     }
 
     int calculate_distance(Rectangle rect1, Rectangle rect2) 
+    {
+        int distance = sqrt(( rect1.x1 + rect1.x2 - rect2.x1 - rect2.x2 )*( rect1.x1 + rect1.x2 - rect2.x1 - rect2.x2 )) *0.5 ;
+        //   int distance = std::min(std::abs(rect1.x2 - rect2.x1), std::abs(rect2.x2 - rect1.x1));
+        return distance;
+    }
+
+    int calculate_distance_adjacent_edge(Rectangle rect1, Rectangle rect2) 
     {
         int distance = std::min(std::abs(rect1.x2 - rect2.x1), std::abs(rect2.x2 - rect1.x1));
         return distance;
@@ -296,76 +273,4 @@ using namespace glasssix;
 
  
 
-    std::tuple<cv::Mat, float> preprocess_detection(cv::Mat& src, int& pad_h, int& pad_w,  cv::Size input_shape = cv::Size(640, 640) )
-        {
-            float scale = std::min((float)input_shape.width/(float)src.cols, (float)input_shape.height/(float)src.rows);
-            cv::Mat cut_image;
-            cv::Mat mask_image(input_shape, CV_8UC3, cv::Scalar(114, 114, 114));
-            if( src.rows != input_shape.height || src.cols != input_shape.width)
-            {      
-                cv::resize(src, cut_image, cv::Size((int)(src.cols * scale), (int)(src.rows * scale)), cv::INTER_LINEAR);
-
-                pad_h = int((input_shape.height - cut_image.rows) /2 ) ; 
-                pad_w = int((input_shape.width - cut_image.cols) /2 ) ; 
-                cv::copyMakeBorder(cut_image, mask_image, pad_h, input_shape.height-cut_image.rows-pad_h, pad_w, input_shape.width-cut_image.cols-pad_w, cv::BORDER_CONSTANT, cv::Scalar{ 114,114,114 });
-            }
-            else 
-            {
-                src.copyTo(mask_image);     
-            }
-            cv::cvtColor(mask_image, mask_image, cv::COLOR_BGR2RGB);
-            return {mask_image,scale};
-        }
-
-        std::vector<std::vector<float>> post_process(std::shared_ptr<memory::tensor<float>>& net_result, int pad_h, int pad_w, float scale, int num,float threshold=0.0,float iou_thres=0.6 )
-        {
-             std::vector<std::vector<float>> output;
-
-            int shape =5;
-            const int candidate_num=num;
-            std::shared_ptr<glasssix::memory::tensor<float>> dest 
-                    (new glasssix::memory::tensor<float>(candidate_num, shape, -1, glasssix::memory::NCHW, nullptr));
-
-            tranpose( net_result->cpu_data(), dest->mutable_cpu_data(), shape, candidate_num);
-            const float *dest_ptr = dest->cpu_data(); 
-
-            std::vector<float>  scores;
-            std::vector<int>    indices_body;               //候选框顺序
-            std::vector<cv::Rect2d> xywh_boxes;
-            std::vector<std::vector<float>> key_points;
-
-            for(int i=0;i<candidate_num;i++)
-            {
-                indices_body.push_back(i);
-                cv::Rect2d boxwh;
-                boxwh.x      =  static_cast<double>(dest_ptr[shape*i] - dest_ptr[shape*i+2] / 2 );
-                boxwh.y      =  static_cast<double>(dest_ptr[shape*i+1] - dest_ptr[shape*i+3]/2 );
-                boxwh.width  =  static_cast<double>(dest_ptr[shape*i+2]);
-                boxwh.height =  static_cast<double>(dest_ptr[shape*i+3]);       
-                { 
-                    xywh_boxes.push_back(boxwh);
-                    scores.push_back(dest_ptr[shape*i+4]); 
-                    indices_body.push_back(i);
-                }  
-            }
-
-            std::vector<int> indices_body_copy( indices_body.size());
-            for(int i=0;i<indices_body_copy.size();i++)
-            {
-                indices_body_copy[i]=i;
-            }
-            cv::dnn::NMSBoxes(xywh_boxes, scores, threshold, iou_thres, indices_body_copy, 1.f, 0);
-
-            for(int i=0; i< indices_body_copy.size();i++)
-            {
-                int index = indices_body_copy[i];
-                std::vector<float> temp_output(5);
-                temp_output[0]= (xywh_boxes[index].x - pad_w)*scale;
-                temp_output[1]= (xywh_boxes[index].y - pad_h)*scale;
-                temp_output[2]= (xywh_boxes[index].width + xywh_boxes[index].x - pad_w)*scale;
-                temp_output[3]= (xywh_boxes[index].height + xywh_boxes[index].y - pad_h)*scale;
-                temp_output[4]= scores[index];
-                output.emplace_back(temp_output);
-            }           
-            return output;
-        }
+       

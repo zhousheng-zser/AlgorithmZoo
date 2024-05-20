@@ -5,35 +5,19 @@
 
 #include "classify_code_internal.hpp"
 #include "box_info_impl.hpp"
-#include <Excalibur/pipeline.hpp>
-#include <Primitives/tensor_conversions.hpp>
 #include "logger.hpp"
 
 #include "../posture/detect_code.hpp"
 
 #include <opencv2/opencv.hpp>
-#include <opencv2/core/core.hpp>
-#include <opencv2/imgproc/imgproc.hpp>
-#ifdef BUILD_DEBUG_INFO
-#include <opencv2/highgui/highgui.hpp>
-#endif // BUILD_DEBUG_INFO
-
 
 #include <abi/param_vector.hpp>
 #include <Primitives/fmt/format.h>
 #include <utility>
 
-#ifdef USE_CUDA
-#include <cuda_runtime_api.h>
-#endif
 
-
-#ifdef USE_RKNNAPI
-//#if 0
-#include "../../common/include/RKNNWrapper/rknn_wrapper.hpp"
-#elif defined(USE_RKNN2API)
-#include "../../common/include/RKNN2Wrapper/rknn2_wrapper.hpp"
-#endif
+#include <GenPipeline/GenPipeline.hpp>
+#include <GenPipeline/GenPipeTools.hpp>
 
 //YHC
 //#include "dbg.h"
@@ -43,18 +27,21 @@ namespace glasssix::workcloth
 	class classify_code_internal::impl
 	{
 	public:
-		impl(int device) noexcept : device_{ device } {}
-		impl(std::string_view model_directory, int device)
-			: impl(device)
+		impl() noexcept {}
+		impl(std::string_view model_directory, int device) :impl()
 		{
-			model_directory_ = std::string(model_directory);
+			std::string model_directory_ = exposing::to_narrow_string(model_directory);
+			if (*model_directory_.rbegin() != '/') model_directory_ += '/';
+
 #if defined(USE_RKNNAPI) || defined(USE_RKNN2API)
-			classify_instance_ = std::make_unique<rknnwrapper::rknn_wrapper>(get_model_params("workcloth_cls"), std::string(model_directory) + "/" + "workcloth_cls" + ".rknn", device);
+			classify_instance_ = std::make_unique<GenPipeline>(model_directory_ + "workcloth_cls.rknn", 0);
+#elif defined(USE_BMNN)
+			classify_instance_ = std::make_unique<GenPipeline>(model_directory_ + "workcloth_cls.bmodel", 0);
+#else
+			classify_instance_ = std::make_unique<GenPipeline>(model_directory_ + "workcloth_cls.onnx", 0);
 #endif
-			// posture_instance_ = glasssix::exposing::make_exported_interface<posture::detect_code>(model_directory, device,1);
-			// posture_param_abi = exposing::make_param_hash_map<exposing::param_string, float>();
-			// posture_param_abi.add_or_update("conf_thres", 0.70f);
-			// posture_param_abi.add_or_update("nms_thres", 0.70f);
+			constexpr float stand = 1.f / 255;
+			classify_instance_->manual_possible_normalization({ 0,0,0 }, { stand,stand,stand });
 		}
 
 		exposing::param_vector<workcloth::box_info> detect(const exposing::param_span<std::uint8_t>& bitmap, int channels, int height, int width, int roi_x, int roi_y, int roi_width, int roi_height, exposing::param_vector<posture::box_info> posture_info_list_raw, std::map<std::string, float>& param_map, 
@@ -66,25 +53,19 @@ namespace glasssix::workcloth
 			}
 			CHECK_EQ(channels, 3);
 			CHECK_EQ(bitmap.size(), channels * height * width);
-
-			cv::Mat image2(height, width, CV_8UC3);
-			cv::Mat image(cv::Size(width, height), CV_8UC3);
-			std::memcpy(image.data, bitmap.data(), sizeof(uint8_t) * channels * height * width);
 			if (roi_x < 0 || roi_x > width || roi_y > height || roi_y < 0 || roi_height < 0 || (roi_height + roi_y) >height || roi_width < 0 || (roi_width + roi_x) > width)
 			{
 				throw exposing::abi_invalid_argument("incorrect roi in phone");
 			}
 
-			cv::Rect roi_rect{ roi_x, roi_y, roi_width, roi_height };
+			cv::Mat image(cv::Size(width, height), CV_8UC3, const_cast<uint8_t*>(bitmap.data()));
+			cv::Mat cropped_image = image(cv::Range(roi_y, roi_y + roi_height), cv::Range(roi_x, roi_x + roi_width));
 
 			std::vector<box_info_internal> results;
 			auto result = exposing::make_param_vector<box_info>();
 
-			// exposing::param_vector<posture::box_info> posture_info_list_raw = posture_instance_.detect(bitmap, channels, height, width, 0, 0, width, height, posture_param_abi);
 			std::vector<PostureInfo> posture_info_list;
-			// std::vector<PostureInfo> persons_info;
 
-			//dbg(posture_info_list_raw.size());
 			for (auto pinfo : posture_info_list_raw) {
 				//dbg(pinfo.score());
 
@@ -94,9 +75,7 @@ namespace glasssix::workcloth
 
 			body_nms_cpu(posture_info_list, 0.5);
 
-			//run_workcloth(results, image, persons_info, param_map, color_hsv_cfg);
 			run_workcloth2(results, image, posture_info_list, param_map, color_hsv_cfg);
-
 
 			for (auto& i : results)
 			{
@@ -107,20 +86,14 @@ namespace glasssix::workcloth
 
 		std::string version()
 		{
-			const std::string algo_module_version = "2.9.0";
-
-#if defined(USE_RKNNAPI) || defined(USE_RKNN2API)
-			//#if 0
+			const std::string algo_module_version = "3.0.0";
 			std::string nn_frame_version = classify_instance_->version();
-#else
-			std::string nn_frame_version = excalibur::pipeline<float>::version();
-#endif
 			return fmt::format(R"({{"nn_frame_version":"{}", "algo_module_version":"{}"}})", nn_frame_version, algo_module_version);
 		}
 
 	private:
 
-		void body_nms_cpu(std::vector<PostureInfo>& bboxes, float iou_thres) {
+		static inline void body_nms_cpu(std::vector<PostureInfo>& bboxes, float iou_thres) {
 			if (bboxes.empty()) return;
 			std::sort(bboxes.begin(), bboxes.end(), [&](PostureInfo b1, PostureInfo b2) {return b1.score > b2.score; });
 			std::vector<float> area(bboxes.size());
@@ -150,41 +123,7 @@ namespace glasssix::workcloth
 			std::sort(bboxes.begin(), bboxes.end(), [&](PostureInfo b1, PostureInfo b2) {return b1.score > b2.score; });
 		}
 
-		inline cv::Mat safty_cut(cv::Mat& img, cv::Rect roi)
-		{
-			int width = roi.width;
-			int height = roi.height;
-			int x = roi.x;
-			int y = roi.y;
-
-			cv::Mat mat(height, width, img.type(), cv::Scalar(0));
-			int _x = x;
-			int _y = y;
-			int _width = width;
-			int _height = height;
-			if (x < 0)
-			{
-				_x = 0;
-				_width = width + x;
-			}
-
-			if (_x + _width > img.cols)
-				_width = img.cols - _x;
-
-			if (y < 0)
-			{
-				_y = 0;
-				_height = height + y;
-			}
-
-			if (_y + _height > img.rows)
-				_height = img.rows - _y;
-
-			img(cv::Rect(_x, _y, _width, _height)).copyTo(mat(cv::Rect(_x - x, _y - y, _width, _height)));
-			return mat;
-		}
-
-		bool rect_modify(cv::Rect& rec_region, int W, int H) {
+		static inline bool rect_modify(cv::Rect& rec_region, int W, int H) {
 			rec_region.x = std::max(0, rec_region.x);
 			rec_region.y = std::max(0, rec_region.y);
 
@@ -198,57 +137,11 @@ namespace glasssix::workcloth
 			}
 		}
 
-		cv::Mat preprocess(cv::Mat img, int hope_w = 640, int hope_h = 640)
-		{
-			int H = img.rows;
-			int W = img.cols;
-			float ratio_w = (float)W / (float)hope_w;
-			float ratio_h = (float)H / (float)hope_h;
-			cv::Mat resize_img;
-			if (ratio_w == ratio_h)
-				cv::resize(img, resize_img, cv::Size2i{ hope_w, hope_h });
-			else if (ratio_w > ratio_h) {
-				int new_x = hope_w;
-				int new_y = (int)(H / ratio_w);
-				int pad1 = (int)((hope_h - new_y) / 2);
-				int pad2 = hope_h - new_y - pad1;
-				cv::resize(img, resize_img, cv::Size2i{ new_x, new_y });
-				cv::copyMakeBorder(resize_img, resize_img, pad1, pad2, 0, 0, cv::BORDER_CONSTANT, cv::Scalar{ 114,114,114 });
-			}
-			else {
-				int new_y = hope_h;
-				int new_x = (int)(W / ratio_h);
-				int pad1 = (int)((hope_w - new_x) / 2);
-				int pad2 = hope_w - new_x - pad1;
-				cv::resize(img, resize_img, cv::Size2i{ new_x, new_y });
-				cv::copyMakeBorder(resize_img, resize_img, 0, 0, pad1, pad2, cv::BORDER_CONSTANT, cv::Scalar{ 127,127,127 });
-			}
-			return resize_img;
-		}
-
-
-		std::pair<float, float> run_classify(cv::Mat& image)
-		{
-			cv::Mat blob = preprocess(image, 112, 112);
-			cv::cvtColor(blob, blob, cv::COLOR_BGR2RGB);
-
-			std::vector<std::shared_ptr<glasssix::memory::tensor<float>>> forwards;
-			auto network_result = classify_instance_->forward(blob.data, { 1, blob.rows, blob.cols,blob.channels() }, RKNN_TENSOR_NHWC);
-			for (auto& out : network_result) {
-				forwards.push_back(out.second);
-			}
-
-			const float* data_ptr = forwards[0]->cpu_data();
-			return std::make_pair(data_ptr[0], data_ptr[1]);
-		}
-
 		enum class Color {
 			black = 0, grey, white, red, orange, yellow, green, cyan, blue, purple
 		};
 
-
-
-		int calculate_singglehsv_method(cv::Mat image, Color mode, const std::vector<cv::Scalar>& color_hsv_cfg_val ) {
+		static inline int calculate_singglehsv_method(cv::Mat image, Color mode, const std::vector<cv::Scalar>& color_hsv_cfg_val ) {
 			cv::Mat color_mask;
 			cv::Mat hsv_img;
 			cv::cvtColor(image, hsv_img, cv::COLOR_BGR2HSV);
@@ -270,73 +163,6 @@ namespace glasssix::workcloth
 			}
 			int color_pixels = cv::countNonZero(color_mask);
 			return color_pixels;
-		}
-
-		void run_workcloth(std::vector<box_info_internal>& results, cv::Mat& image, std::vector<PostureInfo>& persons, std::map<std::string, float>& param_map,
-			std::unordered_map<int, std::vector<cv::Scalar>>& color_hsv_cfg)
-		{
-			float W = image.cols;
-			float H = image.rows;
-
-			float points_score_thres = param_map.count("points_score_thres") ? param_map["points_score_thres"] : 0.9f;
-			float points_num_thres = param_map.count("points_num_thres") ? param_map["points_num_thres"] : 0.45f;
-
-			for (auto& person : persons)
-			{
-				// auto& person=persons[2];
-				box_info_internal in_box_info;
-
-				// dbg(person.Kpoints_score);
-				// dbg(person.Kpoints_score[5]);
-				// dbg(person.Kpoints_score[6]);
-				// dbg(person.Kpoints_score[11]);
-				// dbg(person.Kpoints_score[12]);
-
-				std::vector<float> Kpoints_vali_set{ person.Kpoints_score[5],person.Kpoints_score[6],person.Kpoints_score[11],person.Kpoints_score[12] };
-				int effect_kpoints_counter = 0;
-
-				for (auto p_score : Kpoints_vali_set) {
-					if (p_score > points_score_thres) effect_kpoints_counter++;
-				}
-
-				bool bodyishard = ((float)effect_kpoints_counter / Kpoints_vali_set.size()) < points_num_thres;
-				// dbg(bodyishard);
-				if (bodyishard || rect_modify(person.cls_cut, W, H) || rect_modify(person.color_cut, W, H)) continue; // bodyishard
-
-				cv::Mat cls_image = safty_cut(image, person.cls_cut);
-				auto classify_result = run_classify(cls_image);
-
-				person.color_cut.width *= 0.5;
-				person.color_cut.height *= 0.5;
-				person.color_cut.x += person.color_cut.width * 0.5;
-				person.color_cut.y += person.color_cut.height * 0.5;
-
-				cv::Mat color_image = safty_cut(image, person.color_cut);
-				int total_pixels = color_image.rows * color_image.cols;
-				auto color_ratios_abi = exposing::make_param_vector<float>();
-				for (int i = 0; i < 10; i++) {
-					float ratio = (float)calculate_singglehsv_method(color_image, static_cast<Color>(i), color_hsv_cfg[i]) / total_pixels;
-					color_ratios_abi.push_back(ratio);
-				}
-
-				// for (auto kp : person.Kpoints) {
-				//     cv::circle(image, kp, 3, { 255,255,255}, 3);
-				// }
-				// cv::circle(image, person.Kpoints[5], 3, { 0,0,150}, 3);
-				// cv::circle(image, person.Kpoints[6], 3, { 0,0,180}, 3);
-				// cv::circle(image, person.Kpoints[11], 3, { 0,0,210}, 3);
-				// cv::circle(image, person.Kpoints[12], 3, { 0,0,250}, 3);
-
-				in_box_info.is_sleeve = classify_result.first < classify_result.second;
-				in_box_info.color_ratios = color_ratios_abi;
-				in_box_info.x1 = person.x1;
-				in_box_info.y1 = person.y1;
-				in_box_info.x2 = person.x2;
-				in_box_info.y2 = person.y2;
-
-				results.push_back(in_box_info);
-			}
-				// cv::imwrite("/home/firefly/yhc/bdh.png",image);
 		}
 
 		void run_workcloth2(std::vector<box_info_internal>& results, cv::Mat& image, std::vector<PostureInfo>& persons, std::map<std::string, float>& param_map,
@@ -379,8 +205,12 @@ namespace glasssix::workcloth
 
 				if (bodyishard || rect_modify(person.cls_cut, W, H) || rect_modify(person.color_cut, W, H)) continue; // bodyishard
 
-				cv::Mat cls_image = safty_cut(image, person.cls_cut);
-				auto classify_result = run_classify(cls_image);
+				cv::Mat cls_image = GenPipeTools::safty_cut(image, person.cls_cut);
+				cv::Mat blob = GenPipeTools::letter_image(cls_image, 112, 112, true);
+				auto network_result = classify_instance_->forward(blob);
+				auto tensor_out = network_result.begin()->second;
+
+				auto classify_result = std::make_pair(tensor_out->cpu_data()[0], tensor_out->cpu_data()[1]);
 
 				// Kpoints[5]: top right, [6]: top left, [12]: bottom right, [11]: bottom left
 				cv::Point color_center = person.Kpoints[5] + person.Kpoints[6] + person.Kpoints[12] + person.Kpoints[11];
@@ -417,11 +247,11 @@ namespace glasssix::workcloth
 					continue;
 				}
 
-				cv::Mat color_img_center = safty_cut(image, rc_img_center);
-				cv::Mat color_img_left = safty_cut(image, rc_img_left);
-				cv::Mat color_img_right = safty_cut(image, rc_img_right);
+				cv::Mat color_img_center = GenPipeTools::safty_cut(image, rc_img_center);
+				cv::Mat color_img_left = GenPipeTools::safty_cut(image, rc_img_left);
+				cv::Mat color_img_right = GenPipeTools::safty_cut(image, rc_img_right);
 				// Origin Main ROI CUT
-				cv::Mat color_image = safty_cut(image, person.color_cut);
+				cv::Mat color_image = GenPipeTools::safty_cut(image, person.color_cut);
 
 				auto color_ratios_abi = exposing::make_param_vector<float>();
 
@@ -453,18 +283,7 @@ namespace glasssix::workcloth
 
 
 	private:
-		exposing::param_hash_map<exposing::param_string, float> posture_param_abi;
-		std::string model_directory_;
-		int device_;
-
-		posture::detect_code posture_instance_;
-
-#if defined(USE_RKNNAPI) || defined(USE_RKNN2API)
-		//#if 0
-		std::unique_ptr<rknnwrapper::rknn_wrapper> classify_instance_;
-#else
-		std::unique_ptr<excalibur::pipeline<float>> classify_instance_;
-#endif
+		std::unique_ptr<GenPipeline> classify_instance_;
 	};
 
 	classify_code_internal::classify_code_internal(std::string_view model_directory, int device)

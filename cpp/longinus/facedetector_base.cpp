@@ -43,7 +43,7 @@ namespace glasssix::longinus
     {
         //Excalibur needs to distinguish between float and int8 models, rknn and rknn2 does not
 #if defined(USE_RKNNAPI) || defined(USE_RKNN2API)
-        tracker_ = std::make_unique<rknnwrapper::rknn_wrapper>(get_model_params(std::string("pfld_land71_simp")), std::string(models_directory) + "/pfld_land71_simp.rknn", device);
+        tracker_ = PrePostProcessGenPipeline::mkSharePipeline(std::string(models_directory) + "/pfld_land71_simp.rknn", device);
 
 #if defined(USE_RKNN2API)
 #if defined(BUILD_RV1106) 
@@ -63,7 +63,8 @@ namespace glasssix::longinus
 #endif
 #endif
 #else
-        tracker_ = std::make_unique<excalibur::pipeline<float>>(get_model_params(std::string("pfld_land71_simp")), std::string(models_directory) + "/pfld_land71_simp.racy", device);
+        tracker_ = PrePostProcessGenPipeline::mkSharePipeline(std::string(models_directory) + "/pfld_land71_simp.bmodel", 0);
+        tracker_->manual_possible_normalization(std::array<float,3>{104.f,117.f,124.f},std::array<float,3>{0.00961538f,0.008547f,0.00806451f});
 #endif
     }
 
@@ -96,7 +97,6 @@ namespace glasssix::longinus
         if (order == memory::NHWC)
             cache->convert_order();
     }
-#if defined(USE_RKNNAPI) || defined(USE_RKNN2API)
     void facedetector_base::mat_safty_cut(cv::Mat& img, cv::Mat& dst, cv::Rect roi)
     {
         int width = roi.width;
@@ -130,9 +130,6 @@ namespace glasssix::longinus
         img(cv::Rect(_x, _y, _width, _height)).copyTo(mat(cv::Rect(_x - x, _y - y, _width, _height)));
         dst = mat;
     }
-#endif
-
-#if defined(USE_RKNNAPI) || defined(USE_RKNN2API)
     inline void matchTemplateCpu(const cv::Mat& img, const cv::Mat& templ, cv::Mat& result)
     {
         result = cv::Mat(img.rows - templ.rows + 1, img.cols - templ.cols + 1, CV_32FC1);
@@ -197,135 +194,7 @@ namespace glasssix::longinus
         track_box.height *= scale;
         track_box.width *= scale;
     }
-#else
 
-    inline void matchTemplateCpu(const std::shared_ptr<memory::tensor<std::uint8_t>>& img, const std::shared_ptr<memory::tensor<std::uint8_t>>& templ, std::shared_ptr<memory::tensor<float>>& result)
-    {
-        result.reset(new memory::tensor<float>(std::vector<int>{1, 1, img->height() - templ->height() + 1, img->width() - templ->width() + 1}, -1, memory::NCHW /*, & memory::pool_allocator_default<float>::get()*/));
-        const std::uint8_t* img_data = img->cpu_data();
-        const std::uint8_t* templ_data = templ->cpu_data();
-        float* result_data = result->mutable_cpu_data();
-        for (int y = 0; y < result->height(); y++)
-        {
-            float* presult = result_data + y * result->width();
-            for (int x = 0; x < result->width(); x++)
-            {
-                long sum = 0;
-                for (int yy = 0; yy < templ->height(); yy++)
-                {
-                    const unsigned char* pimg = img_data + (y + yy) * img->width();
-                    const unsigned char* ptempl = templ_data + (yy)*templ->width();
-                    for (int xx = 0; xx < templ->width(); xx++)
-                    {
-                        int diff = pimg[x + xx] - ptempl[xx];
-                        sum += (diff * diff);
-                    }
-                }
-                presult[x] = sum;
-            }
-        }
-    }
-
-    inline void minMaxIdx_(const float* src, float* _minVal, float* _maxVal,
-        size_t* _minIdx, size_t* _maxIdx, int len, size_t startIdx)
-    {
-        float minVal = std::numeric_limits<float>::infinity(), maxVal = -minVal;
-        size_t minIdx = 0, maxIdx = 0;
-
-        for (int i = 0; i < len; i++)
-        {
-            float val = src[i];
-            if (val < minVal)
-            {
-                minVal = val;
-                minIdx = startIdx + i;
-            }
-            if (val > maxVal)
-            {
-                maxVal = val;
-                maxIdx = startIdx + i;
-            }
-        }
-
-        *_minIdx = minIdx;
-        *_maxIdx = maxIdx;
-        *_minVal = minVal;
-        *_maxVal = maxVal;
-    }
-
-    inline void ofs2idx(const std::shared_ptr<memory::tensor<float>>& a, size_t ofs, excalibur::point<int>* loc)
-    {
-        if (ofs > 0)
-        {
-            ofs--;
-            loc->x = (int)(ofs % a->width());
-            loc->y = (int)(ofs / a->width());
-        }
-        else
-        {
-            loc->x = -1;
-            loc->y = -1;
-        }
-    }
-
-    inline void minMaxLoc(const std::shared_ptr<memory::tensor<float>>& _src, float* minVal, float* maxVal,
-        excalibur::point<int>* minLoc, excalibur::point<int>* maxLoc)
-    {
-        size_t minidx = 0, maxidx = 0;
-        size_t startidx = 1;
-        int planeSize = _src->height() * _src->width();
-        float minval, maxval;
-        minMaxIdx_(_src->cpu_data(), &minval, &maxval, &minidx, &maxidx, planeSize, startidx);
-
-        if (minVal)
-            *minVal = minval;
-        if (maxVal)
-            *maxVal = maxval;
-
-        if (minLoc)
-            ofs2idx(_src, minidx, minLoc);
-        if (maxLoc)
-            ofs2idx(_src, maxidx, maxLoc);
-    }
-
-    inline void tracking_corrfilter(const std::shared_ptr<memory::tensor<std::uint8_t>>& frame, const std::shared_ptr<memory::tensor<std::uint8_t>>& face_in_prev_frame, excalibur::rectangle<float>& track_box, float scale)
-    {
-        track_box.x /= scale;
-        track_box.y /= scale;
-        track_box.h /= scale;
-        track_box.w /= scale;
-        int zeroadd_x = 0;
-        int zeroadd_y = 0;
-        std::shared_ptr<memory::tensor<std::uint8_t>> frame_;
-        std::shared_ptr<memory::tensor<std::uint8_t>> model_;
-        excalibur::resize_cpu(frame, frame_, frame->height() / scale, frame->width() / scale);
-        excalibur::resize_cpu(face_in_prev_frame, model_, face_in_prev_frame->height() / scale, face_in_prev_frame->width() / scale);
-        std::shared_ptr<memory::tensor<std::uint8_t>> gray;
-        excalibur::rgb2gray_cpu(frame_, gray);
-        std::shared_ptr<memory::tensor<std::uint8_t>> gray_model;
-        excalibur::rgb2gray_cpu(model_, gray_model);
-        excalibur::rectangle<float> search_window;
-        search_window.w = track_box.w * 3;
-        search_window.h = track_box.h * 3;
-        search_window.x = track_box.x + track_box.w * 0.5 - search_window.w * 0.5;
-        search_window.y = track_box.y + track_box.h * 0.5 - search_window.h * 0.5;
-        search_window &= excalibur::rectangle<float>(0, 0, frame_->height(), frame_->width());
-
-        std::shared_ptr<memory::tensor<float>> similarity;
-        std::shared_ptr<memory::tensor<std::uint8_t>> match_roi;
-        excalibur::safty_cut_cpu(gray, match_roi, &search_window);
-        matchTemplateCpu(match_roi, gray_model, similarity);
-        excalibur::point<int> minpoint;
-        //find min-distance point
-        minMaxLoc(similarity, 0, 0, &minpoint, 0);
-        track_box.x = minpoint.x + search_window.x;
-        track_box.y = minpoint.y + search_window.y;
-        track_box.x *= scale;
-        track_box.y *= scale;
-        track_box.h *= scale;
-        track_box.w *= scale;
-    }    
-#endif
 
     inline void estimate_head_pose(const float* ldmk7_data, const float* bbox_data, float& yaw, float& pitch, float& roll)
     {
@@ -356,21 +225,21 @@ namespace glasssix::longinus
         pitch = predict[1];
     }
 
-#if defined(USE_RKNNAPI) || defined(USE_RKNN2API)
     void facedetector_base::tracking_landmark(cv::Mat& face, face_info_internal& trackfaceinfo, int offset_x, int offset_y)
     {
         int width = face.cols;
         int height = face.rows;
 
         cv::resize(face, face, cv::Size(80, 80));
-        auto res = tracker_->forward(face.data, { 1, 80, 80, 3 }, RKNN_TENSOR_NHWC);
+        auto res = tracker_->forward(face);
+#if defined(USE_RKNNAPI) || defined(USE_RKNN2API) 
 #ifdef USE_RKNNAPI
         trackfaceinfo.score = res["Softmax_Softmax_103/out0_2"]->cpu_data()[1];
         const float* glass_data = res["Softmax_Softmax_76/out0_3"]->cpu_data();
         const float* mask_data = res["Softmax_Softmax_79/out0_4"]->cpu_data();
         const float* landmark_data = res["MatMul_MatMul_124/out0_1"]->cpu_data();
         const float* bbox_data = res["MatMul_MatMul_113/out0_0"]->cpu_data();
-#else
+#elif defined(USE_RKNN2API)
         trackfaceinfo.score = res["188"]->cpu_data()[1];
         const float* glass_data = res["157"]->cpu_data();
         const float* mask_data = res["161"]->cpu_data();
@@ -395,11 +264,21 @@ namespace glasssix::longinus
         //    }
         //}
 #else
+#if defined(USE_RKNN2API)
         const float* landmark_data = res["215"]->cpu_data();
+#endif
 #endif
         const float* bbox_data = res["output"]->cpu_data();
 #endif
+#endif
 
+#if defined(USE_BMNN)
+        trackfaceinfo.score = res["188_Softmax"]->cpu_data()[1];
+        const float* glass_data = res["157_Softmax"]->cpu_data();
+        const float* mask_data = res["161_Softmax"]->cpu_data();
+        const float* landmark_data = res["215_MatMul_f32"]->cpu_data();
+        const float* bbox_data = res["output_MatMul_f32"]->cpu_data();
+#endif
         int x1 = bbox_data[0] * width / 10 + offset_x;
         int y1 = bbox_data[1] * height / 10 + offset_y;
         int x2 = bbox_data[2] * width / 10 + width + offset_x;
@@ -454,75 +333,7 @@ namespace glasssix::longinus
 
         trackfaceinfo.headpose[2] = atan(mean_slope) * 180 / 3.1415926;
     }
-#else
-    void facedetector_base::tracking_landmark(std::shared_ptr<memory::tensor<std::uint8_t>>& face, face_info_internal& trackfaceinfo, int offset_x, int offset_y)
-    {
 
-        int width = face->width();
-        int height = face->height();
-        excalibur::resize_cpu(face, face, 80, 80);
-        auto res = tracker_->forward(face | memory::tensor_convert_to<float>);
-        trackfaceinfo.score = res["188"]->cpu_data()[1];
-        const float* glass_data = res["157"]->cpu_data();
-        const float* mask_data = res["161"]->cpu_data();
-        const float* landmark_data = res["215"]->cpu_data();
-        const float* bbox_data = res["output"]->cpu_data();
-
-        int x1 = bbox_data[0] * width / 10 + offset_x;
-        int y1 = bbox_data[1] * height / 10 + offset_y;
-        int x2 = bbox_data[2] * width / 10 + width + offset_x;
-        int y2 = bbox_data[3] * height / 10 + height + offset_y;
-        trackfaceinfo.rect.x = x1;
-        trackfaceinfo.rect.w = x2 - x1 + 1;
-        trackfaceinfo.rect.y = y1;
-        trackfaceinfo.rect.h = y2 - y1 + 1;
-        trackfaceinfo.glass_index = std::max_element(glass_data, glass_data + 3) - glass_data;
-        trackfaceinfo.mask_index = std::max_element(mask_data, mask_data + 2) - mask_data;
-        for (size_t i = 0; i < 2; i++)
-        {
-            trackfaceinfo.pts.x[i] = (landmark_data[4 * i] + landmark_data[4 * i + 2]) * width / 80 + offset_x;
-            trackfaceinfo.pts.y[i] = (landmark_data[4 * i + 1] + landmark_data[4 * i + 3]) * height / 80 + offset_y;
-        }
-
-        for (size_t i = 2; i < 5; i++)
-        {
-            trackfaceinfo.pts.x[i] = landmark_data[2 * (i - 2) + 8] * width / 40 + offset_x;
-            trackfaceinfo.pts.y[i] = landmark_data[2 * (i - 2) + 9] * height / 40 + offset_y;
-        }
-
-        float yaw, pitch, roll;
-        estimate_head_pose(landmark_data, bbox_data, yaw, pitch, roll);
-        trackfaceinfo.headpose[0] = yaw;
-        trackfaceinfo.headpose[1] = pitch;
-
-        float y_sub_eye = trackfaceinfo.pts.y[0] - trackfaceinfo.pts.y[1];
-        float x_sub_eye = trackfaceinfo.pts.x[0] - trackfaceinfo.pts.x[1];
-        float y_sub_mouth = trackfaceinfo.pts.y[3] - trackfaceinfo.pts.y[4];
-        float x_sub_mouth = trackfaceinfo.pts.x[3] - trackfaceinfo.pts.x[4];
-
-        float l2_eye = std::sqrt(y_sub_eye * y_sub_eye + x_sub_eye * x_sub_eye);
-        float l2_mouth = std::sqrt(y_sub_mouth * y_sub_mouth + x_sub_mouth * x_sub_mouth);
-
-        int n = 0;
-        float mean_slope = 0.f;
-        if ((l2_eye > std::numeric_limits<float>::epsilon()) && (x_sub_eye != 0))
-        {
-            mean_slope += y_sub_eye / x_sub_eye;
-            n++;
-        }
-
-        if ((l2_mouth > std::numeric_limits<float>::epsilon()) && (x_sub_mouth != 0))
-        {
-            mean_slope += y_sub_mouth / x_sub_mouth;
-            n++;
-        }
-
-        if (n != 0)
-            mean_slope /= n;
-
-        trackfaceinfo.headpose[2] = atan(mean_slope) * 180 / 3.1415926;
-    }
-#endif
 
     void facedetector_base::refine(face_info_internal& face, const int& height, const int& width, bool square)
     {
@@ -559,8 +370,6 @@ namespace glasssix::longinus
         face.rect.h = minSide;
         face.rect.w = minSide;
     }
-
-#if defined(USE_RKNNAPI) || defined(USE_RKNN2API)
     face_info facedetector_base::single_trace(face_info face, exposing::param_span<std::uint8_t> bitmap, int channels, int height, int width, int order)
     {
         if (bitmap.empty())
@@ -615,63 +424,7 @@ namespace glasssix::longinus
 
         return exposing::make_as_first<face_info_impl>(face_internal);
     }
-#else
-    face_info facedetector_base::single_trace(face_info face, exposing::param_span<std::uint8_t> bitmap, int channels, int height, int width, int order)
-    {
-        if (bitmap.empty())
-            throw exposing::abi_invalid_argument("current frame is empty");
 
-        CHECK_EQ(channels, 3);
-        CHECK_EQ(bitmap.size(), channels * height * width);
-
-        if (cache1_->empty())
-            throw exposing::abi_invalid_argument("previous frame cache is empty");
-
-        excalibur::rectangle<float> track_box(face.x(), face.y(), face.height(), face.width());
-        if (track_box.h * track_box.w <= 0)
-            throw exposing::abi_invalid_argument("track_box.h * track_box.w <= 0");
-
-        std::shared_ptr<memory::tensor<std::uint8_t>> face_in_prev_frame;
-        excalibur::safty_cut_cpu(cache1_, face_in_prev_frame, &track_box);
-
-        std::shared_ptr<memory::tensor<std::uint8_t>> cache_temp;
-        init_cache(bitmap, channels, height, width, order, cache_temp);
-
-        int min_edge = std::min(track_box.h, track_box.w);
-        float scale = min_edge / 20.0f;
-        if (scale < 1.0)
-            scale = 1.0;
-
-        tracking_corrfilter(cache_temp, face_in_prev_frame, track_box, scale);
-        std::shared_ptr<memory::tensor<std::uint8_t>> faceROI_in_frame;
-        excalibur::safty_cut_cpu(cache_temp, faceROI_in_frame, &track_box);
-
-        face_info_internal face_internal;
-        face_internal.headpose[0] = face_internal.headpose[1] = face_internal.headpose[2] = std::numeric_limits<float>::min();
-        face_internal.clarity = std::numeric_limits<float>::min();
-        face_internal.is_alive = false;
-        face_internal.has_mask = std::numeric_limits<float>::min();
-        tracking_landmark(faceROI_in_frame, face_internal, track_box.x, track_box.y);
-        refine(face_internal, height, width, true);
-
-        excalibur::point<float> center_eye = excalibur::point<float>((face_internal.pts.x[0] + face_internal.pts.x[1]) / 2, (face_internal.pts.y[0] + face_internal.pts.y[1] / 2));
-        excalibur::point<float> center_mouth = excalibur::point<float>((face_internal.pts.x[3] + face_internal.pts.x[4]) / 2, (face_internal.pts.y[3] + face_internal.pts.y[4]) / 2);
-        double distance = std::sqrt((center_eye.x - center_mouth.x) * (center_eye.x - center_mouth.x) + (center_eye.y - center_mouth.y) * (center_eye.y - center_mouth.y));
-
-        if (face_internal.score > 0.1f && distance > std::numeric_limits<double>::epsilon())
-        {
-            cache0_.swap(cache1_);
-            cache1_.swap(cache_temp);
-        }
-
-        if (distance <= std::numeric_limits<double>::epsilon())
-            face_internal.score = 0.0f;
-
-        return exposing::make_as_first<face_info_impl>(face_internal);
-    }
-#endif
-
-#if defined(USE_RKNNAPI) || defined(USE_RKNN2API)
     exposing::param_vector<exposing::param_vector<std::uint8_t>> facedetector_base::center_scale_align(exposing::param_span<std::uint8_t> bitmap, std::int32_t channels, std::int32_t height, std::int32_t width,
         float scale, std::int32_t order)
     {
@@ -772,97 +525,5 @@ namespace glasssix::longinus
 
         return res;
     }
-#else
-    exposing::param_vector<exposing::param_vector<std::uint8_t>> facedetector_base::center_scale_align(exposing::param_span<std::uint8_t> bitmap, std::int32_t channels, std::int32_t height, std::int32_t width,
-        float scale, std::int32_t order)
-    {
-        if (bitmap.empty())
-        {
-            throw exposing::abi_invalid_argument("current frame is empty");
-        }
-        auto img = std::make_shared<memory::tensor<uint8_t>>(channels, height, width, -1, static_cast<memory::orderType>(order));
-        std::copy(bitmap.begin(), bitmap.end(), img->mutable_cpu_data());
-        if (order == memory::NHWC)
-            img->convert_order();
 
-        int center_x = width / 2;
-        int center_y = height / 2;
-        int ori_width = width * scale;
-        int ori_height = height * scale;
-
-        int ori_x = center_x - ori_width / 2;
-        int ori_y = center_y - ori_height / 2;
-
-        face_info_internal ori_face;
-        ori_face.rect.x = ori_x;
-        ori_face.rect.y = ori_y;
-        ori_face.rect.h = ori_height;
-        ori_face.rect.w = ori_width;
-
-        refine(ori_face, height, width, true);
-
-        excalibur::rectangle<int> ori_rect = excalibur::rectangle<int>(ori_face.rect.x, ori_face.rect.y, ori_face.rect.h, ori_face.rect.w);
-        std::shared_ptr<memory::tensor<uint8_t>> ori_img;
-        excalibur::safty_cut_cpu(img, ori_img, &ori_rect);
-
-        ori_face.headpose[0] = ori_face.headpose[1] = ori_face.headpose[2] = std::numeric_limits<float>::min();
-        ori_face.clarity = std::numeric_limits<float>::min();
-        ori_face.is_alive = false;
-        ori_face.has_mask = std::numeric_limits<float>::min();
-
-        tracking_landmark(ori_img, ori_face, ori_rect.x, ori_rect.y);
-        refine(ori_face, height, width, true);
-
-
-        std::shared_ptr<memory::tensor<uint8_t>> ROI, rotated_ROI, final_mat, final_mat_gray, resized_color_img;
-        std::vector<std::shared_ptr<memory::tensor<uint8_t>>> src_vector;
-        auto res = exposing::make_param_vector<std::uint8_t, 2>();
-
-        excalibur::rectangle<int> MarginRect = excalibur::rectangle<int>(ori_face.rect.x - ori_face.rect.w * 0.0f,
-            ori_face.rect.y - ori_face.rect.h * 0.0f,
-            ori_face.rect.h * 1.0f,
-            ori_face.rect.w * 1.0f);
-
-        excalibur::safty_cut_cpu(img, ROI, &MarginRect);
-
-        excalibur::point<float> ldmk5[5];
-        for (size_t j = 0; j < 5; j++)
-        {
-            ldmk5[j] = excalibur::point<float>(ori_face.pts.x[j] - MarginRect.x, ori_face.pts.y[j] - MarginRect.y);
-        }
-        excalibur::point<float> center_eye = excalibur::point<float>((ldmk5[0].x + ldmk5[1].x) / 2, (ldmk5[0].y + ldmk5[1].y) / 2);
-        excalibur::point<float> center_mouth = excalibur::point<float>((ldmk5[3].x + ldmk5[4].x) / 2, (ldmk5[3].y + ldmk5[4].y) / 2);
-        excalibur::point<float> center = excalibur::point<float>((center_eye.x + center_mouth.x) / 2, (center_eye.y + center_mouth.y) / 2);
-        double tan = (center_eye.x - center_mouth.x) / (center_eye.y - center_mouth.y);
-        double arctan = atan(tan) * 180 / 3.1415926;
-
-        excalibur::rotate_with_points_cpu(ROI, rotated_ROI, center, -1 * arctan);
-
-        double distance = std::sqrt((center_eye.x - center_mouth.x) * (center_eye.x - center_mouth.x) + (center_eye.y - center_mouth.y) * (center_eye.y - center_mouth.y));
-
-        if (distance < std::numeric_limits<double>::epsilon())
-        {
-            throw exposing::abi_invalid_argument("Illegal distance. Error landmarks.");
-        }
-
-        double cos = (center_mouth.y - center_eye.y) / distance;
-        double sin = (center_mouth.x - center_eye.x) / distance;
-        excalibur::point<float> new_center_eye = excalibur::point<float>(center_eye.x + (float)(sin * distance / 2), (float)(center_eye.y - (1 - cos) * distance / 2));
-        excalibur::point<float> new_center_mouth = excalibur::point<float>(center_mouth.x - (float)(sin * distance / 2), (float)(center_mouth.y + (1 - cos) * distance / 2));
-        excalibur::rectangle<float> final_rect = excalibur::rectangle<float>(new_center_eye.x - distance * 1.25f,
-            new_center_eye.y - distance * 0.75f,
-            distance * 2.5f, distance * 2.5f);
-        excalibur::safty_cut_cpu(rotated_ROI, final_mat, &final_rect);
-
-        excalibur::resize_cpu(final_mat, resized_color_img, 128, 128);
-
-        auto temp_vec = exposing::make_param_vector<std::uint8_t>();
-        temp_vec.resize(static_cast<size_t>(resized_color_img->count()));
-        temp_vec.copy_from({ resized_color_img->cpu_data(), static_cast<size_t>(resized_color_img->count()) }, 0);
-
-        res.push_back(temp_vec);
-
-        return res;
-    }
-#endif
 }

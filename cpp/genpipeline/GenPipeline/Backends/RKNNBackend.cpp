@@ -47,6 +47,14 @@ public:
 		}
 	}
 
+	// invalid phai
+	int initModel(const std::vector<std::string>& phai, std::string weight, int device) override final {
+		auto model_pure = weight.substr(0, weight.find_last_of('.'));
+		auto rkn_model = model_pure + ".rknn";
+		pipeline = std::make_unique<rknnwrapper::rknn_wrapper>(phai, rkn_model, device);
+		return 0;
+	}
+
 	int initModel(std::string model, int device) override final {
 		auto model_pure = model.substr(0, model.find_last_of('.'));
 		auto rkn_model = model_pure + ".rknn";
@@ -64,7 +72,6 @@ public:
 		return pipeline->forward(image.data, { 1, image.rows, image.cols, image.channels() }, RKNN_TENSOR_NHWC);
 	}
 
-	//����rknn��һ��������ò�Ҫ�ã���ƴ���ȱ��
 	std::unordered_map<std::string, std::shared_ptr<glasssix::memory::tensor<float>>> forward(std::shared_ptr<glasssix::memory::tensor<float>> input_tensor) override final {
 		return pipeline->forward(input_tensor->cpu_data(), input_tensor->data_shape(), static_cast<rknn_tensor_format>(input_tensor->order()));
 	}

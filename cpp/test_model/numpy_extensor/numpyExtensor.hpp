@@ -39,7 +39,9 @@ static inline void SAVE_TENSOR_TO_NUMPY(const std::shared_ptr<glasssix::memory::
     npy::SaveArrayAsNumpy(path, fortran_order, shape.size(), shape.data(), out_data);
 }
 
-static inline void SAVE_ARRAY_TO_NUMPY(float* input_tensor, std::vector<unsigned long> shape,std::string path = "xclbr_tensor.npy") {
+template<typename intTy>
+static inline void SAVE_ARRAY_TO_NUMPY(float* input_tensor, std::vector<intTy> data_shape, std::string path = "xclbr_tensor.npy") {
+    std::vector<unsigned long> shape(data_shape.begin(), data_shape.end());
     auto count = std::accumulate(std::begin(shape), std::end(shape), 1, std::multiplies<unsigned long>());
     const bool fortran_order{ false };
     std::vector<float> out_data(count);
@@ -76,6 +78,19 @@ static inline float CosineSimilarity(T emb1, T emb2, int len)
     }
 }
 
+static inline void Softmax(float* data, int num)
+{
+    double L2_Sum = 0.f;
+    for (size_t i = 0; i < num; i++)
+    {
+        data[i] = (exp(data[i]));
+        L2_Sum += data[i];
+    }
+    for (size_t i = 0; i < num; i++)
+    {
+        data[i] = data[i] / L2_Sum;
+    }
+}
 
 }  // namespace npy
 

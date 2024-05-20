@@ -13,6 +13,8 @@ class GenPipelineInterface {
 public:
 	virtual ~GenPipelineInterface() = default;
 	virtual std::unordered_map<std::string, std::shared_ptr<glasssix::memory::tensor<float>>> forward(cv::Mat image) = 0;
+	virtual std::unordered_map<std::string, std::shared_ptr<glasssix::memory::tensor<float>>> forward(const float* input_data, std::vector<int> data_shape, int order) = 0;
+	virtual void manual_possible_normalization(float mean, float stand) = 0;
 	virtual void manual_possible_normalization(std::array<float, 3> means, std::array<float, 3> stands) = 0;
 	virtual const std::string pipTypeInfo() = 0;
 	virtual const std::string version() = 0;
@@ -58,9 +60,15 @@ public:
 
 	GenPipeline(std::string arch, std::string weight, int device = -1);
 
+	GenPipeline(const std::vector<std::string>& phai, std::string weight, int device = -1);
+
+	void manual_possible_normalization(float mean, float stand) override final;
+
 	void manual_possible_normalization(std::array<float, 3> means, std::array<float, 3> stands) override final;
 
 	std::unordered_map<std::string, std::shared_ptr<glasssix::memory::tensor<float>>> forward(cv::Mat image) override final;
+
+	std::unordered_map<std::string, std::shared_ptr<glasssix::memory::tensor<float>>> forward(const float* input_data, std::vector<int> data_shape, int order) override final;
 
 	static std::unordered_set<std::string> dump_backend_menu(bool if_print = false);
 

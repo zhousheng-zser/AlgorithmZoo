@@ -1,59 +1,73 @@
-﻿#include <opencv2/opencv.hpp>
+﻿#pragma once
+#ifndef _YOLO_WRAPPER_HPP_
+#define _YOLO_WRAPPER_HPP_
+
+#include <opencv2/opencv.hpp>
 #include <vector>
 #include <algorithm>
 #include "Excalibur/pipeline.hpp"
 #include "Primitives/tensor_conversions.hpp"
 
 using namespace glasssix;
-    void Softmax(float* data, float* dst_data, int num )
-    {             
-        double L2_Sum=0.f;
-        for(size_t i=0; i<num; i++) 
-        {
-            dst_data[i] = ( exp(data[i] ) );
-            L2_Sum +=  dst_data[i];
+    namespace yolo_wrapper{
+        static void Softmax(float* data, float* dst_data, int num )
+        {             
+            double L2_Sum=0.f;
+            for(size_t i=0; i<num; i++) 
+            {
+                dst_data[i] = ( exp(data[i] ) );
+                L2_Sum +=  dst_data[i];
+            }
+            for(size_t i=0; i<num; i++) 
+                dst_data[i] = dst_data[i] / L2_Sum ;
         }
-        for(size_t i=0; i<num; i++) 
-            dst_data[i] = dst_data[i] / L2_Sum ;
-    }
 
-    static inline float sigmoid_x(float x)
-    {
-        return static_cast<float>(1.f / (1.f + exp(-x)));
-    }
-
-    static void transpose021(const float* src, float* dst ,int object_length,int area )
-    {
-        for(int i=0; i<3; i++)
-            for (size_t j = 0; j < object_length; j++)
-                for (size_t k = 0; k < area; k++)
-                    dst[ i*area*object_length + k*object_length + j ] = src[i*object_length*area + j*area + k ];
-    }
-
-    static void tranpose(const float* sou, float* dest, int sourows, int soucols)
-    {
-        for(int i=0;i< sourows;i++)
-            for(int j=0;j< soucols;j++)
-                dest[j*sourows+i]=sou[ i * soucols + j];    
-    }
-
-    static void  Softmax(float* data, int num )
-    {             
-        double L2_Sum=0.f;
-        for(size_t i=0; i<num; i++) 
+        static inline float sigmoid_x(float x)
         {
-            data[i]= ( exp(data[i] ) );
-            L2_Sum +=  data[i];
+            return static_cast<float>(1.f / (1.f + exp(-x)));
         }
-        for(size_t i=0; i<num; i++) 
-            data[i] =  data[i] / L2_Sum ;
-    }
 
-    static inline float de_sigmoid(float x)
-    {
-        if(x>=1 ||x<0)
-            return NAN;
-        return static_cast<float> (log( x/(1-x)));
+        static void transpose021(const float* src, float* dst ,int object_length,int area )
+        {
+            for(int i=0; i<3; i++)
+                for (size_t j = 0; j < object_length; j++)
+                    for (size_t k = 0; k < area; k++)
+                        dst[ i*area*object_length + k*object_length + j ] = src[i*object_length*area + j*area + k ];
+        }
+
+        static void tranpose(const float* sou, float* dest, int sourows, int soucols)
+        {
+            for(int i=0;i< sourows;i++)
+                for(int j=0;j< soucols;j++)
+                    dest[j*sourows+i]=sou[ i * soucols + j];    
+        }
+
+        static void  Softmax(float* data, int num )
+        {             
+            double L2_Sum=0.f;
+            for(size_t i=0; i<num; i++) 
+            {
+                data[i]= ( exp(data[i] ) );
+                L2_Sum +=  data[i];
+            }
+            for(size_t i=0; i<num; i++) 
+                data[i] =  data[i] / L2_Sum ;
+        }
+
+        static inline float de_sigmoid(float x)
+        {
+            if(x>=1 ||x<0)
+                return NAN;
+            return static_cast<float> (log( x/(1-x)));
+        }
+
+        static int safe_region(float location, int border )
+        {
+            location = location > 0.f? location:0.f;
+            location = location < border? location: border;
+            return std::round(location);
+        }
+
     }
 
     struct key_point
@@ -105,7 +119,22 @@ protected:
 public:
     YoloBase(int model_input_width,int model_input_height, T pipe) : pipeline(pipe),model_input_height_(model_input_height), model_input_width_(model_input_width)  {}
 
-	virtual void preprocess_detection(cv::Mat& src,  cv::Size input_shape = cv::Size(640, 640) ,bool BGR2RGB=true )=0;
+	void preprocess_detection(cv::Mat& src,  cv::Size input_shape = cv::Size(640, 640) , bool BGR2RGB=true ) 
+    {
+        this->pic_process_param_.ratio = std::min((float)input_shape.width/(float)src.cols, (float)input_shape.height/(float)src.rows);
+        cv::Mat cut_image;
+        if( src.rows != input_shape.height || src.cols != input_shape.width)
+        {      
+            cv::resize(src, cut_image, cv::Size((int)(src.cols * this->pic_process_param_.ratio), (int)(src.rows * this->pic_process_param_.ratio)), cv::INTER_LINEAR);
+            this->pic_process_param_.pad_h = std::round((input_shape.height - cut_image.rows) /2 ) ; 
+            this->pic_process_param_.pad_w = std::round((input_shape.width - cut_image.cols) /2 ) ; 
+            cv::copyMakeBorder(cut_image, this->infer_image, this->pic_process_param_.pad_h, input_shape.height-cut_image.rows-this->pic_process_param_.pad_h, this->pic_process_param_.pad_w, input_shape.width-cut_image.cols- this->pic_process_param_.pad_w, cv::BORDER_CONSTANT, cv::Scalar{ 114,114,114 });
+        }
+        else 
+            src.copyTo(this->infer_image);     
+        if(BGR2RGB)
+            cv::cvtColor(this->infer_image, this->infer_image, cv::COLOR_BGR2RGB);
+    }
 	
 	virtual std::vector<std::vector<float>> yoloconcat(std::vector<std::shared_ptr<glasssix::memory::tensor<float>>>& outs,float conf )=0;
 
@@ -208,13 +237,19 @@ public:
             sou_data[i][0] =  sou_data[i][0]+ sou_data[i][5]*bias;      
     }
 
+    // template<typename Pipeline_Type>  
+    // class CheckDerived : public std::conditional<std::is_base_of< glasssix::rknnwrapper::rknn_wrapper, Pipeline_Type>::value, std::true_type, std::false_type>::type { }; 
+
+
     // 获取检测到的对象
     std::vector<ObjectInfo> get_objects(cv::Mat image, float conf=0.5,float iou_threshold=0.65  ) 
 	{	
 		std::vector<ObjectInfo> out;
 		auto new_shape = cv::Size(model_input_width_, model_input_height_);
 		preprocess_detection(image,new_shape);
-		auto model_results = pipeline->forward(infer_image);  //最好做编译器检查 检查是不是pipeline是不是genpipeline继承类
+
+        auto model_results = pipeline->forward(infer_image);    // 最好做编译器检查 检查是不是pipeline是不是genpipeline继承类
+
 		std::vector<std::shared_ptr<memory::tensor<float>>> model_results_vector = sort_model_result(model_results);
 
 		auto real_output = yoloconcat(model_results_vector,conf);
@@ -235,13 +270,13 @@ public:
             
             for (size_t i = 0; i < (nms_input[index].size() - offset) / step; ++i) {  
                 key_points.emplace_back(  
-                    std::round(nms_input[index][offset + i * step]),  
-                    std::round(nms_input[index][offset + i * step + 1]),  
+                    yolo_wrapper::safe_region(nms_input[index][offset + i * step], image.cols),  
+                    yolo_wrapper::safe_region(nms_input[index][offset + i * step + 1], image.rows),  
                     nms_input[index][offset + i * step + 2]  
                 );  
             }
 
-            out.emplace_back(std::round(nms_input[index][0]), std::round(nms_input[index][1]),std::round(nms_input[index][0]+nms_input[index][2]), std::round(nms_input[index][1]+nms_input[index][3]),
+            out.emplace_back(yolo_wrapper::safe_region(nms_input[index][0],image.cols), yolo_wrapper::safe_region(nms_input[index][1], image.rows),yolo_wrapper::safe_region(nms_input[index][0]+nms_input[index][2], image.cols), yolo_wrapper::safe_region(nms_input[index][1]+nms_input[index][3], image.rows),
                             std::round(nms_input[index][5]),  nms_input[index][4], key_points
             );
             
@@ -249,8 +284,9 @@ public:
             //         cv::Point(int(nms_input[index][0]+nms_input[index][2]), int(nms_input[index][1]+nms_input[index][3])), cv::Scalar(0, 255, 255), 2);
             // for (size_t j = 0; j < key_points.size(); j++)
             //     cv::circle(image, cv::Point((int)key_points[j].x, (int)key_points[j].y), 3, cv::Scalar(0, 0, 255), 2);
-	    }
-		// cv::imwrite("../0331.jpg", image);
+	   
+        }
+		// cv::imwrite("../0429.jpg", image);
 		return out;
 		
 	};
@@ -265,24 +301,6 @@ public:
         Yolov8(int model_input_width, int model_input_height,  std::shared_ptr<T> pipe) : 
         YoloBase< std::shared_ptr<T>>(model_input_width, model_input_height, pipe) {}
 
-        void preprocess_detection(cv::Mat& src,  cv::Size input_shape = cv::Size(640, 640) ,bool BGR2RGB=true )  override
-        {
-            this->pic_process_param_.ratio = std::min((float)input_shape.width/(float)src.cols, (float)input_shape.height/(float)src.rows);
-            cv::Mat cut_image;
-            if( src.rows != input_shape.height || src.cols != input_shape.width)
-            {      
-                cv::resize(src, cut_image, cv::Size((int)(src.cols * this->pic_process_param_.ratio), (int)(src.rows * this->pic_process_param_.ratio)), cv::INTER_LINEAR);
-                this->pic_process_param_.pad_h = std::round((input_shape.height - cut_image.rows) /2 ) ; 
-                this->pic_process_param_.pad_w = std::round((input_shape.width - cut_image.cols) /2 ) ; 
-                cv::copyMakeBorder(cut_image, this->infer_image, this->pic_process_param_.pad_h, input_shape.height-cut_image.rows-this->pic_process_param_.pad_h, this->pic_process_param_.pad_w, input_shape.width-cut_image.cols- this->pic_process_param_.pad_w, cv::BORDER_CONSTANT, cv::Scalar{ 114,114,114 });
-            }
-            else 
-                src.copyTo(this->infer_image);     
-            if(BGR2RGB)
-                cv::cvtColor(this->infer_image, this->infer_image, cv::COLOR_BGR2RGB);
-        }
-
-
         std::vector<std::vector<float>> yoloconcat(std::vector<std::shared_ptr<memory::tensor<float>>>& outs,float conf ) override
         {
 if constexpr (Posture)
@@ -293,7 +311,7 @@ else
 
         std::vector<std::vector<float>> yolov8concat_posture(std::vector<std::shared_ptr<memory::tensor<float>>>& outs,float conf )
         {
-            conf = de_sigmoid(conf);
+            conf = yolo_wrapper::de_sigmoid(conf);
             int category = outs[1]->channels() - 64;
             std::vector<int> mul = {32,16,8};
             std::vector<std::vector<float>> output_new;
@@ -320,8 +338,8 @@ else
                 if(!candicate_index.size() )  continue;
                 std::vector<float> reshape_box( slice_box_size*64 );
                 std::vector<float> posture_reshape_box( slice_box_size*64 );
-                tranpose(stride_data_xywh->mutable_cpu_data(), reshape_box.data(), 64, slice_box_size);
-                tranpose(stride_data_posture->mutable_cpu_data(), posture_reshape_box.data(), posture_shape[1], slice_box_size);
+                yolo_wrapper::tranpose(stride_data_xywh->mutable_cpu_data(), reshape_box.data(), 64, slice_box_size);
+                yolo_wrapper::tranpose(stride_data_posture->mutable_cpu_data(), posture_reshape_box.data(), posture_shape[1], slice_box_size);
 
                 for (size_t index_current = 0; index_current < candicate_index.size(); index_current++)
                 {
@@ -335,7 +353,7 @@ else
                         out_centre_xywh.resize(6+posture_shape[1]);
 
                         for (size_t softmaxmove = 0; softmaxmove < 4; softmaxmove++)
-                            Softmax(reshape_box.data()+64*slice_index+softmaxmove*16, temp_data.data()+softmaxmove*16, 16 );
+                            yolo_wrapper::Softmax(reshape_box.data()+64*slice_index+softmaxmove*16, temp_data.data()+softmaxmove*16, 16 );
                         
                         for(int i=0;i<16;i++)
                             for(int j=0;j<4;j++)
@@ -344,7 +362,7 @@ else
                         out_centre_xywh[1] = ((centre_xywh[3] - centre_xywh[1])/2.f + slice_index/data_shape[data_shape.size()-1] + 0.5f) * mul[index/2];
                         out_centre_xywh[2] = (centre_xywh[2] + centre_xywh[0]) * mul[index/2];
                         out_centre_xywh[3] = (centre_xywh[3] + centre_xywh[1]) * mul[index/2];
-                        out_centre_xywh[4] = sigmoid_x (conf_[slice_index + slice_box_size*category_label[index_current]  ]);
+                        out_centre_xywh[4] = yolo_wrapper::sigmoid_x (conf_[slice_index + slice_box_size*category_label[index_current]  ]);
                         out_centre_xywh[5] = category_label[index_current];
                         float *posture_data2 = posture_reshape_box.data() + posture_shape[1]*slice_index;
 
@@ -360,7 +378,7 @@ else
                         {
                             out_centre_xywh[6 + key_point*3 + 0] = (posture_data2[key_point*3+0]*2 + slice_index%data_shape[data_shape.size()-1])*mul[index/2 ];
                             out_centre_xywh[6 + key_point*3 + 1] = (posture_data2[key_point*3+1]*2 + slice_index/data_shape[data_shape.size()-1])*mul[index/2 ];
-                            out_centre_xywh[6 + key_point*3 + 2] = sigmoid_x(posture_data2[key_point*3+2] );
+                            out_centre_xywh[6 + key_point*3 + 2] = yolo_wrapper::sigmoid_x(posture_data2[key_point*3+2] );
                         }
                        
                         output_new.push_back(out_centre_xywh);
@@ -372,7 +390,7 @@ else
 
         std::vector<std::vector<float>> yolov8concat_general(std::vector<std::shared_ptr<memory::tensor<float>>>& outs,float conf ) 
         {
-            conf = de_sigmoid(conf);
+            conf = yolo_wrapper::de_sigmoid(conf);
             int category = outs[0]->channels() - 64;
             std::vector<int> mul = {32,16,8,4};
             std::vector<std::vector<float>> output_new;
@@ -400,9 +418,9 @@ else
                 if(!candicate_index.size() )  continue;
                 std::vector<float> reshape_box( slice_box_size*64 );
 if constexpr (Exception) 
-                tranpose(stride_data->mutable_cpu_data() + slice_box_size * category, reshape_box.data(), 64, slice_box_size);
+                yolo_wrapper::tranpose(stride_data->mutable_cpu_data() + slice_box_size * category, reshape_box.data(), 64, slice_box_size);
 else 
-                tranpose(stride_data->mutable_cpu_data(), reshape_box.data(), 64, slice_box_size);
+                yolo_wrapper::tranpose(stride_data->mutable_cpu_data(), reshape_box.data(), 64, slice_box_size);
 
                 for (size_t index_current = 0; index_current < candicate_index.size(); index_current++)
                 {
@@ -411,7 +429,7 @@ else
                         std::vector<float> centre_xywh(4,0);
                         std::vector<float> out_centre_xywh(6,0);
                         for (size_t softmaxmove = 0; softmaxmove < 4; softmaxmove++)
-                            Softmax(reshape_box.data()+64*slice_index+softmaxmove*16, temp_data.data()+softmaxmove*16, 16 );
+                            yolo_wrapper::Softmax(reshape_box.data()+64*slice_index+softmaxmove*16, temp_data.data()+softmaxmove*16, 16 );
                         
                         for(int i=0;i<16;i++)
                             for(int j=0;j<4;j++)
@@ -420,7 +438,7 @@ else
                         out_centre_xywh[1] = ((centre_xywh[3] - centre_xywh[1])/2.f + slice_index/data_shape[data_shape.size()-1] + 0.5f) * mul[index];
                         out_centre_xywh[2] = (centre_xywh[2] + centre_xywh[0]) * mul[index];
                         out_centre_xywh[3] = (centre_xywh[3] + centre_xywh[1]) * mul[index];
-                        out_centre_xywh[4] = sigmoid_x (conf_[slice_index +category_label[index_current]*slice_box_size ]);
+                        out_centre_xywh[4] = yolo_wrapper::sigmoid_x (conf_[slice_index +category_label[index_current]*slice_box_size ]);
                         out_centre_xywh[5] = category_label[index_current];
                         output_new.push_back(out_centre_xywh);
                 }
@@ -430,32 +448,22 @@ else
 
 };
 
-
-template <typename T>
+template <typename T, bool Exception=false, bool Posture=false>
 class Yolov7 : public YoloBase< std::shared_ptr<T> > {
 public:
     
         Yolov7(int model_input_width, int model_input_height,  std::shared_ptr<T> pipe) : 
         YoloBase< std::shared_ptr<T>>(model_input_width, model_input_height, pipe) {}
 
-        void preprocess_detection(cv::Mat& src,  cv::Size input_shape = cv::Size(640, 640) ,bool BGR2RGB=true )  override
+        std::vector<std::vector<float>> yoloconcat(std::vector<std::shared_ptr<memory::tensor<float>>>& outs,float conf ) override
         {
-            this->pic_process_param_.ratio = std::min((float)input_shape.width/(float)src.cols, (float)input_shape.height/(float)src.rows);
-            cv::Mat cut_image;
-            if( src.rows != input_shape.height || src.cols != input_shape.width)
-            {      
-                cv::resize(src, cut_image, cv::Size((int)(src.cols * this->pic_process_param_.ratio), (int)(src.rows * this->pic_process_param_.ratio)), cv::INTER_LINEAR);
-                this->pic_process_param_.pad_h = std::round((input_shape.height - cut_image.rows) /2 ) ; 
-                this->pic_process_param_.pad_w = std::round((input_shape.width - cut_image.cols) /2 ) ; 
-                cv::copyMakeBorder(cut_image, this->infer_image, this->pic_process_param_.pad_h, input_shape.height-cut_image.rows-this->pic_process_param_.pad_h, this->pic_process_param_.pad_w, input_shape.width-cut_image.cols- this->pic_process_param_.pad_w, cv::BORDER_CONSTANT, cv::Scalar{ 114,114,114 });
-            }
-            else 
-                src.copyTo(this->infer_image);     
-            if(BGR2RGB)
-                cv::cvtColor(this->infer_image, this->infer_image, cv::COLOR_BGR2RGB);
+if constexpr (Posture)
+            return yolov7concat_posture(outs, conf );
+else
+            return yolov7concat_general(outs, conf );
         }
 
-        std::vector<std::vector<float>> yoloconcat( std::vector<std::shared_ptr<memory::tensor<float>>>& outs, float conf_thres) override
+        std::vector<std::vector<float>> yolov7concat_posture( std::vector<std::shared_ptr<memory::tensor<float>>>& outs, float conf_thres)
         {
             const float anchors[3][6] = {{72,97, 123,164, 209,297}, {15,19, 23,30, 39,52},{4,5, 6,8, 10,12} };
             const float stride[3] = { 32.0, 16.0, 8.0 }; 
@@ -465,32 +473,74 @@ public:
                 auto data_shape = outs[n]->data_shape();
                 int width  = data_shape[data_shape.size()-1];
                 int height = data_shape[data_shape.size()-2];
-                int object_length = data_shape[data_shape.size()-3]/3;
+                int object_length = data_shape[data_shape.size()-3]/3; // xywh scorebase s1 s2 ... sn
                 std::vector<float> reshape_data( outs[n]->count());
-                transpose021(outs[n]->cpu_data(), reshape_data.data(), object_length, width*height);
+                yolo_wrapper::transpose021(outs[n]->cpu_data(), reshape_data.data(), object_length, width*height);
                 float *ptr_out = reshape_data.data();
                 for(int q = 0; q < 3; q++)
                 {
                     const float anchor_w = anchors[n][q * 2];
                     const float anchor_h = anchors[n][q * 2 + 1];
-                    for(int i = 0; i < width; i++)
-                        for(int j = 0; j < height; j++)
+                    for(int i = 0; i < height ; i++)
+                        for(int j = 0; j < width; j++)
                         {                          
-                            float box_score = sigmoid_x(ptr_out[4]);
-                            if (box_score * sigmoid_x(ptr_out[5]) > conf_thres) 
+                            float box_score = yolo_wrapper::sigmoid_x(ptr_out[4]);
+                            if (box_score * yolo_wrapper::sigmoid_x(ptr_out[5]) > conf_thres) 
                             {
-                                float cx = (sigmoid_x(ptr_out[0]) * 2.f - 0.5f + j) * stride[n];  // cx
-                                float cy = (sigmoid_x(ptr_out[1]) * 2.f - 0.5f + i) * stride[n];  // cy
-                                float w = powf(sigmoid_x(ptr_out[2]) * 2.f, 2.f) * anchor_w;      // w
-                                float h = powf(sigmoid_x(ptr_out[3]) * 2.f, 2.f) * anchor_h;      // h
-                                std::vector<float> element = { cx, cy, w, h, box_score, sigmoid_x(ptr_out[5])};
+                                float cx = (yolo_wrapper::sigmoid_x(ptr_out[0]) * 2.f - 0.5f + j) * stride[n];  // cx
+                                float cy = (yolo_wrapper::sigmoid_x(ptr_out[1]) * 2.f - 0.5f + i) * stride[n];  // cy
+                                float w = powf(yolo_wrapper::sigmoid_x(ptr_out[2]) * 2.f, 2.f) * anchor_w;      // w
+                                float h = powf(yolo_wrapper::sigmoid_x(ptr_out[3]) * 2.f, 2.f) * anchor_h;      // h
+                                std::vector<float> element = { cx, cy, w, h, box_score*yolo_wrapper::sigmoid_x(ptr_out[5]), 0};
                                 for (size_t k = 0; k < (object_length -6)/3; k++)
                                 {
                                     element.push_back((ptr_out[6 + k * 3 + 0] * 2.f - 0.5f + j) * stride[n]);
                                     element.push_back((ptr_out[6 + k * 3 + 1] * 2.f - 0.5f + i) * stride[n]);
-                                    element.push_back(sigmoid_x(ptr_out[6 + k * 3 + 2]));
+                                    element.push_back(yolo_wrapper::sigmoid_x(ptr_out[6 + k * 3 + 2]));
                                 }
                                 result.push_back(element);
+                            }
+                            ptr_out +=object_length;
+                        }               
+                }
+            }
+            return result;
+        } 
+
+        std::vector<std::vector<float>> yolov7concat_general( std::vector<std::shared_ptr<memory::tensor<float>>>& outs, float conf_thres) 
+        {
+            const float anchors[3][6] = {{72,97, 123,164, 209,297}, {15,19, 23,30, 39,52},{4,5, 6,8, 10,12} };
+            const float stride[3] = { 32.0, 16.0, 8.0 }; 
+            std::vector<std::vector<float>> result;
+            for(int n = 0; n < 3; n++)
+            {
+                auto data_shape = outs[n]->data_shape();
+                int width  = data_shape[data_shape.size()-2];
+                int height = data_shape[data_shape.size()-3];
+                int object_length = data_shape[data_shape.size()-1];
+                std::vector<float> reshape_data( outs[n]->count());
+                // yolo_wrapper::transpose021(outs[n]->cpu_data(), reshape_data.data(), object_length, width*height);
+                const float *ptr_out = outs[n]->cpu_data();
+                for(int q = 0; q < 3; q++)
+                {
+                    const float anchor_w = anchors[n][q * 2];
+                    const float anchor_h = anchors[n][q * 2 + 1];
+                    for(int i = 0; i < height; i++)
+                        for(int j = 0; j < width; j++)
+                        {                          
+                            float box_score = yolo_wrapper::sigmoid_x(ptr_out[4]);
+                            float temp_conf_thres = yolo_wrapper::de_sigmoid(conf_thres/box_score);
+                            for (size_t category = 5; category < object_length; category++)
+                            {
+                                if ( ptr_out[category] > temp_conf_thres ) 
+                                {
+                                    float cx = (yolo_wrapper::sigmoid_x(ptr_out[0]) * 2.f - 0.5f + j) * stride[n];  // cx
+                                    float cy = (yolo_wrapper::sigmoid_x(ptr_out[1]) * 2.f - 0.5f + i) * stride[n];  // cy
+                                    float w = powf(yolo_wrapper::sigmoid_x(ptr_out[2]) * 2.f, 2.f) * anchor_w;      // w
+                                    float h = powf(yolo_wrapper::sigmoid_x(ptr_out[3]) * 2.f, 2.f) * anchor_h;      // h
+                                    std::vector<float> element = { cx, cy, w, h, box_score*yolo_wrapper::sigmoid_x(ptr_out[category]), category-5};
+                                    result.push_back(element);
+                                }
                             }
                             ptr_out +=object_length;
                         }               
@@ -522,3 +572,7 @@ public:
     // auto yolov8_detect = yolov8_instance->get_objects( image,conf_threshold,iou_threshold);
     // yolov8_detect包含了指定置信度及其iou的对应模型检测结果 std::vector<ObjectInfo>
 // }
+
+
+
+#endif

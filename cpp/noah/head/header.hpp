@@ -36,6 +36,7 @@ namespace noah {
 		AT_FLOAT,
 		AT_STR,
 		AT_MAP,
+		AT_PAIR,
 		AT_LIST,
 		AT_SPAN,
 		AT_OTHER
@@ -44,6 +45,7 @@ namespace noah {
 	static std::set<BasicAType> PURE_ABI_TYPE{
 		BasicAType::AT_STR,
 		BasicAType::AT_MAP,
+		BasicAType::AT_PAIR,
 		BasicAType::AT_LIST,
 		BasicAType::AT_SPAN,
 	};
@@ -52,6 +54,7 @@ namespace noah {
 	static std::set<BasicAType> SUGGEST_CONST_REF{
 		BasicAType::AT_STR,
 		BasicAType::AT_MAP,
+		BasicAType::AT_PAIR,
 		BasicAType::AT_LIST,
 	};
 	enum class const_ref { no_cref, is_cref };
@@ -87,6 +90,7 @@ namespace noah {
 
 		{"STR",BasicAType::AT_STR},
 		{"MAP",BasicAType::AT_MAP},
+		{"PAIR",BasicAType::AT_PAIR},
 		{"LIST",BasicAType::AT_LIST},
 		{"VEC",BasicAType::AT_LIST},
 		{"VECTOR",BasicAType::AT_LIST},
@@ -103,6 +107,7 @@ namespace noah {
 		{BasicAType::AT_FLOAT,"float"},
 		{BasicAType::AT_STR,"exposing::param_string"},
 		{BasicAType::AT_MAP,"exposing::param_hash_map"},
+		{BasicAType::AT_PAIR,"exposing::param_pair"},
 		{BasicAType::AT_LIST,"exposing::param_vector"},
 		{BasicAType::AT_SPAN,"exposing::param_span"},
 	};

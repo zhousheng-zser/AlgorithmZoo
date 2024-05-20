@@ -17,3 +17,6 @@ if(NOT OPENCV_FOUND)
     target_link_directories(${module_name} PRIVATE ${OpenCV_LIBRARY_DIRS})
 endif()
 target_link_libraries(${module_name} PRIVATE ${OpenCV_LIBS})
+
+target_link_libraries(${module_name} PRIVATE genpipeline)
+add_dependencies(${module_name} genpipeline)

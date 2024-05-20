@@ -92,6 +92,35 @@ public:
 		return rst_map;
 	}
 
+	std::unordered_map<std::string, std::shared_ptr<glasssix::memory::tensor<float>>> forward(const float* input_data, std::vector<int> data_shape, int order) {
+		std::unordered_map<std::string, std::shared_ptr<glasssix::memory::tensor<float>>> rst_map;
+
+		if (pipeline_ != nullptr) {
+			if (use_forward_probe_) {
+				start_ = ChronoClock::now();
+			}
+
+			rst_map = pipeline_->forward(input_data, data_shape, order);
+
+			if (use_forward_probe_) {
+				probe_infr_time_cost += std::chrono::duration_cast<std::chrono::milliseconds>(ChronoClock::now() - start_);
+				infr_cost_add_count++;
+			}
+
+			if (postprocessing_function_ != nullptr) {
+				start_ = ChronoClock::now();
+				rst_map = postprocessing_function_(rst_map);
+				if (use_forward_probe_) {
+					probe_post_time_cost += std::chrono::duration_cast<std::chrono::milliseconds>(ChronoClock::now() - start_);
+					post_cost_add_count++;
+				}
+			}
+		}
+
+		return rst_map;
+	}
+
+
 	void manual_possible_normalization(std::array<float, 3> means, std::array<float, 3> stands) {
 		if (pipeline_)
 			 pipeline_->manual_possible_normalization(means, stands);
@@ -144,6 +173,12 @@ public:
 		return mkSharePipelineCommon_<PrePostProcessGenPipeline, RealPipeline>(model, device);
 	}
 
+	// Excalibur may use
+	template<typename RealPipeline = GenPipeline>
+	static inline std::shared_ptr<PrePostProcessGenPipeline> mkSharePipeline(std::vector<std::string> phai, std::string weight, int device = -1) {
+		return mkSharePipelineCommon_<PrePostProcessGenPipeline, RealPipeline>(phai, weight, device);
+	}
+
 private:
 	std::shared_ptr<GenPipelineInterface> pipeline_;
 	std::function<cv::Mat(cv::Mat)> image_preprocess_function_;
@@ -162,4 +197,3 @@ private:
 		probe_post_time_cost = std::chrono::milliseconds{ 0 };
 	}
 };
-

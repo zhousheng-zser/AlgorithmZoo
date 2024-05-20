@@ -165,7 +165,7 @@ namespace glasssix::pump_weld
 
     std::vector<cv::Rect> get_weld_box(const std::vector<std::vector<cv::Rect>>& time_light_box_list) {
         constexpr float MIN_IOU_BETWEEN_LIGHT_BOX = 0.3;
-        constexpr float MAX_IOU_BETWEEN_LIGHT_BOX = 0.9;
+        constexpr float MAX_IOU_BETWEEN_LIGHT_BOX = 0.86;
         constexpr int WELD_MIN_LIGHT_FRAME = 2;
         constexpr int WELD_MAX_LIGHT_FRAME = 3;
 

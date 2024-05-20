@@ -63,6 +63,21 @@ GenPipeline::GenPipeline(std::string arch, std::string weight, int device) :GenP
 	}
 }
 
+GenPipeline::GenPipeline(const std::vector<std::string>& phai, std::string weight, int device) :GenPipeline() {
+	auto [weight_name, weight_ext] = spilt_file_name_ext_(weight);
+	std::vector<std::string> model_exts{ weight_ext };
+	backend_create_(model_exts);
+	int ret = backend->initModel(phai, weight, device);
+	if (ret) {
+		std::string exceptionsInfo = "Init model failed :" + weight;
+		throw glasssix::exposing::abi_invalid_argument(exceptionsInfo.c_str());
+	}
+}
+
+void GenPipeline::manual_possible_normalization(float mean, float stand) {
+	manual_possible_normalization({ mean,mean,mean }, { stand,stand,stand });
+}
+
 void GenPipeline::manual_possible_normalization(std::array<float, 3> means, std::array<float, 3> stands) {
 	if (!backend) {
 		throw glasssix::exposing::abi_not_initialized("Empty infer backend.");
@@ -84,6 +99,16 @@ std::unordered_map<std::string, std::shared_ptr<glasssix::memory::tensor<float>>
 		throw glasssix::exposing::abi_not_initialized("Empty infer backend."); //fail
 	}
 }
+
+std::unordered_map<std::string, std::shared_ptr<glasssix::memory::tensor<float>>> GenPipeline::forward(const float* input_data, std::vector<int> data_shape, int order) {
+	if (backend) {
+		return backend->forward(input_data, data_shape, order); //success
+	}
+	else {
+		throw glasssix::exposing::abi_not_initialized("Empty infer backend."); //fail
+	}
+}
+
 
 std::unordered_set<std::string> GenPipeline::dump_backend_menu(bool if_print) {
 	auto& registry = BackendFactoryRegistry::getInstance();
