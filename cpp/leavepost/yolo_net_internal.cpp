@@ -42,9 +42,9 @@ namespace glasssix::leavepost
     class yolo_net_internal::impl
     {
     public:
-		impl(std::string_view model_directory, int device)
+		impl(const exposing::param_string & str_params)
 		{
-			head_instance_ = glasssix::exposing::make_exported_interface<head::detect_code>(model_directory, device);
+			head_instance_ = glasssix::exposing::make_exported_interface<head::detect_code>(str_params);
 		}
 
         exposing::param_vector<leavepost::box_info> detect(const exposing::param_span<std::uint8_t>& bitmap, int channels, int height, int width, int roi_x, int roi_y, int roi_width, int roi_height, std::map<std::string, float>& param_map)
@@ -294,8 +294,8 @@ namespace glasssix::leavepost
         std::shared_ptr<memory::tensor<std::uint8_t>> cache_;
     };
 
-    yolo_net_internal::yolo_net_internal(std::string_view model_directory, int device)
-    : impl_{ std::make_unique<impl>(model_directory, device) }
+    yolo_net_internal::yolo_net_internal(const exposing::param_string & str_params)
+    : impl_{ std::make_unique<impl>(str_params) }
     {
     }
 
