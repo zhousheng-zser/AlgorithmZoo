@@ -142,7 +142,7 @@ namespace glasssix::exposing::impl
 
 namespace glasssix::head
 {
-    struct detect_code : exposing::inherits<detect_code>
+    struct detect_code : exposing::inherits<detect_code,exposing::nessus::algo_plugin_interface>
     {
         using inherits::inherits;
     };

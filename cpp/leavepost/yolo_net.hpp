@@ -131,7 +131,7 @@ namespace glasssix::exposing::impl
 
 namespace glasssix::leavepost
 {
-    struct yolo_net : exposing::inherits<yolo_net>
+    struct yolo_net : exposing::inherits<yolo_net,exposing::nessus::algo_plugin_interface>
     {
         using inherits::inherits;
     };
