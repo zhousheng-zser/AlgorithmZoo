@@ -4,7 +4,7 @@
 #include <map>
 #include <utility>
 
-namespace glasssix::pedestrian
+namespace glasssix::pedestrian_min
 {
 	classify_code_impl::classify_code_impl() = default;
 
@@ -21,11 +21,11 @@ namespace glasssix::pedestrian
 		return exposing::to_param_string(impl_->version());
 	}
 
-	exposing::param_vector<pedestrian::box_info> classify_code_impl::detect(exposing::param_span<std::uint8_t> bitmap, int channels, int height, int width, int roi_x, int roi_y, int roi_width, int roi_height,
+	exposing::param_vector<pedestrian_min::box_info> classify_code_impl::detect(exposing::param_span<std::uint8_t> bitmap, int channels, int height, int width, int roi_x, int roi_y, int roi_width, int roi_height,
 		const exposing::param_hash_map<exposing::param_string, float>& param_map_abi) const
 	{
 		if (!impl_)
-			throw exposing::abi_invalid_operation(u8"pedestrian internal object not initialized");
+			throw exposing::abi_invalid_operation(u8"pedestrian_min internal object not initialized");
 
 		std::map<std::string, float> param_map;
 

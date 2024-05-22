@@ -3,7 +3,7 @@
 
 #include <abi/consumer.hpp>
 
-namespace glasssix::pedestrian
+namespace glasssix::pedestrian_min
 {
     struct box_info;
 }
@@ -11,7 +11,7 @@ namespace glasssix::pedestrian
 namespace glasssix::exposing::impl
 {
     template<>
-    struct abi<pedestrian::box_info>
+    struct abi<pedestrian_min::box_info>
     {
         using identity_type = type_identity_interface;
 
@@ -35,7 +35,7 @@ namespace glasssix::exposing::impl
     };
 
     template <typename Derived>
-    struct interface_vtable<Derived, pedestrian::box_info> : interface_vtable_base<Derived, pedestrian::box_info>
+    struct interface_vtable<Derived, pedestrian_min::box_info> : interface_vtable_base<Derived, pedestrian_min::box_info>
     {
 
         virtual std::int32_t G6_ABI_CALL x1(abi_out_t<int> result) noexcept override
@@ -110,10 +110,10 @@ namespace glasssix::exposing::impl
     };
 
     template <>
-    struct abi_adapter<pedestrian::box_info>
+    struct abi_adapter<pedestrian_min::box_info>
     {
         template <typename Derived>
-        struct type : enable_self_abi_awareness<Derived, pedestrian::box_info>
+        struct type : enable_self_abi_awareness<Derived, pedestrian_min::box_info>
         {
 
             int x1() const
@@ -181,7 +181,7 @@ namespace glasssix::exposing::impl
     };
 }
 
-namespace glasssix::pedestrian
+namespace glasssix::pedestrian_min
 {
     struct box_info : exposing::inherits<box_info>
     {
