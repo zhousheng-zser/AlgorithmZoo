@@ -1,6 +1,6 @@
 #include "box_info_impl.hpp"
 
-namespace glasssix::pedestrian
+namespace glasssix::pedestrian_min
 {
 	box_info_impl::box_info_impl()
 	{

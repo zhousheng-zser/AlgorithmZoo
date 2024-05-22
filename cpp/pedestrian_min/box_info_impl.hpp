@@ -4,9 +4,9 @@
 #include "box_info.hpp"
 #include "classify_code_internal.hpp"
 
-namespace glasssix::pedestrian
+namespace glasssix::pedestrian_min
 {
-    inline constexpr exposing::utf8_string_view pedestrian_box_info_qualified_name{ u8"g6.pedestrian.boxInfo" };
+    inline constexpr exposing::utf8_string_view pedestrian_box_info_qualified_name{ u8"g6.pedestrian_min.boxInfo" };
 
     class box_info_impl : public exposing::implements<box_info_impl, box_info>, public exposing::make_external_qualified_name<pedestrian_box_info_qualified_name>
     {

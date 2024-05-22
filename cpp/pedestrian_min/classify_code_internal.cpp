@@ -22,7 +22,7 @@
 #include <GenPipeline/GetPostprocessing.hpp>
 #include "../genpipeline/market/yolov8_GEN.hpp"
 
-namespace glasssix::pedestrian
+namespace glasssix::pedestrian_min
 {
     class classify_code_internal::impl
     {
@@ -43,9 +43,9 @@ namespace glasssix::pedestrian
             ioprocess_pipeline_->set_postprocessing(yolov8_GEN<1, 1>);
         }
 
-        exposing::param_vector<pedestrian::box_info> detect(const exposing::param_span<std::uint8_t> &bitmap, int channels, int height, int width, int roi_x, int roi_y, int roi_width, int roi_height, std::map<std::string, float> &param_map)
+        exposing::param_vector<pedestrian_min::box_info> detect(const exposing::param_span<std::uint8_t> &bitmap, int channels, int height, int width, int roi_x, int roi_y, int roi_width, int roi_height, std::map<std::string, float> &param_map)
         {
-            auto results_box_info = exposing::make_param_vector<pedestrian::box_info>();
+            auto results_box_info = exposing::make_param_vector<pedestrian_min::box_info>();
             if (bitmap.empty())
             {
                 throw exposing::abi_invalid_argument("current frame is empty");
@@ -126,7 +126,7 @@ namespace glasssix::pedestrian
         return impl_->version();
     }
 
-    exposing::param_vector<pedestrian::box_info> classify_code_internal::detect(exposing::param_span<std::uint8_t> bitmap, int channels, int height, int width, int roi_x, int roi_y, int roi_width, int roi_height, std::map<std::string, float>& param_map) const
+    exposing::param_vector<pedestrian_min::box_info> classify_code_internal::detect(exposing::param_span<std::uint8_t> bitmap, int channels, int height, int width, int roi_x, int roi_y, int roi_width, int roi_height, std::map<std::string, float>& param_map) const
     {
         return impl_->detect(bitmap, channels, height, width, roi_x, roi_y, roi_width, roi_height, param_map);
     }
