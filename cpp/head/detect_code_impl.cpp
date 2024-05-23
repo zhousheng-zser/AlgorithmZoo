@@ -78,25 +78,23 @@ namespace glasssix::head
 		int roi_height = height;
 		auto result = impl_->detect(input_data, channels, height, width,roi_x, roi_y, roi_width, roi_height, dynamic_param_map);
 
-		Json::Value jarray_fire_detected(Json::arrayValue);
-		Json::Value jarray_box;
-		for (int i = 0; i < result.size(); i++)
+
+		Json::Value jarray_boxes = Json::Value(Json::arrayValue);
+		for (auto box : result)
 		{
-			int category = Json::Int(result[i].category());
-			// Json::Value jarray_box;
-			if (category == 0)
-			{
-				jarray_box["x1"] = Json::Int(result[i].x1());
-				jarray_box["y1"] = Json::Int(result[i].y1());
-				jarray_box["x2"] = Json::Int(result[i].x2());
-				jarray_box["y2"] = Json::Int(result[i].y2());
-				jarray_box["score"] = Json::Value(result[i].score());
-				jarray_box["category"] = Json::Value(result[i].category());
-				jarray_fire_detected.append(jarray_box);
-			}
+			Json::Value jobj_box;
+			// location
+			Json::Value jarray_points;
+			jobj_box["x1"] = Json::Int(box.x1());
+			jobj_box["y1"] = Json::Int(box.y1());
+			jobj_box["x2"] = Json::Int(box.x2());
+			jobj_box["y2"] = Json::Int(box.y2());
+			jobj_box["score"] = Json::Value(box.score());
+
+			jarray_boxes.append(jobj_box);
 		}
 
-		value["detect_info"]["info_list"] = jarray_fire_detected;
+		value["info_list"] = jarray_boxes;
 		return exposing::to_param_string(writer.write(value));
 	}
 }
