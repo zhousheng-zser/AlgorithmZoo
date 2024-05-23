@@ -37,7 +37,8 @@ namespace glasssix::helmet
 			throw Json::Exception("parse json failed");
 		Json::Value params = root.get("dyparams", Json::Value());
 		//从json获取人头数据,并赋值给C++对应结构体
-		auto head_info_list = root["head_info_list"];
+		auto head_info_list = Json::Value(Json::arrayValue);;
+		head_info_list = params["head_info_list"];
 		auto heads = exposing::make_param_vector<head::box_info>();
 		for (auto p : head_info_list)
 		{
@@ -51,6 +52,7 @@ namespace glasssix::helmet
 		}
 		std::map<std::string, float> dynamic_param_map;
 
+		params.removeMember("head_info_list");
 		for (auto& param_name : params.getMemberNames()) {
 			dynamic_param_map.try_emplace(param_name, params[param_name].asFloat());
 		}
