@@ -44,7 +44,7 @@ namespace glasssix::leavepost
     public:
 		impl(const exposing::param_string & str_params)
 		{
-			head_instance_ = glasssix::exposing::make_exported_interface<head::detect_code>(str_params);
+			head_instance_ = exposing::get_component_loader().create_by_name(u8"g6.head.detect_code").try_as<head::detect_code>();
 		}
 
         exposing::param_vector<leavepost::box_info> detect(const exposing::param_span<std::uint8_t>& bitmap, int channels, int height, int width, int roi_x, int roi_y, int roi_width, int roi_height, std::map<std::string, float>& param_map)
