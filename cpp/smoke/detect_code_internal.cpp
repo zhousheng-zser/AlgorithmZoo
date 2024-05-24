@@ -2,13 +2,9 @@
 #include <cmath>
 #include <tuple>
 
-#include "../posture/detect_code.hpp"
-
 #include "detect_code_internal.hpp"
 #include "box_info_impl.hpp"
 #include "logger.hpp"
-
-#include "hardcode.hpp"
 
 #include <RKNN2Wrapper/rknn2_wrapper.hpp>
 #include <opencv2/core.hpp>
@@ -29,13 +25,12 @@ namespace glasssix::smoke
     {
     public:
         impl(const exposing::param_string model_directory, int device = -1)
-                : impl{get_model_params("smoke", false),  exposing::to_narrow_string(model_directory), device} 
+                : impl{exposing::to_narrow_string(model_directory), device} 
         {
         }
 
-        impl(const std::vector<std::string> &phai, std::string model_directory, int device) 
+        impl(std::string model_directory, int device) 
         {
-
 #if defined(USE_RKNNAPI) || defined(USE_RKNN2API)
                 net_smoke_detect_ = std::make_shared<GenPipeline>(std::string(model_directory) + "/cigarette_detect.rknn", device);
 #elif defined(USE_BMNN)
@@ -86,6 +81,7 @@ namespace glasssix::smoke
                                                                                                                         std::max(detect_rect.x2-detect_rect.x1,detect_rect.y2-detect_rect.y1) ))
                 { continue;}  //    
 
+                std::cout<<detect_rect.y1<<" "<<detect_rect.y2<<" "<<detect_rect.x1<<" "<<detect_rect.x2<<std::endl;
                 cv::Mat cigarette_detect = image(cv::Range(detect_rect.y1, detect_rect.y2), cv::Range(detect_rect.x1, detect_rect.x2));
                
                 auto cigarette_objects = yolov8_instance->get_objects( cigarette_detect, smoke_conf_thres, smoke_iou_thres );
@@ -118,6 +114,7 @@ namespace glasssix::smoke
                             temp_box.y1 = postureInfo.y1;
                             temp_box.y2 = postureInfo.y2;
                             temp_box.confidence = cigrate.score;
+                            std::cout<<"smoke score: "<<temp_box.confidence<<"\n";
                             temp_box.key_points = exposing::make_param_vector<float>();
                             for(int j=0; j<postureInfo.Kpoints.size(); j++)
                             {
