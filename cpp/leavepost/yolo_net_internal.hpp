@@ -41,7 +41,7 @@ namespace glasssix::leavepost
 		/// </summary>
 		/// <param name="racy_path">The model path</param>
 		/// <param name="device">The device ID; -1 for CPU or a non-negative number for a GPU core</param>
-		yolo_net_internal(std::string_view model_directory, int device);
+		yolo_net_internal(const exposing::param_string & str_params);
 
 		yolo_net_internal(const yolo_net_internal&) = delete;
 		virtual ~yolo_net_internal();

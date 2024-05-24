@@ -1,6 +1,7 @@
 #include "yolo_net_internal.hpp"
 #include "hardcode.hpp"
 #include "../head/detect_code.hpp"
+#include "../head/detect_code_internal.hpp"
 #include "box_info_impl.hpp"
 
 #include <algorithm>
@@ -13,6 +14,9 @@
 #include <opencv2/highgui.hpp>
 #include <opencv2/imgproc.hpp>
 #include <cfloat>
+#include <GenPipeline/GenPipeline.hpp>
+#include <YoloFamily/Yolo_wrapper.hpp>
+#include "json.h"
 
 #ifdef USE_CUDA
 #include <cuda_runtime_api.h>
@@ -42,9 +46,22 @@ namespace glasssix::leavepost
     class yolo_net_internal::impl
     {
     public:
-		impl(std::string_view model_directory, int device)
+		impl(const exposing::param_string & str_params)
 		{
-			head_instance_ = glasssix::exposing::make_exported_interface<head::detect_code>(model_directory, device);
+        Json::Reader reader(Json::Features::strictMode());
+		Json::Value root;
+		if (!reader.parse(exposing::to_narrow_string(str_params), root))
+			throw Json::Exception("parse json failed");
+		std::string model_directory = root["models_directory"].asString();
+		int device = root.get("device", Json::Int(-1)).asInt();
+            #if defined(USE_RKNNAPI) || defined(USE_RKNN2API)
+                net_smoke_detect_ = std::make_shared<GenPipeline>(std::string(model_directory) + "/head_detect.rknn", device);
+#elif defined(USE_BMNN)
+                net_smoke_detect_ = std::make_shared<GenPipeline>(std::string(model_directory) + "/head_detect.bmodel", device);
+#endif      
+            net_smoke_detect_->manual_possible_normalization(std::array<float,3>{0.f,0.f,0.f},std::array<float,3>{1.f / 255.f,1.f / 255.f,1.f / 255.f});
+            yolov8_instance = std::make_shared<Yolov8<GenPipeline>>(1280,1280, net_smoke_detect_);
+			head_instance_ = exposing::get_component_loader().create_by_name(u8"g6.head.detect_code").try_as<head::detect_code>();
 		}
 
         exposing::param_vector<leavepost::box_info> detect(const exposing::param_span<std::uint8_t>& bitmap, int channels, int height, int width, int roi_x, int roi_y, int roi_width, int roi_height, std::map<std::string, float>& param_map)
@@ -65,19 +82,20 @@ namespace glasssix::leavepost
 			auto head_param_abi = exposing::make_param_hash_map<exposing::param_string, float>();
 			head_param_abi.add_or_update("conf_thres", head_conf_thres);
 			head_param_abi.add_or_update("nms_thres", head_nms_thres);
-			exposing::param_vector<head::box_info> head_info_list_raw = head_instance_.detect(bitmap, channels, height, width, 0, 0, width, height, head_param_abi);
             std::vector<box_info_internal> objects;
+            cv::Mat image(cv::Size(width, height), CV_8UC3, const_cast<uint8_t*>(bitmap.data()));
+            auto head_objects = yolov8_instance->get_objects( image, head_conf_thres, head_nms_thres );
 
             auto result = exposing::make_param_vector<box_info>();
-            for (auto i : head_info_list_raw)
+            for (auto i : head_objects)
             {
                 box_info_internal box;
-                box.rect.x      = i.x1();
-                box.rect.y      = i.y1();
-                box.rect.height = i.y2() - i.y1();
-                box.rect.width  = i.x2() - i.x1();
+                box.rect.x      = i.x1;
+                box.rect.y      = i.y1;
+                box.rect.height = i.y2 - i.y1;
+                box.rect.width  = i.x2 - i.x1;
                 box.label = 1;
-                box.confidence = i.score();
+                box.confidence = i.score;
                 result.push_back(exposing::make_as_first<box_info_impl>(box));
                 // cv::rectangle(image, cv::Point(i.rect.x, i.rect.y), cv::Point(i.rect.x+i.rect.width, i.rect.y+i.rect.height),        cv::Scalar(0, 0, 255), 3);
             }
@@ -292,10 +310,12 @@ namespace glasssix::leavepost
         std::string model_directory_;
 		head::detect_code head_instance_;
         std::shared_ptr<memory::tensor<std::uint8_t>> cache_;
+        std::shared_ptr<GenPipeline> net_smoke_detect_;
+        std::shared_ptr<Yolov8<GenPipeline>> yolov8_instance;
     };
 
-    yolo_net_internal::yolo_net_internal(std::string_view model_directory, int device)
-    : impl_{ std::make_unique<impl>(model_directory, device) }
+    yolo_net_internal::yolo_net_internal(const exposing::param_string & str_params)
+    : impl_{ std::make_unique<impl>(str_params) }
     {
     }
 
