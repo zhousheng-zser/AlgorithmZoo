@@ -3,23 +3,19 @@
 #include "face_info.hpp"
 #include <vector>
 
-#if defined(USE_RKNNAPI) || defined(USE_RKNN2API)
 #include <opencv2/opencv.hpp>
 #include <opencv2/imgproc/types_c.h>
-#endif
 
-#ifdef USE_RKNNAPI
-#include "RKNNWrapper/rknn_wrapper.hpp"
-#elif defined(USE_RKNN2API)
-#include "RKNN2Wrapper/rknn2_wrapper.hpp"
+#include <YoloFamily/Yolo_wrapper.hpp>
+#include <GenPipeline/PrePostProcessGenPipeline.hpp>
+#include <GenPipeline/GenPipeTools.hpp>
+
 #if defined(BUILD_RV1106) 
 #include <fstream>
 #include "Julius/julius_gemv.hpp"
 #endif
-#else
 #include "tensor.hpp"
 #include "Excalibur/pipeline.hpp"
-#endif
 
 #include <abi/consumer.hpp>
 
@@ -94,36 +90,25 @@ namespace glasssix::longinus
 		exposing::param_vector<std::uint8_t> center_scale_align(exposing::param_span<std::uint8_t> bitmap, std::int32_t channels, std::int32_t height, std::int32_t width, float scale, std::int32_t order = 1);
 
 		virtual std::string version() const = 0;
-#if defined(USE_RKNNAPI) || defined(USE_RKNN2API)
         static void mat_safty_cut(cv::Mat& img, cv::Mat& dst, cv::Rect roi);
-#endif
 
     protected:
         void refine(face_info_internal& face, const int& height, const int& width, bool square);
         void init_cache(exposing::param_span<std::uint8_t>& bitmap, std::int32_t channels, std::int32_t height, std::int32_t width, std::int32_t order, std::shared_ptr<memory::tensor<std::uint8_t>>& cache);
 
-#if defined(USE_RKNNAPI) || defined(USE_RKNN2API)
         void tracking_landmark(cv::Mat& face, face_info_internal& trackfaceinfo, int offset_x, int offset_y);
         cv::Mat cache0_;
         cv::Mat cache1_;
-#else
-        void tracking_landmark(std::shared_ptr<memory::tensor<std::uint8_t>>& face, face_info_internal& trackfaceinfo, int offset_x, int offset_y);
-        std::shared_ptr<memory::tensor<std::uint8_t>> cache0_;
-        std::shared_ptr<memory::tensor<std::uint8_t>> cache1_;
-#endif
+
 
 	private:
         int device_;
-#if defined(USE_RKNNAPI) || defined(USE_RKNN2API)
-        std::unique_ptr<rknnwrapper::rknn_wrapper> tracker_;
+        std::shared_ptr<PrePostProcessGenPipeline> tracker_;
 
 #if defined(USE_RKNN2API)
 #if defined(BUILD_RV1106) 
         std::vector<float> matmul_weight_;
 #endif
-#endif
-#else
-        std::unique_ptr<glasssix::excalibur::pipeline<float>> tracker_;
 #endif
 	};
 }
