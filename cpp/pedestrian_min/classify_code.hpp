@@ -1,5 +1,5 @@
-#ifndef _PEDESTRIAN_CLASSIFY_CODE_HPP_
-#define _PEDESTRIAN_CLASSIFY_CODE_HPP_
+#ifndef _PEDESTRIAN_MIN_CLASSIFY_CODE_HPP_
+#define _PEDESTRIAN_MIN_CLASSIFY_CODE_HPP_
 
 #include "box_info.hpp"
 #include <abi/consumer.hpp>
@@ -16,7 +16,7 @@ namespace glasssix::exposing::impl
     {
         using identity_type = type_identity_interface;
 
-        static constexpr guid id{ "{25455959-A263-45CF-AE90-FC25ACEEC4AA}" };
+        static constexpr guid id{ "6ACD7A6C-6EE0-0A47-1531-888A6123B65B" };
 
         struct type : abi_unknown_object
         {

@@ -8,11 +8,11 @@
 
 namespace glasssix::pedestrian_min
 {
-    inline constexpr exposing::utf8_string_view pedestrian_classify_code_qualified_name{ u8"g6.pedestrian_min.classify_code" };
+    inline constexpr exposing::utf8_string_view pedestrian_min_classify_code_qualified_name{ u8"g6.pedestrian_min.classify_code" };
 
     class classify_code_internal;
 
-    class classify_code_impl : public exposing::implements<classify_code_impl, classify_code>, public exposing::make_external_qualified_name<pedestrian_classify_code_qualified_name>
+    class classify_code_impl : public exposing::implements<classify_code_impl, classify_code>, public exposing::make_external_qualified_name<pedestrian_min_classify_code_qualified_name>
     {
     public:
         classify_code_impl();
