@@ -83,6 +83,12 @@ namespace glasssix::tumble
                     }
                 };
                 FallCls fall_cls(tensor_out_data);
+                //printf("tman %.3f| cls %.2f, %.2f, %.2f\n", tman.score, tensor_out_data[0], tensor_out_data[1], tensor_out_data[2]);
+
+                //dbg(tensor_out->data_shape());
+                //dbg(tensor_out->mutable_cpu_data()[0]);
+                //dbg(tensor_out->mutable_cpu_data()[1]);
+                //dbg(tensor_out->mutable_cpu_data()[2]);
 
                 if (fall_cls.score > 0.8) {
 					box_info_internal box_info;
