@@ -19,7 +19,7 @@ namespace glasssix::crowd
         ~detect_code_impl();
 
         void init(const exposing::param_string& str_params);
-        exposing::param_string execute(exposing::param_hash_map<exposing::param_string, exposing::unknown_object>& input_params_map);
+        exposing::param_string execute(const exposing::param_hash_map<exposing::param_string, exposing::unknown_object>& input_params_map);
 
         exposing::param_string version() const;
 

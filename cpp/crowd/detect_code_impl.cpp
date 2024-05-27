@@ -23,7 +23,7 @@ namespace glasssix::crowd
 		int32_t device = root.get("device", Json::Int(-1)).asInt();
 		impl_ = std::make_unique<detect_code_internal>(exposing::to_narrow_string(model_directory), device);
 	} 
-	exposing::param_string detect_code_impl::execute(exposing::param_hash_map<exposing::param_string, exposing::unknown_object>& input_params_map)
+	exposing::param_string detect_code_impl::execute(const exposing::param_hash_map<exposing::param_string, exposing::unknown_object>& input_params_map)
 	{
 		if (!impl_)
 		{
