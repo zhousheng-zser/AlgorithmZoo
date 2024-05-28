@@ -10,7 +10,8 @@
 
 #include <abi/param_vector.hpp>
 #include <utility>
-#include <RKNN2Wrapper/rknn2_wrapper.hpp>
+#include <opencv2/core.hpp>
+#include <GenPipeline/PrePostProcessGenPipeline.hpp>
 
 #include "hardcode.hpp"
 #include <mutex>
@@ -21,16 +22,22 @@ namespace glasssix::wander
     class detect_code_internal::impl
     {
     public:
+        impl(){}
         impl(const exposing::param_string model_directory, int device = -1)
-            :impl{get_model_params("wander", false),  exposing::to_narrow_string(model_directory), device} 
+            :impl()
         {
-        }
+            std::string model_dir = exposing::to_narrow_string(model_directory);
+            if (*(model_dir.rbegin()) != '/')model_dir += '/';
+#if defined(USE_RKNNAPI) || defined(USE_RKNN2API)
+            std::string suffix{ "rknn" };
+#elif defined(USE_BMNN)
+            std::string suffix{ "bmodel" };
+#else
+            std::string suffix{ "onnx" };
+#endif
+            net_feature_ = PrePostProcessGenPipeline::mkSharePipeline(model_dir + "people_feature." + suffix, 0);
+            net_feature_->manual_possible_normalization(0, 1.f / 255);
 
-        impl(const std::vector<std::string> &phai, std::string model_directory, int device)
-            : net_feature_(phai, model_directory + std::string("/people_feature.rknn"), device), model_directory_(model_directory)
-        {   
-            //static bool ready = glasssix::exposing::get_component_loader().add_module_by_name("pedestrian");
-            //pedestrain_instance_ = glasssix::exposing::make_exported_interface<pedestrian::classify_code>(exposing::param_string(model_directory), device);
         }
 
 
@@ -44,9 +51,6 @@ namespace glasssix::wander
             CHECK_EQ(channels, 3);
             CHECK_EQ(bitmap.size(), channels * height * width);
             
-            cv::Mat image(cv::Size(width, height), CV_8UC3);
-            std::memcpy(image.data, bitmap.data(), sizeof (uint8_t) * channels * height * width);
-                 
             if(roi_x<0 || roi_x>width || roi_y>height || roi_y<0 ||roi_height<0 || (roi_height+roi_y) >height || roi_width<0 || (roi_width+roi_x) > width)
             {
                   throw exposing::abi_invalid_argument("incorrect roi in wander");
@@ -73,7 +77,7 @@ namespace glasssix::wander
 
         std::string version()
 		{
-			const std::string algo_module_version = "2.1.0";
+			const std::string algo_module_version = "3.0.0";
 
 //#if defined(USE_RKNNAPI) || defined(USE_RKNN2API)
 //
@@ -141,8 +145,8 @@ namespace glasssix::wander
 
             //exposing::param_vector<pedestrian::box_info> pedestrian_info_list = pedestrain_instance_.detect(bitmap, 3, height, width, roi_x, roi_y, roi_width, roi_height, empty_map_abi);
 
-            cv::Mat image(cv::Size(width, height), CV_8UC3);
-            std::memcpy(image.data, bitmap.data(), sizeof (uint8_t) * 3 * height * width);
+            cv::Mat image(cv::Size(width, height), CV_8UC3, const_cast<uint8_t*>(bitmap.data()));
+
 
             std::vector<box_info_internal> l_c; 
             std::vector<bbox> temp_last_location_info;
@@ -173,9 +177,9 @@ namespace glasssix::wander
                 cv::cvtColor(crop, crop, cv::COLOR_BGR2RGB);
                 cv::resize(crop, headimg, cv::Size((int)(128), (int)(256)), cv::INTER_CUBIC);
                 // cv::transpose(headimg, headimg);
-                auto  network_result = net_feature_.forward(headimg.data, { 1, headimg.rows, headimg.cols,headimg.channels() }, RKNN_TENSOR_NHWC);
+                auto  network_result = net_feature_->forward(headimg).begin()->second;
 
-                float *data1=network_result["865"]->mutable_cpu_data();
+                float *data1=network_result->mutable_cpu_data();
 
                 float xx = 0.f;
                 for(int i=0; i<2048; i++)
@@ -212,14 +216,7 @@ namespace glasssix::wander
 
 
     private:
-#if defined(USE_RKNNAPI) || defined(USE_RKNN2API)
-
-	
-        rknnwrapper::rknn_wrapper net_feature_;
-#else
-
-        std::unique_ptr<excalibur::pipeline<float>> net_feature_;
-#endif
+        std::shared_ptr<PrePostProcessGenPipeline>net_feature_;
         std::vector<float> posture_add_weight;
         std::vector<float> posture_mul_weight;
         std::string model_directory_;
