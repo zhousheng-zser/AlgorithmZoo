@@ -6,41 +6,27 @@
 #include "box_info_impl.hpp"
 #include "logger.hpp"
 
-#include "hardcode.hpp"
-
 #include <abi/param_vector.hpp>
 #include <utility>
-#include <opencv2/core.hpp>
-#include <GenPipeline/PrePostProcessGenPipeline.hpp>
-
-#include "hardcode.hpp"
 #include <mutex>
-#include "general.hpp"
 #include "wander.hpp"
+#include <GenPipeline/GenPipeline.hpp>
+
 namespace glasssix::wander
 {
     class detect_code_internal::impl
     {
     public:
-        impl(){}
         impl(const exposing::param_string model_directory, int device = -1)
-            :impl()
         {
-            std::string model_dir = exposing::to_narrow_string(model_directory);
-            if (*(model_dir.rbegin()) != '/')model_dir += '/';
-#if defined(USE_RKNNAPI) || defined(USE_RKNN2API)
-            std::string suffix{ "rknn" };
+
+#if defined(USE_RKNNAPI) || defined(USE_RKNN2API)      
+        net_feature_ = std::make_shared<GenPipeline>(std::string(model_directory) + "/people_feature.rknn", device);   
 #elif defined(USE_BMNN)
-            std::string suffix{ "bmodel" };
-#else
-            std::string suffix{ "onnx" };
-#endif
-            net_feature_ = PrePostProcessGenPipeline::mkSharePipeline(model_dir + "people_feature." + suffix, 0);
-            net_feature_->manual_possible_normalization(0, 1.f / 255);
-
+        net_feature_ = std::make_shared<GenPipeline>(std::string(model_directory) + "/people_feature.bmodel", device);   
+        net_feature_->manual_possible_normalization(std::array<float, 3>{0.f, 0.f, 0.f}, std::array<float, 3>{1.0, 1.0, 1.0});
+#endif 
         }
-
-
 
         exposing::param_vector<wander::box_info> detect(const exposing::param_span<std::uint8_t>& bitmap, int channels, int height, int width, int roi_x, int roi_y, int roi_width, int roi_height, std::map<std::string, double>& param_map,const std::vector<PedestrianInfo> &pedestrain_info)
         {
@@ -51,12 +37,11 @@ namespace glasssix::wander
             CHECK_EQ(channels, 3);
             CHECK_EQ(bitmap.size(), channels * height * width);
             
+            cv::Mat image(cv::Size(width, height), CV_8UC3);
+            std::memcpy(image.data, bitmap.data(), sizeof (uint8_t) * channels * height * width);
+                 
             if(roi_x<0 || roi_x>width || roi_y>height || roi_y<0 ||roi_height<0 || (roi_height+roi_y) >height || roi_width<0 || (roi_width+roi_x) > width)
-            {
                   throw exposing::abi_invalid_argument("incorrect roi in wander");
-            }
-
-            // cv::Mat cropped_image = image(cv::Range(roi_y,roi_y+roi_height), cv::Range(roi_x,roi_x+roi_width)).clone();
 
             std::vector<wander::box_info_internal> cate_result = run_detect(bitmap,height,width, roi_x, roi_y, roi_width, roi_height, param_map, pedestrain_info);
 
@@ -77,15 +62,7 @@ namespace glasssix::wander
 
         std::string version()
 		{
-			const std::string algo_module_version = "3.0.0";
-
-//#if defined(USE_RKNNAPI) || defined(USE_RKNN2API)
-//
-//            exposing::param_string nn_frame_version_param= pedestrain_instance_.version();
-//#else
-//            exposing::param_string nn_frame_version_param = pedestrain_instance_.version();
-//#endif
-//            std::string nn_frame_version =  exposing::to_narrow_string(nn_frame_version_param);
+			const std::string algo_module_version = "2.1.0";
 			return fmt::format(R"({{"nn_frame_version":"{}", "algo_module_version":"{}"}})", "", algo_module_version);
 		}
 
@@ -136,28 +113,15 @@ namespace glasssix::wander
             double feature_table_size      = param_map.count("feature_table_size") ? param_map["feature_table_size"] : 10000.f;      
             double current_time            = param_map.count("current_time") ? param_map["current_time"] : 0.f;
             float feature_match_threshold  = param_map.count("feature_match_threshold") ? param_map["feature_match_threshold"] : 0.92f;
-            //float conf_threshold           = param_map.count("person_conf") ? param_map["person_conf"] : 0.7f;   //在前面一层筛掉    
-            //float iou_threshold =  0.45f;      //前面一次调用行人检测 的时候筛掉   
-
-            //auto empty_map_abi = exposing::make_param_hash_map<exposing::param_string, float>();
-            //empty_map_abi.add_or_update("conf_thres", conf_threshold);
-            //empty_map_abi.add_or_update("nms_thres", iou_threshold);
-
-            //exposing::param_vector<pedestrian::box_info> pedestrian_info_list = pedestrain_instance_.detect(bitmap, 3, height, width, roi_x, roi_y, roi_width, roi_height, empty_map_abi);
 
             cv::Mat image(cv::Size(width, height), CV_8UC3, const_cast<uint8_t*>(bitmap.data()));
-
 
             std::vector<box_info_internal> l_c; 
             std::vector<bbox> temp_last_location_info;
 
-            // std::cout<<"before:  "<<last_location_info.size()<<std::endl;
-            // std::cout<< pedestrain_info.size()<<"pedestrain_info\n";
-
             std::map<int,int> allocate_id_current_frame;
             for(auto& head:pedestrain_info)
             {
-
                 safe_crop_rect person_bbox(head.x1,head.x2,head.y1,head.y2,width,height);
                 auto body = person_bbox.feature_fetch_regionof_body();
                 bbox tmp_bbox;
@@ -176,16 +140,12 @@ namespace glasssix::wander
                 cv::Mat headimg;
                 cv::cvtColor(crop, crop, cv::COLOR_BGR2RGB);
                 cv::resize(crop, headimg, cv::Size((int)(128), (int)(256)), cv::INTER_CUBIC);
-                // cv::transpose(headimg, headimg);
-                auto  network_result = net_feature_->forward(headimg).begin()->second;
 
-                float *data1=network_result->mutable_cpu_data();
-
+                auto  data1 = net_feature_->forward(headimg).begin()->second->mutable_cpu_data();
                 float xx = 0.f;
                 for(int i=0; i<2048; i++)
-                {
                     xx += data1[i] * data1[i] ;
-                }
+
                 auto sqrt_xx=sqrt(xx);
                 std::lock_guard<std::mutex> lock(Feature_Table_Mutex);
 
@@ -216,11 +176,9 @@ namespace glasssix::wander
 
 
     private:
-        std::shared_ptr<PrePostProcessGenPipeline>net_feature_;
-        std::vector<float> posture_add_weight;
-        std::vector<float> posture_mul_weight;
+
+        std::shared_ptr<GenPipeline> net_feature_;
         std::string model_directory_;
-        //pedestrian::classify_code pedestrain_instance_;
         int device_ ;
 
     public:
