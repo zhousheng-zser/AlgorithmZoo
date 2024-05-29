@@ -114,13 +114,10 @@ namespace glasssix::batterypilferers
 
 #if defined(USE_RKNNAPI) || defined(USE_RKNN2API)
                 concat_pic<order::NHWC>(candicate_images,candicate_steal.data());
-                auto  batterypilferers_result = net_pilferage_->forward(candicate_steal.data(), { 1, 256, 256, 3*batch_size}, 1 ).begin()->second->mutable_cpu_data();
-                
-                // const float* batterypilferers_result = network_result["output"]->cpu_data();//0 -> steal  
+                auto  network_result = net_pilferage_->forward(candicate_steal.data(), { 1, 256, 256, 3*batch_size}, 1 ).begin()->second->mutable_cpu_data();
 #else           
                 concat_pic<order::NCHW>(candicate_images,candicate_steal.data());
                 auto  network_result = net_pilferage_->forward(candicate_steal.data(), { 1, 3*batch_size, 256, 256}, 0 ).begin()->second->mutable_cpu_data();
-
 #endif
                 is_battery_pilferers[i] = network_result[0]>network_result[1] ? 1 : 0 ;
                 scores[i]=network_result[0];
