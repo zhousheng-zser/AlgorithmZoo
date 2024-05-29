@@ -113,7 +113,7 @@ namespace glasssix::crowd
 
         std::string version()
         {
-			const std::string algo_module_version = "2.1.4";
+			const std::string algo_module_version = "2.2.0";
 
 			std::string nn_frame_version = "dsd";
 
