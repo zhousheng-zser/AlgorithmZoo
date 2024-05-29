@@ -5,15 +5,7 @@
 #include "detect_code_internal.hpp"
 #include "box_info_impl.hpp"
 #include "logger.hpp"
-#include <chrono>#include <chrono>
-// #include <opencv2/highgui.hpp>
-// #include <opencv2/core.hpp>
-// #include <opencv2/imgproc.hpp>
-// #include <opencv2/dnn.hpp>
-// #include "hardcode.hpp"
-// #include "Excalibur/pipeline.hpp"
-// #include "Primitives/tensor_conversions.hpp"
-
+#include <chrono>
 #include "general.hpp"
 
 #if defined(USE_RKNNAPI) || defined(USE_RKNN2API)
@@ -22,6 +14,8 @@
 #include <abi/param_vector.hpp>
 #include <utility>
 #include <tuple>
+#include <GenPipeline/GenPipeline.hpp>
+#include <Excalibur/pipeline.hpp>
 
 namespace glasssix::batterypilferers
 {
@@ -32,100 +26,26 @@ namespace glasssix::batterypilferers
             : model_directory_{ std::string(model_directory) }, device_{ device }
         {
 
+            std::vector<std::string> phai;
 #if defined(USE_RKNNAPI) || defined(USE_RKNN2API)
-            net_detect_ = std::make_unique<rknnwrapper::rknn_wrapper>(get_model_params("batterypilferers", false),
-            std::string(model_directory) + "/" +"batterypilferers_detect.rknn", device);      
+            net_battery_person_car_detect_ = std::make_shared<GenPipeline>(std::string(model_directory) + "/batterypilferers_detect.rknn", device);
+            net_pilferage_ = std::make_shared<GenPipeline>(std::string(model_directory) + "/batterypilferers_class.rknn", device);   
 
-            net_classify_ = std::make_unique<rknnwrapper::rknn_wrapper>(get_model_params("batterypilferers", false),
-            std::string(model_directory) + "/" +"batterypilferers_class.rknn", device);      
-#else
-            net_detect_ = std::make_unique<glasssix::excalibur::pipeline<float>>(get_model_params("batterypilferers", false),
-            std::string(model_directory) + "/" +"batterypilferers_detect.racy", device);      
-
-            net_classify_ = std::make_unique<rknnwrapper::rknn_wrapper>(get_model_params("batterypilferers", false),
-            std::string(model_directory) + "/" +"batterypilferers_class.racy", device);   
-#endif  
-            init_data();
+#elif defined(USE_BMNN)
+            net_battery_person_car_detect_ = std::make_shared<GenPipeline>(std::string(model_directory) + "/batterypilferers_detect.bmodel", device);
+            net_pilferage_ = std::make_shared<GenPipeline>(std::string(model_directory) + "/batterypilferers_class.bmodel", device);   
+#endif      
+            net_battery_person_car_detect_->manual_possible_normalization(std::array<float,3>{0.f,0.f,0.f},std::array<float,3>{1.f / 255.f,1.f / 255.f,1.f / 255.f});
+            yolov8_instance = std::make_shared<Yolov8<GenPipeline,true>>(1280,1280, net_battery_person_car_detect_);  
         }
 
         std::string version()
         {
 			const std::string algo_module_version = "1.0.1";
-#if defined(USE_RKNNAPI) || defined(USE_RKNN2API)
-			std::string nn_frame_version = net_detect_->version();
-#else
-			std::string nn_frame_version = net_detect_->version();
-#endif
+			std::string nn_frame_version = "sddsd";
 			return fmt::format(R"({{"nn_frame_version":"{}", "algo_module_version":"{}"}})", nn_frame_version, algo_module_version);
         }
 
-        void init_data()
-        {
-            for (size_t i = 0; i < 33600; i++)
-            {
-                if(i<25600)
-                {
-                    add_weight[i] = i%160;
-                    add_weight[i+33600] = i/160 ;
-                    mul_weight[i] =8.f;
-                }
-                else if( i<32000)
-                {
-                    add_weight[i] = (i -25600)% 80;
-                    add_weight[i+33600] = (i-25600)/80;
-                    mul_weight[i] = 16.f;
-                }
-                else
-                {
-                    add_weight[i] = (i -32000)% 40;
-                    add_weight[i+33600] = (i-32000)/40;
-                    mul_weight[i] = 32.f;
-                }
-            }
-        }
-
-        std::vector<Bbox> yolo_detect(cv::Mat& image,float conf_threshold ,float iou_threshold)
-        {     
-            auto new_shape = cv::Size(1280,  1280);
-            cv::Mat blob;
-            float ratio = 0;
-            int pad_h=0;  
-            int pad_w=0;
-            std::tie(blob, ratio) = preprocess_detection( image, pad_h, pad_w, new_shape ) ;
-            std::vector<std::shared_ptr<memory::tensor<float>>> forwards;
-
-            std::shared_ptr<memory::tensor<float>> real_forwards;
-            auto  network_result = net_detect_->forward(blob.data, { 1, blob.rows, blob.cols,blob.channels() }, RKNN_TENSOR_NHWC);
-
-            std::vector<std::string>  out_names = {"845","844","843" };
-
-            for (size_t i=0;i< out_names.size(); i++)
-            {
-                forwards.push_back(network_result[out_names[i]]);
-            }
-
-            int candicate_num=0;
-            std::vector<int> class_mask;
-            auto real_output = Yolov8s_Concat(forwards, conf_threshold, candicate_num,add_weight.data(),mul_weight.data(),class_mask);
-
-            auto nms_input640  = XYXY2WH(real_output, pad_h, pad_w, 1.f/ratio, candicate_num, class_mask);
-
-            box_result_move_to_disjoint_region( nms_input640, class_mask, 100000);
-
-            auto nms_result_index = nms_process(nms_input640, conf_threshold, iou_threshold);
-
-            box_result_move_to_disjoint_region( nms_input640, class_mask, -100000);
-
-            std::vector<Bbox> current_frame_result;
-
-            for (size_t i = 0; i < nms_result_index.size(); i++)
-            {   
-                int index = nms_result_index[i];
-                current_frame_result.emplace_back(nms_input640[index][0],nms_input640[index][1],nms_input640[index][0]+nms_input640[index][2],nms_input640[index][1]+nms_input640[index][3],class_mask[index],nms_input640[index][4],0 );
-            }
-            return current_frame_result;
-
-        }
 
         exposing::param_vector<batterypilferers::box_info> detect(const exposing::param_span<std::uint8_t>& bitmap, int channels, int height, int width,
                                                         int roi_x, int roi_y, int roi_width, int roi_height, std::map<std::string, float>& param_map)
@@ -140,14 +60,10 @@ namespace glasssix::batterypilferers
             }
             CHECK_EQ(channels, 24);
 
-            // CHECK_EQ(bitmap.size(), batch_size*channels * height * width);
-
             std::vector<cv::Mat> images;
-            int pic_size =  3 * height * width;
             for (size_t i = 0; i < batch_size; i++)
             {
-                cv::Mat image(cv::Size(width, height), CV_8UC3);
-                std::memcpy(image.data, bitmap.data()+ pic_size*i, sizeof(uint8_t) *pic_size);   
+                cv::Mat image(cv::Size(width, height), CV_8UC3, bitmap.data() + i * 3 * height * width);
                 images.push_back(image);
             }
             
@@ -162,7 +78,10 @@ namespace glasssix::batterypilferers
             for (size_t i = 0; i < batch_size; i++)
             {
                 cv::Mat cropped_image = images[i](cv::Range(roi_y, roi_y + roi_height), cv::Range(roi_x, roi_x + roi_width));
-                auto one_frame_result = yolo_detect(cropped_image, con_thres, iou_thres);
+                std::vector<Bbox> one_frame_result;
+                auto objects =  yolov8_instance->get_objects(cropped_image,con_thres,iou_thres);
+                for (auto& object: objects)             
+                    one_frame_result.emplace_back(object.x1, object.y1, object.x2, object.y2, object.category, object.score,0 );
                 auto result = deal_one_frame(one_frame_result);
                 for(auto x : one_frame_result)
                 {
@@ -189,17 +108,22 @@ namespace glasssix::batterypilferers
                     cv::Mat candicate_detect = images[i*batch_size+j](cv::Range(crop_rect[i].y1, crop_rect[i].y2), cv::Range(crop_rect[i].x1, crop_rect[i].x2));
                     cv::resize(candicate_detect, candicate_detect, cv::Size(256, 256));
                     candicate_images.push_back(candicate_detect);    
-                    // cv::imwrite( std::to_string(i*batch_size+j)+"touqie.jpg" ,candicate_detect);
                 }
 
                 std::vector<float> candicate_steal(65536*24);
 
-                concat_pic(candicate_images,candicate_steal.data());
- 
-                auto  network_result = net_classify_->forward(candicate_steal.data(), { 1, 256, 256, 3*batch_size}, RKNN_TENSOR_NHWC );
-                const float* batterypilferers_result = network_result["output"]->cpu_data();//0 -> steal  
-                is_battery_pilferers[i] = batterypilferers_result[0]>batterypilferers_result[1] ? 1 : 0 ;
-                scores[i]=batterypilferers_result[0];
+#if defined(USE_RKNNAPI) || defined(USE_RKNN2API)
+                concat_pic<order::NHWC>(candicate_images,candicate_steal.data());
+                auto  batterypilferers_result = net_pilferage_->forward(candicate_steal.data(), { 1, 256, 256, 3*batch_size}, 1 ).begin()->second->mutable_cpu_data();
+                
+                // const float* batterypilferers_result = network_result["output"]->cpu_data();//0 -> steal  
+#else           
+                concat_pic<order::NCHW>(candicate_images,candicate_steal.data());
+                auto  network_result = net_pilferage_->forward(candicate_steal.data(), { 1, 3*batch_size, 256, 256}, 0 ).begin()->second->mutable_cpu_data();
+
+#endif
+                is_battery_pilferers[i] = network_result[0]>network_result[1] ? 1 : 0 ;
+                scores[i]=network_result[0];
             }
 
             auto fin_result= exposing::make_param_vector<box_info>();
@@ -217,9 +141,7 @@ namespace glasssix::batterypilferers
             }
   
             for (auto& i : result)
-            {
                 fin_result.push_back(exposing::make_as_first<box_info_impl> (i));
-            }
 
             return fin_result;
         }
@@ -230,16 +152,10 @@ namespace glasssix::batterypilferers
 
         std::string model_directory_;
         int device_; 
-        std::array<float,33600*2> add_weight;
-        std::array<float,33600>   mul_weight;
 
-#if defined(USE_RKNNAPI) || defined(USE_RKNN2API)
-        std::unique_ptr < rknnwrapper::rknn_wrapper> net_detect_;       
-        std::unique_ptr < rknnwrapper::rknn_wrapper> net_classify_;    
-#else
-       std::unique_ptr < glasssix::excalibur::pipeline<float>> net_detect_;  
-       std::unique_ptr < glasssix::excalibur::pipeline<float>> net_classify_;  
-#endif
+        std::shared_ptr<GenPipeline> net_battery_person_car_detect_;
+        std::shared_ptr<GenPipeline> net_pilferage_;
+        std::shared_ptr<Yolov8<GenPipeline, true>> yolov8_instance;
 
     };
 
