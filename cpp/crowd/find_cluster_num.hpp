@@ -51,6 +51,36 @@ private:
     std::vector<double> devs;
 };
 
+class max_abs_scaler {
+public:
+    void fit(const std::vector<cluster_info>& data) {
+        // 初始化max_vals为最小值
+        max_vals = { 0.000001, 0.000001 };
+
+        // 计算每个特征的最大绝对值
+        for (const auto& row : data) {
+            max_vals[0] = std::max(max_vals[0], std::fabs(row.x));
+            max_vals[1] = std::max(max_vals[1], std::fabs(row.y));
+        }
+    }
+
+    std::vector<cluster_info> transform(const std::vector<cluster_info>& data) const {
+        std::vector<cluster_info> scaled_data = data;
+        unsigned int num_rows = data.size();
+
+        // 缩放数据到[-1, 1]范围
+        for (unsigned int j = 0; j < num_rows; ++j) {
+            scaled_data[j].x = scaled_data[j].x / max_vals[0];
+            scaled_data[j].y = scaled_data[j].y / max_vals[1];
+        }
+        return scaled_data;
+    }
+
+private:
+    std::vector<double> max_vals;
+};
+
+
 class cluster_num {
 public:
     // ��������֮���ŷ�Ͼ���
@@ -63,15 +93,11 @@ public:
         indices.resize(dataset.size());
 
         for (unsigned int i = 0; i < dataset.size(); ++i) {
-            // ����������������ľ���
             std::vector<std::pair<double, unsigned int>> distances;
             for (unsigned int j = 0; j < dataset.size(); ++j) {
-                if (i != j) {
                     double distance = calculate_distance(dataset[i], dataset[j]);
                     distances.push_back(std::make_pair(distance, j));
-                }
             }
-            // �Ծ����������ѡ��ǰk���ھ�
             std::sort(distances.begin(), distances.end());
             indices[i].resize(k);
             for (int n = 0; n < k; ++n) {
@@ -82,13 +108,13 @@ public:
 
     // Ѱ������epsֵ�ĺ���
     double find_optimal_eps(const std::vector<double>& k_distances) {
-        // ����k-����ĵ���
+        // 计算k-距离的导数
         std::vector<double> derivatives;
         std::transform(k_distances.begin(), k_distances.end() - 1, k_distances.begin() + 1, std::back_inserter(derivatives),
             [](double x, double y) { return y - x; });
-        // �ҵ��������ֵ������������Ӧ�յ�
+        // 找到最大导数值，对应的索引
         auto optimal_index = std::max_element(derivatives.begin(), derivatives.end()) - derivatives.begin();
-        // ���عյ㴦��epsֵ
+        // 返回对应索引处的eps值
         return k_distances[optimal_index];
     }
 
@@ -142,42 +168,35 @@ public:
 
     //exposing::param_vector<crowd::box_info> 
     std::vector<int> find_cluster_num(const std::vector<cluster_info>& detection_points, int min_cluster_size) {
-        standard_scaler scaler;
+        //standard_scaler scaler;//  20240527之前的方案
+        max_abs_scaler scaler;  //20240528方案 
         //data = detection_points;
-        // �����ֵ�ͱ�׼��
         scaler.fit(detection_points);
-        // �����ݽ��б�׼��
         std::vector<cluster_info> scaled_data = scaler.transform(detection_points);
         int  k = 3;
         std::vector<std::vector<int>> neighbor_indices;
         std::vector<double> k_distances;
-        // Ϊÿ�����ҵ�k�������
         find_nearest_neighbors(scaled_data, k, neighbor_indices);
-        // ����k-����
+
         for (unsigned int i = 0; i < scaled_data.size(); ++i) {
             k_distances.push_back(calculate_distance(scaled_data[i], scaled_data[neighbor_indices[i][k - 1]]));
         }
-        // ��k-�����������
         std::sort(k_distances.begin(), k_distances.end());
-        // Ѱ������epsֵ
-        double eps = find_optimal_eps(k_distances) * 0.8;
-        // ��ӡ���
-        //  std::cout << "eps: " << eps << std::endl;
+        double eps = find_optimal_eps(k_distances) * 0.55;
         std::vector<int> labels;
-        // ִ�� DBSCAN ����
         dbscan(scaled_data, eps, k - 1, labels);
-        
+
         std::map<int, int>temp;
         temp.clear();
         for (int label : labels) {
             temp[label]++;
         }
-        for (int &label : labels) {
+        for (int& label : labels) {
             if (temp[label] < min_cluster_size)
-                label = 0; 
+                label = 0;
         }
 
-        // ��ӡ���
+        // output
         //std::cout << "Cluster labels: ";
         //for (int label : labels) {
         //    std::cout << label << "\n";
@@ -186,44 +205,44 @@ public:
     }
 };
 
-        void resize_nearst(const float *source,float *dst ,int sou_height,int sou_width,int dst_height,int dst_width,int channel )
-        {
-            for(int c=0;c < channel;c++)
+void resize_nearst(const float* source, float* dst, int sou_height, int sou_width, int dst_height, int dst_width, int channel)
+{
+    for (int c = 0; c < channel; c++)
+    {
+        float* dsts = dst + c * dst_height * dst_width;
+        const float* sources = source + c * sou_height * sou_width;
+        for (int y = 0; y < dst_height; ++y)
+            for (int x = 0; x < dst_width; ++x)
             {
-                float* dsts   = dst    + c*dst_height*dst_width;
-                const float *sources = source + c*sou_height*sou_width;
-                for (int y = 0; y < dst_height; ++y) 
-                    for (int x = 0; x < dst_width; ++x) 
-                    {
-                        int sourceX = x * sou_height / dst_height;
-                        int sourceY = y * sou_width / dst_width;
-                        float ss=sources[sourceY *sou_width + sourceX];
-                        dsts[  y*dst_width + x]= 0.f;
-                        dsts[  y*dst_width + x] = sources[sourceY *sou_width + sourceX];
-                    }
+                int sourceX = x * sou_height / dst_height;
+                int sourceY = y * sou_width / dst_width;
+                float ss = sources[sourceY * sou_width + sourceX];
+                dsts[y * dst_width + x] = 0.f;
+                dsts[y * dst_width + x] = sources[sourceY * sou_width + sourceX];
             }
-        }
+    }
+}
 
-        void Mul_77(const float* sou1,const float *sou2,float* dst, int h_w, int channel)
-        {
-            for (size_t i = 0; i < channel; i++)
-                for (size_t j = 0; j < h_w; j++)
-                    dst[i * h_w + j] = sou1[i * h_w + j] * sou2[j];
-        }
+void Mul_77(const float* sou1, const float* sou2, float* dst, int h_w, int channel)
+{
+    for (size_t i = 0; i < channel; i++)
+        for (size_t j = 0; j < h_w; j++)
+            dst[i * h_w + j] = sou1[i * h_w + j] * sou2[j];
+}
 
-        void nchw2Nhwc(float* inputNCHW, float* outputNHWC, int batchSize, int numChannels, int height, int width) 
-        {
-            int nhwcSize = batchSize * height * width * numChannels;
-            for (int b = 0; b < batchSize; ++b) 
-                for (int c = 0; c < numChannels; ++c) 
-                    for (int h = 0; h < height; ++h) 
-                        for (int w = 0; w < width; ++w) 
-                        {
-                            int indexNCHW = b * numChannels * height * width + c * height * width + h * width + w;
-                            int indexNHWC = b * height * width * numChannels + h * width * numChannels + w * numChannels + c;
-                            outputNHWC[indexNHWC] = inputNCHW[indexNCHW];
-                        }
-        }
+void nchw2Nhwc(float* inputNCHW, float* outputNHWC, int batchSize, int numChannels, int height, int width)
+{
+    int nhwcSize = batchSize * height * width * numChannels;
+    for (int b = 0; b < batchSize; ++b)
+        for (int c = 0; c < numChannels; ++c)
+            for (int h = 0; h < height; ++h)
+                for (int w = 0; w < width; ++w)
+                {
+                    int indexNCHW = b * numChannels * height * width + c * height * width + h * width + w;
+                    int indexNHWC = b * height * width * numChannels + h * width * numChannels + w * numChannels + c;
+                    outputNHWC[indexNHWC] = inputNCHW[indexNCHW];
+                }
+}
 
 
 
