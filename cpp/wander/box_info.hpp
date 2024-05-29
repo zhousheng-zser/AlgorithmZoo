@@ -2,6 +2,7 @@
 #define _WANDER_BOX_INFO_HPP_
 
 #include <abi/consumer.hpp>
+#include "../pedestrian/box_info.hpp"
 
 namespace glasssix::wander
 {
