@@ -132,8 +132,8 @@ namespace glasssix::wander
             double feature_table_size      = param_map.count("feature_table_size") ? param_map["feature_table_size"] : 10000.f;      
             double current_time            = param_map.count("current_time") ? param_map["current_time"] : 0.f;
             float feature_match_threshold  = param_map.count("feature_match_threshold") ? param_map["feature_match_threshold"] : 0.92f;
-            //float conf_threshold           = param_map.count("person_conf") ? param_map["person_conf"] : 0.7f;   //ÔÚÇ°ÃæÒ»²ãÉ¸µô    
-            //float iou_threshold =  0.45f;      //Ç°ÃæÒ»´Îµ÷ÓÃĞĞÈË¼ì²â µÄÊ±ºòÉ¸µô   
+            //float conf_threshold           = param_map.count("person_conf") ? param_map["person_conf"] : 0.7f;   //åœ¨å‰é¢ä¸€å±‚ç­›æ‰    
+            //float iou_threshold =  0.45f;      //å‰é¢ä¸€æ¬¡è°ƒç”¨è¡Œäººæ£€æµ‹ çš„æ—¶å€™ç­›æ‰   
 
             //auto empty_map_abi = exposing::make_param_hash_map<exposing::param_string, float>();
             //empty_map_abi.add_or_update("conf_thres", conf_threshold);
@@ -170,9 +170,9 @@ namespace glasssix::wander
                 cv::Mat crop = image(cv::Range( std::round(body.y1), std::round(body.y2) ), cv::Range( std::round(body.x1), std::round(body.x2)));
 
                 cv::Mat headimg;
-                // cv::cvtColor(crop, crop, cv::COLOR_BGR2RGB);
+                cv::cvtColor(crop, crop, cv::COLOR_BGR2RGB);
                 cv::resize(crop, headimg, cv::Size((int)(128), (int)(256)), cv::INTER_CUBIC);
-                cv::transpose(headimg, headimg);
+                // cv::transpose(headimg, headimg);
                 auto  network_result = net_feature_.forward(headimg.data, { 1, headimg.rows, headimg.cols,headimg.channels() }, RKNN_TENSOR_NHWC);
 
                 float *data1=network_result["865"]->mutable_cpu_data();
