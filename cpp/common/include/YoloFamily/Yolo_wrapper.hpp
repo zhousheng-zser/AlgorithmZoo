@@ -371,7 +371,7 @@ if constexpr (Exception)
                         {
                             out_centre_xywh[6 + key_point*3 + 0] = (posture_data2[key_point*2+0]*2 + slice_index%data_shape[data_shape.size()-1])*mul[index/2 ];
                             out_centre_xywh[6 + key_point*3 + 1] = (posture_data2[key_point*2+1]*2 + slice_index/data_shape[data_shape.size()-1])*mul[index/2 ];
-                            out_centre_xywh[6 + key_point*3 + 3] = 0.f;
+                            out_centre_xywh[6 + key_point*3 + 2] = 0.f;
                         }
 else                      
                         for (size_t key_point = 0; key_point < posture_shape[1]/3; key_point++)

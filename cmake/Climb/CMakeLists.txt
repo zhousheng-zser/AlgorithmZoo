@@ -22,4 +22,3 @@ target_link_libraries(${module_name} PRIVATE ${OpenCV_LIBS})
 
 target_include_directories(${module_name} PRIVATE ${COMMON_INCLUDE_DIRS} )
 target_link_libraries(${module_name} PRIVATE ${COMMON_LIBRARIES} )
-target_link_libraries(${module_name} PRIVATE posture)
