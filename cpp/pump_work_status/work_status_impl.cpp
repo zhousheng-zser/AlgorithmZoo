@@ -85,7 +85,7 @@ namespace glasssix::pump_work_status
         classify_work_equipment_status(image, big_paint_room ,mask_array );
 
         bool result = ( classify_lamp_status(image,  big_paint_room , mask_array) && classify_base_plate_status(image, big_paint_room , mask_array)&&classify_work_equipment_status(image, big_paint_room ,mask_array ) );
-
+        value["detect_info"]["security_status"]= result ? Json::Value("working"): Json::Value("vacancy");
     }
 
 }
