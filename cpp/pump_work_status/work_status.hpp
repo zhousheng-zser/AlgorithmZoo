@@ -1,6 +1,7 @@
 #pragma once
 
 #include <abi/consumer.hpp>
+#include <algo_plugin_interface.hpp>
 
 namespace glasssix::pump_work_status
 {
@@ -18,16 +19,9 @@ namespace glasssix::exposing::impl
 
         struct type : abi_unknown_object
         {
-            virtual std::int32_t G6_ABI_CALL init(std::int32_t device) noexcept = 0;
-            
-            virtual std::int32_t G6_ABI_CALL status(
-                abi_in_t<param_span<std::uint8_t>> bitmap,
-                std::int32_t channels,
-                std::int32_t height,
-                std::int32_t width,
-                exposing::param_vector<std::int32_t> rois,
-                abi_in_t<exposing::param_hash_map<exposing::param_string, float>> param_map_abi,
-                abi_out_t<std::int32_t> result) noexcept = 0;
+            virtual std::int32_t G6_ABI_CALL init(abi_in_t<param_string> str_params) = 0;
+
+            virtual std::int32_t G6_ABI_CALL execute(abi_in_t<param_hash_map<param_string, unknown_object>> input_params_map, abi_out_t<param_string> result) = 0;
 
             virtual std::int32_t G6_ABI_CALL version(abi_out_t<param_string> result) noexcept = 0;
 
@@ -38,24 +32,15 @@ namespace glasssix::exposing::impl
     struct interface_vtable<Derived, pump_work_status::work_status> : interface_vtable_base<Derived, pump_work_status::work_status>
     {
 
-         virtual std::int32_t G6_ABI_CALL status(abi_in_t<param_span<std::uint8_t>> bitmap,
-            std::int32_t channels,
-            std::int32_t height,
-            std::int32_t width,
-            exposing::param_vector<int> rois,
-            abi_in_t<exposing::param_hash_map<exposing::param_string, float>> param_map_abi,
-            abi_out_t<std::int32_t> result) noexcept override
+        virtual std::int32_t G6_ABI_CALL init(abi_in_t<param_string> str_params) override
         {
-            return abi_safe_call([&]
-                { *result = detach_abi(this->self().status(create_from_abi<param_span<std::uint8_t>>(bitmap), channels, height, width, rois,
-                   create_from_abi<exposing::param_hash_map<exposing::param_string, float>>(param_map_abi))); });
+            return abi_safe_call([&] { this->self().init(create_from_abi<param_string>(str_params)); });
         }
 
 
-        virtual std::int32_t G6_ABI_CALL init( std::int32_t device) noexcept override
+        virtual std::int32_t G6_ABI_CALL execute(abi_in_t<param_hash_map<param_string, unknown_object>> input_params_map, abi_out_t<param_string> result) override
         {
-            return abi_safe_call([&]
-                                 { this->self().init(device); });
+            return abi_safe_call([&] { *result = detach_abi(this->self().execute(create_from_abi<param_hash_map<param_string, unknown_object>>(input_params_map))); });
         }
         
 
@@ -73,32 +58,16 @@ namespace glasssix::exposing::impl
         struct type : enable_self_abi_awareness<Derived, pump_work_status::work_status>
         {
            
-             std::int32_t status(
-                param_span<std::uint8_t> bitmap,
-                std::int32_t channels,
-                std::int32_t height,
-                std::int32_t width,
-                exposing::param_vector<std::int32_t> rois,
-                const exposing::param_hash_map<exposing::param_string, float>& param_map_abi) const
+            void init(const param_string& str_params)
             {
-                std::int32_t result;
-                return (check_abi_result(
-                    this->self_abi().status(
-                        get_abi(bitmap),
-                        channels,
-                        height,
-                        width,
-                        rois,
-                        get_abi(param_map_abi),
-                        put_abi(result))
-                ),
-                result);
+                check_abi_result(this->self_abi().init(get_abi(str_params)));
             }
 
 
-            void init(std::int32_t device) const
+            param_string execute(const param_hash_map<param_string, unknown_object>& input_params_map)
             {
-                check_abi_result(this->self_abi().init( get_abi(device)));
+                param_string result{ nullptr };
+                return (check_abi_result(this->self_abi().execute(get_abi(input_params_map), put_abi(result))), result);
             }
            
             param_string version() const
@@ -113,7 +82,7 @@ namespace glasssix::exposing::impl
 
 namespace glasssix::pump_work_status
 {
-    struct work_status : exposing::inherits<work_status>
+    struct work_status : exposing::inherits<work_status, exposing::nessus::algo_plugin_interface>
     {
         using inherits::inherits;
     };
