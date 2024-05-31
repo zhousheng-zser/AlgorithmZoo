@@ -65,7 +65,16 @@ namespace glasssix::wander
 			head.set_score(p["score"].asFloat());
 			pedestrians.push_back(head);
 		}
-		auto result = impl_->detect(std::move(input_data), channels, height, width, roi_x, roi_y, roi_width, roi_height, pedestrians);
+		//转换成 impl_ 要的参数
+		std::map<std::string, double> param_map;
+		std::vector<PedestrianInfo> pedestrain_info_;
+		for (auto it : pedestrians)
+			pedestrain_info_.emplace_back(PedestrianInfo{ it });
+
+		for (auto it : dynamic_param_map) {
+			param_map.insert(std::make_pair(it.first, it.second));
+		}
+		auto result = impl_->detect(std::move(input_data), channels, height, width, roi_x, roi_y, roi_width, roi_height, param_map, pedestrain_info_);
 
 		Json::Value jarray_box;
 
