@@ -17,9 +17,14 @@ namespace glasssix::wander
     class detect_code_internal::impl
     {
     public:
-        impl(const exposing::param_string model_directory, int device = -1)
+        impl(const exposing::param_string str_params)
         {
-
+            Json::Reader reader(Json::Features::strictMode());
+            Json::Value root;
+            if (!reader.parse(exposing::to_narrow_string(str_params), root))
+                throw Json::Exception("parse json failed");
+            std::string model_directory = root["models_directory"].asString();
+            int device = root.get("device", Json::Int(-1)).asInt();
 #if defined(USE_RKNNAPI) || defined(USE_RKNN2API)      
         net_feature_ = std::make_shared<GenPipeline>(std::string(model_directory) + "/people_feature.rknn", device);   
 #elif defined(USE_BMNN)
@@ -187,8 +192,8 @@ namespace glasssix::wander
         static std::map<int, std::map<int, wander_info>>  feature_tables;
     };
 
-    detect_code_internal::detect_code_internal(std::string_view model_directory, int device)
-        : impl_{ std::make_unique<impl>(model_directory, device) }
+    detect_code_internal::detect_code_internal(std::string_view str_params)
+        : impl_{ std::make_unique<impl>(str_params) }
     {
 
     }
