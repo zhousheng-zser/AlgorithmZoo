@@ -40,7 +40,7 @@ namespace glasssix::sleep
 			throw Json::Exception("parse json failed");
 
 		std::cout << root.toStyledString() << std::endl;
-		Json::Value params = root.get("dyparams", Json::Value());
+		Json::Value params = root.get("dyparams", Json::Value()); //别的参数
 
 		std::map<std::string, float> dparam_map;
 
@@ -48,10 +48,10 @@ namespace glasssix::sleep
 			dparam_map.try_emplace(param_name, params[param_name].asFloat());
 		}
 
-		auto input_data = exposing::unbox<exposing::param_span<std::uint8_t>>(input_params_map.get_value("input_data"));
-		auto output_data = exposing::unbox<exposing::param_span<std::uint8_t>>(input_params_map.get_value("output_data"));
-		int order = exposing::unbox<int>(input_params_map.get_value("order"));
-		auto data_shape = input_params_map.get_value("data_shape").as<exposing::param_vector<int>>();
+		auto input_data = exposing::unbox<exposing::param_span<std::uint8_t>>(input_params_map.get_value("input_data"));   //图片data
+		auto output_data = exposing::unbox<exposing::param_span<std::uint8_t>>(input_params_map.get_value("output_data"));  ///不用管
+		int order = exposing::unbox<int>(input_params_map.get_value("order"));//buguan 
+		auto data_shape = input_params_map.get_value("data_shape").as<exposing::param_vector<int>>();//  nchw roi
 
 		int num = data_shape[0];
 		int channels = data_shape[1];
