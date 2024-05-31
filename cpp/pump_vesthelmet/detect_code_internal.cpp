@@ -408,6 +408,7 @@ namespace glasssix::pump_vesthelmet
 		std::unique_ptr<rknnwrapper::rknn_wrapper> head_det_instance_;
 		std::unique_ptr<rknnwrapper::rknn_wrapper> helmet_cls_instance_;
 
+        int model_type_=1;
 		std::shared_ptr<GenPipeline> net_posture_;
 		std::shared_ptr<Yolov8<GenPipeline, false, true>> yolov8_instance;
 	};

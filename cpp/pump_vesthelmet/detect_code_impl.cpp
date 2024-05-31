@@ -56,7 +56,7 @@ namespace glasssix::pump_vesthelmet
         int roi_y = 0;
         int roi_width = width;
         int roi_height = height;
-        auto result = impl_->detect(input_data, channels, height, width, roi_x, roi_y, roi_width, roi_height, dynamic_param_map);
+        auto result = impl_->detect(input_data, channels, height, width, dynamic_param_map);
 
         Json::Value jarray_target_detected(Json::arrayValue);
 
