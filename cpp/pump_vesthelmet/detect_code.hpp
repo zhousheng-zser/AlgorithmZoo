@@ -51,12 +51,12 @@ namespace glasssix::exposing::impl
         }
 
         virtual std::int32_t G6_ABI_CALL execute(
-            exposing::param_hash_map<exposing::param_string, unknown_object >> input_params_map, abi_out_t<exposing::param_string> result
+            abi_in_t<exposing::param_hash_map<exposing::param_string, unknown_object >> input_params_map, abi_out_t<exposing::param_string> result
         )
         {
             return abi_safe_call([&]
                 {
-                    *result = detach_abi(this->self().execute(create_from_abi<exposing::param_hash_map<exposing::param_string, unknown_object >> input_params_map));
+                    *result = detach_abi(this->self().execute(create_from_abi<exposing::param_hash_map<exposing::param_string, unknown_object >>(input_params_map)));
                 }
             );
         }
@@ -105,7 +105,7 @@ namespace glasssix::exposing::impl
                     get_abi(str_params)));
             }
 
-            exposing::param_string execute(exposing::param_hash_map<exposing::param_string, unknown_object >> input_params_map)
+            exposing::param_string execute(exposing::param_hash_map<exposing::param_string, unknown_object > input_params_map)
             {
                 exposing::param_string result{ nullptr };
                 return (check_abi_result(this->self_abi().execute(
