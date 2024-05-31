@@ -26,8 +26,14 @@
 #include "../../common/include/RKNN2Wrapper/rknn2_wrapper.hpp"
 
 #include "../posture/detect_code.hpp"
+#include "../posture/detect_code_internal.hpp"
+#include "../posture/general.hpp"
 #include "head_det.hpp"
 #include "obj_box_info.hpp"
+
+
+#include <GenPipeline/GenPipeline.hpp>
+#include <YoloFamily/Yolo_wrapper.hpp>
 //#include "dbg.h"
 
 namespace glasssix::pump_vesthelmet
@@ -38,7 +44,22 @@ namespace glasssix::pump_vesthelmet
 		impl(std::string_view model_directory, int device)
 		{
 			std::vector<std::string> phai;
-			posture_instance_ = glasssix::exposing::make_exported_interface<posture::detect_code>(exposing::param_string(model_directory), device, 1);
+
+#if defined(USE_RKNNAPI) || defined(USE_RKNN2API)
+			if (model_type_)
+				net_posture_ = std::make_shared<GenPipeline>(std::string(model_directory) + "/posture1280_17.rknn", device);
+			else
+				net_posture_ = std::make_shared<GenPipeline>(std::string(model_directory) + "/posture1280_12.rknn", device);
+
+#elif defined(USE_BMNN)
+			if (model_type_ == 1)
+				net_posture_ = std::make_shared<GenPipeline>(std::string(model_directory) + "/posture1280_17.bmodel", device);
+			else
+				net_posture_ = std::make_shared<GenPipeline>(std::string(model_directory) + "/posture1280_12.bmodel", device);
+#endif
+			net_posture_->manual_possible_normalization(std::array<float, 3>{0.f, 0.f, 0.f}, std::array<float, 3>{1.f / 255.f, 1.f / 255.f, 1.f / 255.f});
+			yolov8_instance = std::make_shared<Yolov8<GenPipeline, false, true>>(1280, 1280, net_posture_);
+
 			vest_cls_instance_ = std::make_unique<rknnwrapper::rknn_wrapper>(phai, std::string(model_directory) + "/" + "pump_vesthelmet_vest_cls.rknn", device);
 			head_det_instance_ = std::make_unique<rknnwrapper::rknn_wrapper>(phai, std::string(model_directory) + "/" + "pump_vesthelmet_head_det.rknn", device);
 			helmet_cls_instance_ = std::make_unique<rknnwrapper::rknn_wrapper>(phai, std::string(model_directory) + "/" + "pump_vesthelmet_helmet_cls.rknn", device);
@@ -60,6 +81,7 @@ namespace glasssix::pump_vesthelmet
 			std::memcpy(image.data, bitmap.data(), sizeof(uint8_t) * channels * height * width);
 
 			float posture_conf_thres = param_map_std.count("posture_conf_thres") ? param_map_std["posture_conf_thres"] : 0.1f;
+			float iou_thres = param_map_std.count("nms_thres") ? param_map_std["nms_thres"] : 0.6f;
 			float head_conf_thres = param_map_std.count("head_conf_thres") ? param_map_std["head_conf_thres"] : 0.6f;
 			float head_min_h_thres = param_map_std.count("head_min_h_thres") ? param_map_std["head_min_h_thres"] : 24.0f;
 			float head_min_w_thres = param_map_std.count("head_min_w_thres") ? param_map_std["head_min_w_thres"] : 24.0f;
@@ -78,12 +100,48 @@ namespace glasssix::pump_vesthelmet
 
 			auto posture_param_abi = exposing::make_param_hash_map<exposing::param_string, float>();
 			posture_param_abi.add_or_update("conf_thres", posture_conf_thres);
-			exposing::param_vector<posture::box_info> posture_info_list_raw = posture_instance_.detect(bitmap, channels, height, width, 0, 0, width, height, posture_param_abi);
+			std::vector<box_info_internal> objects;
+			cv::Mat image(cv::Size(width, height), CV_8UC3, const_cast<uint8_t*>(bitmap.data()));
+			auto objects_of_full_figure = yolov8_instance->get_objects(image, posture_conf_thres);
+
+			std::vector<std::vector<float>> nms_input;
+
+			std::vector<ObjectInfo> Need_to_filter;
+			for (const auto& var : Need_to_filter)
+				nms_input.push_back({ float(var.x1), float(var.y1), float(var.x2 - var.x1), float(var.y2 - var.y1), float(var.score) });
+
+			auto nms_result_index = object_nms(nms_input, iou_thres);
+
+			auto fin_result = exposing::make_param_vector<posture::box_info>();
+
+			std::vector<posture::box_info_internal> result_posture;
+
+			for (auto& id : nms_result_index)
+			{
+				posture::box_info_internal temp_result;
+				temp_result.x1 = Need_to_filter[id].x1 + 0;
+				temp_result.y1 = Need_to_filter[id].y1 + 0;
+				temp_result.x2 = Need_to_filter[id].x2 + 0;
+				temp_result.y2 = Need_to_filter[id].y2 + 0;
+				temp_result.score = Need_to_filter[id].score;
+				temp_result.key_points = exposing::make_param_vector<float>();
+				for (int j = 0; j < Need_to_filter[id].key_points.size(); j++)
+				{
+					temp_result.key_points.push_back(Need_to_filter[id].key_points[j].x + 0);
+					temp_result.key_points.push_back(Need_to_filter[id].key_points[j].y + 0);
+					temp_result.key_points.push_back(Need_to_filter[id].key_points[j].score);
+				}
+				result_posture.push_back(temp_result);
+			}
+
+			for (auto& i : result_posture)
+				fin_result.push_back(exposing::make_as_first<posture::box_info_impl>(i));
+			//exposing::param_vector<posture::box_info> posture_info_list_raw = yolov8_instance.detect(bitmap, channels, height, width, 0, 0, width, height, posture_param_abi);
 
 //cv::Mat vi = image.clone();
 //std::string lg = "";
 
-			for (auto pinfo : posture_info_list_raw)
+			for (auto pinfo : fin_result)
 			{
 //lg += '_';
 //if (lg != "__") continue;
@@ -349,6 +407,9 @@ namespace glasssix::pump_vesthelmet
 		std::unique_ptr<rknnwrapper::rknn_wrapper> vest_cls_instance_;
 		std::unique_ptr<rknnwrapper::rknn_wrapper> head_det_instance_;
 		std::unique_ptr<rknnwrapper::rknn_wrapper> helmet_cls_instance_;
+
+		std::shared_ptr<GenPipeline> net_posture_;
+		std::shared_ptr<Yolov8<GenPipeline, false, true>> yolov8_instance;
 	};
 
 	detect_code_internal::detect_code_internal(std::string_view model_directory, int device)

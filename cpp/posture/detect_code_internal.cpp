@@ -51,32 +51,6 @@ namespace glasssix::posture
 			return fmt::format(R"({{"nn_frame_version":"{}", "algo_module_version":"{}"}})", nn_frame_version, algo_module_version);
         }
 
-
-        std::vector<ObjectInfo> postrue_detect_yolo(cv::Mat &detect_img,float bias,bool horizontal, float ratio, int throw_right, int throw_left,  float con_thres,float iou_thres)
-        {
-            bias = bias/ratio;
-            cv::imwrite( "posture_detact"+ std::to_string(bias)+".jpg", detect_img);
-            auto objects = yolov8_instance->get_objects( detect_img, con_thres, iou_thres );
-
-            auto delete_border_objects = throw_border_resulttest(objects, horizontal, throw_right,  throw_left,  detect_img.rows);  
-            for(auto& object : delete_border_objects)
-            {
-                    object.x1 = object.x1/ratio + (horizontal? bias:0); 
-                    object.x2 = object.x2/ratio + (horizontal? bias:0); 
-                    object.y1 = object.y1/ratio + (horizontal? 0:bias); 
-                    object.y2 = object.y2/ratio + (horizontal? 0:bias); 
-                    for (size_t i = 0; i < object.key_points.size() ; i++)
-                    {
-                        object.key_points[i].x = object.key_points[i].x/ratio  + (horizontal? bias:0);
-                        object.key_points[i].y = object.key_points[i].y/ratio  + (horizontal? 0:bias);
-                    }
-            }
-            return delete_border_objects;
-
-        }
-
-        
-
         exposing::param_vector<posture::box_info> detect(const exposing::param_span<std::uint8_t>& bitmap, int channels, int height, int width,
             int roi_x, int roi_y, int roi_width, int roi_height, std::map<std::string, float>& param_map)
         {
