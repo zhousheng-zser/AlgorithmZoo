@@ -23,8 +23,7 @@ namespace glasssix::exposing::impl
         struct type : abi_unknown_object
         {
             virtual std::int32_t G6_ABI_CALL init(
-                abi_in_t<param_string> model_directory,
-                std::int32_t device) noexcept = 0;
+                abi_in_t<param_string> str_params) noexcept = 0;
             virtual std::int32_t G6_ABI_CALL execute(abi_in_t<param_hash_map<param_string, unknown_object>> input_params_map, abi_out_t<param_string> result) = 0;
             virtual std::int32_t G6_ABI_CALL detect(
                 abi_in_t<param_span<std::uint8_t>> bitmap,
@@ -52,13 +51,11 @@ namespace glasssix::exposing::impl
     {
 
         virtual std::int32_t G6_ABI_CALL init(
-            abi_in_t<param_string> model_directory,
-            std::int32_t device) noexcept override
+            abi_in_t<param_string> str_params) noexcept override
         {
             return abi_safe_call([&]
                 { this->self().init(
-                    create_from_abi<param_string>(model_directory),
-                    device); });
+                    create_from_abi<param_string>(str_params)); });
         }
 
         virtual std::int32_t G6_ABI_CALL execute(abi_in_t<param_hash_map<param_string, unknown_object>> input_params_map, abi_out_t<param_string> result)noexcept override
@@ -123,12 +120,10 @@ namespace glasssix::exposing::impl
         struct type : enable_self_abi_awareness<Derived, wander::detect_code>
         {
             void init(
-                const param_string& model_directory,
-                std::int32_t device) const
+                const param_string& str_params) const
             {
                 check_abi_result(this->self_abi().init(
-                    get_abi(model_directory),
-                    get_abi(device)));
+                    get_abi(str_params)));
             }
 
             param_string execute(const param_hash_map<param_string, unknown_object>& input_params_map)
@@ -196,7 +191,7 @@ namespace glasssix::exposing::impl
 
 namespace glasssix::wander
 {
-    struct detect_code : exposing::inherits<detect_code,glasssix::nessus::algo_plugin_interface>
+    struct detect_code : exposing::inherits<detect_code,glasssix::exposing::nessus::algo_plugin_interface>
     {
         using inherits::inherits;
     };
