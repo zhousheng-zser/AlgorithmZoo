@@ -18,15 +18,7 @@ namespace glasssix::pump_gate_status
     class gate_status_internal::impl
     {
     public:
-        impl(std::int32_t model_type, std::string_view racy_path, int device, bool use_int8) 
-        {
-        }
-
         impl() 
-        {
-        }
-
-        impl(const std::vector<std::string> &phai, std::string_view racy_path, int device) 
         {
         }
 
@@ -297,21 +289,7 @@ namespace glasssix::pump_gate_status
 
     };
 
-
     gate_status_internal::gate_status_internal():impl_{std::make_unique<impl>()}
-    {
-    }
-
-    gate_status_internal::gate_status_internal(exposing::param_vector<int> hsvs)
-    {
-    }
-
-    gate_status_internal::gate_status_internal(std::int32_t model_type, std::string_view racy_path, int device, bool use_int8) : 
-    impl_{std::make_unique<impl>(model_type, racy_path, device, use_int8)}
-    {
-    }
-
-    gate_status_internal::gate_status_internal(const std::vector<std::string> &phai, std::string_view racy_path, int device) : impl_{std::make_unique<impl>(phai, racy_path, device)}
     {
     }
 
