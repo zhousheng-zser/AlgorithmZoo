@@ -31,6 +31,7 @@ namespace glasssix::pump_weld
 		if (!reader.parse(exposing::to_narrow_string(exposing::unbox<exposing::param_string>(input_params_map.get_value("params"))), root))
 			throw Json::Exception("parse json failed");
 		Json::Value params = root.get("dyparams", Json::Value());
+		int batch = params["batch"].asInt();
 
 		std::map<std::string, float> dynamic_param_map;
 
@@ -55,7 +56,7 @@ namespace glasssix::pump_weld
 		int roi_width = width;
 		int roi_height = height;
 
-		auto result = impl_->detect(input_data, channels, height, width, dynamic_param_map);
+		auto result = impl_->detect(input_data, batch, height, width, dynamic_param_map);
 
 		Json::Value jarray_persons_weld(Json::arrayValue);
 
