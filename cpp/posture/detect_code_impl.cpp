@@ -93,7 +93,7 @@ namespace glasssix::posture
 			jarray_boxes.append(jobj_box);
 		}
 
-		value["info_list"] = jarray_boxes;
+		value["posture_info_list"] = jarray_boxes;
 		return exposing::to_param_string(writer.write(value));
 	}
 	exposing::param_vector<posture::box_info> detect_code_impl::detect(exposing::param_span<std::uint8_t> bitmap, int channels,
