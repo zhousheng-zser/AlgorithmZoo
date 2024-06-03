@@ -27,6 +27,7 @@
 
 #include "../posture/detect_code.hpp"
 #include "../posture/detect_code_internal.hpp"
+#include "../posture/box_info_impl.hpp"
 #include "../posture/general.hpp"
 #include "head_det.hpp"
 #include "obj_box_info.hpp"
@@ -76,10 +77,6 @@ namespace glasssix::pump_vesthelmet
 			}
 			CHECK_EQ(channels, 3);
 			CHECK_EQ(bitmap.size(), channels * height * width);
-			cv::Mat image(cv::Size(width, height), CV_8UC3);
-
-			std::memcpy(image.data, bitmap.data(), sizeof(uint8_t) * channels * height * width);
-
 			float posture_conf_thres = param_map_std.count("posture_conf_thres") ? param_map_std["posture_conf_thres"] : 0.1f;
 			float iou_thres = param_map_std.count("nms_thres") ? param_map_std["nms_thres"] : 0.6f;
 			float head_conf_thres = param_map_std.count("head_conf_thres") ? param_map_std["head_conf_thres"] : 0.6f;
