@@ -11,11 +11,6 @@ namespace glasssix::pump_gate_status
     {
     }
 
-    // void gate_status_impl::init(const exposing::param_vector<std::int32_t>& hsvs)
-	// {
-	// 	impl_ = std::make_unique<gate_status_internal>(hsvs);
-	// }
-
     void gate_status_impl::init(std::int32_t device)
 	{
 		impl_ = std::make_unique<gate_status_internal>();
