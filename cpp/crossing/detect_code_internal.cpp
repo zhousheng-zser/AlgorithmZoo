@@ -137,7 +137,7 @@ namespace glasssix::crossing
 #if defined(USE_RKNNAPI) || defined(USE_RKNN2API)
         // GenPipeline*  net_pump_hoisting_detect2_;
         std::shared_ptr<GenPipeline> net_crossing_detect_;
-        std::shared_ptr<Yolov8<GenPipeline, false>> yolov8_instance;
+        std::shared_ptr<Yolov8<GenPipeline, true ,true>> yolov8_instance;
 #else
         std::unique_ptr<excalibur::pipeline<float>> net_crossing_detect_;
 #endif
