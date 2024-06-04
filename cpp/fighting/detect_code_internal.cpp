@@ -88,8 +88,15 @@ namespace glasssix::fighting
 			}
 
 			// Pedestrian detect
-			std::vector<cv::Rect> person_box_list = get_person_box_by_detect_result_list(batchImages, height, width, {0,4,7}, person_conf_thres, person_nms_thres);
-
+			std::vector<cv::Rect> person_box_list;
+if(BATCH_==8)
+{
+			 person_box_list = get_person_box_by_detect_result_list(batchImages, height, width, {0,4,7}, person_conf_thres, person_nms_thres);
+}
+else
+{	
+			person_box_list = get_person_box_by_detect_result_list(batchImages, height, width, {0,4,9}, person_conf_thres, person_nms_thres);
+}
 			// Fighting detect
 			auto result = exposing::make_param_vector<fighting::box_info>();
 			for (auto gang_rect : person_box_list) {
