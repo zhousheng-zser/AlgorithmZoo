@@ -19,3 +19,6 @@ target_link_libraries(${module_name} PRIVATE ${COMMON_LIBRARIES} )
 target_include_directories(${module_name} PRIVATE ${CMAKE_CURRENT_SOURCE_DIR}/../../cpp/3rdparty/jsoncpp/include)
 target_link_libraries(${module_name} PRIVATE jsoncpp)
 add_dependencies(${module_name} jsoncpp)
+
+target_link_libraries(${module_name} PRIVATE genpipeline)
+add_dependencies(${module_name} genpipeline)
