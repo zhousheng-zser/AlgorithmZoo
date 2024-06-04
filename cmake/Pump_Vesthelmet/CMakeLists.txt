@@ -24,3 +24,6 @@ add_dependencies(${module_name} jsoncpp)
 
 target_link_libraries(${module_name} PRIVATE genpipeline)
 add_dependencies(${module_name} genpipeline)
+
+target_link_libraries(${module_name} PRIVATE posture)
+add_dependencies(${module_name} posture)
