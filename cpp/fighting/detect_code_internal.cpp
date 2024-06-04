@@ -37,15 +37,12 @@ namespace glasssix::fighting
 				/// Version 3.0.0 and before
 				FIGHT_INFER_H_ = 256;
 				FIGHT_INFER_W_ = 460;
-				/// Maybe
-				//FIGHT_INFER_H_ = 256;
-				//FIGHT_INFER_W_ = 256;
 			}
-			//else if (BATCH_ == 8) {
-			//	instance_ = std::make_unique<GenPipeline>(model_directory_ + "fight_8b" + model_ext, 0);// not normalization if rknn
-			//	FIGHT_INFER_H_ = 256;
-			//	FIGHT_INFER_W_ = 256;
-			//}
+			else if (BATCH_ == 8) {
+				nonm_instance_ = PrePostProcessGenPipeline::mkSharePipeline(model_directory_ + "fight_8b.nnm" + model_ext, 0);// not normalization if rknn
+				FIGHT_INFER_H_ = 256;
+				FIGHT_INFER_W_ = 460;
+			}
 			else
 				throw exposing::abi_invalid_argument("fighting incorrect BATCH_ param");
 
@@ -77,7 +74,7 @@ namespace glasssix::fighting
 			}
 
 			const float fight_thres = param_map_std.count("fight_thres") ? param_map_std["fight_thres"] : 0.5f;
-			const float person_conf_thres = param_map_std.count("person_conf_thres") ? param_map_std["person_conf_thres"] : 0.5f;
+			const float person_conf_thres = param_map_std.count("person_conf_thres") ? param_map_std["person_conf_thres"] : 0.4f;
 			const float person_nms_thres = 0.6f;
 
 
@@ -91,8 +88,15 @@ namespace glasssix::fighting
 			}
 
 			// Pedestrian detect
-			std::vector<cv::Rect> person_box_list = get_person_box_by_detect_result_list(batchImages, height, width, {0,4,9}, person_conf_thres, person_nms_thres);
-
+			std::vector<cv::Rect> person_box_list;
+if(BATCH_==8)
+{
+			 person_box_list = get_person_box_by_detect_result_list(batchImages, height, width, {0,4,7}, person_conf_thres, person_nms_thres);
+}
+else
+{	
+			person_box_list = get_person_box_by_detect_result_list(batchImages, height, width, {0,4,9}, person_conf_thres, person_nms_thres);
+}
 			// Fighting detect
 			auto result = exposing::make_param_vector<fighting::box_info>();
 			for (auto gang_rect : person_box_list) {
@@ -112,11 +116,11 @@ namespace glasssix::fighting
 					may_ft_region_batch_images.emplace_back(sub_region);
 				}
 
-				// for (size_t i = 0; i < 10; i++)
+				// for (size_t i = 0; i < 8; i++)
 				// {
 				// 	cv::Mat testimg = cv::imread(std::to_string(i)+".jpg");
 				// 	cv::resize(testimg, testimg, cv::Size2i{ FIGHT_INFER_W_, FIGHT_INFER_H_ });
-				// cv::cvtColor(sub_region, sub_region, cv::COLOR_BGR2RGB);
+				// 	cv::cvtColor(testimg, testimg, cv::COLOR_BGR2RGB);
 				// 	may_ft_region_batch_images.emplace_back(testimg);
 				// }
 
