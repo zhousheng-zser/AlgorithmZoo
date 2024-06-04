@@ -4,9 +4,10 @@
 #include <GenPipeline/PrePostProcessGenPipeline.hpp>
 #include "../genpipeline/market/yolov8_GEN.hpp"
 #include "combine_related_box.hpp"
+#include <unistd.h>  
 #ifdef BUILD_DEBUG_INFO
 //#define GetShowRatio(visual_img) std::min(float(1920.f / visual_img.cols), float(1080.f / visual_img.rows)) * 0.75
-//#define ShowResize(visual_img, showRatio) cv::resize(visual_img, visual_img, cv::Size(), showRatio, showRatio)
+//#define ShowResize(visual_img, showRatio) cv::resize(visual_img, visual_img, cv::Size(), showRatio, showRatio)f
 //#define ImgShow(visual_img) cv::imshow("visual_img", visual_img);cv::waitKey(0)
 //#define AdpShow(img) {auto visual_img=img.clone();ShowResize(visual_img,GetShowRatio(visual_img));ImgShow(visual_img);}
 #endif
@@ -36,15 +37,12 @@ namespace glasssix::fighting
 				/// Version 3.0.0 and before
 				FIGHT_INFER_H_ = 256;
 				FIGHT_INFER_W_ = 460;
-				/// Maybe
-				//FIGHT_INFER_H_ = 256;
-				//FIGHT_INFER_W_ = 256;
 			}
-			//else if (BATCH_ == 8) {
-			//	instance_ = std::make_unique<GenPipeline>(model_directory_ + "fight_8b" + model_ext, 0);// not normalization if rknn
-			//	FIGHT_INFER_H_ = 256;
-			//	FIGHT_INFER_W_ = 256;
-			//}
+			else if (BATCH_ == 8) {
+				nonm_instance_ = PrePostProcessGenPipeline::mkSharePipeline(model_directory_ + "fight_8b.nnm" + model_ext, 0);// not normalization if rknn
+				FIGHT_INFER_H_ = 256;
+				FIGHT_INFER_W_ = 460;
+			}
 			else
 				throw exposing::abi_invalid_argument("fighting incorrect BATCH_ param");
 
@@ -75,7 +73,7 @@ namespace glasssix::fighting
 				throw exposing::abi_invalid_argument("incorrect roi in fighting");
 			}
 
-			const float fight_thres = param_map_std.count("fight_thres") ? param_map_std["fight_thres"] : 0.7f;
+			const float fight_thres = param_map_std.count("fight_thres") ? param_map_std["fight_thres"] : 0.5f;
 			const float person_conf_thres = param_map_std.count("person_conf_thres") ? param_map_std["person_conf_thres"] : 0.4f;
 			const float person_nms_thres = 0.6f;
 
@@ -90,21 +88,46 @@ namespace glasssix::fighting
 			}
 
 			// Pedestrian detect
-			std::vector<cv::Rect> person_box_list = get_person_box_by_detect_result_list(batchImages, height, width, {0,4,9}, person_conf_thres, person_nms_thres);
-
+			std::vector<cv::Rect> person_box_list;
+if(BATCH_==8)
+{
+			 person_box_list = get_person_box_by_detect_result_list(batchImages, height, width, {0,4,7}, person_conf_thres, person_nms_thres);
+}
+else
+{	
+			person_box_list = get_person_box_by_detect_result_list(batchImages, height, width, {0,4,9}, person_conf_thres, person_nms_thres);
+}
 			// Fighting detect
 			auto result = exposing::make_param_vector<fighting::box_info>();
 			for (auto gang_rect : person_box_list) {
 				std::vector<cv::Mat> may_ft_region_batch_images;
+				int index=0;
 				for (auto& frame : batchImages) {
 					auto sub_region = GenPipeTools::safty_cut(frame, gang_rect);
+
 					cv::resize(sub_region, sub_region, cv::Size2i{ FIGHT_INFER_W_, FIGHT_INFER_H_ });
 					// Can cvtColor to split operation?
+					// std::cout<<sub_region.cols<<" "<<sub_region.rows<<std::endl;
+					// sleep(1);
+					// cv::imwrite(std::to_string(index) + "sub_region.jpg", sub_region );
+					index++;
 					cv::cvtColor(sub_region, sub_region, cv::COLOR_BGR2RGB);
+					// cv::imwrite(std::to_string(index) + "ssub_region.jpg", sub_region );
 					may_ft_region_batch_images.emplace_back(sub_region);
 				}
-				float score = fight_detect_10B_handnormalization(may_ft_region_batch_images);
 
+				// for (size_t i = 0; i < 8; i++)
+				// {
+				// 	cv::Mat testimg = cv::imread(std::to_string(i)+".jpg");
+				// 	cv::resize(testimg, testimg, cv::Size2i{ FIGHT_INFER_W_, FIGHT_INFER_H_ });
+				// 	cv::cvtColor(testimg, testimg, cv::COLOR_BGR2RGB);
+				// 	may_ft_region_batch_images.emplace_back(testimg);
+				// }
+
+				// std::cout<<"dsdsd\n";
+
+				float score = fight_detect_10B_handnormalization(may_ft_region_batch_images);
+				// std::cout<<"dsdsd2\n";
 				BoxInfoInternal fightdet_box(gang_rect, score, fight_thres);
 				fightdet_box.add(roi_x, roi_y);
 
@@ -137,7 +160,7 @@ namespace glasssix::fighting
 #ifdef BUILD_DEBUG_INFO
 				//auto VisFrame = InteImageStp.clone();
 #endif // BUILD_DEBUG_INFO
-
+				auto Vis = batchImages[f_id].clone();
 				auto frame_persons = person_detect(f_id, InteImageStp, person_conf_thres, person_nms_thres);
 				for (auto& frame_person : frame_persons) {
 #ifdef BUILD_DEBUG_INFO
@@ -146,11 +169,17 @@ namespace glasssix::fighting
 					//std::stringstream ss_score; ss_score << std::fixed << std::setprecision(2) << frame_person.score;
 					//cv::putText(VisFrame, ss_score.str(), frame_person.get_rect().br(), cv::FONT_HERSHEY_COMPLEX, 1, { 200,50,200 }, 2, 2, 0);
 #endif // BUILD_DEBUG_INFO
-
+					// cv::rectangle(Vis, frame_person.get_rect(), { 150,0,150 }, 2);
+					
 					if (frame_person.xmax > frame_person.xmin && frame_person.ymax > frame_person.ymin)
 					{
+						
 						float w = frame_person.xmax - frame_person.xmin;
 						float h = frame_person.ymax - frame_person.ymin;
+
+						if( std::max(w,h)< 120.0  )
+							continue;
+
 						if (w / h <= infer_ratio) {
 							w = int(h * infer_ratio);
 						}
@@ -165,7 +194,11 @@ namespace glasssix::fighting
 						//cv::rectangle(VisFrame, frame_person.get_rect(), { 0,255,0 }, 2);
 #endif // BUILD_DEBUG_INFO
 					}
+
+					
 				}
+				// sleep(1);
+					// cv::imwrite("Vis.jpg", Vis );
 #ifdef BUILD_DEBUG_INFO
 				//AdpShow(VisFrame);
 #endif // BUILD_DEBUG_INFO
@@ -185,9 +218,14 @@ namespace glasssix::fighting
 		}
 
 		std::vector<PersonBBox> person_detect(int frame_id, cv::Mat& image,float con_thres, float iou_thres) {
+#if defined(USE_RKNNAPI) || defined(USE_RKNN2API)
 			const int letter_h = 384;
 			const int letter_w = 640;
-			//std::cout << "frame_id " << frame_id << std::endl;
+#elif defined(USE_BMNN)
+			const int letter_h = 480;
+			const int letter_w = 800;
+#endif
+
 			GenPipTools::LetterInfo letter_op;
 			auto letter_img = GenPipTools::letter_image(image, letter_w, letter_h, letter_op, true);
 			//person_det_->profiler_tic();

@@ -1,9 +1,9 @@
-#ifndef _wander_DETECT_CODE_HPP_
-#define _wander_DETECT_CODE_HPP_
+#ifndef _WANDER_DETECT_CODE_HPP_
+#define _WANDER_DETECT_CODE_HPP_
 
 #include "box_info.hpp"
-#include "../pedestrian/box_info.hpp"
 #include <abi/consumer.hpp>
+
 namespace glasssix::wander
 {
     struct detect_code;
@@ -190,5 +190,4 @@ namespace glasssix::wander
         using inherits::inherits;
     };
 }
-
 #endif

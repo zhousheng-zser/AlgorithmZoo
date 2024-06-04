@@ -17,12 +17,6 @@
 #include <opencv2/imgproc.hpp>
 #include <tuple>
 
-#include "Excalibur/pipeline.hpp"
-#include "Excalibur/operation_make_border.hpp"
-#include "Excalibur/operation_safty_cut.hpp"
-#include "Primitives/tensor_conversions.hpp"
-#include <iomanip>
-
 #include <GenPipeline/PrePostProcessGenPipeline.hpp>
 #include <GenPipeline/GenPipeTools.hpp>
 

@@ -138,7 +138,7 @@ public:
 	
 	virtual std::vector<std::vector<float>> yoloconcat(std::vector<std::shared_ptr<glasssix::memory::tensor<float>>>& outs,float conf )=0;
 
-	std::vector<std::shared_ptr<glasssix::memory::tensor<float>>> sort_model_result(std::unordered_map<std::string, std::shared_ptr<memory::tensor<float>>>& model_results )
+	virtual std::vector<std::shared_ptr<glasssix::memory::tensor<float>>> sort_model_result(std::unordered_map<std::string, std::shared_ptr<memory::tensor<float>>>& model_results )
 	{
 		struct CompareSharedPtrLength {
 			bool operator()(const std::shared_ptr<memory::tensor<float>>& a, const std::shared_ptr<memory::tensor<float>>& b) const {
@@ -279,14 +279,16 @@ public:
             out.emplace_back(yolo_wrapper::safe_region(nms_input[index][0],image.cols), yolo_wrapper::safe_region(nms_input[index][1], image.rows),yolo_wrapper::safe_region(nms_input[index][0]+nms_input[index][2], image.cols), yolo_wrapper::safe_region(nms_input[index][1]+nms_input[index][3], image.rows),
                             std::round(nms_input[index][5]),  nms_input[index][4], key_points
             );
-            
+            // std::cout<<" cons: "<<nms_input[index][4]<<std::endl;
             // cv::rectangle(image, cv::Point(int(nms_input[index][0]), int(nms_input[index][1])), 
-            //         cv::Point(int(nms_input[index][0]+nms_input[index][2]), int(nms_input[index][1]+nms_input[index][3])), cv::Scalar(0, 255, 255), 2);
+                    // cv::Point(int(nms_input[index][0]+nms_input[index][2]), int(nms_input[index][1]+nms_input[index][3])), cv::Scalar(0, 255, 255), 2);
             // for (size_t j = 0; j < key_points.size(); j++)
             //     cv::circle(image, cv::Point((int)key_points[j].x, (int)key_points[j].y), 3, cv::Scalar(0, 0, 255), 2);
 	   
         }
-		// cv::imwrite("../0429.jpg", image);
+
+		// cv::imwrite("0429.jpg", image);
+
 		return out;
 		
 	};
@@ -300,6 +302,35 @@ public:
     
         Yolov8(int model_input_width, int model_input_height,  std::shared_ptr<T> pipe) : 
         YoloBase< std::shared_ptr<T>>(model_input_width, model_input_height, pipe) {}
+
+
+        std::vector<std::shared_ptr<glasssix::memory::tensor<float>>> sort_model_result(std::unordered_map<std::string, std::shared_ptr<memory::tensor<float>>>& model_results ) override
+        {
+if constexpr (!Posture)
+            {
+                if(model_results.size()>3)
+                {
+                    std::unordered_map<std::string, std::shared_ptr<memory::tensor<float>>> temp_model_results;
+                    for(auto result :model_results)
+                       if(model_results[result.first]->data_shape()[3]!=1) //假设关键点的信息点数小于32
+                            temp_model_results[result.first] = model_results[result.first];
+                    model_results = temp_model_results;
+                }
+            }
+
+            struct CompareSharedPtrLength {
+                bool operator()(const std::shared_ptr<memory::tensor<float>>& a, const std::shared_ptr<memory::tensor<float>>& b) const {
+                    return a->count() < b->count();
+                }
+            };
+            std::vector<std::shared_ptr<memory::tensor<float>>> output;
+            std::transform(model_results.begin(), model_results.end(), std::back_inserter(output),
+                        [](const std::pair<std::string, std::shared_ptr<memory::tensor<float>>>& pair) {
+                            return pair.second;
+                        });
+            std::sort(output.begin(), output.end(), CompareSharedPtrLength());
+            return output;
+        }
 
         std::vector<std::vector<float>> yoloconcat(std::vector<std::shared_ptr<memory::tensor<float>>>& outs,float conf ) override
         {
@@ -371,7 +402,7 @@ if constexpr (Exception)
                         {
                             out_centre_xywh[6 + key_point*3 + 0] = (posture_data2[key_point*2+0]*2 + slice_index%data_shape[data_shape.size()-1])*mul[index/2 ];
                             out_centre_xywh[6 + key_point*3 + 1] = (posture_data2[key_point*2+1]*2 + slice_index/data_shape[data_shape.size()-1])*mul[index/2 ];
-                            out_centre_xywh[6 + key_point*3 + 3] = 0.f;
+                            out_centre_xywh[6 + key_point*3 + 2] = 0.f;
                         }
 else                      
                         for (size_t key_point = 0; key_point < posture_shape[1]/3; key_point++)
@@ -411,6 +442,7 @@ else
                 for (size_t slice_index = 0; slice_index < slice_box_size*category ; slice_index++)
                     if(conf_[slice_index]>conf ) 
                     {
+                        // std::cout<<"slice_index: "<<slice_index<<std::endl;
                         candicate_index.push_back( slice_index % slice_box_size );
                         category_label.push_back(slice_index / slice_box_size  );
                     }
@@ -551,8 +583,7 @@ else
         
 };
 			
-
-
+    
 // #include <GenPipeline/GenPipeline.hpp>  注意链接对应GenPipeline库
 // #include <YoloFamily/Yolo_wrapper.hpp>
 // int main() {
