@@ -30,6 +30,22 @@ namespace glasssix::wander
 
 		std::map<std::string, float> dynamic_param_map;
 
+		//从json获取行人数据,并赋值给C++对应结构体
+		auto pedestrain_info = Json::Value(Json::arrayValue);
+		
+		pedestrain_info = params["person_list"];
+		auto pedestrians = exposing::make_param_vector<pedestrian::box_info>();
+		for (auto p : pedestrain_info)
+		{
+			auto head = exposing::make_exported_interface<pedestrian::box_info>();
+			head.set_x1(p["x1"].asInt());
+			head.set_y1(p["y1"].asInt());
+			head.set_x2(p["x2"].asInt());
+			head.set_y2(p["y2"].asInt());
+			head.set_score(p["score"].asFloat());
+			pedestrians.push_back(head);
+		}
+		params.removeMember("person_list");
 		for (auto& param_name : params.getMemberNames()) {
 			dynamic_param_map.try_emplace(param_name, params[param_name].asFloat());
 		}
@@ -51,20 +67,6 @@ namespace glasssix::wander
 		int roi_width = width;
 		int roi_height = height;
 
-		//从json获取人头数据,并赋值给C++对应结构体
-		auto pedestrain_info = Json::Value(Json::arrayValue);;
-		pedestrain_info = params["head_info_list"];
-		auto pedestrians = exposing::make_param_vector<pedestrian::box_info>();
-		for (auto p : pedestrain_info)
-		{
-			auto head = exposing::make_exported_interface<pedestrian::box_info>();
-			head.set_x1(p["x1"].asInt());
-			head.set_y1(p["y1"].asInt());
-			head.set_x2(p["x2"].asInt());
-			head.set_y2(p["y2"].asInt());
-			head.set_score(p["score"].asFloat());
-			pedestrians.push_back(head);
-		}
 		//转换成 impl_ 要的参数
 		std::map<std::string, double> param_map;
 		std::vector<PedestrianInfo> pedestrain_info_;
