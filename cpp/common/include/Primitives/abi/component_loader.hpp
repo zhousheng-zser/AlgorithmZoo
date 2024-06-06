@@ -333,7 +333,7 @@ namespace glasssix::exposing::impl
 			{
 				unknown_object result{ nullptr };
 
-				return (check_abi_result(this->self_abi().create_by_name(get_abi(qualified_name), put_abi(result))), result);
+				return (check_abi_result(this->self_abi().contains_interface_id(get_abi(qualified_name), put_abi(result))), result);
 			}
 
 			unknown_object create_by_interface_id(const guid& interface_id) const
