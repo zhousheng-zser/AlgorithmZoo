@@ -99,11 +99,9 @@ namespace glasssix::pump_vesthelmet
 			posture_param_abi.add_or_update("conf_thres", posture_conf_thres);
 			std::vector<box_info_internal> objects;
 			cv::Mat image(cv::Size(width, height), CV_8UC3, const_cast<uint8_t*>(bitmap.data()));
-			auto objects_of_full_figure = yolov8_instance->get_objects(image, posture_conf_thres);
-
 			std::vector<std::vector<float>> nms_input;
 
-			std::vector<ObjectInfo> Need_to_filter;
+			std::vector<ObjectInfo> Need_to_filter = yolov8_instance->get_objects(image, posture_conf_thres);;
 			for (const auto& var : Need_to_filter)
 				nms_input.push_back({ float(var.x1), float(var.y1), float(var.x2 - var.x1), float(var.y2 - var.y1), float(var.score) });
 

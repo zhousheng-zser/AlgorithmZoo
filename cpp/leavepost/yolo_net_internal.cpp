@@ -61,7 +61,6 @@ namespace glasssix::leavepost
 #endif      
             net_smoke_detect_->manual_possible_normalization(std::array<float,3>{0.f,0.f,0.f},std::array<float,3>{1.f / 255.f,1.f / 255.f,1.f / 255.f});
             yolov8_instance = std::make_shared<Yolov8<GenPipeline>>(1280,1280, net_smoke_detect_);
-			head_instance_ = exposing::get_component_loader().create_by_name(u8"g6.head.detect_code").try_as<head::detect_code>();
 		}
 
         exposing::param_vector<leavepost::box_info> detect(const exposing::param_span<std::uint8_t>& bitmap, int channels, int height, int width, int roi_x, int roi_y, int roi_width, int roi_height, std::map<std::string, float>& param_map)
@@ -308,7 +307,6 @@ namespace glasssix::leavepost
     private:
         int device_;
         std::string model_directory_;
-		head::detect_code head_instance_;
         std::shared_ptr<memory::tensor<std::uint8_t>> cache_;
         std::shared_ptr<GenPipeline> net_smoke_detect_;
         std::shared_ptr<Yolov8<GenPipeline>> yolov8_instance;
