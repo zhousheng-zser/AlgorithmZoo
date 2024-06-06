@@ -60,7 +60,7 @@ namespace glasssix::crossing
             cv::Mat cropped_image = image(cv::Range(roi_y,roi_y+roi_height), cv::Range(roi_x,roi_x+roi_width)).clone();
 
 			//auto crossing_list = run_detect(cropped_image, param_map);
-            auto pump_objects = yolov8_instance->get_objects(image, con_thres, iou_thres);
+            auto pump_objects = yolov8_instance->get_objects(cropped_image, con_thres, iou_thres);
             for (auto& var : pump_objects)
             {
                 box_info_internal crossing_internal;
