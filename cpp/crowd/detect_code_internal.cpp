@@ -22,7 +22,7 @@
 
 
 namespace glasssix::crowd
-{
+{ 
     class detect_code_internal::impl
     {
     public:
@@ -108,12 +108,34 @@ namespace glasssix::crowd
                 }
             }
             
-            return find_cluster_num(detection_points, min_cluster_size);
+            std::vector<crowd::box_info> cluster_list =  find_cluster_num(detection_points, min_cluster_size);
+            if (cluster_list.size() == 0)
+                return {}; 
+            crowd::box_info cluster_key = find_cluster_key(cluster_list ); 
+
+
+            int trigger_delay = std::round(param_map.count("trigger_delay") ? param_map["trigger_delay"] : 30.f);
+            int device_id = std::round(param_map.count("device_id") ? param_map["device_id"] : 0.f);
+            int max_area_list = std::round(param_map.count("max_area_list") ? param_map["max_area_list"] : 5.f);
+            float nms_threshold = param_map.count("nms_thres") ? param_map["nms_thres"] : 0.5f;
+            bool is_crow = check_crow(cluster_key, trigger_delay, device_id, max_area_list, nms_threshold);
+
+            auto results = exposing::make_param_vector<crowd::box_info>();
+            if (is_crow)
+            {
+                for (auto val : cluster_list)
+                {
+                    if(val.category() == cluster_key.category())
+                        results.push_back(val);
+                }
+            }
+            return results; 
+            
         }
 
         std::string version()
         {
-			const std::string algo_module_version = "2.2.0";
+			const std::string algo_module_version = "2.3.0";
 
 			std::string nn_frame_version = "dsd";
 
@@ -121,6 +143,9 @@ namespace glasssix::crowd
 
         }
 
+        static std::mutex list_crowd_area_mutex;
+        static std::map<int, std::list<crowd::box_info> > area1_map;
+        static std::map<int, std::list<crowd::box_info> > area2_map;
     private:
 
 
@@ -138,10 +163,118 @@ namespace glasssix::crowd
             int y2;
             int category;
         };
+        
+        inline int ComputeArea(int ax1, int ay1, int ax2, int ay2, int bx1, int by1, int bx2, int by2) {
+            int x = std::max(0, std::min(ax2, bx2) - std::max(ax1, bx1));
+            int y = std::max(0, std::min(ay2, by2) - std::max(ay1, by1));
+            return x * y;
+        }
 
-        exposing::param_vector<crowd::box_info> find_cluster_num(const std::vector<cluster_info>& detection_points, int min_cluster_size)
+        float area_iou(const std::list<crowd::box_info>& list_crowd_area1, crowd::box_info cluster_key)
         {
-            auto results = exposing::make_param_vector<crowd::box_info>();
+            if (list_crowd_area1.size() == 0)
+                return  0; 
+            int average_x1{ 0 }, average_x2{ 0 }, average_y1{ 0 }, average_y2{ 0 };
+            for (auto& val : list_crowd_area1)
+            {
+                average_x1 += val.x1();
+                average_y1 += val.y1();
+                average_x2 += val.x2();
+                average_y2 += val.y2();
+            }
+            average_x1 /= list_crowd_area1.size();
+            average_y1 /= list_crowd_area1.size();
+            average_x2 /= list_crowd_area1.size();
+            average_y2 /= list_crowd_area1.size();
+
+            float inter_area = ComputeArea(cluster_key.x1(), cluster_key.y1(), cluster_key.x2(), cluster_key.y2(),
+                average_x1, average_y1, average_x2, average_y2) * 1.0;
+            float union_area = (average_y2 - average_y1) * (average_x2 - average_x1) + (cluster_key.y2() - cluster_key.y1()) * (cluster_key.x2() - cluster_key.x1()) - inter_area;
+            return  std::min(1.0f, std::max(0.0f, inter_area/union_area)  );
+        }
+
+        bool check_crow(crowd::box_info cluster_key, int trigger_delay, int device_id, int max_area_list, float nms_threshold )
+        {   
+                std::lock_guard<std::mutex> lock(list_crowd_area_mutex);
+            bool flag = false; 
+                std::list<crowd::box_info>& list_crowd_area1 = area1_map[device_id];
+                std::list<crowd::box_info>& list_crowd_area2 = area2_map[device_id];
+            if (list_crowd_area1.size() == 0)
+                list_crowd_area1.push_back(cluster_key);
+            else
+            {
+                float iou_ratio = area_iou(list_crowd_area1, cluster_key);
+                if(iou_ratio> nms_threshold)
+                    list_crowd_area1.push_back(cluster_key);
+                else
+                    list_crowd_area2.push_back(cluster_key);
+            }
+            if (list_crowd_area2.size() > max_area_list)
+            {
+                list_crowd_area1.clear();
+                list_crowd_area2.clear();
+                list_crowd_area1.push_back(cluster_key);
+                flag = false;
+            }
+            else if (list_crowd_area1.size() > trigger_delay / 5)
+            {
+                flag = true; 
+                list_crowd_area1.pop_front();//删除第一个元素
+                //printf("list_crowd_area1 len =%llu\n", list_crowd_area1.size());
+            }
+            //printf("list_crowd_area2 len =%llu\n", list_crowd_area2.size()); 
+            return flag; 
+        }
+
+        crowd::box_info find_cluster_key( std::vector<crowd::box_info> &cluster_list)
+        {
+            struct info {
+                int cnt; 
+                int x1,x2,y1,y2;
+            };
+            std::unordered_map<int, info>dd;
+            for (auto val: cluster_list)
+            {
+                int category_ = val.category(); 
+                if (dd.find(category_ )  == dd.end())
+                {
+                    info now = info{ .cnt = 1 , .x1 = val.x1(), .x2 = val.x2(), .y1 = val.y1(), .y2 = val.y2()};
+                    dd[val.category()] = now;
+                }
+                else
+                {
+                    dd[val.category()].x1 = std::min(dd[val.category()].x1, val.x1());
+                    dd[val.category()].y1 = std::min(dd[val.category()].y1, val.y1());
+                    dd[val.category()].x2 = std::max(dd[val.category()].x2, val.x2());
+                    dd[val.category()].y2 = std::max(dd[val.category()].y2, val.y2());
+                    dd[val.category()].cnt++;
+                }
+            }
+            int ans_id = cluster_list[0].category();
+            for (const auto val: cluster_list)
+            {
+                if (dd[val.category()].cnt > dd[ans_id].cnt)
+                {
+                    ans_id = val.category();
+                }
+                else if (dd[val.category()].cnt == dd[ans_id].cnt && dd[val.category()].x2 - dd[val.category()].x1 < dd[ans_id].x2 - dd[ans_id].x1)
+                {
+                    ans_id = val.category();
+                }
+            }
+
+            crowd::box_info_internal ans;
+            ans.x1 = dd[ans_id].x1;
+            ans.y1 = dd[ans_id].y1;
+            ans.x2 = dd[ans_id].x2;
+            ans.y2 = dd[ans_id].y2;
+            ans.category = ans_id; 
+            return glasssix::exposing::make_as_first<box_info_impl>(ans);
+        }
+
+        std::vector<crowd::box_info> find_cluster_num(const std::vector<cluster_info>& detection_points, int min_cluster_size)
+        {
+            std::vector<crowd::box_info> results;
             if (detection_points.size() < 4)
                 return results;
             cluster_num scaler;
@@ -155,7 +288,7 @@ namespace glasssix::crowd
                     continue;
                 crowd::box_info_internal temp;
                 temp.x1= detection_points[i].x1;     
-                temp.y1= detection_points[i].y1;     
+                temp.y1= detection_points[i].y1;
                 temp.x2= detection_points[i].x2;     
                 temp.y2= detection_points[i].y2;     
                 temp.category= cluster_num_ans[i]-1;
@@ -199,7 +332,6 @@ namespace glasssix::crowd
             return result_part;
         }
 
-
         std::vector<detect_list> post_process( const float* pred_map, const float* predict,int area_threshold, int size=640)
         {
             std::vector<int> binar_map (640*640);
@@ -212,7 +344,6 @@ namespace glasssix::crowd
             }
             return get_boxInfo_from_Binar_map(binar_map, area_threshold);
         }
-
         
         std::vector<crowd::box_info_internal>  run_segment(cv::Mat& images, int cropx1,int cropx2,int cropy1,int cropy2, int area_threshold )
         {   
@@ -304,4 +435,8 @@ namespace glasssix::crowd
     {
         return impl_->detect(bitmap, channels, height, width, roi_x, roi_y, roi_width, roi_height, min_cluster_size, param_map);
     }
+
+    std::mutex detect_code_internal::impl::list_crowd_area_mutex;
+    std::map<int, std::list<crowd::box_info> >detect_code_internal::impl::area1_map;
+    std::map<int, std::list<crowd::box_info> >detect_code_internal::impl::area2_map;
 }
