@@ -109,10 +109,10 @@ namespace glasssix::crowd
             }
             
             std::vector<crowd::box_info> cluster_list =  find_cluster_num(detection_points, min_cluster_size);
+            auto results = exposing::make_param_vector<crowd::box_info>();
             if (cluster_list.size() == 0)
-                return {}; 
+                return results;
             crowd::box_info cluster_key = find_cluster_key(cluster_list ); 
-
 
             int trigger_delay = std::round(param_map.count("trigger_delay") ? param_map["trigger_delay"] : 30.f);
             int device_id = std::round(param_map.count("device_id") ? param_map["device_id"] : 0.f);
@@ -120,7 +120,6 @@ namespace glasssix::crowd
             float nms_threshold = param_map.count("nms_thres") ? param_map["nms_thres"] : 0.5f;
             bool is_crow = check_crow(cluster_key, trigger_delay, device_id, max_area_list, nms_threshold);
 
-            auto results = exposing::make_param_vector<crowd::box_info>();
             if (is_crow)
             {
                 for (auto val : cluster_list)
