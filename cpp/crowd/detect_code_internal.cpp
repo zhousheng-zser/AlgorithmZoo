@@ -112,8 +112,8 @@ namespace glasssix::crowd
             auto results = exposing::make_param_vector<crowd::box_info>();
             if (cluster_list.size() == 0)
                 return results;
-            crowd::box_info cluster_key = find_cluster_key(cluster_list ); 
-
+            crowd::box_info cluster_key = find_cluster_key(cluster_list );
+            
             int trigger_delay = std::round(param_map.count("trigger_delay") ? param_map["trigger_delay"] : 30.f);
             int device_id = std::round(param_map.count("device_id") ? param_map["device_id"] : 0.f);
             int max_area_list = std::round(param_map.count("max_area_list") ? param_map["max_area_list"] : 5.f);
@@ -234,7 +234,7 @@ namespace glasssix::crowd
             std::unordered_map<int, info>dd;
             for (auto val: cluster_list)
             {
-                int category_ = val.category(); 
+                int category_ = val.category();
                 if (dd.find(category_ )  == dd.end())
                 {
                     info now = info{ .cnt = 1 , .x1 = val.x1(), .x2 = val.x2(), .y1 = val.y1(), .y2 = val.y2()};
@@ -274,7 +274,7 @@ namespace glasssix::crowd
         std::vector<crowd::box_info> find_cluster_num(const std::vector<cluster_info>& detection_points, int min_cluster_size)
         {
             std::vector<crowd::box_info> results;
-            if (detection_points.size() < 4)
+            if (detection_points.size() < 3)
                 return results;
             cluster_num scaler;
             std::vector<int> cluster_num_ans = scaler.find_cluster_num(detection_points, min_cluster_size);
@@ -283,14 +283,14 @@ namespace glasssix::crowd
             //results.push_back(glasssix::exposing::make_as_first<box_info_impl>(it));
             for ( int i = 0 ;i< detection_points.size();++i)
             {
-                if (cluster_num_ans[i] == 0)
+                if (cluster_num_ans[i] == 0 || cluster_num_ans[i] == -1)
                     continue;
                 crowd::box_info_internal temp;
-                temp.x1= detection_points[i].x1;     
+                temp.x1= detection_points[i].x1;
                 temp.y1= detection_points[i].y1;
-                temp.x2= detection_points[i].x2;     
-                temp.y2= detection_points[i].y2;     
-                temp.category= cluster_num_ans[i]-1;
+                temp.x2= detection_points[i].x2;
+                temp.y2= detection_points[i].y2;
+                temp.category= cluster_num_ans[i];
                 results.push_back(glasssix::exposing::make_as_first<box_info_impl>(temp));
             }
             return results;
