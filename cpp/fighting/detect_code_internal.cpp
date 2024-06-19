@@ -158,53 +158,88 @@ else
 				cv::Mat InteImageStp = batchImages[f_id];
 
 #ifdef BUILD_DEBUG_INFO
-				//auto VisFrame = InteImageStp.clone();
+				auto VisFrame = InteImageStp.clone();
 #endif // BUILD_DEBUG_INFO
 				auto Vis = batchImages[f_id].clone();
 				auto frame_persons = person_detect(f_id, InteImageStp, person_conf_thres, person_nms_thres);
+
+				float model_input_scale_rate =460.f/256.f;
+				std::vector<cv::Rect> combined_box_list;
 				for (auto& frame_person : frame_persons) {
-#ifdef BUILD_DEBUG_INFO
-					//cv::rectangle(Vis, frame_person.get_rect(), { 150,0,150 }, 2);
-					//cv::rectangle(VisFrame, frame_person.get_rect(), { 150,0,150 }, 2);
-					//std::stringstream ss_score; ss_score << std::fixed << std::setprecision(2) << frame_person.score;
-					//cv::putText(VisFrame, ss_score.str(), frame_person.get_rect().br(), cv::FONT_HERSHEY_COMPLEX, 1, { 200,50,200 }, 2, 2, 0);
-#endif // BUILD_DEBUG_INFO
-					// cv::rectangle(Vis, frame_person.get_rect(), { 150,0,150 }, 2);
-					
-					if (frame_person.xmax > frame_person.xmin && frame_person.ymax > frame_person.ymin)
+					if (frame_person.xmax > frame_person.xmin && frame_person.ymax > frame_person.ymin) 
 					{
-						
 						float w = frame_person.xmax - frame_person.xmin;
 						float h = frame_person.ymax - frame_person.ymin;
 
 						if( std::max(w,h)< 120.0  )
 							continue;
+						w = int(w * 5.0);
+						h = int(h * 1.3);
 
-						if (w / h <= infer_ratio) {
-							w = int(h * infer_ratio);
-						}
-						else {
-							h = int(w / infer_ratio);
-						}
 						frame_person.reset_w_h_kepCenter(w, h);
-						frame_person.constraintRectBoundary(width, height);
-						person_box_list.emplace_back(frame_person.get_rect());
+						frame_person.constraintRectBoundary(width, height);  //修改问题
+						combined_box_list.emplace_back(frame_person.get_rect());
+
 #ifdef BUILD_DEBUG_INFO
-						//cv::rectangle(Vis, frame_person.get_rect(), { 0,255,0 }, 2);
-						//cv::rectangle(VisFrame, frame_person.get_rect(), { 0,255,0 }, 2);
+						cv::rectangle(VisFrame, frame_person.get_rect(), { 0,255,0 }, 2);
 #endif // BUILD_DEBUG_INFO
 					}
-
-					
 				}
+						combine_related_box(combined_box_list, 0.00001f);
+						// for (auto  x :combined_box_list)
+								// cv::rectangle(Vis, x, { 0,100,255 }, 2);
+						
+						if(f_id==0) 						
+							person_box_list = combined_box_list;
+						else
+						{
+							std::vector<cv::Rect> new_person_box_list;
+							for (auto person_box : person_box_list)
+								for (auto it = combined_box_list.begin(); it != combined_box_list.end();)
+								{
+									if (count_iou_(person_box, *it) > 0.001)
+									{
+										auto outer_box = get_outer_box_(person_box, *it);
+										int cx = (outer_box.br().x + outer_box.tl().x) / 2;
+										int cy = (outer_box.br().y + outer_box.tl().y) / 2;
+										int cw = outer_box.br().x - outer_box.tl().x;
+										int ch = outer_box.br().y - outer_box.tl().y;
+										PersonBBox temp_frame_person;
+										temp_frame_person.xmin = outer_box.tl().x;
+										temp_frame_person.ymin = outer_box.tl().y;
+										temp_frame_person.xmax = outer_box.br().x;
+										temp_frame_person.ymax = outer_box.br().y;
+										if (float(cw) / float(ch) < model_input_scale_rate)
+											cw = int(ch * model_input_scale_rate);
+										else
+											ch = int(cw / model_input_scale_rate);
+
+										temp_frame_person.reset_w_h_kepCenter(cw, ch);
+										temp_frame_person.constraintRectBoundary(width, height); 
+										new_person_box_list.push_back(outer_box);
+
+										// 擦除当前的 combined_box
+										it = combined_box_list.erase(it);
+									}
+									else
+									{
+										++it;
+									}
+								}
+							person_box_list = new_person_box_list;
+							// std::cout<<"person_box_list: "<<person_box_list.size()<<std::endl;
+						}
+				// for (auto  x :person_box_list)
+				// 	cv::rectangle(Vis, x, { 255,0, 0 }, 2);
+
 				// sleep(1);
-					// cv::imwrite("Vis.jpg", Vis );
+				// cv::imwrite("Vis.jpg", Vis );
 #ifdef BUILD_DEBUG_INFO
 				//AdpShow(VisFrame);
 #endif // BUILD_DEBUG_INFO
 			}
 
-			combine_related_box(person_box_list, 0.1f);
+			// combine_related_box(person_box_list, 0.1);
 
 #ifdef BUILD_DEBUG_INFO
 			////std::cout << "# combine_related_box size = " << person_box_list.size() << std::endl;			

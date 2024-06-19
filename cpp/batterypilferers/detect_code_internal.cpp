@@ -36,7 +36,7 @@ namespace glasssix::batterypilferers
             net_pilferage_ = std::make_shared<GenPipeline>(std::string(model_directory) + "/batterypilferers_class.bmodel", device);   
 #endif      
             net_battery_person_car_detect_->manual_possible_normalization(std::array<float,3>{0.f,0.f,0.f},std::array<float,3>{1.f / 255.f,1.f / 255.f,1.f / 255.f});
-            yolov8_instance = std::make_shared<Yolov8<GenPipeline,true>>(1280,1280, net_battery_person_car_detect_);  
+            yolov8_instance = std::make_shared<Yolov8<GenPipeline,true>>(1280,736, net_battery_person_car_detect_);  
         }
 
         std::string version()
@@ -46,11 +46,9 @@ namespace glasssix::batterypilferers
 			return fmt::format(R"({{"nn_frame_version":"{}", "algo_module_version":"{}"}})", nn_frame_version, algo_module_version);
         }
 
-
         exposing::param_vector<batterypilferers::box_info> detect(const exposing::param_span<std::uint8_t>& bitmap, int channels, int height, int width,
                                                         int roi_x, int roi_y, int roi_width, int roi_height, std::map<std::string, float>& param_map)
         {
-
             float con_thres = param_map.count("conf_thres") ? param_map["conf_thres"] : 0.3f;
             float iou_thres = param_map.count("nms_thres") ? param_map["nms_thres"] : 0.6f;
 
@@ -74,10 +72,11 @@ namespace glasssix::batterypilferers
 
             std::vector<std::vector<car_person_batery>> frames_info;
             // std::vector<cv::Mat> candicate_images;
+            std::vector<int> frame_for_detect = {0,4,7};
 
-            for (size_t i = 0; i < batch_size; i++)
+            for (size_t i = 0; i < frame_for_detect.size(); i++)
             {
-                cv::Mat cropped_image = images[i](cv::Range(roi_y, roi_y + roi_height), cv::Range(roi_x, roi_x + roi_width));
+                cv::Mat cropped_image = images[frame_for_detect[i]](cv::Range(roi_y, roi_y + roi_height), cv::Range(roi_x, roi_x + roi_width));
                 std::vector<Bbox> one_frame_result;
                 auto objects =  yolov8_instance->get_objects(cropped_image,con_thres,iou_thres);
                 for (auto& object: objects)             
@@ -96,7 +95,9 @@ namespace glasssix::batterypilferers
 
             std::sort(frames_info.begin(), frames_info.end(), compareVectors);
 
-            std::vector<Bbox> crop_rect = get_candicate_rect(frames_info[0],frames_info[1]);
+            // std::vector<Bbox> crop_rect = get_candicate_rect(frames_info[0],frames_info[1]);
+
+            std::vector<Bbox> crop_rect = get_candicate_rect(frames_info[0]);
 
             std::vector<int> is_battery_pilferers(crop_rect.size());
             std::vector<float> scores(crop_rect.size());
