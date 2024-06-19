@@ -44,6 +44,8 @@ namespace glasssix::tumble
 
         exposing::param_vector<tumble::box_info> detect(const exposing::param_span<std::uint8_t>& bitmap, int channels, int height, int width, int roi_x, int roi_y, int roi_width, int roi_height, std::map<std::string, float>& param_map)
         {
+            static float conf_thres = param_map.count("conf_thres") ? param_map["conf_thres"] : 0.6f;
+            float iou_thres = param_map.count("nms_thres") ? param_map["nms_thres"] : 0.65f;
             if (bitmap.empty())
             {
                 throw exposing::abi_invalid_argument("current frame is empty");
@@ -69,7 +71,7 @@ namespace glasssix::tumble
                     continue;
                 }
                 auto cls_region_img = GenPipTools::safty_cut(cropped_image, cls_region);
-                auto cls_letter_img = GenPipTools::letter_image(cls_region_img, 256, 256, true);
+                auto cls_letter_img = GenPipTools::letter_image(cls_region_img, 128, 128, true);
 
                 auto tensor_out = iopipeline_cls_->forward(cls_letter_img).begin()->second;
                 auto tensor_out_data = tensor_out->mutable_cpu_data();
@@ -78,8 +80,8 @@ namespace glasssix::tumble
 					enum class Tag { Fall, HardFall };
                     float score;
                     Tag tag;
-                    FallCls(float* cls_data) :score(std::max(cls_data[0], cls_data[1])) {
-                        tag = cls_data[0] > cls_data[1]? Tag::Fall: Tag::HardFall;
+                    FallCls(float* cls_data) :score(std::max({cls_data[0], cls_data[1], cls_data[2]})) {
+                        tag = score > (conf_thres + 0.2) ? Tag::Fall: Tag::HardFall;
                     }
                 };
                 FallCls fall_cls(tensor_out_data);
@@ -90,7 +92,7 @@ namespace glasssix::tumble
                 //dbg(tensor_out->mutable_cpu_data()[1]);
                 //dbg(tensor_out->mutable_cpu_data()[2]);
 
-                if (fall_cls.score > 0.8) {
+                if (fall_cls.score >= conf_thres + 0.2) {
 					box_info_internal box_info;
 					tman.add(roi_x, roi_y);
 					if (!GenPipTools::constraintRectBoundary(tman, height, width)) {
@@ -101,7 +103,7 @@ namespace glasssix::tumble
 					box_info.y1 = tman.ymin;
 					box_info.y2 = tman.ymax;
 					box_info.score = fall_cls.score;
-					box_info.category = tman.cid;
+					box_info.category = 1;
 					results_box_info.push_back(exposing::make_as_first<box_info_impl>(box_info));
                 }
                 else {
@@ -131,8 +133,8 @@ namespace glasssix::tumble
         std::vector<TumbleBBox> run_detect(cv::Mat& image, std::map<std::string, float>& param_map) {
             float conf_thres = param_map.count("conf_thres") ? param_map["conf_thres"] : 0.6f;
             float iou_thres = param_map.count("nms_thres") ? param_map["nms_thres"] : 0.65f;
-            const int letter_h = 1280;
-            const int letter_w = 1280;
+            const int letter_h = 576;
+            const int letter_w = 1024;
             constexpr int NO_TUMBLE = 0;
             constexpr int IS_TUMBLE = 1;
 
@@ -147,7 +149,7 @@ namespace glasssix::tumble
                 float* pdata = tensor_out->mutable_cpu_data() + idx * per_vf_len;
                 float no_tumble_conf = pdata[4];
                 float is_tumble_conf = pdata[5];
-                if (is_tumble_conf > conf_thres) {
+                if (is_tumble_conf >= (conf_thres-0.2)) {
                     TumbleBBox obj_box(pdata[0] * letter_w, pdata[1] * letter_h, pdata[2] * letter_w, pdata[3] * letter_h, is_tumble_conf, IS_TUMBLE);
                     box_list.push_back(obj_box);
                 }
