@@ -2,6 +2,7 @@
 #include "detect_code_internal.hpp"
 #include <map>
 
+
 namespace glasssix::fighting
 {
     detect_code_impl::detect_code_impl() {}
