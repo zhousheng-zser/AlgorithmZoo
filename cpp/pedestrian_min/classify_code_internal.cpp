@@ -22,7 +22,7 @@
 #include <GenPipeline/GetPostprocessing.hpp>
 #include "../genpipeline/market/yolov8_GEN.hpp"
 
-namespace glasssix::pedestrian
+namespace glasssix::pedestrian_min
 {
     class classify_code_internal::impl
     {
@@ -33,19 +33,19 @@ namespace glasssix::pedestrian
         {
             std::string model_dir = exposing::to_narrow_string(model_directory) + "/";
 #if defined(USE_RKNNAPI) || defined(USE_RKNN2API)
-            ioprocess_pipeline_ = PrePostProcessGenPipeline::mkSharePipeline(model_dir + "pedestrian.rknn", 0);
+            ioprocess_pipeline_ = PrePostProcessGenPipeline::mkSharePipeline(model_dir + "pedestrian_min.rknn", 0);
 #elif defined(USE_BMNN)
-            ioprocess_pipeline_ = PrePostProcessGenPipeline::mkSharePipeline(model_dir + "pedestrian.bmodel", 0);
+            ioprocess_pipeline_ = PrePostProcessGenPipeline::mkSharePipeline(model_dir + "pedestrian_min.bmodel", 0);
 #else
-            ioprocess_pipeline_ = PrePostProcessGenPipeline::mkSharePipeline(model_dir + "pedestrian.onnx", 0);
+            ioprocess_pipeline_ = PrePostProcessGenPipeline::mkSharePipeline(model_dir + "pedestrian_min.onnx", 0);
 #endif
             ioprocess_pipeline_->manual_possible_normalization(0, 1.f / 255);
             ioprocess_pipeline_->set_postprocessing(yolov8_GEN<1, 1>);
         }
 
-        exposing::param_vector<pedestrian::box_info> detect(const exposing::param_span<std::uint8_t> &bitmap, int channels, int height, int width, int roi_x, int roi_y, int roi_width, int roi_height, std::map<std::string, float> &param_map)
+        exposing::param_vector<pedestrian_min::box_info> detect(const exposing::param_span<std::uint8_t> &bitmap, int channels, int height, int width, int roi_x, int roi_y, int roi_width, int roi_height, std::map<std::string, float> &param_map)
         {
-            auto results_box_info = exposing::make_param_vector<pedestrian::box_info>();
+            auto results_box_info = exposing::make_param_vector<pedestrian_min::box_info>();
             if (bitmap.empty())
             {
                 throw exposing::abi_invalid_argument("current frame is empty");
@@ -80,8 +80,8 @@ namespace glasssix::pedestrian
         std::vector<PersonBBox> run_detect(cv::Mat& image, std::map<std::string, float>& param_map) {
             float con_thres = param_map.count("conf_thres") ? param_map["conf_thres"] : 0.6f;
             float iou_thres = param_map.count("nms_thres") ? param_map["nms_thres"] : 0.6f;
-            const int letter_h = 576;
-            const int letter_w = 1024;
+            const int letter_h = 384;
+            const int letter_w = 640;
 
             GenPipTools::LetterInfo letter_op;
             auto letter_img = GenPipTools::letter_image(image, letter_w, letter_h, letter_op, true);
@@ -126,7 +126,7 @@ namespace glasssix::pedestrian
         return impl_->version();
     }
 
-    exposing::param_vector<pedestrian::box_info> classify_code_internal::detect(exposing::param_span<std::uint8_t> bitmap, int channels, int height, int width, int roi_x, int roi_y, int roi_width, int roi_height, std::map<std::string, float>& param_map) const
+    exposing::param_vector<pedestrian_min::box_info> classify_code_internal::detect(exposing::param_span<std::uint8_t> bitmap, int channels, int height, int width, int roi_x, int roi_y, int roi_width, int roi_height, std::map<std::string, float>& param_map) const
     {
         return impl_->detect(bitmap, channels, height, width, roi_x, roi_y, roi_width, roi_height, param_map);
     }

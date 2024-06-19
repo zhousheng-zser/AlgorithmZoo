@@ -171,7 +171,9 @@
             {
                 return -1;
             }
-            return xy/(sqrt_xx*sqrt_yy); 
+            if (sqrt_xx * sqrt_yy == 0)
+                return 1;
+            return std::min(xy/(sqrt_xx*sqrt_yy),1.f ); 
         }
 
 

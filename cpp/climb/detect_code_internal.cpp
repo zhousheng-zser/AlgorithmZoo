@@ -14,6 +14,8 @@
 
 #include <GenPipeline/GenPipeline.hpp>
 #include <YoloFamily/Yolo_wrapper.hpp>
+
+#include "hardcode.hpp"
 namespace glasssix::climb
 {
     class detect_code_internal::impl
@@ -30,9 +32,11 @@ namespace glasssix::climb
             net_climb_ = std::make_shared<GenPipeline>(std::string(model_directory) + "/climbing.rknn", device);
 #elif defined(USE_BMNN)
             net_climb_ = std::make_shared<GenPipeline>(std::string(model_directory) + "/climbing.bmodel", device);
+#else
+            net_climb_ = std::make_shared<GenPipeline>(get_model_params("climb_20240426cut"), std::string(model_directory) + "/climb_20240426cut.racy", device);
 #endif
             net_climb_->manual_possible_normalization(std::array<float,3>{0.f,0.f,0.f},std::array<float,3>{1.f/255.f, 1.f/255.f, 1.f/255.f});
-            yolov8_instance = std::make_shared<Yolov8<GenPipeline,true, true>>(1280, 736, net_climb_);
+            yolov8_instance = std::make_shared<Yolov8<GenPipeline,true, true>>(640, 384, net_climb_);
         }
 
         exposing::param_vector<climb::box_info> detect(const exposing::param_span<std::uint8_t>& bitmap, int channels, int height, int width, int roi_x, int roi_y, int roi_width, int roi_height,  std::map<std::string, float>& param_map)
