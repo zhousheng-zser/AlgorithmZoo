@@ -75,8 +75,8 @@ namespace glasssix::head
             constexpr int infrW = 1280;
             constexpr int infrH = 1280;
 #else
-            constexpr int infrH = 640;
-            constexpr int infrW = 640;
+            constexpr int infrH = 1280;
+            constexpr int infrW = 1280;
 #endif
             constexpr bool ifCvtRGB = true;
             GenPipTools::LetterInfo letter_op;
