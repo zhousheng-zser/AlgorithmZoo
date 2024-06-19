@@ -141,11 +141,8 @@ namespace glasssix::helmet
             }
         }
 
-#if defined(USE_BMNN)
         cv::Mat preprocess_detection(cv::Mat& src, cv::Size input_shape = cv::Size(96, 96))
-#else
-        cv::Mat preprocess_detection(cv::Mat& src, cv::Size input_shape = cv::Size(80, 80))
-#endif
+
         {
             float scale = std::min((float)input_shape.width / (float)src.cols, (float)input_shape.height / (float)src.rows);
             cv::Mat cut_image;
