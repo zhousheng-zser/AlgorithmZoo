@@ -128,7 +128,6 @@ namespace glasssix::helmet
 
         void  Softmax(float* data, int num)
         {
-
             double L2_Sum = 0.f;
             for (size_t i = 0; i < num; i++)
             {
