@@ -123,7 +123,9 @@ namespace glasssix::wander
             for(auto& head:pedestrain_info)
             {
                 safe_crop_rect person_bbox(head.x1,head.x2,head.y1,head.y2,width,height);
-                auto body = person_bbox.feature_fetch_regionof_body();
+                auto body = person_bbox;
+                // auto body = person_bbox.feature_fetch_regionof_body();
+
                 bbox tmp_bbox;
                 int x1=std::round( head.x1)>0?std::round( head.x1):0  ;
                 int y1=std::round( head.y1)>0?std::round( head.y1):0  ;
@@ -135,7 +137,7 @@ namespace glasssix::wander
                 tmp_bbox.y1 =  person_bbox.y1;
                 tmp_bbox.y2 =  person_bbox.y2;
 
-                cv::Mat crop = image(cv::Range( std::round(body.y1), std::round(body.y2) ), cv::Range( std::round(body.x1), std::round(body.x2)));
+                cv::Mat crop = image(cv::Range( std::round(body.y1), std::round(body.y2) ), cv::Range( std::round(body.x1), std::round(body.x2))).clone();
 
                 cv::Mat headimg;
                 cv::cvtColor(crop, crop, cv::COLOR_BGR2RGB);
