@@ -112,7 +112,7 @@ if(frames_info.size())
                 std::vector<cv::Mat> candicate_images;
                 for (size_t j = 0; j < batch_size; j++)
                 {
-                    cv::Mat candicate_detect = images[i*batch_size+j](cv::Range(crop_rect[i].y1, crop_rect[i].y2), cv::Range(crop_rect[i].x1, crop_rect[i].x2));
+                    cv::Mat candicate_detect = images[j](cv::Range(crop_rect[i].y1, crop_rect[i].y2), cv::Range(crop_rect[i].x1, crop_rect[i].x2));
                     cv::resize(candicate_detect, candicate_detect, cv::Size(256, 256));
                     candicate_images.push_back(candicate_detect);    
                 }
