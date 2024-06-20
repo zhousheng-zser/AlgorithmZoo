@@ -116,15 +116,13 @@ else
 					may_ft_region_batch_images.emplace_back(sub_region);
 				}
 
-				// for (size_t i = 0; i < 8; i++)
+				// for (size_t i = 0; i < 10; i++)
 				// {
 				// 	cv::Mat testimg = cv::imread(std::to_string(i)+".jpg");
 				// 	cv::resize(testimg, testimg, cv::Size2i{ FIGHT_INFER_W_, FIGHT_INFER_H_ });
 				// 	cv::cvtColor(testimg, testimg, cv::COLOR_BGR2RGB);
-				// 	may_ft_region_batch_images.emplace_back(testimg);
+				// 	// may_ft_region_batch_images.emplace_back(testimg);
 				// }
-
-				// std::cout<<"dsdsd\n";
 
 				float score = fight_detect_10B_handnormalization(may_ft_region_batch_images);
 				// std::cout<<"dsdsd2\n";
@@ -133,10 +131,8 @@ else
 
 				result.push_back(exposing::make_as_first<box_info_impl>(fightdet_box));
 			}
-
 			return result;
 		}
-
 
 		std::vector<cv::Rect> get_person_box_by_detect_result_list(
 			std::vector<cv::Mat> batchImages,
@@ -195,8 +191,10 @@ else
 						{
 							std::vector<cv::Rect> new_person_box_list;
 							for (auto person_box : person_box_list)
+							{
 								for (auto it = combined_box_list.begin(); it != combined_box_list.end();)
 								{
+									// std::cout<<"inner"<<
 									if (count_iou_(person_box, *it) > 0.001)
 									{
 										auto outer_box = get_outer_box_(person_box, *it);
@@ -216,17 +214,20 @@ else
 
 										temp_frame_person.reset_w_h_kepCenter(cw, ch);
 										temp_frame_person.constraintRectBoundary(width, height); 
-										new_person_box_list.push_back(outer_box);
+										new_person_box_list.push_back(temp_frame_person.get_rect());
 
 										// 擦除当前的 combined_box
 										it = combined_box_list.erase(it);
+										break;
 									}
 									else
 									{
 										++it;
 									}
 								}
+							}
 							person_box_list = new_person_box_list;
+							
 							// std::cout<<"person_box_list: "<<person_box_list.size()<<std::endl;
 						}
 				// for (auto  x :person_box_list)
