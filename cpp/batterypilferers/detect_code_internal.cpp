@@ -82,12 +82,17 @@ namespace glasssix::batterypilferers
                 for (auto& object: objects)             
                     one_frame_result.emplace_back(object.x1, object.y1, object.x2, object.y2, object.category, object.score,0 );
                 auto result = deal_one_frame(one_frame_result);
-                for(auto x : one_frame_result)
+                if(result.size())
                 {
-                    // cv::rectangle(cropped_image, cv::Point(x.x1, x.y1), cv::Point(x.x2, x.y2), cv::Scalar(x.category==2?255:0, x.category?255:0, x.category?0:255), 2);
+                    frames_info.push_back(result);
+                    break;
                 }
-                // cv::imwrite( std::to_string(i)+"detect.jpg" ,cropped_image);
-                frames_info.push_back(result);
+                // for(auto x : one_frame_result)
+                // {
+                //     // cv::rectangle(cropped_image, cv::Point(x.x1, x.y1), cv::Point(x.x2, x.y2), cv::Scalar(x.category==2?255:0, x.category?255:0, x.category?0:255), 2);
+                // }
+                // // cv::imwrite( std::to_string(i)+"detect.jpg" ,cropped_image);
+                // frames_info.push_back(result);
             }
 
             std::vector<Bbox> crop_rect;
@@ -96,10 +101,10 @@ namespace glasssix::batterypilferers
 if(frames_info.size())
 {
 
-            auto compareVectors = [](const std::vector<car_person_batery>& a, const std::vector<car_person_batery>& b) {
-                return a.size() > b.size(); };
+            // auto compareVectors = [](const std::vector<car_person_batery>& a, const std::vector<car_person_batery>& b) {
+            //     return a.size() > b.size(); };
 
-            std::sort(frames_info.begin(), frames_info.end(), compareVectors);
+            // std::sort(frames_info.begin(), frames_info.end(), compareVectors);
 
             // std::vector<Bbox> crop_rect = get_candicate_rect(frames_info[0],frames_info[1]);
 
