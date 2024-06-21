@@ -66,8 +66,8 @@
                 bbox output;
                 int centre_x = (x1+x2)/2;
                 int centre_y = (y1+y2)/2;
-                int width  = abs(x2- x1)*0.7;
-                int height = abs(y2- y1)*0.85;
+                int width  = abs(x2- x1)*1.0;
+                int height = abs(y2- y1)*1.0;
                 output.x1 = centre_x - width/2;
                 output.x2 = centre_x + width/2;
                 output.y1 = centre_y - height/2;
@@ -183,7 +183,7 @@
             std::map<int, wander_info> feature_table;
             if(feature_tables.count(devices))
             {   
-                feature_table = feature_tables[devices];
+                feature_table = feature_tables.at(devices);
             } 
 
             float currend_box_width = (curr_bbox.x2 - curr_bbox.x1)*1.5;

@@ -143,17 +143,18 @@ namespace glasssix::wander
                 cv::cvtColor(crop, crop, cv::COLOR_BGR2RGB);
                 cv::resize(crop, headimg, cv::Size((int)(128), (int)(256)), cv::INTER_CUBIC);
 
-                auto  data1 = net_feature_->forward(headimg).begin()->second->mutable_cpu_data();
+                auto  data = net_feature_->forward(headimg).begin()->second->cpu_data();
                 float xx = 0.f;
+
                 for(int i=0; i<2048; i++)
-                    xx += data1[i] * data1[i] ;
+                    xx += data[i] * data[i] ;
 
                 auto sqrt_xx=sqrt(xx);
                 std::lock_guard<std::mutex> lock(Feature_Table_Mutex);
-
-                auto person_info = feature_match(data1, sqrt_xx,current_time, std::round(device_id), feature_tables, person_bbox.get_bbox(), allocate_id_current_frame, feature_table_size, feature_match_threshold );
+                std::vector<float> feature(data, data + 2048);
+                auto person_info = feature_match(feature.data(), sqrt_xx,current_time, std::round(device_id), feature_tables, person_bbox.get_bbox(), allocate_id_current_frame, feature_table_size, feature_match_threshold );
              
-                box_info_internal result;
+                    box_info_internal result;
                     result.x1=person_bbox.x1 ;
                     result.y1=person_bbox.y1 ;
                     result.x2=person_bbox.x2 ;
