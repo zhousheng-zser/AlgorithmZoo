@@ -90,6 +90,12 @@ namespace glasssix::batterypilferers
                 frames_info.push_back(result);
             }
 
+            std::vector<Bbox> crop_rect;
+            std::vector<float> scores;
+            std::vector<int> is_battery_pilferers;
+if(frames_info.size())
+{
+
             auto compareVectors = [](const std::vector<car_person_batery>& a, const std::vector<car_person_batery>& b) {
                 return a.size() > b.size(); };
 
@@ -97,16 +103,16 @@ namespace glasssix::batterypilferers
 
             // std::vector<Bbox> crop_rect = get_candicate_rect(frames_info[0],frames_info[1]);
 
-            std::vector<Bbox> crop_rect = get_candicate_rect(frames_info[0]);
+            crop_rect = get_candicate_rect(frames_info[0]);
 
-            std::vector<int> is_battery_pilferers(crop_rect.size());
-            std::vector<float> scores(crop_rect.size());
+            is_battery_pilferers.resize(crop_rect.size());
+            scores.resize(crop_rect.size());
             for (int i=0;i<crop_rect.size();i++) 
             {   
                 std::vector<cv::Mat> candicate_images;
                 for (size_t j = 0; j < batch_size; j++)
                 {
-                    cv::Mat candicate_detect = images[i*batch_size+j](cv::Range(crop_rect[i].y1, crop_rect[i].y2), cv::Range(crop_rect[i].x1, crop_rect[i].x2));
+                    cv::Mat candicate_detect = images[j](cv::Range(crop_rect[i].y1, crop_rect[i].y2), cv::Range(crop_rect[i].x1, crop_rect[i].x2));
                     cv::resize(candicate_detect, candicate_detect, cv::Size(256, 256));
                     candicate_images.push_back(candicate_detect);    
                 }
@@ -123,6 +129,7 @@ namespace glasssix::batterypilferers
                 is_battery_pilferers[i] = network_result[0]>network_result[1] ? 1 : 0 ;
                 scores[i]=network_result[0];
             }
+}
 
             auto fin_result= exposing::make_param_vector<box_info>();
             std::vector<box_info_internal> result;
