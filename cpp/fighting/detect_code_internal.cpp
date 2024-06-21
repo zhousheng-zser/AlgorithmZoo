@@ -73,7 +73,7 @@ namespace glasssix::fighting
 				throw exposing::abi_invalid_argument("incorrect roi in fighting");
 			}
 
-			const float fight_thres = param_map_std.count("fight_thres") ? param_map_std["fight_thres"] : 0.5f;
+			const float fight_thres = param_map_std.count("fight_thres") ? param_map_std["fight_thres"] : 0.3f;
 			const float person_conf_thres = param_map_std.count("person_conf_thres") ? param_map_std["person_conf_thres"] : 0.4f;
 			const float person_nms_thres = 0.6f;
 
@@ -143,7 +143,7 @@ else
 			const float person_nms_thres)
 		{
 			std::vector<cv::Rect> person_box_list;
-			person_box_list.reserve(2 * BATCH_);
+			// person_box_list.reserve(2 * BATCH_);
 
 #ifdef BUILD_DEBUG_INFO
 			//auto Vis = batchImages[0].clone();
@@ -185,7 +185,7 @@ else
 						// for (auto  x :combined_box_list)
 								// cv::rectangle(Vis, x, { 0,100,255 }, 2);
 						
-						if(f_id==0) 						
+						if(person_box_list.size()==0) 						
 							person_box_list = combined_box_list;
 						else
 						{
@@ -226,8 +226,10 @@ else
 									}
 								}
 							}
-							person_box_list = new_person_box_list;
-							
+							// person_box_list = new_person_box_list;
+							if(new_person_box_list.size())
+								return new_person_box_list;
+							person_box_list.resize(0);
 							// std::cout<<"person_box_list: "<<person_box_list.size()<<std::endl;
 						}
 				// for (auto  x :person_box_list)
@@ -249,7 +251,7 @@ else
 			//}
 			//AdpShow(Vis);
 #endif // BUILD_DEBUG_INFO
-
+			person_box_list.resize(0);
 			return person_box_list;
 		}
 
