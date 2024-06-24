@@ -73,8 +73,8 @@ namespace glasssix::fighting
 				throw exposing::abi_invalid_argument("incorrect roi in fighting");
 			}
 
-			const float fight_thres = param_map_std.count("fight_thres") ? param_map_std["fight_thres"] : 0.3f;
-			const float person_conf_thres = param_map_std.count("person_conf_thres") ? param_map_std["person_conf_thres"] : 0.4f;
+			const float fight_thres = param_map_std.count("fight_thres") ? param_map_std["fight_thres"] : 0.5f;
+			const float person_conf_thres = param_map_std.count("person_conf_thres") ? param_map_std["person_conf_thres"] : 0.3f;
 			const float person_nms_thres = 0.6f;
 
 
