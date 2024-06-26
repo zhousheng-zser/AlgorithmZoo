@@ -81,7 +81,7 @@ namespace glasssix::tumble
                     float score;
                     Tag tag;
                     FallCls(float* cls_data) :score(std::max({cls_data[0], cls_data[1], cls_data[2]})) {
-                        tag = score > (conf_thres + 0.2) ? Tag::Fall: Tag::HardFall;
+                        tag = score >= (conf_thres + 0.1) ? Tag::Fall: Tag::HardFall;
                     }
                 };
                 FallCls fall_cls(tensor_out_data);
@@ -92,7 +92,7 @@ namespace glasssix::tumble
                 //dbg(tensor_out->mutable_cpu_data()[1]);
                 //dbg(tensor_out->mutable_cpu_data()[2]);
 
-                if (fall_cls.score >= conf_thres + 0.2) {
+                if (fall_cls.score >= conf_thres + 0.1) {
 					box_info_internal box_info;
 					tman.add(roi_x, roi_y);
 					if (!GenPipTools::constraintRectBoundary(tman, height, width)) {
@@ -149,7 +149,7 @@ namespace glasssix::tumble
                 float* pdata = tensor_out->mutable_cpu_data() + idx * per_vf_len;
                 float no_tumble_conf = pdata[4];
                 float is_tumble_conf = pdata[5];
-                if (is_tumble_conf >= (conf_thres-0.2)) {
+                if (is_tumble_conf >= (conf_thres-0.1)) {
                     TumbleBBox obj_box(pdata[0] * letter_w, pdata[1] * letter_h, pdata[2] * letter_w, pdata[3] * letter_h, is_tumble_conf, IS_TUMBLE);
                     box_list.push_back(obj_box);
                 }
