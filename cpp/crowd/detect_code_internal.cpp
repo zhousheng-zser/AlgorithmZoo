@@ -159,7 +159,7 @@ namespace glasssix::crowd
 
         std::string remove_library(int devices)
         {
-            delete_feature_library_by_id(devices);
+            delete_area_map_by_id(devices);
             const std::string delete_library = "ok";
             return delete_library;
         }
