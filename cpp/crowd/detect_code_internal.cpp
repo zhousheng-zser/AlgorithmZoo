@@ -144,6 +144,27 @@ namespace glasssix::crowd
 
         }
 
+        void delete_area_map_by_id(int devices)
+        {
+            std::lock_guard<std::mutex> lock(list_crowd_area_mutex);
+            if (area1_map.count(devices))
+            {
+                area1_map.erase(devices);
+            }
+            if (area2_map.count(devices))
+            {
+                area2_map.erase(devices);
+            }
+        }
+
+        std::string remove_library(int devices)
+        {
+            delete_area_map_by_id(devices);
+            const std::string delete_library = "ok";
+            return delete_library;
+        }
+
+
         static std::mutex list_crowd_area_mutex;
         static std::map<int, std::list<crowd::box_info> > area1_map;
         static std::map<int, std::list<crowd::box_info> > area2_map;
@@ -431,6 +452,11 @@ namespace glasssix::crowd
     std::string detect_code_internal::version()
     {
         return impl_->version();
+    }
+
+    std::string detect_code_internal::remove_library(int id)
+    {
+        return impl_->remove_library(id);
     }
 
     exposing::param_vector<crowd::box_info> detect_code_internal::detect(exposing::param_span<std::uint8_t> bitmap, int channels, int height, int width, int roi_x, int roi_y, int roi_width, int roi_height, int min_cluster_size, std::map<std::string, float>& param_map) const

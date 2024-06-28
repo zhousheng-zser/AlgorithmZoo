@@ -15,6 +15,11 @@ namespace glasssix::crowd
 		impl_ = std::make_unique<detect_code_internal>(exposing::to_narrow_string(model_directory), device);
 	}
 
+	exposing::param_string detect_code_impl::remove_library(std::int32_t device) const
+	{
+		return exposing::to_param_string(impl_->remove_library(device));
+	}
+
 	exposing::param_string detect_code_impl::version() const
 	{
 		return exposing::to_param_string(impl_->version());
