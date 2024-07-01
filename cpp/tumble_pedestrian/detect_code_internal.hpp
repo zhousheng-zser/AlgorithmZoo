@@ -13,7 +13,7 @@
 
 #include <opencv2/opencv.hpp>
 
-namespace glasssix::tumble
+namespace glasssix::tumble_pedestrian
 {
     struct box_info_internal
     {
@@ -81,7 +81,7 @@ namespace glasssix::tumble
 
         std::string version();
 
-        exposing::param_vector<tumble::box_info> detect(exposing::param_span<std::uint8_t> bitmap, int channels, int height, int width, int roi_x, int roi_y, int roi_width, int roi_height, std::map<std::string, float>& param_map) const;
+        exposing::param_vector<tumble_pedestrian::box_info> detect(exposing::param_span<std::uint8_t> bitmap, int channels, int height, int width, int roi_x, int roi_y, int roi_width, int roi_height, std::map<std::string, float>& param_map) const;
 
     private:
         std::unique_ptr<impl> impl_;

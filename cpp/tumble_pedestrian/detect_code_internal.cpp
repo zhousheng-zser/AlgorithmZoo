@@ -15,7 +15,7 @@
 #include <utility>
 //#include "dbg.h"
 
-namespace glasssix::tumble
+namespace glasssix::tumble_pedestrian
 {
     class detect_code_internal::impl
     {
@@ -42,7 +42,7 @@ namespace glasssix::tumble
             iopipeline_det_->set_postprocessing(yolov8_GEN<2, 1>);
         }
 
-        exposing::param_vector<tumble::box_info> detect(const exposing::param_span<std::uint8_t>& bitmap, int channels, int height, int width, int roi_x, int roi_y, int roi_width, int roi_height, std::map<std::string, float>& param_map)
+        exposing::param_vector<tumble_pedestrian::box_info> detect(const exposing::param_span<std::uint8_t>& bitmap, int channels, int height, int width, int roi_x, int roi_y, int roi_width, int roi_height, std::map<std::string, float>& param_map)
         {
             static float conf_thres = param_map.count("conf_thres") ? param_map["conf_thres"] : 0.6f;
             float iou_thres = param_map.count("nms_thres") ? param_map["nms_thres"] : 0.65f;
@@ -60,7 +60,7 @@ namespace glasssix::tumble
             cv::Mat image(cv::Size(width, height), CV_8UC3, const_cast<uint8_t*>(bitmap.data()));
             cv::Mat cropped_image = image(cv::Range(roi_y, roi_y + roi_height), cv::Range(roi_x, roi_x + roi_width));
 
-            auto results_box_info = exposing::make_param_vector<tumble::box_info>();
+            auto results_box_info = exposing::make_param_vector<tumble_pedestrian::box_info>();
 
             std::vector<TumbleBBox> tumble_list = run_detect(cropped_image, param_map);
 
@@ -185,7 +185,7 @@ namespace glasssix::tumble
         return impl_->version();
     }
 
-    exposing::param_vector<tumble::box_info> detect_code_internal::detect(exposing::param_span<std::uint8_t> bitmap, int channels, int height, int width, int roi_x, int roi_y, int roi_width, int roi_height, std::map<std::string, float>& param_map) const
+    exposing::param_vector<tumble_pedestrian::box_info> detect_code_internal::detect(exposing::param_span<std::uint8_t> bitmap, int channels, int height, int width, int roi_x, int roi_y, int roi_width, int roi_height, std::map<std::string, float>& param_map) const
     {
         return impl_->detect(bitmap, channels, height, width, roi_x, roi_y, roi_width, roi_height, param_map);
     }

@@ -4,7 +4,7 @@
 #include <map>
 #include <utility>
 
-namespace glasssix::tumble
+namespace glasssix::tumble_pedestrian
 {
 	detect_code_impl::detect_code_impl() = default;
 
@@ -21,11 +21,11 @@ namespace glasssix::tumble
 		return exposing::to_param_string(impl_->version());
 	}
 
-	exposing::param_vector<tumble::box_info> detect_code_impl::detect(exposing::param_span<std::uint8_t> bitmap, int channels, int height, int width, int roi_x, int roi_y,
+	exposing::param_vector<tumble_pedestrian::box_info> detect_code_impl::detect(exposing::param_span<std::uint8_t> bitmap, int channels, int height, int width, int roi_x, int roi_y,
          int roi_width, int roi_height,const exposing::param_hash_map<exposing::param_string, float>& param_map_abi) const
 	{
 		if (!impl_)
-			throw exposing::abi_invalid_operation(u8"tumble internal object not initialized");
+			throw exposing::abi_invalid_operation(u8"tumble_pedestrian internal object not initialized");
 		std::map<std::string, float> param_map;
 		for (auto it : param_map_abi) {
 			param_map.insert(std::make_pair(it.key(), it.value()));

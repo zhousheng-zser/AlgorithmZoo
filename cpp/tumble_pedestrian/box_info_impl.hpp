@@ -4,9 +4,9 @@
 #include "box_info.hpp"
 #include "detect_code_internal.hpp"
 
-namespace glasssix::tumble
+namespace glasssix::tumble_pedestrian
 {
-    inline constexpr exposing::utf8_string_view tumble_box_info_qualified_name{ u8"g6.tumble.boxInfo" };
+    inline constexpr exposing::utf8_string_view tumble_box_info_qualified_name{ u8"g6.tumble_pedestrian.boxInfo" };
 
     class box_info_impl : public exposing::implements<box_info_impl, box_info>, public exposing::make_external_qualified_name<tumble_box_info_qualified_name>
     {

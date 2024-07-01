@@ -1,6 +1,6 @@
 #include "box_info_impl.hpp"
 
-namespace glasssix::tumble
+namespace glasssix::tumble_pedestrian
 {
 	box_info_impl::box_info_impl()
 	{

@@ -6,9 +6,9 @@
 #include <memory>
 #include <abi/consumer.hpp>
 
-namespace glasssix::tumble
+namespace glasssix::tumble_pedestrian
 {
-    inline constexpr exposing::utf8_string_view tumble_detect_code_qualified_name{ u8"g6.tumble.detect_code" };
+    inline constexpr exposing::utf8_string_view tumble_detect_code_qualified_name{ u8"g6.tumble_pedestrian.detect_code" };
 
     class detect_code_internal;
 
@@ -22,7 +22,7 @@ namespace glasssix::tumble
 
         exposing::param_string version() const;
 
-        exposing::param_vector<tumble::box_info> detect(exposing::param_span<std::uint8_t> bitmap, int channels, int height, int width, int roi_x, int roi_y,
+        exposing::param_vector<tumble_pedestrian::box_info> detect(exposing::param_span<std::uint8_t> bitmap, int channels, int height, int width, int roi_x, int roi_y,
          int roi_width, int roi_height,const exposing::param_hash_map<exposing::param_string, float>& param_map_abi) const;
 
     private:
