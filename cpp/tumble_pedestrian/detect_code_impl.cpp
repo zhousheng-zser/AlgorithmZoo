@@ -22,15 +22,21 @@ namespace glasssix::tumble_pedestrian
 	}
 
 	exposing::param_vector<tumble_pedestrian::box_info> detect_code_impl::detect(exposing::param_span<std::uint8_t> bitmap, int channels, int height, int width, int roi_x, int roi_y,
-         int roi_width, int roi_height,const exposing::param_hash_map<exposing::param_string, float>& param_map_abi) const
+         int roi_width, int roi_height,const exposing::param_hash_map<exposing::param_string, float>& param_map_abi, 
+		const exposing::param_vector<pedestrian::box_info>& pedestrian_info_abi) const
 	{
 		if (!impl_)
 			throw exposing::abi_invalid_operation(u8"tumble_pedestrian internal object not initialized");
 		std::map<std::string, float> param_map;
+		std::vector<PedestrianInfo> pedestrian_info;
+		for(auto it :pedestrian_info_abi)
+		{
+			pedestrian_info.push_back(PedestrianInfo{it});
+		}
 		for (auto it : param_map_abi) {
 			param_map.insert(std::make_pair(it.key(), it.value()));
 		}
-		return impl_->detect(std::move(bitmap), channels, height, width, roi_x, roi_y, roi_width, roi_height, param_map);
+		return impl_->detect(std::move(bitmap), channels, height, width, roi_x, roi_y, roi_width, roi_height, param_map, pedestrian_info);
 	}
 
 }

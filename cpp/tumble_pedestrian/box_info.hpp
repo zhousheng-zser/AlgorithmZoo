@@ -3,6 +3,7 @@
 
 #include <abi/consumer.hpp>
 
+#include "../pedestrian/box_info.hpp"
 namespace glasssix::tumble_pedestrian
 {
     struct box_info;
