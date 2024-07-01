@@ -37,6 +37,19 @@ namespace glasssix::climb_pedestrian
             net_climb_->manual_possible_normalization(std::array<float,3>{104.f, 117.f, 123.f},std::array<float,3>{1.f/128.f, 1.f/128.f, 1.f/128.f});
         }
 
+        void  Softmax(float* data, int num)
+        {
+            double L2_Sum = 0.f;
+            for (size_t i = 0; i < num; i++)
+            {
+                data[i] = (exp(data[i]));
+                L2_Sum += data[i];
+            }
+            for (size_t i = 0; i < num; i++)
+            {
+                data[i] = data[i] / L2_Sum;
+            }
+        }
         exposing::param_vector<climb_pedestrian::box_info> detect(const exposing::param_span<std::uint8_t>& bitmap, int channels, int height, int width, int roi_x, int roi_y, int roi_width, int roi_height,  std::map<std::string, float>& param_map,const std::vector<PedestrianInfo> &pedestrain_info)
         {
             if (bitmap.empty())
@@ -69,13 +82,15 @@ namespace glasssix::climb_pedestrian
                 //y1 = pinfo.y1;
                 //y2 = pinfo.y2;
                 cv::Mat body;
-                cv::Mat crop = image(cv::Range(box.x1, box.y1), cv::Range(box.x2, box.y2)).clone();
+                cv::Mat crop = image(cv::Range(box.y1, box.y2), cv::Range(box.x1, box.x2)).clone();
                 cv::cvtColor(crop, crop, cv::COLOR_BGR2RGB);
                 cv::resize(crop, body, cv::Size((int)(80), (int)80), cv::INTER_CUBIC);
-                auto climb_objects = net_climb_->forward(image).begin()->second->mutable_cpu_data();
+                auto climb_objects = net_climb_->forward(body).begin()->second->mutable_cpu_data();
+
+                Softmax(climb_objects,2);
                 int index = std::max_element(climb_objects, climb_objects + 1) - climb_objects;
                 box.confidence= climb_objects[index];
-                box.category = index ;
+                box.category = index == 0 ? 1 : 0;
                 results.push_back(glasssix::exposing::make_as_first<box_info_impl>(box));
             }
             return results;
