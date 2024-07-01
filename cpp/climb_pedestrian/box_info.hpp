@@ -4,6 +4,7 @@
 #include <abi/consumer.hpp>
 
 #include "../posture/detect_code.hpp"
+#include "../pedestrian/box_info.hpp"
 
 namespace glasssix::climb
 {

@@ -3,4 +3,4 @@
 
 #include <abi/abi_standard_export.hpp>
 
-MAKE_ABI_STANDARD_EXPORT_FUNCTIONS(u8"g6.library.algorithmZoo.climb", glasssix::climb::detect_code_impl, glasssix::climb::box_info_impl)
+MAKE_ABI_STANDARD_EXPORT_FUNCTIONS(u8"g6.library.algorithmZoo.climb_pedestrian", glasssix::climb::detect_code_impl, glasssix::climb::box_info_impl)
