@@ -123,6 +123,7 @@ namespace glasssix::exposing::impl
                         roi_width,
                         roi_height,
                         get_abi(param_map_abi),
+                        get_abi(pedestrain_info_abi),
                         put_abi(result))
                 ),
                     result);
