@@ -4,9 +4,9 @@
 #include "box_info.hpp"
 #include "detect_code_internal.hpp"
 
-namespace glasssix::climb
+namespace glasssix::climb_pedestrian
 {
-    inline constexpr exposing::utf8_string_view climb_box_info_qualified_name{ u8"g6.climb.boxInfo" };
+    inline constexpr exposing::utf8_string_view climb_box_info_qualified_name{ u8"g6.climb_pedestrian.boxInfo" };
 
     class box_info_impl : public exposing::implements<box_info_impl, box_info>, public exposing::make_external_qualified_name<climb_box_info_qualified_name>
     {

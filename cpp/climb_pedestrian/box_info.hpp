@@ -1,12 +1,12 @@
-#ifndef _CLIMB_BOX_INFO_HPP_
-#define _CLIMB_BOX_INFO_HPP_
+#ifndef _CLIMB_PEDESTRIAN_BOX_INFO_HPP_
+#define _CLIMB_PEDESTRIAN_BOX_INFO_HPP_
 
 #include <abi/consumer.hpp>
 
 #include "../posture/detect_code.hpp"
 #include "../pedestrian/box_info.hpp"
 
-namespace glasssix::climb
+namespace glasssix::climb_pedestrian
 {
     struct box_info;
 }
@@ -14,7 +14,7 @@ namespace glasssix::climb
 namespace glasssix::exposing::impl
 {
     template<>
-    struct abi<climb::box_info>
+    struct abi<climb_pedestrian::box_info>
     {
         using identity_type = type_identity_interface;
 
@@ -33,7 +33,7 @@ namespace glasssix::exposing::impl
     };
 
     template <typename Derived>
-    struct interface_vtable<Derived, climb::box_info> : interface_vtable_base<Derived, climb::box_info>
+    struct interface_vtable<Derived, climb_pedestrian::box_info> : interface_vtable_base<Derived, climb_pedestrian::box_info>
     {
 
         virtual std::int32_t G6_ABI_CALL x1(abi_out_t<int> result) noexcept override
@@ -72,10 +72,10 @@ namespace glasssix::exposing::impl
     };
 
     template <>
-    struct abi_adapter<climb::box_info>
+    struct abi_adapter<climb_pedestrian::box_info>
     {
         template <typename Derived>
-        struct type : enable_self_abi_awareness<Derived, climb::box_info>
+        struct type : enable_self_abi_awareness<Derived, climb_pedestrian::box_info>
         {
 
             int x1() const
@@ -118,7 +118,7 @@ namespace glasssix::exposing::impl
     };
 }
 
-namespace glasssix::climb
+namespace glasssix::climb_pedestrian
 {
     struct box_info : exposing::inherits<box_info>
     {
