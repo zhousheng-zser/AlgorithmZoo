@@ -6,9 +6,9 @@
 #include <memory>
 #include <abi/consumer.hpp>
 
-namespace glasssix::climb_pedestrian
+namespace glasssix::climb_tumble_pedestrian
 {
-    inline constexpr exposing::utf8_string_view climb_detect_code_qualified_name{ u8"g6.climb_pedestrian.detect_code" };
+    inline constexpr exposing::utf8_string_view climb_detect_code_qualified_name{ u8"g6.climb_tumble_pedestrian.detect_code" };
 
     class detect_code_internal;
 
@@ -22,7 +22,7 @@ namespace glasssix::climb_pedestrian
 
         exposing::param_string version() const;
 
-        exposing::param_vector<climb_pedestrian::box_info> detect(exposing::param_span<std::uint8_t> bitmap, int channels, int height, int width, int roi_x, int roi_y, int roi_width, int roi_height, 
+        exposing::param_vector<climb_tumble_pedestrian::box_info> detect(exposing::param_span<std::uint8_t> bitmap, int channels, int height, int width, int roi_x, int roi_y, int roi_width, int roi_height, 
            const exposing::param_hash_map<exposing::param_string, float>& param_map_abi, const exposing::param_vector<pedestrian::box_info>& pedestrain_info_abi) const;
 
     private:

@@ -12,7 +12,7 @@
 #include <opencv2/opencv.hpp>
 #include "box_info.hpp"
 
-namespace glasssix::climb_pedestrian
+namespace glasssix::climb_tumble_pedestrian
 {
     struct PedestrianInfo
     {
@@ -69,7 +69,7 @@ namespace glasssix::climb_pedestrian
 
         std::string version();
 
-        exposing::param_vector<climb_pedestrian::box_info> detect(exposing::param_span<std::uint8_t> bitmap, int channels, int height, int width, int roi_x, int roi_y, int roi_width, int roi_height, std::map<std::string, float>& param_map, const std::vector<PedestrianInfo>& pedestrain_info) const;
+        exposing::param_vector<climb_tumble_pedestrian::box_info> detect(exposing::param_span<std::uint8_t> bitmap, int channels, int height, int width, int roi_x, int roi_y, int roi_width, int roi_height, std::map<std::string, float>& param_map, const std::vector<PedestrianInfo>& pedestrain_info) const;
 
     private:
         std::unique_ptr<impl> impl_;

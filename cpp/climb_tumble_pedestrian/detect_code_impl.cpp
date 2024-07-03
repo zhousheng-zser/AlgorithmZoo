@@ -5,7 +5,7 @@
 #include <utility>
 #include "../posture/detect_code.hpp"
 
-namespace glasssix::climb_pedestrian
+namespace glasssix::climb_tumble_pedestrian
 {
 	detect_code_impl::detect_code_impl() = default;
 
@@ -22,12 +22,12 @@ namespace glasssix::climb_pedestrian
 		return exposing::to_param_string(impl_->version());
 	}
 
-	exposing::param_vector<climb_pedestrian::box_info> detect_code_impl::detect(exposing::param_span<std::uint8_t> bitmap, int channels, int height, int width,int roi_x, int roi_y, int roi_width, int roi_height,
+	exposing::param_vector<climb_tumble_pedestrian::box_info> detect_code_impl::detect(exposing::param_span<std::uint8_t> bitmap, int channels, int height, int width,int roi_x, int roi_y, int roi_width, int roi_height,
 		const exposing::param_hash_map<exposing::param_string, float>& param_map_abi, 
 		const exposing::param_vector<pedestrian::box_info>& pedestrian_info_abi) const
 	{
 		if (!impl_)
-			throw exposing::abi_invalid_operation(u8"climb_pedestrian internal object not initialized");
+			throw exposing::abi_invalid_operation(u8"climb_tumble_pedestrian internal object not initialized");
 
 		std::map<std::string, float> param_map;
 		std::vector<PedestrianInfo> pedestrian_info;

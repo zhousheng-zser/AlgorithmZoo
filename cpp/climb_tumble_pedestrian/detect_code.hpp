@@ -4,7 +4,7 @@
 #include "box_info.hpp"
 #include <abi/consumer.hpp>
 
-namespace glasssix::climb_pedestrian
+namespace glasssix::climb_tumble_pedestrian
 {
     struct detect_code;
 }
@@ -12,11 +12,11 @@ namespace glasssix::climb_pedestrian
 namespace glasssix::exposing::impl
 {
     template <>
-    struct abi<climb_pedestrian::detect_code>
+    struct abi<climb_tumble_pedestrian::detect_code>
     {
         using identity_type = type_identity_interface;
 
-        static constexpr guid id{ "3E61D028-DF9C-4D05-933C-E54CF2A31D5E" };
+        static constexpr guid id{ "FBB84BB3-0622-DAAA-564E-7193E148544D" };
 
         struct type : abi_unknown_object
         {
@@ -35,14 +35,14 @@ namespace glasssix::exposing::impl
                 std::int32_t roi_height,
                 abi_in_t<exposing::param_hash_map<exposing::param_string, float>> param_map_abi,
                 abi_in_t<exposing::param_vector<pedestrian::box_info>> pedestrain_info_abi,
-                abi_out_t<exposing::param_vector<climb_pedestrian::box_info>> result) noexcept = 0;
+                abi_out_t<exposing::param_vector<climb_tumble_pedestrian::box_info>> result) noexcept = 0;
 
             virtual std::int32_t G6_ABI_CALL version(abi_out_t<param_string> result) noexcept = 0;
         };
     };
 
     template <typename Derived>
-    struct interface_vtable<Derived, climb_pedestrian::detect_code> : interface_vtable_base<Derived, climb_pedestrian::detect_code>
+    struct interface_vtable<Derived, climb_tumble_pedestrian::detect_code> : interface_vtable_base<Derived, climb_tumble_pedestrian::detect_code>
     {
 
         virtual std::int32_t G6_ABI_CALL init(
@@ -65,7 +65,7 @@ namespace glasssix::exposing::impl
             std::int32_t roi_height,
             abi_in_t<exposing::param_hash_map<exposing::param_string, float>> param_map_abi,
             abi_in_t<exposing::param_vector<pedestrian::box_info>> pedestrian_info_abi,
-            abi_out_t<exposing::param_vector<climb_pedestrian::box_info>> result) noexcept override
+            abi_out_t<exposing::param_vector<climb_tumble_pedestrian::box_info>> result) noexcept override
         {
             return abi_safe_call([&]
                 { *result = detach_abi(this->self().detect(create_from_abi<param_span<std::uint8_t>>(bitmap), channels, height, width, roi_x, roi_y, roi_width, roi_height,
@@ -84,10 +84,10 @@ namespace glasssix::exposing::impl
     };
 
     template <>
-    struct abi_adapter<climb_pedestrian::detect_code>
+    struct abi_adapter<climb_tumble_pedestrian::detect_code>
     {
         template <typename Derived>
-        struct type : enable_self_abi_awareness<Derived, climb_pedestrian::detect_code>
+        struct type : enable_self_abi_awareness<Derived, climb_tumble_pedestrian::detect_code>
         {
             void init(
                 const param_string& model_directory,
@@ -98,7 +98,7 @@ namespace glasssix::exposing::impl
                     get_abi(device)));
             }
 
-            exposing::param_vector<climb_pedestrian::box_info> detect(
+            exposing::param_vector<climb_tumble_pedestrian::box_info> detect(
                 param_span<std::uint8_t> bitmap,
                 std::int32_t channels,
                 std::int32_t height,
@@ -110,7 +110,7 @@ namespace glasssix::exposing::impl
                 const exposing::param_hash_map<exposing::param_string, float>& param_map_abi,
                 const exposing::param_vector<pedestrian::box_info>& pedestrain_info_abi) const
             {
-                exposing::param_vector<climb_pedestrian::box_info> result{ nullptr };
+                exposing::param_vector<climb_tumble_pedestrian::box_info> result{ nullptr };
 
                 return (check_abi_result(
                     this->self_abi().detect(
@@ -139,7 +139,7 @@ namespace glasssix::exposing::impl
     };
 }
 
-namespace glasssix::climb_pedestrian
+namespace glasssix::climb_tumble_pedestrian
 {
     struct detect_code : exposing::inherits<detect_code>
     {

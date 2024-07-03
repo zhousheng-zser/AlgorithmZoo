@@ -15,7 +15,7 @@
 #include <GenPipeline/GenPipeline.hpp>
 #include <YoloFamily/Yolo_wrapper.hpp>
 
-namespace glasssix::climb_pedestrian
+namespace glasssix::climb_tumble_pedestrian
 {
     class detect_code_internal::impl
     {
@@ -50,7 +50,7 @@ namespace glasssix::climb_pedestrian
                 data[i] = data[i] / L2_Sum;
             }
         }
-        exposing::param_vector<climb_pedestrian::box_info> detect(const exposing::param_span<std::uint8_t>& bitmap, int channels, int height, int width, int roi_x, int roi_y, int roi_width, int roi_height,  std::map<std::string, float>& param_map,const std::vector<PedestrianInfo> &pedestrain_info)
+        exposing::param_vector<climb_tumble_pedestrian::box_info> detect(const exposing::param_span<std::uint8_t>& bitmap, int channels, int height, int width, int roi_x, int roi_y, int roi_width, int roi_height,  std::map<std::string, float>& param_map,const std::vector<PedestrianInfo> &pedestrain_info)
         {
             if (bitmap.empty())
                 throw exposing::abi_invalid_argument("current frame is empty");
@@ -58,7 +58,7 @@ namespace glasssix::climb_pedestrian
             CHECK_EQ(bitmap.size(), channels * height * width);
             cv::Mat image(cv::Size(width, height), CV_8UC3, const_cast<uint8_t*>(bitmap.data()));
             if(roi_x<0 || roi_x>width || roi_y>height || roi_y<0 ||roi_height<0 || (roi_height+roi_y) >height || roi_width<0 || (roi_width+roi_x) > width)
-                throw exposing::abi_invalid_argument("incorrect roi in climb_pedestrian");
+                throw exposing::abi_invalid_argument("incorrect roi in climb_tumble_pedestrian");
 
             float con_thres = param_map.count("conf_thres") ? param_map["conf_thres"] : 0.5f;
             float nms_thres = param_map.count("nms_thres") ? param_map["nms_thres"] : 0.6f;
@@ -67,11 +67,11 @@ namespace glasssix::climb_pedestrian
    //         auto climb_objects = net_climb_->forward(image).begin()->second;
    //         auto tensor_out_data = tensor_out->mutable_cpu_data();
 			//int index = std::max_element(result, result + 1) - result;
-            auto results = exposing::make_param_vector<climb_pedestrian::box_info>();
-            std::vector<climb_pedestrian::box_info_internal> boxs;
+            auto results = exposing::make_param_vector<climb_tumble_pedestrian::box_info>();
+            std::vector<climb_tumble_pedestrian::box_info_internal> boxs;
             for (auto pinfo : pedestrain_info) 
             {
-                climb_pedestrian::box_info_internal box;
+                climb_tumble_pedestrian::box_info_internal box;
                 box.x1 = pinfo.x1;
                 box.y1 = pinfo.y1;
                 box.x2 = pinfo.x2;
@@ -118,7 +118,7 @@ namespace glasssix::climb_pedestrian
 
     detect_code_internal::~detect_code_internal() = default;
 
-    exposing::param_vector<climb_pedestrian::box_info> detect_code_internal::detect(exposing::param_span<std::uint8_t> bitmap, int channels, int height, int width, int roi_x, int roi_y, int roi_width, int roi_height, std::map<std::string, float>& param_map, const std::vector<PedestrianInfo>& pedestrain_info) const
+    exposing::param_vector<climb_tumble_pedestrian::box_info> detect_code_internal::detect(exposing::param_span<std::uint8_t> bitmap, int channels, int height, int width, int roi_x, int roi_y, int roi_width, int roi_height, std::map<std::string, float>& param_map, const std::vector<PedestrianInfo>& pedestrain_info) const
     {
         return impl_->detect(bitmap, channels, height, width, roi_x, roi_y, roi_width, roi_height, param_map, pedestrain_info);
     }

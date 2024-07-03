@@ -1,5 +1,5 @@
 cmake_minimum_required(VERSION 3.14.3)
-set(module_name climb_pedestrian)
+set(module_name climb_tumble_pedestrian)
 file(GLOB src ${CMAKE_CURRENT_SOURCE_DIR}/../../cpp/${module_name}/*.cpp)
 file(GLOB header ${CMAKE_CURRENT_SOURCE_DIR}/../../cpp/${module_name}/*.hpp)
 
