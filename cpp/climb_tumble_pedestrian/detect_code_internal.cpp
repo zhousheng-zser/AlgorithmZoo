@@ -28,9 +28,9 @@ namespace glasssix::climb_tumble_pedestrian
         impl( std::string model_directory, int device)
         {
 #if defined(USE_RKNNAPI) || defined(USE_RKNN2API)
-            net_climb_ = std::make_shared<GenPipeline>(std::string(model_directory) + "/climbing_pedestrian.rknn", device);
+            net_climb_ = std::make_shared<GenPipeline>(std::string(model_directory) + "/climbing_tumble_pedestrian.rknn", device);
 #elif defined(USE_BMNN)
-            net_climb_ = std::make_shared<GenPipeline>(std::string(model_directory) + "/climbing_pedestrian.bmodel", device);
+            net_climb_ = std::make_shared<GenPipeline>(std::string(model_directory) + "/climbing_tumble_pedestrian.bmodel", device);
 #else
             net_climb_ = std::make_shared<GenPipeline>(get_model_params("climb_20240426cut"), std::string(model_directory) + "/climb_20240426cut.racy", device);
 #endif
@@ -72,21 +72,30 @@ namespace glasssix::climb_tumble_pedestrian
             for (auto pinfo : pedestrain_info) 
             {
                 climb_tumble_pedestrian::box_info_internal box;
-                box.x1 = pinfo.x1;
-                box.y1 = pinfo.y1;
-                box.x2 = pinfo.x2;
-                box.y2 = pinfo.y2;
+                box.x1 = 0;
+                box.y1 = 0;
+                box.x2 = width;
+                box.y2 = height;
                 //int x1,x2,y1,y2;
                 //x1 = pinfo.x1;
                 //x2 = pinfo.x2;
                 //y1 = pinfo.y1;
                 //y2 = pinfo.y2;
                 cv::Mat body;
+                cv::Mat body__;
                 cv::Mat crop = image(cv::Range(box.y1, box.y2), cv::Range(box.x1, box.x2)).clone();
-                cv::cvtColor(crop, crop, cv::COLOR_BGR2RGB);
-                cv::resize(crop, body, cv::Size((int)(80), (int)80), cv::INTER_CUBIC);
-                auto climb_objects = net_climb_->forward(body).begin()->second->mutable_cpu_data();
+                cv::imwrite("./z1_body.jpg", crop);
 
+                cv::Mat input = cv::imread("./climb_0704.jpg"); //80 80
+                cv::resize(input, body, cv::Size((int)(80), (int)80), cv::INTER_CUBIC);
+                cv::imwrite("./z3_body.jpg", body);
+                // // cv::transpose(body, body);
+                // cv::imwrite("./z4_body.jpg", body);
+                // // cv::cvtColor(body, body, cv::COLOR_BGR2RGB);
+                // // cv::imwrite("./z2_body.jpg", body);
+                auto climb_objects = net_climb_->forward(body).begin()->second->cpu_data();
+                printf("----------------------------------------------------------------\n");
+                printf("$$$%f,%f\n", climb_objects[0],climb_objects[1]);
                 Softmax(climb_objects,2);
                 int index = std::max_element(climb_objects, climb_objects + 1) - climb_objects;
                 box.confidence= climb_objects[index];
