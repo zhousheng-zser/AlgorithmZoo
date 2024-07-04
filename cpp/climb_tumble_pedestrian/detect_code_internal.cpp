@@ -28,9 +28,9 @@ namespace glasssix::climb_tumble_pedestrian
         impl( std::string model_directory, int device)
         {
 #if defined(USE_RKNNAPI) || defined(USE_RKNN2API)
-            net_climb_ = std::make_shared<GenPipeline>(std::string(model_directory) + "/climb_tumble_pedestrian.rknn", device);
+            net_climb_ = std::make_shared<GenPipeline>(std::string(model_directory) + "/climbing_tumble_pedestrian.rknn", device);
 #elif defined(USE_BMNN)
-            net_climb_ = std::make_shared<GenPipeline>(std::string(model_directory) + "/climb_tumble_pedestrian.bmodel", device);
+            net_climb_ = std::make_shared<GenPipeline>(std::string(model_directory) + "/climbing_tumble_pedestrian.bmodel", device);
 #else
             net_climb_ = std::make_shared<GenPipeline>(get_model_params("climb_20240426cut"), std::string(model_directory) + "/climb_20240426cut.racy", device);
 #endif
@@ -71,6 +71,10 @@ namespace glasssix::climb_tumble_pedestrian
             std::vector<climb_tumble_pedestrian::box_info_internal> boxs;
             for (auto pinfo : pedestrain_info) 
             {
+                if(pinfo.x1 < 0 || pinfo.x2 > width || pinfo.y1 < 0 || pinfo.y2 > height)
+                {
+                    continue;
+                }
                 climb_tumble_pedestrian::box_info_internal box;
                 box.x1 = pinfo.x1;
                 box.y1 = pinfo.y1;
