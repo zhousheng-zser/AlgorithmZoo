@@ -80,8 +80,8 @@ namespace glasssix::pedestrian
         std::vector<PersonBBox> run_detect(cv::Mat& image, std::map<std::string, float>& param_map) {
             float con_thres = param_map.count("conf_thres") ? param_map["conf_thres"] : 0.6f;
             float iou_thres = param_map.count("nms_thres") ? param_map["nms_thres"] : 0.6f;
-            const int letter_h = 576;
-            const int letter_w = 1024;
+            const int letter_h = 736;
+            const int letter_w = 1280;
 
             GenPipTools::LetterInfo letter_op;
             auto letter_img = GenPipTools::letter_image(image, letter_w, letter_h, letter_op, true);
