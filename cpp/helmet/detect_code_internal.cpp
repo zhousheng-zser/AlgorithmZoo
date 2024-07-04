@@ -65,8 +65,8 @@ namespace glasssix::helmet
                 temp.y1 = hinfo.y1();
                 temp.y2 = hinfo.y2();
                 temp.score = hinfo.score();
-#if defined(USE_BMNN)
                 head_info.push_back(temp);
+#if defined(USE_BMNN_NO)//新算法暂时不使用
 #else
                 //按照最新安全帽的协议:周杨瑞算法工程师,长宽需扩大1.2倍
                 float multiple = 0.2;
