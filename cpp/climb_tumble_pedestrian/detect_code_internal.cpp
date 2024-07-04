@@ -87,8 +87,8 @@ namespace glasssix::climb_tumble_pedestrian
                 //y2 = pinfo.y2;
                 cv::Mat body;
                 cv::Mat crop = image(cv::Range(box.y1, box.y2), cv::Range(box.x1, box.x2)).clone();
-                cv::cvtColor(crop, crop, cv::COLOR_BGR2RGB);
-                cv::resize(crop, body, cv::Size((int)(80), (int)80), cv::INTER_CUBIC);
+                // cv::cvtColor(crop, crop, cv::COLOR_BGR2RGB);
+                cv::resize(crop, body, cv::Size((int)(80), (int)80));
                 auto climb_objects = net_climb_->forward(body).begin()->second->mutable_cpu_data();
                 int category = 4;
                 Softmax(climb_objects,category);
