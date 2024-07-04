@@ -60,7 +60,7 @@ namespace glasssix::climb_tumble_pedestrian
             if(roi_x<0 || roi_x>width || roi_y>height || roi_y<0 ||roi_height<0 || (roi_height+roi_y) >height || roi_width<0 || (roi_width+roi_x) > width)
                 throw exposing::abi_invalid_argument("incorrect roi in climb_tumble_pedestrian");
 
-            float con_thres = param_map.count("conf_thres") ? param_map["conf_thres"] : 0.5f;
+            float con_thres = param_map.count("conf_thres") ? param_map["conf_thres"] : 0.6f;
             float nms_thres = param_map.count("nms_thres") ? param_map["nms_thres"] : 0.6f;
 
    //         auto climb_objects = yolov8_instance->get_objects( image, con_thres, nms_thres );
@@ -94,6 +94,8 @@ namespace glasssix::climb_tumble_pedestrian
                 Softmax(climb_objects,category);
                 int index = std::max_element(climb_objects, climb_objects + category) - climb_objects;
                 box.confidence= climb_objects[index];
+                if(box.confidence < con_thres)
+                    continue;
                 // 0，正常站立1，攀爬2，跌倒3，不是人
                 box.category = index;
                 results.push_back(glasssix::exposing::make_as_first<box_info_impl>(box));
