@@ -86,11 +86,12 @@ namespace glasssix::climb_tumble_pedestrian
                 cv::cvtColor(crop, crop, cv::COLOR_BGR2RGB);
                 cv::resize(crop, body, cv::Size((int)(80), (int)80), cv::INTER_CUBIC);
                 auto climb_objects = net_climb_->forward(body).begin()->second->mutable_cpu_data();
-
-                Softmax(climb_objects,2);
-                int index = std::max_element(climb_objects, climb_objects + 1) - climb_objects;
+                int category = 4;
+                Softmax(climb_objects,category);
+                int index = std::max_element(climb_objects, climb_objects + category) - climb_objects;
                 box.confidence= climb_objects[index];
-                box.category = index == 0 ? 1 : 0;
+                // 0，正常站立1，攀爬2，跌倒3，不是人
+                box.category = index;
                 results.push_back(glasssix::exposing::make_as_first<box_info_impl>(box));
             }
             return results;
