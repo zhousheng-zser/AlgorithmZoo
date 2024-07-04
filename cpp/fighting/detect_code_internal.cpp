@@ -167,7 +167,7 @@ else
 						float w = frame_person.xmax - frame_person.xmin;
 						float h = frame_person.ymax - frame_person.ymin;
 
-						if( std::max(w,h)< 120.0  )
+						if( std::max(w,h)< 100.0  )
 							continue;
 						w = int(w * 5.0);
 						h = int(h * 1.3);
@@ -181,7 +181,7 @@ else
 #endif // BUILD_DEBUG_INFO
 					}
 				}
-						combine_related_box(combined_box_list, 0.00001f);
+						combine_related_box(combined_box_list, 0.01f);
 						// for (auto  x :combined_box_list)
 								// cv::rectangle(Vis, x, { 0,100,255 }, 2);
 						
@@ -195,7 +195,7 @@ else
 								for (auto it = combined_box_list.begin(); it != combined_box_list.end();)
 								{
 									// std::cout<<"inner"<<
-									if (count_iou_(person_box, *it) > 0.001)
+									if (count_iou_(person_box, *it) > 0.01)
 									{
 										auto outer_box = get_outer_box_(person_box, *it);
 										int cx = (outer_box.br().x + outer_box.tl().x) / 2;
