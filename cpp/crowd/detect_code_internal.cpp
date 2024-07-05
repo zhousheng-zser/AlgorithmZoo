@@ -1,6 +1,7 @@
 #include <iostream>
 #include <cmath>
 #include <tuple>
+#include <chrono>
 
 #include "detect_code_internal.hpp"
 #include "box_info_impl.hpp"
@@ -151,6 +152,11 @@ namespace glasssix::crowd
             {
                 area1_map.erase(devices);
             }
+
+            if (time_area1_map.count(devices))
+            {
+                time_area1_map.erase(devices);
+            }
             if (area2_map.count(devices))
             {
                 area2_map.erase(devices);
@@ -167,6 +173,7 @@ namespace glasssix::crowd
 
         static std::mutex list_crowd_area_mutex;
         static std::map<int, std::list<crowd::box_info> > area1_map;
+        static std::map<int, std::list<std::chrono::steady_clock::time_point> > time_area1_map;
         static std::map<int, std::list<crowd::box_info> > area2_map;
     private:
 
@@ -219,29 +226,43 @@ namespace glasssix::crowd
         {
             std::lock_guard<std::mutex> lock(list_crowd_area_mutex);
             bool flag = false;
+            std::list<std::chrono::steady_clock::time_point>& list_crowd_time_area1 = time_area1_map[device_id];
+
             std::list<crowd::box_info>& list_crowd_area1 = area1_map[device_id];
             std::list<crowd::box_info>& list_crowd_area2 = area2_map[device_id];
             if (list_crowd_area1.size() == 0)
+            {
                 list_crowd_area1.push_back(cluster_key);
+                list_crowd_time_area1.push_back(std::chrono::steady_clock::now());
+            }
             else
             {
                 float iou_ratio = area_iou(list_crowd_area1, cluster_key);
                 if (iou_ratio > nms_threshold)
+                {
                     list_crowd_area1.push_back(cluster_key);
+                    list_crowd_time_area1.push_back(std::chrono::steady_clock::now());
+                }
                 else
                     list_crowd_area2.push_back(cluster_key);
             }
+            auto duration = std::chrono::duration_cast<std::chrono::seconds> (std::chrono::steady_clock::now() - list_crowd_time_area1.front());
+
             if (list_crowd_area2.size() > max_area_list)
             {
                 list_crowd_area1.clear();
+                list_crowd_time_area1.clear();
                 list_crowd_area2.clear();
+
                 list_crowd_area1.push_back(cluster_key);
+                list_crowd_time_area1.push_back(std::chrono::steady_clock::now());
                 flag = false;
             }
-            else if (list_crowd_area1.size() > trigger_delay / 5)
+            else if (duration.count() >= trigger_delay)
             {
                 flag = true;
                 list_crowd_area1.pop_front();//删除第一个元素
+                list_crowd_time_area1.pop_front(); //删除第一个元素
                 //printf("list_crowd_area1 len =%llu\n", list_crowd_area1.size());
             }
             //printf("list_crowd_area2 len =%llu\n", list_crowd_area2.size()); 
@@ -466,5 +487,6 @@ namespace glasssix::crowd
 
     std::mutex detect_code_internal::impl::list_crowd_area_mutex;
     std::map<int, std::list<crowd::box_info> >detect_code_internal::impl::area1_map;
+    std::map<int, std::list<std::chrono::steady_clock::time_point> >detect_code_internal::impl::time_area1_map;
     std::map<int, std::list<crowd::box_info> >detect_code_internal::impl::area2_map;
 }
