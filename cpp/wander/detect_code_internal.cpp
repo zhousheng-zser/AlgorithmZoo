@@ -22,12 +22,27 @@ namespace glasssix::wander
 
 #if defined(USE_RKNNAPI) || defined(USE_RKNN2API)      
         net_feature_ = std::make_shared<GenPipeline>(std::string(model_directory) + "/people_feature.rknn", device);   
+        net_pedestrian_ = std::make_shared<GenPipeline>(std::string(model_directory) + "/climbing_tumble_pedestrian.rknn", device);
 #elif defined(USE_BMNN)
         net_feature_ = std::make_shared<GenPipeline>(std::string(model_directory) + "/people_feature.bmodel", device);   
+        net_pedestrian_ = std::make_shared<GenPipeline>(std::string(model_directory) + "/climbing_tumble_pedestrian.bmodel", device);
         net_feature_->manual_possible_normalization(std::array<float, 3>{0.f, 0.f, 0.f}, std::array<float, 3>{1.0, 1.0, 1.0});
 #endif 
         }
 
+        void  Softmax(float* data, int num)
+        {
+            double L2_Sum = 0.f;
+            for (size_t i = 0; i < num; i++)
+            {
+                data[i] = (exp(data[i]));
+                L2_Sum += data[i];
+            }
+            for (size_t i = 0; i < num; i++)
+            {
+                data[i] = data[i] / L2_Sum;
+            }
+        }
         exposing::param_vector<wander::box_info> detect(const exposing::param_span<std::uint8_t>& bitmap, int channels, int height, int width, int roi_x, int roi_y, int roi_width, int roi_height, std::map<std::string, double>& param_map,const std::vector<PedestrianInfo> &pedestrain_info)
         {
             if (bitmap.empty())
@@ -109,6 +124,7 @@ namespace glasssix::wander
         std::vector<box_info_internal> run_detect(const exposing::param_span<std::uint8_t>& bitmap, int height, int width, int roi_x, int roi_y, int roi_width, int roi_height, 
             std::map<std::string, double>& param_map, const std::vector<PedestrianInfo> &pedestrain_info)
         {
+            double conf_thres = param_map.count("conf_thres") ? param_map["conf_thres"] : 0.7f;
             double device_id               = param_map.count("device_id") ? param_map["device_id"] : 0;
             double feature_table_size      = param_map.count("feature_table_size") ? param_map["feature_table_size"] : 10000.f;      
             double current_time            = param_map.count("current_time") ? param_map["current_time"] : 0.f;
@@ -139,10 +155,19 @@ namespace glasssix::wander
 
                 cv::Mat crop = image(cv::Range( std::round(body.y1), std::round(body.y2) ), cv::Range( std::round(body.x1), std::round(body.x2))).clone();
 
-                cv::Mat headimg;
-                cv::cvtColor(crop, crop, cv::COLOR_BGR2RGB);
+                cv::Mat headimg, pedestrian;
+                cv::resize(crop, pedestrian, cv::Size((int)(80), (int)(80)));
+                cv::cvtColor(crop, crop, cv::COLOR_BGR2RGB);//检测是否为行人不能做这个操作
                 cv::resize(crop, headimg, cv::Size((int)(128), (int)(256)), cv::INTER_CUBIC);
 
+                auto  data_objects = net_pedestrian_->forward(pedestrian).begin()->second->cpu_data();
+                int category = 4;
+                Softmax(data_objects,category);
+                int index = std::max_element(data_objects, data_objects + category) - data_objects;
+                double confidence = data_objects[index];
+                // 0，正常站立 1，攀爬 2，跌倒 3，不是人 ;且分数低于0.7的不检测
+                if(confidence < conf_thres || index == 3)
+                    continue;
                 auto  data = net_feature_->forward(headimg).begin()->second->cpu_data();
                 float xx = 0.f;
 
@@ -182,6 +207,7 @@ namespace glasssix::wander
     private:
 
         std::shared_ptr<GenPipeline> net_feature_;
+        std::shared_ptr<GenPipeline> net_pedestrian_;
         std::string model_directory_;
         int device_ ;
 
