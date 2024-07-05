@@ -165,6 +165,7 @@ namespace glasssix::wander
                     result.first_show_time = person_info.first_show_time;
                     result.last_show_time = person_info.last_show_time;
                     result.cosine_similarity= person_info.cosine_similarity;
+                    result.detection_number = person_info.detection_number;
                 l_c.emplace_back(result);
                 tmp_bbox.id =  person_info.id;
                 temp_last_location_info.push_back(tmp_bbox);

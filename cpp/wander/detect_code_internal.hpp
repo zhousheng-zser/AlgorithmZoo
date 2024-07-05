@@ -52,6 +52,7 @@ namespace glasssix::wander
         double first_show_time=0.f;
         double last_show_time=0.f;
         float  cosine_similarity=0.f;
+        int detection_number = 1;
     };
 
 

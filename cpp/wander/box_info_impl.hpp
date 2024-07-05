@@ -24,6 +24,7 @@ namespace glasssix::wander
         double first_show_time() const;
         double last_show_time() const;
         float cosine_similarity() const;
+        int detection_number() const;
 
     private:
         box_info_internal internal_{};
