@@ -71,20 +71,11 @@ namespace glasssix::climb_tumble_pedestrian
             std::vector<climb_tumble_pedestrian::box_info_internal> boxs;
             for (auto pinfo : pedestrain_info) 
             {
-                if(pinfo.x1 < 0 || pinfo.x2 > width || pinfo.y1 < 0 || pinfo.y2 > height)
-                {
-                    continue;
-                }
                 climb_tumble_pedestrian::box_info_internal box;
-                box.x1 = pinfo.x1;
-                box.y1 = pinfo.y1;
-                box.x2 = pinfo.x2;
-                box.y2 = pinfo.y2;
-                //int x1,x2,y1,y2;
-                //x1 = pinfo.x1;
-                //x2 = pinfo.x2;
-                //y1 = pinfo.y1;
-                //y2 = pinfo.y2;
+                box.x1 = std::round( pinfo.x1)>0?std::round( pinfo.x1):0  ;
+                box.y1 = std::round( pinfo.y1)>0?std::round( pinfo.y1):0  ;
+                box.x2 = std::round( pinfo.x2)<width ? std::round( pinfo.x2):width ;
+                box.y2 = std::round( pinfo.y2)<height? std::round( pinfo.y2):height ;
                 cv::Mat body;
                 cv::Mat crop = image(cv::Range(box.y1, box.y2), cv::Range(box.x1, box.x2)).clone();
                 // cv::cvtColor(crop, crop, cv::COLOR_BGR2RGB);
@@ -96,7 +87,7 @@ namespace glasssix::climb_tumble_pedestrian
                 box.confidence= climb_objects[index];
                 if(box.confidence < con_thres)
                     continue;
-                // 0，正常站立1，攀爬2，跌倒3，不是人
+                // 0，正常站立 1，攀爬 2，跌倒 3，不是人
                 box.category = index;
                 results.push_back(glasssix::exposing::make_as_first<box_info_impl>(box));
             }
