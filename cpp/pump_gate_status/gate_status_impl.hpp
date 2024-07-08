@@ -19,16 +19,11 @@ namespace glasssix::pump_gate_status
         gate_status_impl();
         ~gate_status_impl();
 
-        void init(std::int32_t device);
-        // void init(const exposing::param_vector<std::int32_t>& hsvs);
-        void init(std::int32_t model_type, const exposing::param_string &racy_path, std::int32_t device, bool use_int8);
-        void init(exposing::param_span<const exposing::param_string> phai, const exposing::param_string &racy_path, std::int32_t device);
-        exposing::param_string version() const;
-        exposing::param_vector<exposing::param_vector<float>> get(exposing::param_span<std::uint8_t> bitmaps, std::uint64_t count, std::int32_t order) const;
+        void init(const exposing::param_string& str_params);
 
-        std::int32_t detect(exposing::param_span<std::uint8_t> bitmap, int channels, int height, int width, int yellow_hsv_lower, int yellow_hsv_upper, int gray_hsv_lower, int gray_hsv_upper, 
-            const exposing::param_vector<int>& rois,
-            const exposing::param_hash_map<exposing::param_string, float>& param_map_abi) const;
+        exposing::param_string version() const;
+
+        exposing::param_string execute(const exposing::param_hash_map<exposing::param_string, exposing::unknown_object>& input_params_map);
 
     private:
         std::unique_ptr<gate_status_internal> impl_;

@@ -37,12 +37,15 @@ namespace glasssix::fighting
 				/// Version 3.0.0 and before
 				FIGHT_INFER_H_ = 256;
 				FIGHT_INFER_W_ = 460;
+				/// Maybe
+				//FIGHT_INFER_H_ = 256;
+				//FIGHT_INFER_W_ = 256;
 			}
-			else if (BATCH_ == 8) {
-				nonm_instance_ = PrePostProcessGenPipeline::mkSharePipeline(model_directory_ + "fight_8b.nnm" + model_ext, 0);// not normalization if rknn
-				FIGHT_INFER_H_ = 256;
-				FIGHT_INFER_W_ = 460;
-			}
+			//else if (BATCH_ == 8) {
+			//	instance_ = std::make_unique<GenPipeline>(model_directory_ + "fight_8b" + model_ext, 0);// not normalization if rknn
+			//	FIGHT_INFER_H_ = 256;
+			//	FIGHT_INFER_W_ = 256;
+			//}
 			else
 				throw exposing::abi_invalid_argument("fighting incorrect BATCH_ param");
 
@@ -74,7 +77,7 @@ namespace glasssix::fighting
 			}
 
 			const float fight_thres = param_map_std.count("fight_thres") ? param_map_std["fight_thres"] : 0.5f;
-			const float person_conf_thres = param_map_std.count("person_conf_thres") ? param_map_std["person_conf_thres"] : 0.3f;
+			const float person_conf_thres = param_map_std.count("person_conf_thres") ? param_map_std["person_conf_thres"] : 0.4f;
 			const float person_nms_thres = 0.6f;
 
 
@@ -88,15 +91,8 @@ namespace glasssix::fighting
 			}
 
 			// Pedestrian detect
-			std::vector<cv::Rect> person_box_list;
-if(BATCH_==8)
-{
-			 person_box_list = get_person_box_by_detect_result_list(batchImages, height, width, {0,4,7}, person_conf_thres, person_nms_thres);
-}
-else
-{	
-			person_box_list = get_person_box_by_detect_result_list(batchImages, height, width, {0,4,9}, person_conf_thres, person_nms_thres);
-}
+			std::vector<cv::Rect> person_box_list = get_person_box_by_detect_result_list(batchImages, height, width, {0,4,9}, person_conf_thres, person_nms_thres);
+
 			// Fighting detect
 			auto result = exposing::make_param_vector<fighting::box_info>();
 			for (auto gang_rect : person_box_list) {
@@ -120,9 +116,11 @@ else
 				// {
 				// 	cv::Mat testimg = cv::imread(std::to_string(i)+".jpg");
 				// 	cv::resize(testimg, testimg, cv::Size2i{ FIGHT_INFER_W_, FIGHT_INFER_H_ });
-				// 	cv::cvtColor(testimg, testimg, cv::COLOR_BGR2RGB);
-				// 	// may_ft_region_batch_images.emplace_back(testimg);
+				// cv::cvtColor(sub_region, sub_region, cv::COLOR_BGR2RGB);
+				// 	may_ft_region_batch_images.emplace_back(testimg);
 				// }
+
+				// std::cout<<"dsdsd\n";
 
 				float score = fight_detect_10B_handnormalization(may_ft_region_batch_images);
 				// std::cout<<"dsdsd2\n";
@@ -131,8 +129,10 @@ else
 
 				result.push_back(exposing::make_as_first<box_info_impl>(fightdet_box));
 			}
+
 			return result;
 		}
+
 
 		std::vector<cv::Rect> get_person_box_by_detect_result_list(
 			std::vector<cv::Mat> batchImages,
@@ -143,7 +143,7 @@ else
 			const float person_nms_thres)
 		{
 			std::vector<cv::Rect> person_box_list;
-			// person_box_list.reserve(2 * BATCH_);
+			person_box_list.reserve(2 * BATCH_);
 
 #ifdef BUILD_DEBUG_INFO
 			//auto Vis = batchImages[0].clone();
@@ -154,95 +154,53 @@ else
 				cv::Mat InteImageStp = batchImages[f_id];
 
 #ifdef BUILD_DEBUG_INFO
-				auto VisFrame = InteImageStp.clone();
+				//auto VisFrame = InteImageStp.clone();
 #endif // BUILD_DEBUG_INFO
 				auto Vis = batchImages[f_id].clone();
 				auto frame_persons = person_detect(f_id, InteImageStp, person_conf_thres, person_nms_thres);
-
-				float model_input_scale_rate =460.f/256.f;
-				std::vector<cv::Rect> combined_box_list;
 				for (auto& frame_person : frame_persons) {
-					if (frame_person.xmax > frame_person.xmin && frame_person.ymax > frame_person.ymin) 
+#ifdef BUILD_DEBUG_INFO
+					//cv::rectangle(Vis, frame_person.get_rect(), { 150,0,150 }, 2);
+					//cv::rectangle(VisFrame, frame_person.get_rect(), { 150,0,150 }, 2);
+					//std::stringstream ss_score; ss_score << std::fixed << std::setprecision(2) << frame_person.score;
+					//cv::putText(VisFrame, ss_score.str(), frame_person.get_rect().br(), cv::FONT_HERSHEY_COMPLEX, 1, { 200,50,200 }, 2, 2, 0);
+#endif // BUILD_DEBUG_INFO
+					// cv::rectangle(Vis, frame_person.get_rect(), { 150,0,150 }, 2);
+					
+					if (frame_person.xmax > frame_person.xmin && frame_person.ymax > frame_person.ymin)
 					{
+						
 						float w = frame_person.xmax - frame_person.xmin;
 						float h = frame_person.ymax - frame_person.ymin;
 
-						if( std::max(w,h)< 100.0  )
+						if( std::max(w,h)< 120.0  )
 							continue;
-						w = int(w * 5.0);
-						h = int(h * 1.3);
 
+						if (w / h <= infer_ratio) {
+							w = int(h * infer_ratio);
+						}
+						else {
+							h = int(w / infer_ratio);
+						}
 						frame_person.reset_w_h_kepCenter(w, h);
-						frame_person.constraintRectBoundary(width, height);  //修改问题
-						combined_box_list.emplace_back(frame_person.get_rect());
-
+						frame_person.constraintRectBoundary(width, height);
+						person_box_list.emplace_back(frame_person.get_rect());
 #ifdef BUILD_DEBUG_INFO
-						cv::rectangle(VisFrame, frame_person.get_rect(), { 0,255,0 }, 2);
+						//cv::rectangle(Vis, frame_person.get_rect(), { 0,255,0 }, 2);
+						//cv::rectangle(VisFrame, frame_person.get_rect(), { 0,255,0 }, 2);
 #endif // BUILD_DEBUG_INFO
 					}
+
+					
 				}
-						combine_related_box(combined_box_list, 0.01f);
-						// for (auto  x :combined_box_list)
-								// cv::rectangle(Vis, x, { 0,100,255 }, 2);
-						
-						if(person_box_list.size()==0) 						
-							person_box_list = combined_box_list;
-						else
-						{
-							std::vector<cv::Rect> new_person_box_list;
-							for (auto person_box : person_box_list)
-							{
-								for (auto it = combined_box_list.begin(); it != combined_box_list.end();)
-								{
-									// std::cout<<"inner"<<
-									if (count_iou_(person_box, *it) > 0.01)
-									{
-										auto outer_box = get_outer_box_(person_box, *it);
-										int cx = (outer_box.br().x + outer_box.tl().x) / 2;
-										int cy = (outer_box.br().y + outer_box.tl().y) / 2;
-										int cw = outer_box.br().x - outer_box.tl().x;
-										int ch = outer_box.br().y - outer_box.tl().y;
-										PersonBBox temp_frame_person;
-										temp_frame_person.xmin = outer_box.tl().x;
-										temp_frame_person.ymin = outer_box.tl().y;
-										temp_frame_person.xmax = outer_box.br().x;
-										temp_frame_person.ymax = outer_box.br().y;
-										if (float(cw) / float(ch) < model_input_scale_rate)
-											cw = int(ch * model_input_scale_rate);
-										else
-											ch = int(cw / model_input_scale_rate);
-
-										temp_frame_person.reset_w_h_kepCenter(cw, ch);
-										temp_frame_person.constraintRectBoundary(width, height); 
-										new_person_box_list.push_back(temp_frame_person.get_rect());
-
-										// 擦除当前的 combined_box
-										it = combined_box_list.erase(it);
-										break;
-									}
-									else
-									{
-										++it;
-									}
-								}
-							}
-							// person_box_list = new_person_box_list;
-							if(new_person_box_list.size())
-								return new_person_box_list;
-							person_box_list.resize(0);
-							// std::cout<<"person_box_list: "<<person_box_list.size()<<std::endl;
-						}
-				// for (auto  x :person_box_list)
-				// 	cv::rectangle(Vis, x, { 255,0, 0 }, 2);
-
 				// sleep(1);
-				// cv::imwrite("Vis.jpg", Vis );
+					// cv::imwrite("Vis.jpg", Vis );
 #ifdef BUILD_DEBUG_INFO
 				//AdpShow(VisFrame);
 #endif // BUILD_DEBUG_INFO
 			}
 
-			// combine_related_box(person_box_list, 0.1);
+			combine_related_box(person_box_list, 0.1f);
 
 #ifdef BUILD_DEBUG_INFO
 			////std::cout << "# combine_related_box size = " << person_box_list.size() << std::endl;			
@@ -251,7 +209,7 @@ else
 			//}
 			//AdpShow(Vis);
 #endif // BUILD_DEBUG_INFO
-			person_box_list.resize(0);
+
 			return person_box_list;
 		}
 

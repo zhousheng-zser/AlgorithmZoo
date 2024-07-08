@@ -58,10 +58,5 @@ namespace glasssix::wander
 		return internal_.last_show_time;
 	}
 
-	int box_info_impl::detection_number() const
-	{
-		return internal_.detection_number;
-	}
-
 
 }

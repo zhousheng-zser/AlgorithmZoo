@@ -3,7 +3,7 @@
 
 #include "box_info.hpp"
 #include <abi/consumer.hpp>
-
+#include <algo_plugin_interface.hpp>
 namespace glasssix::posture
 {
     struct detect_code;
@@ -20,10 +20,8 @@ namespace glasssix::exposing::impl
 
         struct type : abi_unknown_object
         {
-            virtual std::int32_t G6_ABI_CALL init(
-                abi_in_t<param_string> model_directory,
-                std::int32_t device,
-                std::int32_t model_type) noexcept = 0;
+			virtual std::int32_t G6_ABI_CALL init(abi_in_t<param_string> str_params) noexcept = 0;
+			virtual std::int32_t G6_ABI_CALL execute(abi_in_t<param_hash_map<param_string, unknown_object>> input_params_map, abi_out_t<param_string> result) = 0;
 
             virtual std::int32_t G6_ABI_CALL detect(
                 abi_in_t<param_span<std::uint8_t>> bitmap,
@@ -45,17 +43,14 @@ namespace glasssix::exposing::impl
     struct interface_vtable<Derived, posture::detect_code> : interface_vtable_base<Derived, posture::detect_code>
     {
 
-        virtual std::int32_t G6_ABI_CALL init(
-            abi_in_t<param_string> model_directory,
-            std::int32_t device,
-            std::int32_t model_type) noexcept override
-        {
-            return abi_safe_call([&]
-                { this->self().init(
-                    create_from_abi<param_string>(model_directory),
-                    device,
-                    model_type); });
-        }
+		virtual std::int32_t G6_ABI_CALL init(abi_in_t<param_string> str_params) noexcept override
+		{
+			return abi_safe_call([&] { this->self().init(create_from_abi<param_string>(str_params)); });
+		}
+		virtual std::int32_t G6_ABI_CALL execute(abi_in_t<param_hash_map<param_string, unknown_object>> input_params_map, abi_out_t<param_string> result)noexcept override
+		{
+			return abi_safe_call([&] { *result = detach_abi(this->self().execute(create_from_abi<param_hash_map<param_string, unknown_object>>(input_params_map)));});
+		}
 
         virtual std::int32_t G6_ABI_CALL detect(abi_in_t<param_span<std::uint8_t>> bitmap,
             std::int32_t channels,
@@ -89,16 +84,16 @@ namespace glasssix::exposing::impl
         template <typename Derived>
         struct type : enable_self_abi_awareness<Derived, posture::detect_code>
         {
-            void init(
-                const param_string& model_directory,
-                std::int32_t device,
-                std::int32_t model_type) const
-            {
-                check_abi_result(this->self_abi().init(
-                    get_abi(model_directory),
-                    get_abi(device),
-                    get_abi(model_type)));
-            }
+			void init(const exposing::param_string& str_params) const
+			{
+				check_abi_result(this->self_abi().init(get_abi(str_params)));
+			}
+
+			param_string execute(const param_hash_map<param_string, unknown_object>& input_params_map)
+			{
+				param_string result{ nullptr };
+				return (check_abi_result(this->self_abi().execute(get_abi(input_params_map), put_abi(result))), result);
+			}
 
             exposing::param_vector<posture::box_info> detect(
                 param_span<std::uint8_t> bitmap,
@@ -141,7 +136,7 @@ namespace glasssix::exposing::impl
 
 namespace glasssix::posture
 {
-    struct detect_code : exposing::inherits<detect_code>
+    struct detect_code : exposing::inherits<detect_code,exposing::nessus::algo_plugin_interface>
     {
         using inherits::inherits;
     };

@@ -17,32 +17,22 @@ namespace glasssix::wander
     class detect_code_internal::impl
     {
     public:
-        impl(const exposing::param_string model_directory, int device = -1)
+        impl(const exposing::param_string str_params)
         {
-
+            Json::Reader reader(Json::Features::strictMode());
+            Json::Value root;
+            if (!reader.parse(exposing::to_narrow_string(str_params), root))
+                throw Json::Exception("parse json failed");
+            std::string model_directory = root["models_directory"].asString();
+            int device = root.get("device", Json::Int(-1)).asInt();
 #if defined(USE_RKNNAPI) || defined(USE_RKNN2API)      
         net_feature_ = std::make_shared<GenPipeline>(std::string(model_directory) + "/people_feature.rknn", device);   
-        net_pedestrian_ = std::make_shared<GenPipeline>(std::string(model_directory) + "/climbing_tumble_pedestrian.rknn", device);
 #elif defined(USE_BMNN)
         net_feature_ = std::make_shared<GenPipeline>(std::string(model_directory) + "/people_feature.bmodel", device);   
-        net_pedestrian_ = std::make_shared<GenPipeline>(std::string(model_directory) + "/climbing_tumble_pedestrian.bmodel", device);
         net_feature_->manual_possible_normalization(std::array<float, 3>{0.f, 0.f, 0.f}, std::array<float, 3>{1.0, 1.0, 1.0});
 #endif 
         }
 
-        void  Softmax(float* data, int num)
-        {
-            double L2_Sum = 0.f;
-            for (size_t i = 0; i < num; i++)
-            {
-                data[i] = (exp(data[i]));
-                L2_Sum += data[i];
-            }
-            for (size_t i = 0; i < num; i++)
-            {
-                data[i] = data[i] / L2_Sum;
-            }
-        }
         exposing::param_vector<wander::box_info> detect(const exposing::param_span<std::uint8_t>& bitmap, int channels, int height, int width, int roi_x, int roi_y, int roi_width, int roi_height, std::map<std::string, double>& param_map,const std::vector<PedestrianInfo> &pedestrain_info)
         {
             if (bitmap.empty())
@@ -124,7 +114,6 @@ namespace glasssix::wander
         std::vector<box_info_internal> run_detect(const exposing::param_span<std::uint8_t>& bitmap, int height, int width, int roi_x, int roi_y, int roi_width, int roi_height, 
             std::map<std::string, double>& param_map, const std::vector<PedestrianInfo> &pedestrain_info)
         {
-            double conf_thres = param_map.count("conf_thres") ? param_map["conf_thres"] : 0.7f;
             double device_id               = param_map.count("device_id") ? param_map["device_id"] : 0;
             double feature_table_size      = param_map.count("feature_table_size") ? param_map["feature_table_size"] : 10000.f;      
             double current_time            = param_map.count("current_time") ? param_map["current_time"] : 0.f;
@@ -139,9 +128,7 @@ namespace glasssix::wander
             for(auto& head:pedestrain_info)
             {
                 safe_crop_rect person_bbox(head.x1,head.x2,head.y1,head.y2,width,height);
-                auto body = person_bbox;
-                // auto body = person_bbox.feature_fetch_regionof_body();
-
+                auto body = person_bbox.feature_fetch_regionof_body();
                 bbox tmp_bbox;
                 int x1=std::round( head.x1)>0?std::round( head.x1):0  ;
                 int y1=std::round( head.y1)>0?std::round( head.y1):0  ;
@@ -153,33 +140,23 @@ namespace glasssix::wander
                 tmp_bbox.y1 =  person_bbox.y1;
                 tmp_bbox.y2 =  person_bbox.y2;
 
-                cv::Mat crop = image(cv::Range( std::round(body.y1), std::round(body.y2) ), cv::Range( std::round(body.x1), std::round(body.x2))).clone();
+                cv::Mat crop = image(cv::Range( std::round(body.y1), std::round(body.y2) ), cv::Range( std::round(body.x1), std::round(body.x2)));
 
-                cv::Mat headimg, pedestrian;
-                cv::resize(crop, pedestrian, cv::Size((int)(80), (int)(80)));
-                cv::cvtColor(crop, crop, cv::COLOR_BGR2RGB);//检测是否为行人不能做这个操作
+                cv::Mat headimg;
+                cv::cvtColor(crop, crop, cv::COLOR_BGR2RGB);
                 cv::resize(crop, headimg, cv::Size((int)(128), (int)(256)), cv::INTER_CUBIC);
 
-                auto  data_objects = net_pedestrian_->forward(pedestrian).begin()->second->cpu_data();
-                int category = 4;
-                Softmax(data_objects,category);
-                int index = std::max_element(data_objects, data_objects + category) - data_objects;
-                double confidence = data_objects[index];
-                // 0，正常站立 1，攀爬 2，跌倒 3，不是人 ;且分数低于0.7的不检测
-                if(confidence < conf_thres || index == 3)
-                    continue;
-                auto  data = net_feature_->forward(headimg).begin()->second->cpu_data();
+                auto  data1 = net_feature_->forward(headimg).begin()->second->mutable_cpu_data();
                 float xx = 0.f;
-
                 for(int i=0; i<2048; i++)
-                    xx += data[i] * data[i] ;
+                    xx += data1[i] * data1[i] ;
 
                 auto sqrt_xx=sqrt(xx);
                 std::lock_guard<std::mutex> lock(Feature_Table_Mutex);
-                std::vector<float> feature(data, data + 2048);
-                auto person_info = feature_match(feature.data(), sqrt_xx,current_time, std::round(device_id), feature_tables, person_bbox.get_bbox(), allocate_id_current_frame, feature_table_size, feature_match_threshold );
+
+                auto person_info = feature_match(data1, sqrt_xx,current_time, std::round(device_id), feature_tables, person_bbox.get_bbox(), allocate_id_current_frame, feature_table_size, feature_match_threshold );
              
-                    box_info_internal result;
+                box_info_internal result;
                     result.x1=person_bbox.x1 ;
                     result.y1=person_bbox.y1 ;
                     result.x2=person_bbox.x2 ;
@@ -190,7 +167,6 @@ namespace glasssix::wander
                     result.first_show_time = person_info.first_show_time;
                     result.last_show_time = person_info.last_show_time;
                     result.cosine_similarity= person_info.cosine_similarity;
-                    result.detection_number = person_info.detection_number;
                 l_c.emplace_back(result);
                 tmp_bbox.id =  person_info.id;
                 temp_last_location_info.push_back(tmp_bbox);
@@ -207,7 +183,6 @@ namespace glasssix::wander
     private:
 
         std::shared_ptr<GenPipeline> net_feature_;
-        std::shared_ptr<GenPipeline> net_pedestrian_;
         std::string model_directory_;
         int device_ ;
 
@@ -217,8 +192,8 @@ namespace glasssix::wander
         static std::map<int, std::map<int, wander_info>>  feature_tables;
     };
 
-    detect_code_internal::detect_code_internal(std::string_view model_directory, int device)
-        : impl_{ std::make_unique<impl>(model_directory, device) }
+    detect_code_internal::detect_code_internal(std::string_view str_params)
+        : impl_{ std::make_unique<impl>(str_params) }
     {
 
     }

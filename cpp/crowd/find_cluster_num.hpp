@@ -83,10 +83,12 @@ private:
 
 class cluster_num {
 public:
+    // ��������֮���ŷ�Ͼ���
     double calculate_distance(const cluster_info& p1, const cluster_info& p2) {
         return std::sqrt((p1.x - p2.x) * (p1.x - p2.x) + (p1.y - p2.y) * (p1.y - p2.y));
     }
 
+    // Ϊ���ݼ��е�ÿ�������k�������
     void find_nearest_neighbors(const std::vector<cluster_info>& dataset, int k, std::vector<std::vector<int>>& indices) {
         indices.resize(dataset.size());
 
@@ -104,6 +106,7 @@ public:
         }
     }
 
+    // Ѱ������epsֵ�ĺ���
     double find_optimal_eps(const std::vector<double>& k_distances) {
         // 计算k-距离的导数
         std::vector<double> derivatives;
@@ -115,46 +118,48 @@ public:
         return k_distances[optimal_index];
     }
 
+    // Ѱ�Ҹ�����������ڵ�������
     std::vector<int> find_neighbors(const std::vector<cluster_info>& dataset, int targetIndex, double eps) {
         std::vector<int> neighbors;
         for (int i = 0; i < dataset.size(); ++i) {
-            //if (i != targetIndex) {   //目前算法是需要自己和自己比较的
+            if (i != targetIndex) {
                 double distance = calculate_distance(dataset[targetIndex], dataset[i]);
                 if (distance < eps) {
                     neighbors.push_back(i);
                 }
-            //}
+            }
         }
         return neighbors;
     }
 
-    void dbscan(const std::vector<cluster_info>& dataset, const std::vector<double>& eps, int minSamples, std::vector<int>& labels) {
-        labels.assign(dataset.size(), 0);
+    // ִ��DBSCAN����
+    void dbscan(const std::vector<cluster_info>& dataset, double eps, int minSamples, std::vector<int>& labels) {
+        labels.assign(dataset.size(), -1);  // ��ʼ����ǩΪ-1����ʾδ����
         int cluster_idx = 0;
         for (int i = 0; i < dataset.size(); ++i) {
-            if (labels[i] != 0) {
-                continue;  
+            if (labels[i] != -1) {
+                continue;  // �Ѿ�����ĵ�����
             }
-            std::vector<int> neighbors = find_neighbors(dataset, i, eps[i]);
+            std::vector<int> neighbors = find_neighbors(dataset, i, eps);
             if (neighbors.size() < minSamples) {
-                labels[i] = -1;  
+                labels[i] = 0;  // ���Ϊ������
                 continue;
             }
-            
+            // �µĴ�
             cluster_idx++;
             labels[i] = cluster_idx;
             for (unsigned int j = 0; j < neighbors.size(); ++j) {
                 int neighbor_idx = neighbors[j];
-                if (labels[neighbor_idx] == -1) {
-                    labels[neighbor_idx] = cluster_idx;
-                }
                 if (labels[neighbor_idx] == 0) {
-
-                    labels[neighbor_idx] = cluster_idx;
-                    std::vector<int> new_neighbors = find_neighbors(dataset, neighbor_idx, eps[neighbor_idx]);
-                    if (new_neighbors.size() >= minSamples) {
-                        neighbors.insert(neighbors.end(), new_neighbors.begin(), new_neighbors.end());
-                    }
+                    labels[neighbor_idx] = cluster_idx;  // �������������ǰ��
+                }
+                if (labels[neighbor_idx] != -1) {
+                    continue;  // �Ѿ�����ĵ�����
+                }
+                labels[neighbor_idx] = cluster_idx;  // ���ھӷֵ���ǰ��
+                std::vector<int> new_neighbors = find_neighbors(dataset, neighbor_idx, eps);
+                if (new_neighbors.size() >= minSamples) {
+                    neighbors.insert(neighbors.end(), new_neighbors.begin(), new_neighbors.end());
                 }
             }
         }
@@ -164,28 +169,22 @@ public:
     //exposing::param_vector<crowd::box_info> 
     std::vector<int> find_cluster_num(const std::vector<cluster_info>& detection_points, int min_cluster_size) {
         //standard_scaler scaler;//  20240527之前的方案
-        //max_abs_scaler scaler;  //20240528方案 
+        max_abs_scaler scaler;  //20240528方案 
         //data = detection_points;
-        //scaler.fit(detection_points);
-        //std::vector<cluster_info> scaled_data = scaler.transform(detection_points);
-        //int  k = 3;
-        //std::vector<std::vector<int>> neighbor_indices;
-        //std::vector<double> k_distances;
-        //find_nearest_neighbors(scaled_data, k, neighbor_indices);
-        //for (unsigned int i = 0; i < scaled_data.size(); ++i) {
-        //    k_distances.push_back(calculate_distance(scaled_data[i], scaled_data[neighbor_indices[i][k - 1]]));
-        //}
-        //std::sort(k_distances.begin(), k_distances.end());
-        //double eps = find_optimal_eps(k_distances) * 0.55;
-        std::vector<double> eps; 
-        for (auto &val :detection_points)
-        {
-            double kk = std::sqrt(0.0 + (val.x1 - val.x2) * (val.x1 - val.x2) + (val.y1 - val.y2) * (val.y1 - val.y2));
-            eps.push_back(kk*3.1);
-        }
+        scaler.fit(detection_points);
+        std::vector<cluster_info> scaled_data = scaler.transform(detection_points);
+        int  k = 3;
+        std::vector<std::vector<int>> neighbor_indices;
+        std::vector<double> k_distances;
+        find_nearest_neighbors(scaled_data, k, neighbor_indices);
 
+        for (unsigned int i = 0; i < scaled_data.size(); ++i) {
+            k_distances.push_back(calculate_distance(scaled_data[i], scaled_data[neighbor_indices[i][k - 1]]));
+        }
+        std::sort(k_distances.begin(), k_distances.end());
+        double eps = find_optimal_eps(k_distances) * 0.55;
         std::vector<int> labels;
-        dbscan(detection_points, eps, 3, labels);
+        dbscan(scaled_data, eps, k - 1, labels);
 
         std::map<int, int>temp;
         temp.clear();
@@ -194,13 +193,14 @@ public:
         }
         for (int& label : labels) {
             if (temp[label] < min_cluster_size)
-                label = -1;
+                label = 0;
         }
 
-        //for (int i = 0; i < labels.size(); i++)
-        //    std::cout << labels[i] << ", ";
-        //puts("");
-
+        // output
+        //std::cout << "Cluster labels: ";
+        //for (int label : labels) {
+        //    std::cout << label << "\n";
+        //}
         return labels;
     }
 };

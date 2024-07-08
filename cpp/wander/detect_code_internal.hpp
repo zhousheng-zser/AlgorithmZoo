@@ -12,6 +12,7 @@
 #include "box_info.hpp"
 #include "../pedestrian/box_info.hpp"
 #include <opencv2/opencv.hpp>
+#include "json.h"
 namespace glasssix::wander
 {
     struct PedestrianInfo
@@ -52,7 +53,6 @@ namespace glasssix::wander
         double first_show_time=0.f;
         double last_show_time=0.f;
         float  cosine_similarity=0.f;
-        int detection_number = 1;
     };
 
 
@@ -66,7 +66,7 @@ namespace glasssix::wander
         /// </summary>
         /// <param name="racy_path">The model path</param>
         /// <param name="device">The device ID; -1 for CPU or a non-negative number for a GPU core</param>
-        detect_code_internal(std::string_view model_directory, int device);
+        detect_code_internal(std::string_view str_params);
 
         virtual ~detect_code_internal();
 

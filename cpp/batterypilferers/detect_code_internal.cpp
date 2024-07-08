@@ -36,7 +36,7 @@ namespace glasssix::batterypilferers
             net_pilferage_ = std::make_shared<GenPipeline>(std::string(model_directory) + "/batterypilferers_class.bmodel", device);   
 #endif      
             net_battery_person_car_detect_->manual_possible_normalization(std::array<float,3>{0.f,0.f,0.f},std::array<float,3>{1.f / 255.f,1.f / 255.f,1.f / 255.f});
-            yolov8_instance = std::make_shared<Yolov8<GenPipeline,true>>(1280,736, net_battery_person_car_detect_);  
+            yolov8_instance = std::make_shared<Yolov8<GenPipeline,true>>(1280,1280, net_battery_person_car_detect_);  
         }
 
         std::string version()
@@ -46,9 +46,11 @@ namespace glasssix::batterypilferers
 			return fmt::format(R"({{"nn_frame_version":"{}", "algo_module_version":"{}"}})", nn_frame_version, algo_module_version);
         }
 
+
         exposing::param_vector<batterypilferers::box_info> detect(const exposing::param_span<std::uint8_t>& bitmap, int channels, int height, int width,
                                                         int roi_x, int roi_y, int roi_width, int roi_height, std::map<std::string, float>& param_map)
         {
+
             float con_thres = param_map.count("conf_thres") ? param_map["conf_thres"] : 0.3f;
             float iou_thres = param_map.count("nms_thres") ? param_map["nms_thres"] : 0.6f;
 
@@ -56,7 +58,7 @@ namespace glasssix::batterypilferers
             {
                 throw exposing::abi_invalid_argument("current frame is empty");
             }
-            CHECK_EQ(channels, 24);
+            // CHECK_EQ(channels, 24);
 
             std::vector<cv::Mat> images;
             for (size_t i = 0; i < batch_size; i++)
@@ -71,53 +73,39 @@ namespace glasssix::batterypilferers
             }
 
             std::vector<std::vector<car_person_batery>> frames_info;
-            // std::vector<cv::Mat> candicate_images;
-            std::vector<int> frame_for_detect = {0,4,7};
-
-            for (size_t i = 0; i < frame_for_detect.size(); i++)
+            for (size_t i = 0; i < batch_size; i++)
             {
-                cv::Mat cropped_image = images[frame_for_detect[i]](cv::Range(roi_y, roi_y + roi_height), cv::Range(roi_x, roi_x + roi_width));
+                cv::Mat cropped_image = images[i](cv::Range(roi_y, roi_y + roi_height), cv::Range(roi_x, roi_x + roi_width));
                 std::vector<Bbox> one_frame_result;
                 auto objects =  yolov8_instance->get_objects(cropped_image,con_thres,iou_thres);
                 for (auto& object: objects)             
                     one_frame_result.emplace_back(object.x1, object.y1, object.x2, object.y2, object.category, object.score,0 );
                 auto result = deal_one_frame(one_frame_result);
-                if(result.size())
+                for(auto x : one_frame_result)
                 {
-                    frames_info.push_back(result);
-                    break;
+                    // cv::rectangle(cropped_image, cv::Point(x.x1, x.y1), cv::Point(x.x2, x.y2), cv::Scalar(x.category==2?255:0, x.category?255:0, x.category?0:255), 2);
                 }
-                // for(auto x : one_frame_result)
-                // {
-                //     // cv::rectangle(cropped_image, cv::Point(x.x1, x.y1), cv::Point(x.x2, x.y2), cv::Scalar(x.category==2?255:0, x.category?255:0, x.category?0:255), 2);
-                // }
-                // // cv::imwrite( std::to_string(i)+"detect.jpg" ,cropped_image);
-                // frames_info.push_back(result);
+                cv::imwrite( std::to_string(i)+"detect.jpg" ,cropped_image);
+                frames_info.push_back(result);
             }
 
-            std::vector<Bbox> crop_rect;
-            std::vector<float> scores;
-            std::vector<int> is_battery_pilferers;
-if(frames_info.size())
-{
+            auto compareVectors = [](const std::vector<car_person_batery>& a, const std::vector<car_person_batery>& b) {
+                return a.size() > b.size(); };
 
-            // auto compareVectors = [](const std::vector<car_person_batery>& a, const std::vector<car_person_batery>& b) {
-            //     return a.size() > b.size(); };
+            std::sort(frames_info.begin(), frames_info.end(), compareVectors);
 
-            // std::sort(frames_info.begin(), frames_info.end(), compareVectors);
+            std::vector<Bbox> crop_rect = get_candicate_rect(frames_info[0],frames_info[1]);
 
-            // std::vector<Bbox> crop_rect = get_candicate_rect(frames_info[0],frames_info[1]);
+            std::vector<int> is_battery_pilferers(crop_rect.size());
+            std::vector<float> scores(crop_rect.size());
 
-            crop_rect = get_candicate_rect(frames_info[0]);
-
-            is_battery_pilferers.resize(crop_rect.size());
-            scores.resize(crop_rect.size());
             for (int i=0;i<crop_rect.size();i++) 
-            {   
+            { 
+                std::cout<<  crop_rect[i].y1<<" "<<crop_rect[i].y2<<" "<<crop_rect[i].x1<<" "<<crop_rect[i].x2<<std::endl;
                 std::vector<cv::Mat> candicate_images;
                 for (size_t j = 0; j < batch_size; j++)
                 {
-                    cv::Mat candicate_detect = images[j](cv::Range(crop_rect[i].y1, crop_rect[i].y2), cv::Range(crop_rect[i].x1, crop_rect[i].x2));
+                    cv::Mat candicate_detect = images[i*batch_size+j](cv::Range(crop_rect[i].y1, crop_rect[i].y2), cv::Range(crop_rect[i].x1, crop_rect[i].x2));
                     cv::resize(candicate_detect, candicate_detect, cv::Size(256, 256));
                     candicate_images.push_back(candicate_detect);    
                 }
@@ -127,6 +115,7 @@ if(frames_info.size())
 #if defined(USE_RKNNAPI) || defined(USE_RKNN2API)
                 concat_pic<order::NHWC>(candicate_images,candicate_steal.data());
                 auto  network_result = net_pilferage_->forward(candicate_steal.data(), { 1, 256, 256, 3*batch_size}, 1 ).begin()->second->mutable_cpu_data();
+                std::cout<<network_result[0]<<"network_result: \n";
 #else           
                 concat_pic<order::NCHW>(candicate_images,candicate_steal.data());
                 auto  network_result = net_pilferage_->forward(candicate_steal.data(), { 1, 3*batch_size, 256, 256}, 0 ).begin()->second->mutable_cpu_data();
@@ -134,7 +123,6 @@ if(frames_info.size())
                 is_battery_pilferers[i] = network_result[0]>network_result[1] ? 1 : 0 ;
                 scores[i]=network_result[0];
             }
-}
 
             auto fin_result= exposing::make_param_vector<box_info>();
             std::vector<box_info_internal> result;

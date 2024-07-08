@@ -34,7 +34,7 @@ namespace glasssix::crossing
 #else
             net_crossing_detect_ = std::make_shared<GenPipeline>(model_dir + "/crossing.onnx", device);
 #endif
-            yolov8_instance = std::make_shared<Yolov8<GenPipeline, false, false>>(1280, 736, net_crossing_detect_);
+            yolov8_instance = std::make_shared<Yolov8<GenPipeline, true, true>>(1280, 736, net_crossing_detect_);
         }
 
         exposing::param_vector<crossing::box_info> detect(const exposing::param_span<std::uint8_t>& bitmap, int channels, int height, int width, int roi_x, int roi_y, int roi_width, int roi_height, std::map<std::string, float>& param_map)
@@ -60,9 +60,12 @@ namespace glasssix::crossing
             cv::Mat cropped_image = image(cv::Range(roi_y,roi_y+roi_height), cv::Range(roi_x,roi_x+roi_width)).clone();
 
 			//auto crossing_list = run_detect(cropped_image, param_map);
-            auto pump_objects = yolov8_instance->get_objects(cropped_image, con_thres, iou_thres);
+            printf("con_thres = %f iou_thres = %f\n", con_thres, iou_thres);
+            auto pump_objects = yolov8_instance->get_objects(image, con_thres, iou_thres);
+            printf("222222\n");
             for (auto& var : pump_objects)
             {
+                printf("0\n");
                 box_info_internal crossing_internal;
                 //crossing.add(roi_x, roi_y);
                 crossing_internal.x1 = var.x1+ roi_x;
@@ -134,7 +137,7 @@ namespace glasssix::crossing
 #if defined(USE_RKNNAPI) || defined(USE_RKNN2API)
         // GenPipeline*  net_pump_hoisting_detect2_;
         std::shared_ptr<GenPipeline> net_crossing_detect_;
-        std::shared_ptr<Yolov8<GenPipeline, false ,false>> yolov8_instance;
+        std::shared_ptr<Yolov8<GenPipeline, true ,true>> yolov8_instance;
 #else
         std::unique_ptr<excalibur::pipeline<float>> net_crossing_detect_;
 #endif

@@ -29,9 +29,10 @@ namespace glasssix::face_attributes
 		face_attributes_detector_impl();
 		~face_attributes_detector_impl();
 
-		void init(const exposing::param_string& models_directory, std::int32_t device);
-
+		void init(const exposing::param_string& str_params);
 		exposing::param_string version() const;
+		exposing::param_string execute(const exposing::param_hash_map<exposing::param_string, exposing::unknown_object>& input_params_map);
+
 		exposing::param_vector<face_attribute_info> detect(const exposing::param_vector<longinus::face_info>& faces, exposing::param_span<std::uint8_t> bitmap, std::int32_t channels, std::int32_t height, std::int32_t width, std::int32_t order) const;
 	private:
 		std::unique_ptr<impl> impl_;

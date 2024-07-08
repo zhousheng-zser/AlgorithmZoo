@@ -672,6 +672,78 @@ namespace glasssix::longinus
         return faces;
     }
 
+        std::vector<face_info_internal> temp_vec;
+        for (auto &face : face_infos)
+        {
+            if (scale != 1.0f)
+            {
+                face.ori_rect.x = face.rect.x *= scale;
+                face.ori_rect.y = face.rect.y *= scale;
+                face.ori_rect.h = face.rect.h *= scale;
+                face.ori_rect.w = face.rect.w *= scale;
+                for (size_t i = 0; i < std::size(face.pts.x); i++)
+                {
+                    face.pts.x[i] *= scale;
+                    face.pts.y[i] *= scale;
+                }
+            }
+            else
+            {
+                face.ori_rect.x = face.rect.x;
+                face.ori_rect.y = face.rect.y;
+                face.ori_rect.h = face.rect.h;
+                face.ori_rect.w = face.rect.w;
+            }
+
+            refine(face, height, width, true);
+
+            if (do_attributing)
+            {
+
+                if (face.rect.h * face.rect.w <= 0)
+                    throw exposing::abi_invalid_argument("face.rect.h * face.rect.w <= 0");
+
+                excalibur::rectangle<float> rect(face.rect.x, face.rect.y, face.rect.h, face.rect.w);
+                std::shared_ptr<memory::tensor<std::uint8_t>> faceROI_in_frame;
+                excalibur::safty_cut_cpu(cache_temp, faceROI_in_frame, &rect);
+
+                face.headpose[0] = face.headpose[1] = face.headpose[2] = std::numeric_limits<float>::min();
+                face.clarity = std::numeric_limits<float>::min();
+                face.is_alive = false;
+                face.has_mask = std::numeric_limits<float>::min();
+
+                //float score = face.score;
+                tracking_landmark(faceROI_in_frame, face, rect.x, rect.y);
+                //face.score = score;
+                refine(face, height, width, true);
+            }
+
+            excalibur::point<float> center_eye = excalibur::point<float>((face.pts.x[0] + face.pts.x[1]) / 2, (face.pts.y[0] + face.pts.y[1] / 2));
+            excalibur::point<float> center_mouth = excalibur::point<float>((face.pts.x[3] + face.pts.x[4]) / 2, (face.pts.y[3] + face.pts.y[4]) / 2);
+            double distance = std::sqrt((center_eye.x - center_mouth.x) * (center_eye.x - center_mouth.x) + (center_eye.y - center_mouth.y) * (center_eye.y - center_mouth.y));
+
+            if (face.score > threshold && distance > std::numeric_limits<double>::epsilon())
+            {
+                temp_vec.push_back(face);
+            }
+        }
+
+        std::sort(temp_vec.begin(), temp_vec.end(), [](const face_info_internal &a, const face_info_internal &b)
+                    { return a.rect.h * a.rect.w > b.rect.h * b.rect.w; });
+
+        if (temp_vec.size() > 0)
+        {
+            cache0_.swap(cache1_);
+            cache1_.swap(cache_temp);
+        }
+
+        auto faces = exposing::make_param_vector<face_info>();
+        for (auto &i : temp_vec)
+            faces.push_back(exposing::make_as_first<face_info_impl>(i));
+
+        return faces;
+    }
+#endif
 
     std::string retina_net::version() const
     {

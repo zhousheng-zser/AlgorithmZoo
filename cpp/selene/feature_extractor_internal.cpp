@@ -62,10 +62,7 @@ namespace glasssix::selene
 
 		std::vector<std::vector<float>> get(exposing::param_span<std::uint8_t> bitmaps, std::size_t count, int order)
 		{
-			if (bitmaps.empty() || count <= 0)
-			{
-				return {};
-			}
+			CHECK_EQ(bitmaps.size(), count * 3 * 128 * 128);
 
 			std::vector<std::uint8_t> temp_data;
 			if (model_type_ == 3)

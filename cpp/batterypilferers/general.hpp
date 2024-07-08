@@ -101,10 +101,6 @@
         {
             std::array<float,3> means{123.675,116.28,103.53};
             std::array<float,3> stds{1.f/58.395,1.f/57.12,1.f/57.375};
-
-            // std::array<float,3> means{0.0,0.0,0.0};
-            // std::array<float,3> stds{1.f,1.f/57.12,1.f/57.375};
-
 if constexpr(data_order==order::NHWC )
 {
             int channels_size = candicate_images.size()*3;
@@ -121,17 +117,17 @@ if constexpr(data_order==order::NHWC )
 }
 else
 {
-            int channels_size = candicate_images.size()*3;
-            for (size_t i = 0; i < candicate_images.size(); i++)
-            {
-                uchar *ptr_sour = candicate_images[i].ptr<uchar>();
-                for (size_t j = 0; j < candicate_images[i].rows*candicate_images[i].cols; j++)
-                {      
-                        dst_data[ i*3*candicate_images[i].rows*candicate_images[i].cols   + j ] = (ptr_sour[j*3] - means[0])*stds[0]; 
-                        dst_data[ (i*3+1)*candicate_images[i].rows*candicate_images[i].cols   + j] = (ptr_sour[j*3+1] - means[1])*stds[1]; 
-                        dst_data[ (i*3+2)*candicate_images[i].rows*candicate_images[i].cols   + j] = (ptr_sour[j*3+2] - means[2])*stds[2]; 
-                }
-            }
+    int channels_size = candicate_images.size()*3;
+    for (size_t i = 0; i < candicate_images.size(); i++)
+    {
+        uchar *ptr_sour = candicate_images[i].ptr<uchar>();
+        for (size_t j = 0; j < candicate_images[i].rows*candicate_images[i].cols; j++)
+        {      
+                dst_data[ i*3*candicate_images[i].rows*candicate_images[i].cols   + j ] = (ptr_sour[j*3] - means[0])*stds[0]; 
+                dst_data[ (i*3+1)*candicate_images[i].rows*candicate_images[i].cols   + j] = (ptr_sour[j*3+1] - means[1])*stds[1]; 
+                dst_data[ (i*3+2)*candicate_images[i].rows*candicate_images[i].cols   + j] = (ptr_sour[j*3+2] - means[2])*stds[2]; 
+        }
+    }
 }
 
         }
@@ -146,18 +142,6 @@ else
                         valid_crop_box_list.push_back(get_min_rect_in_car_person(candicate2.car,candicate2.person));                
             return valid_crop_box_list;
         }
-
-
-        std::vector<Bbox> get_candicate_rect(std::vector<car_person_batery>& candicates)
-        {
-            std::vector<Bbox> valid_crop_box_list;
-            for(auto& candicate : candicates)
-                    valid_crop_box_list.push_back(get_min_rect_in_car_person(candicate.car,candicate.person));                
-            return valid_crop_box_list;
-        }
-
-
-
 
         std::vector<car_person_batery> deal_one_frame(std::vector<Bbox>& input)
         {
