@@ -15,12 +15,6 @@ namespace glasssix::leavepost
 
 	void yolo_net_impl::init(const exposing::param_string & str_params)
 	{
-		Json::Reader reader(Json::Features::strictMode());
-		Json::Value root;
-		if (!reader.parse(exposing::to_narrow_string(str_params), root))
-			throw Json::Exception("parse json failed");
-		std::string model_directory = root["models_directory"].asString();
-		int device = root.get("device", Json::Int(-1)).asInt();
 		impl_ = std::make_unique<yolo_net_internal>(str_params);
 	}
 	exposing::param_string yolo_net_impl::version() const

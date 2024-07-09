@@ -4,7 +4,7 @@
 #include "detect_code.hpp"
 #include <memory>
 #include <abi/consumer.hpp>
-#include <map>
+// #include <map>
 
 
 namespace glasssix::wander
@@ -19,7 +19,8 @@ namespace glasssix::wander
         detect_code_impl();
         ~detect_code_impl();
 
-        void init(const exposing::param_string& model_directory, std::int32_t device);
+        void init(const exposing::param_string& str_params);
+        exposing::param_string execute(const exposing::param_hash_map<exposing::param_string, exposing::unknown_object>& input_params_map);
 
         exposing::param_string version() const;
 

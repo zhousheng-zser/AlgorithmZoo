@@ -19,7 +19,7 @@ namespace glasssix::posture
 		if (!reader.parse(exposing::to_narrow_string(str_params), root))
 			throw Json::Exception("parse json failed");
 		std::string model_directory = root["models_directory"].asString();
-		int model_type = root.get("device", Json::Int(-1)).asInt();
+		int model_type = root.get("model_type", Json::Int(1)).asInt();
 		int device = root.get("device", Json::Int(-1)).asInt();
 		impl_ = std::make_unique<detect_code_internal>(model_directory, device, model_type);
 	}
@@ -93,7 +93,7 @@ namespace glasssix::posture
 			jarray_boxes.append(jobj_box);
 		}
 
-		value["info_list"] = jarray_boxes;
+		value["posture_info_list"] = jarray_boxes;
 		return exposing::to_param_string(writer.write(value));
 	}
 	exposing::param_vector<posture::box_info> detect_code_impl::detect(exposing::param_span<std::uint8_t> bitmap, int channels,
