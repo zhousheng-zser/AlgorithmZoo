@@ -17,6 +17,12 @@
 
 namespace glasssix::climb_tumble_pedestrian
 {
+    inline int compute_area(int ax1, int ay1, int ax2, int ay2, int bx1, int by1, int bx2, int by2) {
+        int x = std::max(0, std::min(ax2, bx2) - std::max(ax1, bx1));
+        int y = std::max(0, std::min(ay2, by2) - std::max(ay1, by1));
+        return x * y;
+    }
+
     class detect_code_internal::impl
     {
     public:
@@ -68,6 +74,7 @@ namespace glasssix::climb_tumble_pedestrian
    //         auto tensor_out_data = tensor_out->mutable_cpu_data();
 			//int index = std::max_element(result, result + 1) - result;
             auto results = exposing::make_param_vector<climb_tumble_pedestrian::box_info>();
+            std::vector<climb_tumble_pedestrian::box_info_internal> tumble_results;
             std::vector<climb_tumble_pedestrian::box_info_internal> boxs;
             for (auto pinfo : pedestrain_info) 
             {
@@ -89,7 +96,40 @@ namespace glasssix::climb_tumble_pedestrian
                     continue;
                 // 0，正常站立 1，攀爬 2，跌倒 3，不是人
                 box.category = index;
-                results.push_back(glasssix::exposing::make_as_first<box_info_impl>(box));
+                if(index != 2)
+                    results.push_back(glasssix::exposing::make_as_first<box_info_impl>(box));
+                else 
+                    tumble_results.emplace_back(box);
+            }
+            int device_id = std::round(param_map.count("device_id") ? param_map["device_id"] : 0.f);
+            { // 控制list_tumble_mutex 生命周期
+                std::lock_guard<std::mutex> lock(list_tumble_mutex);
+                std::vector<climb_tumble_pedestrian::box_info_internal>& tumble_old = list_tumble_map[device_id];
+                // 检测当前的
+                for (auto tumble : tumble_results)
+                {
+                    float mx = 1e9;
+                    climb_tumble_pedestrian::box_info_internal  mx_val;
+                    for (auto old : tumble_old)
+                    {
+                        float x1 = (old.x1 + old.x2 >> 1), y1 = (old.y1 + old.y2 >> 1);
+                        float x2 = (tumble.x1 + tumble.x2 >> 1), y2 = (tumble.y1 + tumble.y2 >> 1);
+                        float len = std::sqrt((x1 - x2) * (x1 - x2) + (y1 - y2) * (y1 - y2));
+                        if (len < mx)
+                        {
+                            mx_val = old;
+                            mx = len;
+                        }
+                    }
+                    if (mx > 5e8)
+                        continue;
+                    int area = compute_area(mx_val.x1, mx_val.y1, mx_val.x2, mx_val.y2, tumble.x1, tumble.y1, tumble.x2, tumble.y2);
+                    if (area / ((mx_val.x2 - mx_val.x1) * (mx_val.y2 - mx_val.y1) + (tumble.x2 - tumble.x1) * (tumble.y2 - tumble.y1) - area) > 0.7)
+                        results.push_back(glasssix::exposing::make_as_first<box_info_impl>(tumble));
+                }
+                //保存当前的  
+                list_tumble_map[device_id].clear();
+                list_tumble_map[device_id] = tumble_results;
             }
             return results;
         }
@@ -106,6 +146,8 @@ namespace glasssix::climb_tumble_pedestrian
         int device_;
         std::shared_ptr<GenPipeline> net_climb_;
         std::shared_ptr<Yolov8<GenPipeline, true, true>> yolov8_instance;
+        static std::mutex list_tumble_mutex;
+        static std::map<int, std::vector<climb_tumble_pedestrian::box_info_internal> >list_tumble_map;
 
     };
 
@@ -125,4 +167,7 @@ namespace glasssix::climb_tumble_pedestrian
 	{
 		return impl_->version();
 	}
+
+    std::mutex detect_code_internal::impl::list_tumble_mutex;
+    std::map<int, std::vector<climb_tumble_pedestrian::box_info_internal> >detect_code_internal::impl::list_tumble_map;
 }
