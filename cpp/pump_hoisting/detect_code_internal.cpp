@@ -13,6 +13,7 @@
 #include "general.hpp"
 
 #include <GenPipeline/GenPipeline.hpp>
+#include <YoloFamily/Yolo_wrapper.hpp>
 
 #define not_draw_pic 
 #define LIBRARY_ID_MAX 1073741824

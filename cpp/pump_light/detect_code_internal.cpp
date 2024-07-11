@@ -10,10 +10,8 @@
 #include <utility>
 #include "general.hpp"
 
-
-#if defined(USE_RKNNAPI) || defined(USE_RKNN2API)
-#include <RKNN2Wrapper/rknn2_wrapper.hpp>
-#endif
+#include <GenPipeline/GenPipeline.hpp>
+#include <YoloFamily/Yolo_wrapper.hpp>
 
 #include <Primitives/tensor_conversions.hpp>
 
@@ -33,14 +31,17 @@ namespace glasssix::pump_light
             : model_directory_{ std::string(model_directory) }, device_{ device } 
         {
 #if defined(USE_RKNNAPI) || defined(USE_RKNN2API)
-            net_detect_light = std::make_unique<rknnwrapper::rknn_wrapper>(get_model_params("pump_light", false),
-                std::string(model_directory) + "/" + "pump_light.rknn", device);
-
+            std::string model_ext{ ".rknn" };
+#elif defined(USE_BMNN)
+            std::string model_ext{ ".bmodel" };
 #else
-            net_detect_light = std::make_unique<glasssix::excalibur::pipeline<float>>(get_model_params("pump_light", false),
-                std::string(model_directory) + "/" + "pump_light.racy", device);
-#endif  
-            init_data_compatible(128, 128, add_weight_light, mul_weight_light);
+            std::string model_ext{ ".onnx" };
+#endif
+            //net_detect_light = std::make_unique<rknnwrapper::rknn_wrapper>(get_model_params("pump_light", false),
+            //    std::string(model_directory) + "/" + "pump_light" + model_ext, device);
+            //init_data_compatible(128, 128, add_weight_light, mul_weight_light);
+            net_detect_light = std::make_shared<GenPipeline>(model_directory_ + "/pump" + model_ext, device);
+            yolov8_instance = std::make_shared<Yolov8<GenPipeline>>(128, 128, net_detect_light);
         }
         void init_data_compatible(int width, int height, std::vector<float>& add_weight, std::vector<float>& mul_weight)
         {
@@ -85,8 +86,7 @@ namespace glasssix::pump_light
             CHECK_EQ(channels, 3);
             CHECK_EQ(bitmap.size(), channels * height * width);
 
-            cv::Mat image(cv::Size(width, height), CV_8UC3);
-            std::memcpy(image.data, bitmap.data(), sizeof(uint8_t) * channels * height * width);
+            cv::Mat image(cv::Size(width, height), CV_8UC3, const_cast<uint8_t*>(bitmap.data()));
 
 
             pump_light::box_info result = run_detect(image, height, width, param_map);
@@ -112,7 +112,7 @@ namespace glasssix::pump_light
 
             std::shared_ptr<memory::tensor<float>> real_forwards;
 
-            auto network_result = net_detect_light->forward(blob.data, { 1, blob.rows, blob.cols,blob.channels() }, RKNN_TENSOR_NHWC);
+            auto network_result = net_detect_light->forward(image);
             float* light_conf = network_result["output0"]->mutable_cpu_data();
             std::vector<float> current_frame_result;
             current_frame_result.push_back(light_conf[0]);
@@ -170,12 +170,8 @@ namespace glasssix::pump_light
         int device_;
         std::vector<float> add_weight_light;
         std::vector<float> mul_weight_light;
-#if defined(USE_RKNNAPI) || defined(USE_RKNN2API)
-        std::unique_ptr < rknnwrapper::rknn_wrapper> net_detect_light;  
-#else
-        std::unique_ptr < glasssix::excalibur::pipeline<float>> net_detect_light;
-#endif
-
+        std::shared_ptr<GenPipeline> net_detect_light;
+        std::shared_ptr<Yolov8<GenPipeline, false>> yolov8_instance;
     };
 
     detect_code_internal::detect_code_internal(std::string_view model_directory, int device)
