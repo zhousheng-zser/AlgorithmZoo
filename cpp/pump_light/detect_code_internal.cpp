@@ -39,9 +39,8 @@ namespace glasssix::pump_light
 #endif
             //net_detect_light = std::make_unique<rknnwrapper::rknn_wrapper>(get_model_params("pump_light", false),
             //    std::string(model_directory) + "/" + "pump_light" + model_ext, device);
-            //init_data_compatible(128, 128, add_weight_light, mul_weight_light);
+            init_data_compatible(128, 128, add_weight_light, mul_weight_light);
             net_detect_light = std::make_shared<GenPipeline>(model_directory_ + "/pump" + model_ext, device);
-            yolov8_instance = std::make_shared<Yolov8<GenPipeline>>(128, 128, net_detect_light);
         }
         void init_data_compatible(int width, int height, std::vector<float>& add_weight, std::vector<float>& mul_weight)
         {
@@ -171,7 +170,6 @@ namespace glasssix::pump_light
         std::vector<float> add_weight_light;
         std::vector<float> mul_weight_light;
         std::shared_ptr<GenPipeline> net_detect_light;
-        std::shared_ptr<Yolov8<GenPipeline, false>> yolov8_instance;
     };
 
     detect_code_internal::detect_code_internal(std::string_view model_directory, int device)
