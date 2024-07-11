@@ -43,8 +43,7 @@ namespace glasssix::pump_light
             init_data_compatible(128, 128, add_weight_light, mul_weight_light);
             net_detect_light = std::make_shared<GenPipeline>(model_directory_ + "/pump_light" + model_ext, device);
             net_detect_light->manual_possible_normalization(0, 1.f / 255);
-            net_detect_light->set_postprocessing(yolov8_GEN<1, 1>);
-        }
+        } 
         void init_data_compatible(int width, int height, std::vector<float>& add_weight, std::vector<float>& mul_weight)
         {
             int size_mul_weight = width * height * 21 / 1024; //33600
