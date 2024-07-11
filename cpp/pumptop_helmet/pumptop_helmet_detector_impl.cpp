@@ -39,6 +39,11 @@ namespace glasssix::pumptop_helmet
 			//yolov8_instance_3 = std::make_shared<Yolov8<GenPipeline>>(128, 128, net_detect_3);
 			// 算法传过来的模型名:人头分类检测模型 helmetclassify-v2-96-labelsmooth-0.05
 			net_detect_4 = std::make_shared<GenPipeline>(model_directory_ + "/pumptop_helmet_helmet" + model_ext, device_);
+
+			net_detect_1->manual_possible_normalization(0, 1.f / 255);
+			net_detect_2->manual_possible_normalization(0, 1.f / 255);
+			net_detect_3->manual_possible_normalization(0, 1.f / 255);
+			net_detect_4->manual_possible_normalization(0, 1.f / 255);
 		}
 
 		~impl()

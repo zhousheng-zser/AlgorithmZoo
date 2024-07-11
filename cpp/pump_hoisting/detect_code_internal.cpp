@@ -35,7 +35,7 @@ namespace glasssix::pump_hoisting
 #else
             std::string model_ext(".onnx");
 #endif
-            net_pump_hoisting_detect2_ = std::make_shared<GenPipeline>(model_directory + "/pump" + model_ext, device);
+            net_pump_hoisting_detect2_ = std::make_shared<GenPipeline>(model_directory + "/pump_hoisting" + model_ext, device);
             yolov8_instance = std::make_shared<Yolov8<GenPipeline>>(1280,736, net_pump_hoisting_detect2_);
         } 
 

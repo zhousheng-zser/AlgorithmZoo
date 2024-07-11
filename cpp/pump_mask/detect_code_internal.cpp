@@ -48,6 +48,9 @@ namespace glasssix::pump_mask
             net_head_ = std::make_shared<GenPipeline>(model_directory_ + "/pump_mask_head" + model_ext, device);
             yolov8_instance_head = std::make_shared<Yolov8<GenPipeline, true, false>>(1152, 640, net_head_); //2个模板变量分别对应 GenPipeline ，(通用yolov8)是否是李鑫尧的yolo  第三个参数默认为false
             net_detect_face = std::make_shared<GenPipeline>(model_directory_ + "/pump_mask_face" + model_ext, device);
+            net_mask_->manual_possible_normalization(0, 1.f / 255);
+            net_head_->manual_possible_normalization(0, 1.f / 255);
+            net_detect_face->manual_possible_normalization(0, 1.f / 255);
         }
 
         std::string version()
