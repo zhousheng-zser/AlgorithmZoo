@@ -74,6 +74,9 @@ namespace glasssix::head
 #if defined(USE_BMNN)
             constexpr int infrW = 1280;
             constexpr int infrH = 576;
+
+            // constexpr int infrW = 640;
+            // constexpr int infrH = 384;//TAG
 #else
             constexpr int infrH = 1280;
             constexpr int infrW = 1280;
