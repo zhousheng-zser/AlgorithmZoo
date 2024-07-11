@@ -1,8 +1,8 @@
 cmake_minimum_required(VERSION 3.14.3)
 
 set(module_name pump_pumptop_person)
-file(GLOB src ${CMAKE_CURRENT_SOURCE_DIR}/../../cpp/pump_pumptop_person/*.cpp)
-file(GLOB header ${CMAKE_CURRENT_SOURCE_DIR}/../../cpp/pump_pumptop_person/*.hpp)
+file(GLOB src ${CMAKE_CURRENT_SOURCE_DIR}/../../cpp/${module_name}/*.cpp)
+file(GLOB header ${CMAKE_CURRENT_SOURCE_DIR}/../../cpp/${module_name}/*.hpp)
 add_library(${module_name} SHARED ${src} ${header})
 target_link_libraries(${module_name} PRIVATE genpipeline)
 add_dependencies(${module_name} genpipeline)

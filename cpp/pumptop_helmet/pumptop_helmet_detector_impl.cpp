@@ -33,19 +33,26 @@ namespace glasssix::pumptop_helmet
 		impl(std::string_view model_directory, int device)
 			: model_directory_{std::string(model_directory)}, device_{device}
 		{
+#if defined(USE_RKNNAPI) || defined(USE_RKNN2API)
+			std::string model_ext{ ".rknn" };
+#elif defined(USE_BMNN)
+			std::string model_ext{ ".bmodel" };
+#else
+			std::string model_ext{ ".onnx" };
+#endif
 			// 算法传过来的模型名:泵检测模型 1280-v1_ori_TAL
-			net_detect_1 = std::make_shared<GenPipeline>(model_directory_ + "/pumptop_helmet_pump.rknn", device_);
+			net_detect_1 = std::make_shared<GenPipeline>(model_directory_ + "/pumptop_helmet_pump" + model_ext, device_);
 			yolov8_instance_1 = std::make_shared<Yolov8<GenPipeline>>(1280, 1280, net_detect_1);
 
 			// 算法传过来的模型名:人检测模型 1280T320-0108_Person_best_detection
-			net_detect_2 = std::make_shared<GenPipeline>(model_directory_ + "/pumptop_helmet_person.rknn", device_);
+			net_detect_2 = std::make_shared<GenPipeline>(model_directory_ + "/pumptop_helmet_person" + model_ext, device_);
 			yolov8_instance_2 = std::make_shared<Yolov8<GenPipeline>>(1280, 736, net_detect_2);
 
 			// 算法传过来的模型名:人头检测模型 640T320-200epft-baoshinegtivev2-atss-nwd-wop
-			net_detect_3 = std::make_unique<rknnwrapper::rknn_wrapper>(phais, std::string(model_directory) + "/" + "pumptop_helmet_head.rknn", device);
-
+			net_detect_3 = std::make_shared<GenPipeline>(model_directory_ + "/pumptop_helmet_head" + model_ext, device_);
+			//yolov8_instance_3 = std::make_shared<Yolov8<GenPipeline>>(128, 128, net_detect_3);
 			// 算法传过来的模型名:人头分类检测模型 helmetclassify-v2-96-labelsmooth-0.05
-			net_detect_4 = std::make_unique<rknnwrapper::rknn_wrapper>(phais, std::string(model_directory) + "/" + "pumptop_helmet_helmet.rknn", device);
+			net_detect_4 = std::make_shared<GenPipeline>(model_directory_ + "/pumptop_helmet_helmet" + model_ext, device_);
 		}
 
 		~impl()
@@ -962,7 +969,7 @@ namespace glasssix::pumptop_helmet
 
 			v_blob.push_back(blob.cols);
 			v_blob.push_back(blob.channels());
-			auto network_results = net_detect_3->forward(blob.data, v_blob, RKNN_TENSOR_NHWC);
+			auto network_results = net_detect_3->forward(blob);
 
 			std::vector<std::string> out_names = {"355", "340", "output0"};
 
@@ -1022,7 +1029,7 @@ namespace glasssix::pumptop_helmet
 
 			v_blob.push_back(blob.cols);
 			v_blob.push_back(blob.channels());
-			auto network_results = net_detect_4->forward(blob.data, v_blob, RKNN_TENSOR_NHWC);
+			auto network_results = net_detect_4->forward(blob);
 
 			std::vector<std::string> out_names = {"output0"};
 
@@ -1050,8 +1057,8 @@ namespace glasssix::pumptop_helmet
 	private:
 		std::shared_ptr<GenPipeline> net_detect_1;
 		std::shared_ptr<GenPipeline> net_detect_2;
-		std::unique_ptr<rknnwrapper::rknn_wrapper> net_detect_3;
-		std::unique_ptr<rknnwrapper::rknn_wrapper> net_detect_4;
+		std::shared_ptr<GenPipeline> net_detect_3;
+		std::shared_ptr<GenPipeline> net_detect_4;
 		std::shared_ptr<Yolov8<GenPipeline, false>> yolov8_instance_1;
 		std::shared_ptr<Yolov8<GenPipeline, false>> yolov8_instance_2;
 
