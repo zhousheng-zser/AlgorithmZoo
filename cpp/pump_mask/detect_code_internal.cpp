@@ -440,7 +440,7 @@ namespace glasssix::pump_mask
 
             std::vector<std::shared_ptr<memory::tensor<float>>> model_result;
             std::vector<float*> transpose_result;
-            auto network_result = net_detect_face->forward(image);
+            auto network_result = net_detect_face->forward(blob);
 
             std::vector<std::string>  temp_out_names = { "stride_8","stride_16","stride_32" };
             std::vector<std::string>  real_out_names = { "output","508","522" };
@@ -495,8 +495,7 @@ namespace glasssix::pump_mask
             }
             CHECK_EQ(channels, 3);
 
-            cv::Mat image(cv::Size(width, height), CV_8UC3);
-            std::memcpy(image.data, bitmap.data(), sizeof(uint8_t) * channels * height * width);
+            cv::Mat image(cv::Size(width, height), CV_8UC3, const_cast<uint8_t*>(bitmap.data()));
             std::vector<ObjectInfo> frame_result = yolov8_instance_head->get_objects(image, detect_thres, iou_thres);   //检测人体 人头
             std::vector<Bbox> person_box_list;
             std::vector<Bbox> head_box_list;

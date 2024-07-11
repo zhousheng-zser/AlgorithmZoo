@@ -111,7 +111,7 @@ namespace glasssix::pump_light
 
             std::shared_ptr<memory::tensor<float>> real_forwards;
 
-            auto network_result = net_detect_light->forward(image);
+            auto network_result = net_detect_light->forward(blob);
             float* light_conf = network_result["output0"]->mutable_cpu_data();
             std::vector<float> current_frame_result;
             current_frame_result.push_back(light_conf[0]);

@@ -1,19 +1,7 @@
 #include "pumptop_helmet_detector_impl.hpp"
 #include "pumptop_helmet_info_impl.hpp"
-#ifdef USE_RKNNAPI
-#include "RKNNWrapper/rknn_wrapper.hpp"
 #include <opencv2/opencv.hpp>
 #include <opencv2/imgproc/types_c.h>
-#elif defined(USE_RKNN2API)
-#include "RKNN2Wrapper/rknn2_wrapper.hpp"
-#include <opencv2/opencv.hpp>
-#include <opencv2/imgproc/types_c.h>
-#else
-#include "Excalibur/pipeline.hpp"
-#include "Excalibur/operation_safty_cut.hpp"
-#include "Excalibur/operation_resize.hpp"
-#include "Primitives/tensor_conversions.hpp"
-#endif
 #include <GenPipeline/PrePostProcessGenPipeline.hpp>
 #include <YoloFamily/Yolo_wrapper.hpp>
 #include "poly.hpp"
@@ -637,7 +625,7 @@ namespace glasssix::pumptop_helmet
 				throw exposing::abi_invalid_argument("current frame is empty");
 			}
 			auto results = exposing::make_param_vector<pumptop_helmet::pumptop_helmet_info>();
-			cv::Mat image(height, width, CV_8UC3, bitmap.data());
+            cv::Mat image(cv::Size(width, height), CV_8UC3, const_cast<uint8_t*>(bitmap.data()));
 			std::vector<cv::Rect> ori_rect = pump_detect(image, param_map, categorys, scores, helmet_scores);
 			for (int i = 0; i < ori_rect.size(); i++)
 			{
