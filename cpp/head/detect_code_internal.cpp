@@ -73,6 +73,11 @@ namespace glasssix::head
             float nms_thres = param_map.count("nms_thres") ? param_map["nms_thres"] : 0.6f;
 
             constexpr int infrW = 1280;
+            constexpr int infrH = 576;
+
+            // constexpr int infrW = 640;
+            // constexpr int infrH = 384;//TAG
+#else
             constexpr int infrH = 1280;
             constexpr bool ifCvtRGB = true;
             GenPipTools::LetterInfo letter_op;
