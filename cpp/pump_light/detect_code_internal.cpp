@@ -12,6 +12,7 @@
 
 #include <GenPipeline/GenPipeline.hpp>
 #include <YoloFamily/Yolo_wrapper.hpp>
+#include "../genpipeline/market/yolov8_GEN.hpp"
 
 #include <Primitives/tensor_conversions.hpp>
 
@@ -41,6 +42,8 @@ namespace glasssix::pump_light
             //    std::string(model_directory) + "/" + "pump_light" + model_ext, device);
             init_data_compatible(128, 128, add_weight_light, mul_weight_light);
             net_detect_light = std::make_shared<GenPipeline>(model_directory_ + "/pump_light" + model_ext, device);
+            net_detect_light->manual_possible_normalization(0, 1.f / 255);
+            net_detect_light->set_postprocessing(yolov8_GEN<1, 1>);
         }
         void init_data_compatible(int width, int height, std::vector<float>& add_weight, std::vector<float>& mul_weight)
         {

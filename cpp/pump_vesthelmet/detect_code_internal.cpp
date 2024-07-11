@@ -50,6 +50,9 @@ namespace glasssix::pump_vesthelmet
 			vest_cls_instance_ = std::make_shared<GenPipeline>(std::string(model_directory) + "/pump_vesthelmet_vest_cls" + model_ext, device);
 			head_det_instance_ = std::make_shared<GenPipeline>(std::string(model_directory) + "/pump_vesthelmet_head_det" + model_ext, device);
 			helmet_cls_instance_ = std::make_shared<GenPipeline>(std::string(model_directory) + "/pump_vesthelmet_helmet_cls" + model_ext, device);
+			vest_cls_instance_->manual_possible_normalization(0, 1.f / 255);
+			head_det_instance_->manual_possible_normalization(0, 1.f / 255);
+			helmet_cls_instance_->manual_possible_normalization(0, 1.f / 255);
 		}
 
 		exposing::param_vector<pump_vesthelmet::box_info> detect(exposing::param_span<std::uint8_t> bitmap, int channels, int height, int width, std::map<std::string, float>& param_map_std)
