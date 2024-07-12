@@ -99,10 +99,6 @@ namespace glasssix::climb_tumble_pedestrian
             std::vector<climb_tumble_pedestrian::box_info_internal> boxs;
             for (auto pinfo : pedestrain_info) 
             {
-                if(pinfo.x1 < 0 || pinfo.x2 > width || pinfo.y1 < 0 || pinfo.y2 > height)
-                {
-                    continue;
-                }
                 climb_tumble_pedestrian::box_info_internal box;
                 box.x1 = std::round(pinfo.x1) > 0 ? std::round(pinfo.x1) : 0;
                 box.y1 = std::round(pinfo.y1) > 0 ? std::round(pinfo.y1) : 0;
@@ -117,7 +113,7 @@ namespace glasssix::climb_tumble_pedestrian
                 box.confidence= cropped_result[index];
                 if(box.confidence < con_thres)
                     continue;
-                // 0，正常站立1，攀爬2，跌倒3，不是人
+                // 0正常站立 1攀爬 2跌倒 3残缺残疾 4其他
                 box.category = index;
                 if(index != 2)
                     results.push_back(glasssix::exposing::make_as_first<box_info_impl>(box));
