@@ -156,7 +156,7 @@ namespace glasssix::climb_tumble_pedestrian
         std::string version()
 		{
 			const std::string algo_module_version = "2.0.0";
-			return fmt::format(R"({{"nn_frame_version":"{}", "algo_module_version":"{}"}})", algo_module_version, algo_module_version);
+			return fmt::format(R"({{"nn_frame_version":"{}", "algo_module_version":"{}"}})", "", algo_module_version);
 		}
         std::vector<float> yolo8_detect(cv::Mat& image, int w_, int h_)
         {
