@@ -104,10 +104,10 @@ namespace glasssix::climb_tumble_pedestrian
                     continue;
                 }
                 climb_tumble_pedestrian::box_info_internal box;
-                box.x1 = pinfo.x1;
-                box.y1 = pinfo.y1;
-                box.x2 = pinfo.x2;
-                box.y2 = pinfo.y2;
+                box.x1 = std::round(pinfo.x1) > 0 ? std::round(pinfo.x1) : 0;
+                box.y1 = std::round(pinfo.y1) > 0 ? std::round(pinfo.y1) : 0;
+                box.x2 = std::round(pinfo.x2) < width ? std::round(pinfo.x2) : width;
+                box.y2 = std::round(pinfo.y2) < height ? std::round(pinfo.y2) : height;
                 cv::Mat crop = image(cv::Range(box.y1, box.y2), cv::Range(box.x1, box.x2)).clone();
 
                 std::vector<float> cropped_result = yolo8_detect(crop, 256, 256);// 分类 
