@@ -19,7 +19,7 @@ namespace glasssix::pump_hoisting
         ~detect_code_impl();
 
         void init(const exposing::param_string& model_directory, std::int32_t device);
-
+        exposing::param_string execute(const exposing::param_hash_map<exposing::param_string, exposing::unknown_object>& input_params_map);
         exposing::param_string version() const;
         exposing::param_string remove_library() const;
 
