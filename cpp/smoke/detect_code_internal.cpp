@@ -6,7 +6,6 @@
 #include "box_info_impl.hpp"
 #include "logger.hpp"
 
-#include "hardcode.hpp"
 
 #include <opencv2/core.hpp>
 #include <opencv2/imgproc.hpp>

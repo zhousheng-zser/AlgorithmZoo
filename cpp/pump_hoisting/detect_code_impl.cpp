@@ -13,9 +13,16 @@ namespace glasssix::pump_hoisting
 	detect_code_impl::~detect_code_impl() = default;
 
 
-	void detect_code_impl::init(const exposing::param_string& model_directory, std::int32_t device)
+	void detect_code_impl::init(const exposing::param_string& str_params)
 	{
-		impl_ = std::make_unique<detect_code_internal>(exposing::to_narrow_string(model_directory), device);
+		Json::Reader reader(Json::Features::strictMode());
+		Json::Value root;
+		if (!reader.parse(exposing::to_narrow_string(str_params), root))
+			throw Json::Exception("parse json failed");
+		std::string models_directory = root["models_directory"].asString();
+		int device = root.get("device", Json::Int(-1)).asInt();
+
+		impl_ = std::make_unique<detect_code_internal>(exposing::to_narrow_string(models_directory), device);
 	}
 
 	exposing::param_string detect_code_impl::version() const

@@ -21,9 +21,8 @@ namespace glasssix::exposing::impl
 
         struct type : abi_unknown_object
         {
-            virtual std::int32_t G6_ABI_CALL init(
-                abi_in_t<param_string> model_directory,
-                std::int32_t device) noexcept = 0;
+            virtual std::int32_t G6_ABI_CALL init(abi_in_t<param_string> str_params) = 0;
+
 
             virtual std::int32_t G6_ABI_CALL execute(abi_in_t<param_hash_map<param_string, unknown_object>> input_params_map, abi_out_t<param_string> result) = 0;
 
@@ -48,15 +47,9 @@ namespace glasssix::exposing::impl
     template <typename Derived>
     struct interface_vtable<Derived, pump_hoisting::detect_code> : interface_vtable_base<Derived, pump_hoisting::detect_code>
     {
-
-        virtual std::int32_t G6_ABI_CALL init(
-            abi_in_t<param_string> model_directory,
-            std::int32_t device) noexcept override
+        virtual std::int32_t G6_ABI_CALL init(abi_in_t<param_string> str_params) override
         {
-            return abi_safe_call([&]
-                { this->self().init(
-                    create_from_abi<param_string>(model_directory),
-                    device); });
+            return abi_safe_call([&] { this->self().init(create_from_abi<param_string>(str_params)); });
         }
 
         virtual std::int32_t G6_ABI_CALL execute(abi_in_t<param_hash_map<param_string, unknown_object>> input_params_map, abi_out_t<param_string> result) override
@@ -108,13 +101,9 @@ namespace glasssix::exposing::impl
         template <typename Derived>
         struct type : enable_self_abi_awareness<Derived, pump_hoisting::detect_code>
         {
-            void init(
-                const param_string& model_directory,
-                std::int32_t device) const
+            void init(const param_string& str_params)
             {
-                check_abi_result(this->self_abi().init(
-                    get_abi(model_directory),
-                    get_abi(device)));
+                check_abi_result(this->self_abi().init(get_abi(str_params)));
             }
 
             param_string execute(const param_hash_map<param_string, unknown_object>& input_params_map)

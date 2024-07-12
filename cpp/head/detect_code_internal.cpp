@@ -79,6 +79,8 @@ namespace glasssix::head
             constexpr int infrH = 384;//TAG
 #else
             constexpr int infrH = 1280;
+            constexpr int infrW = 1280;
+#endif
             constexpr bool ifCvtRGB = true;
             GenPipTools::LetterInfo letter_op;
             auto letter_img = GenPipTools::letter_image(image, infrW, infrH, letter_op, ifCvtRGB);
