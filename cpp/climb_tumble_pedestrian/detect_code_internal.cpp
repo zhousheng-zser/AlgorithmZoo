@@ -8,12 +8,16 @@
 
 #include <abi/param_vector.hpp>
 #include <utility>
+#include "general.hpp"
 
 #include <opencv2/core.hpp>
 #include <opencv2/imgproc.hpp>
 
-#include <GenPipeline/GenPipeline.hpp>
-#include <YoloFamily/Yolo_wrapper.hpp>
+#if defined(USE_RKNNAPI) || defined(USE_RKNN2API)
+#include <RKNN2Wrapper/rknn2_wrapper.hpp>
+#endif
+
+#include <Primitives/tensor_conversions.hpp>
 
 namespace glasssix::climb_tumble_pedestrian
 {
@@ -34,28 +38,48 @@ namespace glasssix::climb_tumble_pedestrian
         impl( std::string model_directory, int device)
         {
 #if defined(USE_RKNNAPI) || defined(USE_RKNN2API)
-            net_climb_ = std::make_shared<GenPipeline>(std::string(model_directory) + "/climbing_tumble_pedestrian.rknn", device);
-#elif defined(USE_BMNN)
-            net_climb_ = std::make_shared<GenPipeline>(std::string(model_directory) + "/climbing_tumble_pedestrian.bmodel", device);
+            net_detect_light = std::make_unique<rknnwrapper::rknn_wrapper>(get_model_params("climbing_tumble_pedestrian", false),
+                std::string(model_directory) + "/" + "climbing_tumble_pedestrian.rknn", device);
 #else
-            net_climb_ = std::make_shared<GenPipeline>(get_model_params("climb_20240426cut"), std::string(model_directory) + "/climb_20240426cut.racy", device);
-#endif
-            net_climb_->manual_possible_normalization(std::array<float,3>{104.f, 117.f, 123.f},std::array<float,3>{1.f/128.f, 1.f/128.f, 1.f/128.f});
+            net_detect_light = std::make_unique<glasssix::excalibur::pipeline<float>>(get_model_params("climbing_tumble_pedestrian", false),
+                std::string(model_directory) + "/" + "climbing_tumble_pedestrian.racy", device);
+#endif  
+            init_data_compatible(256, 256, add_weight_light, mul_weight_light);
+        }
+        void init_data_compatible(int width, int height, std::vector<float>& add_weight, std::vector<float>& mul_weight)
+        {
+            int size_mul_weight = width * height * 21 / 1024; //33600
+            int size_add_weight = 2 * size_mul_weight;
+            int width_base = width / 8;
+            int height_base = height / 8;
+            int candicate_area = width_base * height_base; //160*160
+
+            add_weight.resize(size_add_weight);
+            mul_weight.resize(size_mul_weight);
+            for (size_t i = 0; i < candicate_area * 21 / 16; i++)
+            {
+                if (i < candicate_area) // 25600
+                {
+                    add_weight[i] = i % (width_base); //160
+                    add_weight[i + size_mul_weight] = i / (width_base); //
+                    mul_weight[i] = 8.f;
+                }
+                else if (i<int(std::round(i - candicate_area * 1.25)))
+                {
+                    add_weight[i] = (i - candicate_area) % (width_base / 2);
+                    add_weight[i + size_mul_weight] = (i - candicate_area) / (width_base / 2);
+                    mul_weight[i] = 16.f;
+                }
+                else
+                {
+                    add_weight[i] = int(std::round(i - candicate_area * 1.25)) % (width_base / 4);
+                    add_weight[i + size_mul_weight] = int(std::round(i - candicate_area * 1.25)) / (width_base / 4);
+                    mul_weight[i] = 32.f;
+                }
+            }
+            return;
         }
 
-        void  Softmax(float* data, int num)
-        {
-            double L2_Sum = 0.f;
-            for (size_t i = 0; i < num; i++)
-            {
-                data[i] = (exp(data[i]));
-                L2_Sum += data[i];
-            }
-            for (size_t i = 0; i < num; i++)
-            {
-                data[i] = data[i] / L2_Sum;
-            }
-        }
         exposing::param_vector<climb_tumble_pedestrian::box_info> detect(const exposing::param_span<std::uint8_t>& bitmap, int channels, int height, int width, int roi_x, int roi_y, int roi_width, int roi_height,  std::map<std::string, float>& param_map,const std::vector<PedestrianInfo> &pedestrain_info)
         {
             if (bitmap.empty())
@@ -67,12 +91,9 @@ namespace glasssix::climb_tumble_pedestrian
                 throw exposing::abi_invalid_argument("incorrect roi in climb_tumble_pedestrian");
 
             float con_thres = param_map.count("conf_thres") ? param_map["conf_thres"] : 0.6f;
+            float con_thres_tumble = param_map.count("conf_thres_tumble") ? param_map["conf_thres_tumble"] : 0.7f;
             float nms_thres = param_map.count("nms_thres") ? param_map["nms_thres"] : 0.6f;
 
-   //         auto climb_objects = yolov8_instance->get_objects( image, con_thres, nms_thres );
-   //         auto climb_objects = net_climb_->forward(image).begin()->second;
-   //         auto tensor_out_data = tensor_out->mutable_cpu_data();
-			//int index = std::max_element(result, result + 1) - result;
             auto results = exposing::make_param_vector<climb_tumble_pedestrian::box_info>();
             std::vector<climb_tumble_pedestrian::box_info_internal> tumble_results;
             std::vector<climb_tumble_pedestrian::box_info_internal> boxs;
@@ -87,27 +108,20 @@ namespace glasssix::climb_tumble_pedestrian
                 box.y1 = pinfo.y1;
                 box.x2 = pinfo.x2;
                 box.y2 = pinfo.y2;
-                //int x1,x2,y1,y2;
-                //x1 = pinfo.x1;
-                //x2 = pinfo.x2;
-                //y1 = pinfo.y1;
-                //y2 = pinfo.y2;
-                cv::Mat body;
                 cv::Mat crop = image(cv::Range(box.y1, box.y2), cv::Range(box.x1, box.x2)).clone();
-                // cv::cvtColor(crop, crop, cv::COLOR_BGR2RGB);
-                cv::resize(crop, body, cv::Size((int)(80), (int)80));
-                auto climb_objects = net_climb_->forward(body).begin()->second->mutable_cpu_data();
-                int category = 4;
-                Softmax(climb_objects,category);
-                int index = std::max_element(climb_objects, climb_objects + category) - climb_objects;
-                box.confidence= climb_objects[index];
+
+                std::vector<float> cropped_result = yolo8_detect(crop, 256, 256);// 分类 
+                int category = 5;
+                int index = std::max_element(cropped_result.begin(), cropped_result.begin() + category) - cropped_result.begin();
+
+                box.confidence= cropped_result[index];
                 if(box.confidence < con_thres)
                     continue;
                 // 0，正常站立1，攀爬2，跌倒3，不是人
                 box.category = index;
                 if(index != 2)
                     results.push_back(glasssix::exposing::make_as_first<box_info_impl>(box));
-                else 
+                else if(box.confidence >= con_thres_tumble)    //跌倒置信度0.7
                     tumble_results.emplace_back(box);
             }
             int device_id = std::round(param_map.count("device_id") ? param_map["device_id"] : 0.f);
@@ -146,15 +160,43 @@ namespace glasssix::climb_tumble_pedestrian
         std::string version()
 		{
 			const std::string algo_module_version = "2.0.0";
-            std::string nn_frame_version = net_climb_->version();
-			return fmt::format(R"({{"nn_frame_version":"{}", "algo_module_version":"{}"}})", nn_frame_version, algo_module_version);
+			return fmt::format(R"({{"nn_frame_version":"{}", "algo_module_version":"{}"}})", algo_module_version, algo_module_version);
 		}
+        std::vector<float> yolo8_detect(cv::Mat& image, int w_, int h_)
+        {
+            auto new_shape = cv::Size(w_, h_);
+            cv::Mat blob;
+            float ratio = 0;
+            int pad_h = 0;
+            int pad_w = 0;
+            std::tie(blob, ratio) = preprocess_detection(image, pad_h, pad_w, new_shape);
+            std::vector<std::shared_ptr<memory::tensor<float>>> forwards;
+
+            std::shared_ptr<memory::tensor<float>> real_forwards;
+
+            auto network_result = net_detect_light->forward(blob.data, { 1, blob.rows, blob.cols,blob.channels() }, RKNN_TENSOR_NHWC);
+            float* light_conf = network_result["output0"]->mutable_cpu_data();
+            std::vector<float> current_frame_result;
+            current_frame_result.push_back(light_conf[0]);
+            current_frame_result.push_back(light_conf[1]);
+            current_frame_result.push_back(light_conf[2]);
+            current_frame_result.push_back(light_conf[3]);
+            current_frame_result.push_back(light_conf[4]);
+            return current_frame_result;
+
+        }
 
     private:
         std::string model_directory_;
         int device_;
-        std::shared_ptr<GenPipeline> net_climb_;
-        std::shared_ptr<Yolov8<GenPipeline, true, true>> yolov8_instance;
+        std::vector<float> add_weight_light;
+        std::vector<float> mul_weight_light;
+#if defined(USE_RKNNAPI) || defined(USE_RKNN2API)
+        std::unique_ptr < rknnwrapper::rknn_wrapper> net_detect_light;
+#else
+        std::unique_ptr < glasssix::excalibur::pipeline<float>> net_detect_light;
+#endif
+
         static std::mutex list_tumble_mutex;
         static std::map<int, std::vector<climb_tumble_pedestrian::box_info_internal> >list_tumble_map;
 
