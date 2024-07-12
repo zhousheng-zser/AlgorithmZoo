@@ -86,6 +86,9 @@ namespace glasssix::pedestrian
 #elif defined(USE_BMNN)
             const int letter_h = 576;
             const int letter_w = 1024;
+#else
+            const int letter_h = 736;
+            const int letter_w = 1280;
 #endif
             GenPipTools::LetterInfo letter_op;
             auto letter_img = GenPipTools::letter_image(image, letter_w, letter_h, letter_op, true);

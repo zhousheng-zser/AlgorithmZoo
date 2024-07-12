@@ -72,11 +72,11 @@ namespace glasssix::head
             float conf_thres = param_map.count("conf_thres") ? param_map["conf_thres"] : 0.1f;
             float nms_thres = param_map.count("nms_thres") ? param_map["nms_thres"] : 0.6f;
 #if defined(USE_BMNN)
-            constexpr int infrW = 1280;
-            constexpr int infrH = 576;
+            // constexpr int infrW = 1280;
+            // constexpr int infrH = 576;
 
-            // constexpr int infrW = 640;
-            // constexpr int infrH = 384;//TAG
+            constexpr int infrW = 640;
+            constexpr int infrH = 384;//TAG
 #else
             constexpr int infrH = 1280;
             constexpr int infrW = 1280;

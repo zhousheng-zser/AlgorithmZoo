@@ -444,8 +444,11 @@ namespace glasssix::pump_mask
             std::vector<std::shared_ptr<memory::tensor<float>>> model_result;
             std::vector<float*> transpose_result;
             auto network_result = net_detect_face->forward(blob);
-
+#ifdef USE_BMNN
+            std::vector<std::string>  temp_out_names = { "stride_8_Concat_f32","stride_16_Concat_f32","stride_32_Concat_f32" };
+#else
             std::vector<std::string>  temp_out_names = { "stride_8","stride_16","stride_32" };
+#endif
             std::vector<std::string>  real_out_names = { "output","508","522" };
             for (size_t i = 0; i < temp_out_names.size(); i++)//对输出数据做处理
                 model_result.push_back(network_result[temp_out_names[i]]);
