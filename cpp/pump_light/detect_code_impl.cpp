@@ -64,7 +64,7 @@ namespace glasssix::pump_light
 		int roi_width = width;
 		int roi_height = height;
 
-		auto result = impl_->detect(input_data, channels, height, width, roi_x, roi_y, roi_width, roi_height, dparam_map);
+		auto result = impl_->detect(input_data, channels, height, width, dparam_map);
 		Json::Value jarray_box;
 		jarray_box["score"] = Json::Value(result.score());
 		jarray_box["light_status"] = Json::Value(result.light_status());
