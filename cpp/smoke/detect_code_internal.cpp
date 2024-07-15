@@ -6,7 +6,7 @@
 #include "box_info_impl.hpp"
 #include "logger.hpp"
 
-#include <RKNN2Wrapper/rknn2_wrapper.hpp>
+
 #include <opencv2/core.hpp>
 #include <opencv2/imgproc.hpp>
 #include <opencv2/opencv.hpp>

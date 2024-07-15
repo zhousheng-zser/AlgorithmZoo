@@ -1,7 +1,7 @@
 cmake_minimum_required(VERSION 3.14.3)
 set(module_name irisviel)
-file(GLOB src ${CMAKE_CURRENT_SOURCE_DIR}/../../cpp/irisviel/*.cpp)
-file(GLOB header ${CMAKE_CURRENT_SOURCE_DIR}/../../cpp/irisviel/*.hpp)
+file(GLOB src ${CMAKE_CURRENT_SOURCE_DIR}/../../cpp/${module_name}/*.cpp)
+file(GLOB header ${CMAKE_CURRENT_SOURCE_DIR}/../../cpp/${module_name}/*.hpp)
 
 add_library(${module_name} SHARED ${src} ${header})
 
