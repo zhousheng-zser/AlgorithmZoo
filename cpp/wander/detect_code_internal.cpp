@@ -22,10 +22,10 @@ namespace glasssix::wander
 
 #if defined(USE_RKNNAPI) || defined(USE_RKNN2API)      
         net_feature_ = std::make_shared<GenPipeline>(std::string(model_directory) + "/people_feature.rknn", device);   
-        net_pedestrian_ = std::make_shared<GenPipeline>(std::string(model_directory) + "/climbing_tumble_pedestrian.rknn", device);
+        net_pedestrian_ = std::make_shared<GenPipeline>(std::string(model_directory) + "/climbing_tumble_pedestrian_temp.rknn", device);// 后面会更新模型
 #elif defined(USE_BMNN)
         net_feature_ = std::make_shared<GenPipeline>(std::string(model_directory) + "/people_feature.bmodel", device);   
-        net_pedestrian_ = std::make_shared<GenPipeline>(std::string(model_directory) + "/climbing_tumble_pedestrian.bmodel", device);
+        net_pedestrian_ = std::make_shared<GenPipeline>(std::string(model_directory) + "/climbing_tumble_pedestrian_temp.bmodel", device);// 后面会更新模型
         net_feature_->manual_possible_normalization(std::array<float, 3>{0.f, 0.f, 0.f}, std::array<float, 3>{1.0, 1.0, 1.0});
 #endif 
         }
