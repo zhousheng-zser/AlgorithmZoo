@@ -49,7 +49,6 @@ namespace glasssix::climb_tumble_pedestrian
 			temp.set_score(pedestrain_info[i]["score"].asFloat());
 			pedestrian_info_abi.push_back(temp);
 		}
-		std::map<std::string, float> param_map;
 		std::vector<PedestrianInfo> pedestrian_info;
 		for (auto it : pedestrian_info_abi)
 		{
@@ -57,9 +56,6 @@ namespace glasssix::climb_tumble_pedestrian
 		}
 
 		params.removeMember("person_list");
-		for (auto it : param_map_abi) {
-			param_map.insert(std::make_pair(it.key(), it.value()));
-		}
 		for (auto& param_name : params.getMemberNames()) {
 			dparam_map.try_emplace(param_name, params[param_name].asFloat());
 		}
@@ -150,7 +146,6 @@ namespace glasssix::climb_tumble_pedestrian
 		return exposing::to_param_string(writer.write(value));
 	}
 
-}
 
 	exposing::param_vector<climb_tumble_pedestrian::box_info> detect_code_impl::detect(exposing::param_span<std::uint8_t> bitmap, int channels, int height, int width,int roi_x, int roi_y, int roi_width, int roi_height,
 		const exposing::param_hash_map<exposing::param_string, float>& param_map_abi, 

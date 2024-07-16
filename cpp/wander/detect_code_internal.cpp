@@ -177,6 +177,7 @@ namespace glasssix::wander
         std::vector<box_info_internal> run_detect(const exposing::param_span<std::uint8_t>& bitmap, int height, int width, int roi_x, int roi_y, int roi_width, int roi_height, 
             std::map<std::string, double>& param_map, const std::vector<PedestrianInfo> &pedestrain_info)
         {
+            double conf_thres = param_map.count("conf_thres") ? param_map["conf_thres"] : 0.7f;
             double device_id               = param_map.count("device_id") ? param_map["device_id"] : 0;
             double feature_table_size      = param_map.count("feature_table_size") ? param_map["feature_table_size"] : 10000.f;      
             double current_time            = param_map.count("current_time") ? param_map["current_time"] : 0.f;
@@ -220,12 +221,12 @@ namespace glasssix::wander
                 auto  data = net_feature_->forward(headimg).begin()->second->cpu_data();
                 float xx = 0.f;
                 for(int i=0; i<2048; i++)
-                    xx += data1[i] * data1[i] ;
+                    xx += data[i] * data[i] ;
 
                 auto sqrt_xx=sqrt(xx);
                 std::lock_guard<std::mutex> lock(Feature_Table_Mutex);
 
-                auto person_info = feature_match(data1, sqrt_xx,current_time, std::round(device_id), feature_tables, person_bbox.get_bbox(), allocate_id_current_frame, feature_table_size, feature_match_threshold );
+                auto person_info = feature_match(data, sqrt_xx,current_time, std::round(device_id), feature_tables, person_bbox.get_bbox(), allocate_id_current_frame, feature_table_size, feature_match_threshold );
              
                 box_info_internal result;
                     result.x1=person_bbox.x1 ;
