@@ -82,17 +82,17 @@ namespace glasssix::batterypilferers
                 for (auto& object: objects)             
                     one_frame_result.emplace_back(object.x1, object.y1, object.x2, object.y2, object.category, object.score,0 );
                 auto result = deal_one_frame(one_frame_result);
-                if(result.size())
-                {
-                    frames_info.push_back(result);
-                    break;
-                }
+                // if(result.size())
+                // {
+                //     frames_info.push_back(result);
+                //     break;
+                // }
                 // for(auto x : one_frame_result)
                 // {
                 //     // cv::rectangle(cropped_image, cv::Point(x.x1, x.y1), cv::Point(x.x2, x.y2), cv::Scalar(x.category==2?255:0, x.category?255:0, x.category?0:255), 2);
                 // }
                 // // cv::imwrite( std::to_string(i)+"detect.jpg" ,cropped_image);
-                // frames_info.push_back(result);
+                frames_info.push_back(result);
             }
 
             std::vector<Bbox> crop_rect;
@@ -101,13 +101,15 @@ namespace glasssix::batterypilferers
 if(frames_info.size())
 {
 
-            // auto compareVectors = [](const std::vector<car_person_batery>& a, const std::vector<car_person_batery>& b) {
-            //     return a.size() > b.size(); };
+            auto compareVectors = [](const std::vector<car_person_batery>& a, const std::vector<car_person_batery>& b) {
+                return a.size() > b.size(); };
 
-            // std::sort(frames_info.begin(), frames_info.end(), compareVectors);
+            std::sort(frames_info.begin(), frames_info.end(), compareVectors);
 
             // std::vector<Bbox> crop_rect = get_candicate_rect(frames_info[0],frames_info[1]);
-
+        // std::cout<< "frames_info[0].size() : "<<frames_info[0].size()<<std::endl;
+        if(frames_info[0].size() )
+        {
             crop_rect = get_candicate_rect(frames_info[0]);
 
             is_battery_pilferers.resize(crop_rect.size());
@@ -134,6 +136,7 @@ if(frames_info.size())
                 is_battery_pilferers[i] = network_result[0]>network_result[1] ? 1 : 0 ;
                 scores[i]=network_result[0];
             }
+        }
 }
 
             auto fin_result= exposing::make_param_vector<box_info>();
