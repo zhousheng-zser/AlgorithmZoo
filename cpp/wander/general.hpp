@@ -5,7 +5,9 @@
 #include <opencv2/core.hpp>
 #include <opencv2/imgproc.hpp>
 #include <opencv2/dnn.hpp>
+#include "hardcode.hpp"
 #include "Excalibur/pipeline.hpp"
+#include "Primitives/tensor_conversions.hpp"
 
 
 #define lxyyolo
@@ -363,15 +365,10 @@ std::shared_ptr<memory::tensor<float>> Yolov8s_Concat(std::vector<std::shared_pt
 std::tuple<cv::Mat, float> preprocess_detection(cv::Mat& src, int& pad_h, int& pad_w, cv::Size input_shape = cv::Size(640, 640))
 {
     float scale = std::min((float)input_shape.width / (float)src.cols, (float)input_shape.height / (float)src.rows);
-    cv::Mat cut_image;
-    cv::Mat mask_image(input_shape, CV_8UC3, cv::Scalar(114, 114, 114));
+    cv::Mat mask_image;
     if (src.rows != input_shape.height || src.cols != input_shape.width)
     {
-        cv::resize(src, cut_image, cv::Size((int)(src.cols * scale), (int)(src.rows * scale)), cv::INTER_LINEAR);
-
-        pad_h = int((input_shape.height - cut_image.rows) / 2);
-        pad_w = int((input_shape.width - cut_image.cols) / 2);
-        cv::copyMakeBorder(cut_image, mask_image, pad_h, input_shape.height - cut_image.rows - pad_h, pad_w, input_shape.width - cut_image.cols - pad_w, cv::BORDER_CONSTANT, cv::Scalar{ 114,114,114 });
+        cv::resize(src, mask_image, input_shape, cv::INTER_LINEAR);
     }
     else
     {

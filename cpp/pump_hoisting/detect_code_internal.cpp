@@ -30,13 +30,21 @@ namespace glasssix::pump_hoisting
         {
 #if defined(USE_RKNNAPI) || defined(USE_RKNN2API)
             std::string model_ext{ ".rknn" };
+            
+            const int letter_h = 736;
+            const int letter_w = 1280;
 #elif defined(USE_BMNN)
             std::string model_ext{ ".bmodel" };
+            const int letter_h = 1280;
+            const int letter_w = 1280;
 #else
             std::string model_ext(".onnx");
+            const int letter_h = 1280;
+            const int letter_w = 1280;
 #endif
             net_pump_hoisting_detect2_ = std::make_shared<GenPipeline>(model_directory + "/pump_hoisting" + model_ext, device);
-            yolov8_instance = std::make_shared<Yolov8<GenPipeline>>(1280,736, net_pump_hoisting_detect2_);
+            net_pump_hoisting_detect2_->manual_possible_normalization(0, 1.f / 255);
+            yolov8_instance = std::make_shared<Yolov8<GenPipeline>>(letter_w,letter_h, net_pump_hoisting_detect2_);
         } 
 
 
@@ -144,7 +152,7 @@ namespace glasssix::pump_hoisting
             cv::Mat draw = image.clone();
 
             // 获取检测到的对象
-            auto pump_objects =  yolov8_instance->get_objects( image);
+            auto pump_objects =  yolov8_instance->get_objects( draw);
 
             std::vector<Rectangle>  all_current_boxes;
 

@@ -94,11 +94,14 @@ namespace glasssix::batterypilferers
 
             std::sort(frames_info.begin(), frames_info.end(), compareVectors);
 
-            std::vector<Bbox> crop_rect = get_candicate_rect(frames_info[0],frames_info[1]);
+            // std::vector<Bbox> crop_rect = get_candicate_rect(frames_info[0],frames_info[1]);
+        // std::cout<< "frames_info[0].size() : "<<frames_info[0].size()<<std::endl;
+        if(frames_info[0].size() )
+        {
+            crop_rect = get_candicate_rect(frames_info[0]);
 
-            std::vector<int> is_battery_pilferers(crop_rect.size());
-            std::vector<float> scores(crop_rect.size());
-
+            is_battery_pilferers.resize(crop_rect.size());
+            scores.resize(crop_rect.size());
             for (int i=0;i<crop_rect.size();i++) 
             { 
                 std::cout<<  crop_rect[i].y1<<" "<<crop_rect[i].y2<<" "<<crop_rect[i].x1<<" "<<crop_rect[i].x2<<std::endl;
@@ -123,6 +126,8 @@ namespace glasssix::batterypilferers
                 is_battery_pilferers[i] = network_result[0]>network_result[1] ? 1 : 0 ;
                 scores[i]=network_result[0];
             }
+        }
+}
 
             auto fin_result= exposing::make_param_vector<box_info>();
             std::vector<box_info_internal> result;
@@ -131,11 +136,8 @@ namespace glasssix::batterypilferers
                 box_info_internal temp_result;
                 temp_result.x1=crop_rect[i].x1;
                 temp_result.y1=crop_rect[i].y1;
-                temp_result.x2=crop_rect[i].x1 + crop_rect[i].x2;
-                temp_result.y2=crop_rect[i].y1 + crop_rect[i].y2;
                 temp_result.score=  scores[i];
                 temp_result.category = is_battery_pilferers[i];
-                result.push_back( temp_result  );
             }
   
             for (auto& i : result)
