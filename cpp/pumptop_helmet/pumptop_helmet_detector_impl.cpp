@@ -2,7 +2,7 @@
 #include "pumptop_helmet_info_impl.hpp"
 #include <opencv2/opencv.hpp>
 #include <opencv2/imgproc/types_c.h>
-#include <GenPipeline/PrePostProcessGenPipeline.hpp>
+#include <GenPipeline/GenPipeline.hpp>
 #include <YoloFamily/Yolo_wrapper.hpp>
 #include "poly.hpp"
 #include <thread>

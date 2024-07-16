@@ -205,7 +205,7 @@ if(BUILD_SAFE_PRODUCTION_SDK)
 	add_subdirectory(Pump_Vesthelmet) #craneman
 	add_subdirectory(Pump_pumptop_person)
 	add_subdirectory(Pump_mask)
-	#add_subdirectory(Pumptop_helmet)
+	add_subdirectory(Pumptop_helmet)
 	add_subdirectory(Pump_weld)
 	add_subdirectory(Pump_Light)
 	add_subdirectory(Pump_gate_status )

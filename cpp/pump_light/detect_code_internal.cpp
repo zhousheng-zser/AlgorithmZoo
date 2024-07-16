@@ -12,14 +12,10 @@
 
 #include <GenPipeline/GenPipeline.hpp>
 #include <YoloFamily/Yolo_wrapper.hpp>
-#include "../genpipeline/market/yolov8_GEN.hpp"
 
 #include <Primitives/tensor_conversions.hpp>
 
 #include <opencv2/opencv.hpp>
-#include <opencv2/core.hpp>
-#include <opencv2/imgproc.hpp>
-#include <opencv2/dnn.hpp>
 
 
 
