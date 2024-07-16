@@ -35,9 +35,31 @@ namespace glasssix::climb_tumble_pedestrian
 			throw Json::Exception("parse json failed");
 
 		Json::Value params = root.get("dyparams", Json::Value());
-
+		Json::Value pedestrain_info(Json::arrayValue);
+		pedestrain_info = root["person_list"];
 		std::map<std::string, float> dparam_map;
+		auto pedestrian_info_abi = exposing::make_param_vector<pedestrian::box_info>();
+		for (int i = 0; i < pedestrain_info.size(); i++)
+		{
+			auto temp = exposing::make_exported_interface<pedestrian::box_info>();
+			temp.set_x1(pedestrain_info[i]["x1"].asInt());
+			temp.set_y2(pedestrain_info[i]["y2"].asInt());
+			temp.set_x2(pedestrain_info[i]["x2"].asInt());
+			temp.set_y1(pedestrain_info[i]["y1"].asInt());
+			temp.set_score(pedestrain_info[i]["score"].asFloat());
+			pedestrian_info_abi.push_back(temp);
+		}
+		std::map<std::string, float> param_map;
+		std::vector<PedestrianInfo> pedestrian_info;
+		for (auto it : pedestrian_info_abi)
+		{
+			pedestrian_info.push_back(PedestrianInfo{it});
+		}
 
+		params.removeMember("person_list");
+		for (auto it : param_map_abi) {
+			param_map.insert(std::make_pair(it.key(), it.value()));
+		}
 		for (auto& param_name : params.getMemberNames()) {
 			dparam_map.try_emplace(param_name, params[param_name].asFloat());
 		}
@@ -56,7 +78,7 @@ namespace glasssix::climb_tumble_pedestrian
 		int roi_y = 0;
 		int roi_width = width;
 		int roi_height = height;
-		auto result = impl_->detect(std::move(input_data), channels, height, width, roi_x, roi_y, roi_width, roi_height, dparam_map);
+		auto result = impl_->detect(std::move(input_data), channels, height, width, roi_x, roi_y, roi_width, roi_height, dparam_map, pedestrian_info);
 		Json::Value jarray_box;
 		Json::Value jarray_persion_detected(Json::arrayValue);
 		Json::Value jarray_climb_detected(Json::arrayValue);
