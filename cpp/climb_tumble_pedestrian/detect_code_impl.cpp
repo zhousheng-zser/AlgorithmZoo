@@ -22,6 +22,11 @@ namespace glasssix::climb_tumble_pedestrian
 
 		impl_ = std::make_unique<detect_code_internal>(exposing::to_narrow_string(models_directory), device);
 	}
+		exposing::param_string detect_code_impl::version() const
+	{
+		return exposing::to_param_string(impl_->version());
+	}
+
 
 	exposing::param_string detect_code_impl::execute(const exposing::param_hash_map<exposing::param_string, exposing::unknown_object>& input_params_map)
 	{

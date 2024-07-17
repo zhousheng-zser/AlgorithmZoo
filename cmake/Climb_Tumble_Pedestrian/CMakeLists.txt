@@ -12,7 +12,6 @@ target_link_libraries(${module_name} PRIVATE jsoncpp)
 add_dependencies(${module_name} jsoncpp)
 
 target_link_libraries(${module_name} PRIVATE pedestrian)
-add_dependencies(${module_name} pedestrian)
 
 if(NOT (CMAKE_CXX_COMPILER_ID STREQUAL "MSVC"))
 	target_link_directories(${module_name} PRIVATE ${COMMON_LIBRARY_DIRS})
