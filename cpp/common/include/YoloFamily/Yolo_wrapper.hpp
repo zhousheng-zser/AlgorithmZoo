@@ -448,7 +448,50 @@ else
 
 };
 
-template <typename T, bool Exception=false, bool Posture=false>
+template <typename T, bool Exception = false, bool Posture = false>
+class Yolov8_Complement : public YoloBase< std::shared_ptr<T> > {
+public:
+
+    Yolov8_Complement(int model_input_width, int model_input_height, std::shared_ptr<T> pipe) :
+        YoloBase< std::shared_ptr<T>>(model_input_width, model_input_height, pipe) {}
+
+
+    std::vector<std::vector<float>> yoloconcat(std::vector<std::shared_ptr<memory::tensor<float>>>& outs, float conf_thres) 
+    {
+        // conf_thres = yolo_wrapper::de_sigmoid(conf_thres);
+        std::vector<std::vector<float>> output_new;
+
+        auto data_shape = outs[0]->data_shape();
+        int category = data_shape[1] - 4;
+        int object_length = data_shape[2];
+
+        const float* ptr_out = outs[0]->cpu_data();
+        const float* conf_ = ptr_out + object_length * 4;
+
+        std::vector<int> candicate_index;
+        std::vector<int> category_label;
+        for (size_t slice_index = 0; slice_index < object_length * category; slice_index++)
+            if (conf_[slice_index] > conf_thres)
+            {
+                candicate_index.push_back(slice_index % object_length);
+                category_label.push_back(slice_index / object_length);
+            }
+
+        for (size_t i = 0; i < candicate_index.size(); i++)
+        {
+            std::vector<float> out_centre_xywh{ * (ptr_out + candicate_index[i]), * (ptr_out + candicate_index[i] + object_length ),
+                                                * (ptr_out + candicate_index[i] + object_length*2 ), * (ptr_out + candicate_index[i] + object_length * 3),
+                                                yolo_wrapper::sigmoid_x(conf_[candicate_index[i] + category_label[i] * object_length]),
+                                                category_label[i] };
+            output_new.push_back(out_centre_xywh);
+        }
+        return output_new;
+    
+    }
+    
+};
+
+template <typename T, bool Exception = false, bool Posture = false>
 class Yolov7 : public YoloBase< std::shared_ptr<T> > {
 public:
     
