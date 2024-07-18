@@ -1,10 +1,12 @@
 cmake_minimum_required(VERSION 3.14.3)
 
 set(module_name pump_vesthelmet)
-file(GLOB src ${CMAKE_CURRENT_SOURCE_DIR}/../../cpp/pump_vesthelmet/*.cpp)
-file(GLOB header ${CMAKE_CURRENT_SOURCE_DIR}/../../cpp/pump_vesthelmet/*.hpp)
+file(GLOB src ${CMAKE_CURRENT_SOURCE_DIR}/../../cpp/${module_name}/*.cpp)
+file(GLOB header ${CMAKE_CURRENT_SOURCE_DIR}/../../cpp/${module_name}/*.hpp)
 add_library(${module_name} SHARED ${src} ${header})
 
+target_link_libraries(${module_name} PRIVATE genpipeline)
+add_dependencies(${module_name} genpipeline)
 if(NOT (CMAKE_CXX_COMPILER_ID STREQUAL "MSVC"))
     target_link_directories(${module_name} PRIVATE ${COMMON_LIBRARY_DIRS})
 endif()

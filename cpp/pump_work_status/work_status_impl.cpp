@@ -72,8 +72,7 @@ namespace glasssix::pump_work_status
         CHECK_EQ(channels, 3);
         CHECK_EQ(bitmap.size(), channels * height * width);
 
-        cv::Mat image(cv::Size(width, height), CV_8UC3);
-        std::memcpy(image.data, bitmap.data(), sizeof(uint8_t) * channels * height * width);
+		cv::Mat image(cv::Size(width, height), CV_8UC3, const_cast<uint8_t*>(bitmap.data()));
 
         std::vector<std::vector<int>> mask_array(rois.size()/2);
         for (size_t i = 0; i < rois.size(); i+=2)

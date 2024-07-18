@@ -1,20 +1,8 @@
 #include "pumptop_helmet_detector_impl.hpp"
 #include "pumptop_helmet_info_impl.hpp"
-#ifdef USE_RKNNAPI
-#include "RKNNWrapper/rknn_wrapper.hpp"
 #include <opencv2/opencv.hpp>
 #include <opencv2/imgproc/types_c.h>
-#elif defined(USE_RKNN2API)
-#include "RKNN2Wrapper/rknn2_wrapper.hpp"
-#include <opencv2/opencv.hpp>
-#include <opencv2/imgproc/types_c.h>
-#else
-#include "Excalibur/pipeline.hpp"
-#include "Excalibur/operation_safty_cut.hpp"
-#include "Excalibur/operation_resize.hpp"
-#include "Primitives/tensor_conversions.hpp"
-#endif
-#include <GenPipeline/PrePostProcessGenPipeline.hpp>
+#include <GenPipeline/GenPipeline.hpp>
 #include <YoloFamily/Yolo_wrapper.hpp>
 #include "poly.hpp"
 #include <thread>
@@ -33,19 +21,31 @@ namespace glasssix::pumptop_helmet
 		impl(std::string_view model_directory, int device)
 			: model_directory_{std::string(model_directory)}, device_{device}
 		{
+#if defined(USE_RKNNAPI) || defined(USE_RKNN2API)
+			std::string model_ext{ ".rknn" };
+#elif defined(USE_BMNN)
+			std::string model_ext{ ".bmodel" };
+#else
+			std::string model_ext{ ".onnx" };
+#endif
 			// 算法传过来的模型名:泵检测模型 1280-v1_ori_TAL
-			net_detect_1 = std::make_shared<GenPipeline>(model_directory_ + "/pumptop_helmet_pump.rknn", device_);
+			net_detect_1 = std::make_shared<GenPipeline>(model_directory_ + "/pumptop_helmet_pump" + model_ext, device_);
 			yolov8_instance_1 = std::make_shared<Yolov8<GenPipeline>>(1280, 1280, net_detect_1);
 
 			// 算法传过来的模型名:人检测模型 1280T320-0108_Person_best_detection
-			net_detect_2 = std::make_shared<GenPipeline>(model_directory_ + "/pumptop_helmet_person.rknn", device_);
+			net_detect_2 = std::make_shared<GenPipeline>(model_directory_ + "/pumptop_helmet_person" + model_ext, device_);
 			yolov8_instance_2 = std::make_shared<Yolov8<GenPipeline>>(1280, 736, net_detect_2);
 
 			// 算法传过来的模型名:人头检测模型 640T320-200epft-baoshinegtivev2-atss-nwd-wop
-			net_detect_3 = std::make_unique<rknnwrapper::rknn_wrapper>(phais, std::string(model_directory) + "/" + "pumptop_helmet_head.rknn", device);
-
+			net_detect_3 = std::make_shared<GenPipeline>(model_directory_ + "/pumptop_helmet_head" + model_ext, device_);
+			//yolov8_instance_3 = std::make_shared<Yolov8<GenPipeline>>(128, 128, net_detect_3);
 			// 算法传过来的模型名:人头分类检测模型 helmetclassify-v2-96-labelsmooth-0.05
-			net_detect_4 = std::make_unique<rknnwrapper::rknn_wrapper>(phais, std::string(model_directory) + "/" + "pumptop_helmet_helmet.rknn", device);
+			net_detect_4 = std::make_shared<GenPipeline>(model_directory_ + "/pumptop_helmet_helmet" + model_ext, device_);
+
+			net_detect_1->manual_possible_normalization(0, 1.f / 255);
+			net_detect_2->manual_possible_normalization(0, 1.f / 255);
+			net_detect_3->manual_possible_normalization(0, 1.f / 255);
+			net_detect_4->manual_possible_normalization(0, 1.f / 255);
 		}
 
 		~impl()
@@ -632,7 +632,7 @@ namespace glasssix::pumptop_helmet
 				throw exposing::abi_invalid_argument("current frame is empty");
 			}
 			auto results = exposing::make_param_vector<pumptop_helmet::pumptop_helmet_info>();
-			cv::Mat image(height, width, CV_8UC3, bitmap.data());
+            cv::Mat image(cv::Size(width, height), CV_8UC3, const_cast<uint8_t*>(bitmap.data()));
 			std::vector<cv::Rect> ori_rect = pump_detect(image, param_map, categorys, scores, helmet_scores);
 			for (int i = 0; i < ori_rect.size(); i++)
 			{
@@ -962,7 +962,7 @@ namespace glasssix::pumptop_helmet
 
 			v_blob.push_back(blob.cols);
 			v_blob.push_back(blob.channels());
-			auto network_results = net_detect_3->forward(blob.data, v_blob, RKNN_TENSOR_NHWC);
+			auto network_results = net_detect_3->forward(blob);
 
 			std::vector<std::string> out_names = {"355", "340", "output0"};
 
@@ -1022,7 +1022,7 @@ namespace glasssix::pumptop_helmet
 
 			v_blob.push_back(blob.cols);
 			v_blob.push_back(blob.channels());
-			auto network_results = net_detect_4->forward(blob.data, v_blob, RKNN_TENSOR_NHWC);
+			auto network_results = net_detect_4->forward(blob);
 
 			std::vector<std::string> out_names = {"output0"};
 
@@ -1050,8 +1050,8 @@ namespace glasssix::pumptop_helmet
 	private:
 		std::shared_ptr<GenPipeline> net_detect_1;
 		std::shared_ptr<GenPipeline> net_detect_2;
-		std::unique_ptr<rknnwrapper::rknn_wrapper> net_detect_3;
-		std::unique_ptr<rknnwrapper::rknn_wrapper> net_detect_4;
+		std::shared_ptr<GenPipeline> net_detect_3;
+		std::shared_ptr<GenPipeline> net_detect_4;
 		std::shared_ptr<Yolov8<GenPipeline, false>> yolov8_instance_1;
 		std::shared_ptr<Yolov8<GenPipeline, false>> yolov8_instance_2;
 
