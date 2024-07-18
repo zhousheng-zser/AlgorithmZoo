@@ -38,7 +38,7 @@ namespace glasssix::subway_anomaly
             net_detect_subway = std::make_unique<glasssix::excalibur::pipeline<float>>(get_model_params("subway_anomaly", false),
                 std::string(model_directory) + "/" + "subway_anomaly.racy", device);
 #endif  
-            init_data_compatible(640, 640, add_weight_subway, mul_weight_subway);
+            init_data_compatible(256, 256, add_weight_subway, mul_weight_subway);
         }
         void init_data_compatible(int width, int height, std::vector<float>& add_weight, std::vector<float>& mul_weight)
         {
@@ -143,7 +143,7 @@ namespace glasssix::subway_anomaly
         subway_anomaly::box_info run_detect_yf(cv::Mat& cropped_image, std::map<std::string, float>& param_map)
         {
             float con_thres = param_map.count("conf_thres") ? param_map["conf_thres"] : 0.9f;
-            std::vector<float> cropped_result = yolo8_detect(cropped_image, 640, 640);
+            std::vector<float> cropped_result = yolo8_detect(cropped_image, 256, 256);
             subway_anomaly::box_info_internal ans;
             if (cropped_result[0] >= cropped_result[1] && cropped_result[0] >=0.9)
             {
