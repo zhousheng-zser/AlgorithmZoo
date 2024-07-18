@@ -8,9 +8,13 @@
 
 #include <abi/param_vector.hpp>
 #include <utility>
+#include "general.hpp"
 #include <mutex>
 #include "wander.hpp"
 #include <GenPipeline/GenPipeline.hpp>
+#if defined(USE_RKNNAPI) || defined(USE_RKNN2API)
+#include <RKNN2Wrapper/rknn2_wrapper.hpp>
+#endif
 
 namespace glasssix::wander
 {
@@ -22,10 +26,47 @@ namespace glasssix::wander
 
 #if defined(USE_RKNNAPI) || defined(USE_RKNN2API)      
         net_feature_ = std::make_shared<GenPipeline>(std::string(model_directory) + "/people_feature.rknn", device);   
+        net_pedestrian_ = std::make_unique<rknnwrapper::rknn_wrapper>(get_model_params("climbing_tumble_pedestrian", false),
+            std::string(model_directory) + "/" + "climbing_tumble_pedestrian.rknn", device);
 #elif defined(USE_BMNN)
         net_feature_ = std::make_shared<GenPipeline>(std::string(model_directory) + "/people_feature.bmodel", device);   
+        //net_pedestrian_ = std::make_shared<GenPipeline>(std::string(model_directory) + "/climbing_tumble_pedestrian_temp.bmodel", device); //sophon的暂时没出来
         net_feature_->manual_possible_normalization(std::array<float, 3>{0.f, 0.f, 0.f}, std::array<float, 3>{1.0, 1.0, 1.0});
 #endif 
+        init_data_compatible(256, 256, add_weight_light, mul_weight_light);
+        }
+        void init_data_compatible(int width, int height, std::vector<float>& add_weight, std::vector<float>& mul_weight)
+        {
+            int size_mul_weight = width * height * 21 / 1024; //33600
+            int size_add_weight = 2 * size_mul_weight;
+            int width_base = width / 8;
+            int height_base = height / 8;
+            int candicate_area = width_base * height_base; //160*160
+
+            add_weight.resize(size_add_weight);
+            mul_weight.resize(size_mul_weight);
+            for (size_t i = 0; i < candicate_area * 21 / 16; i++)
+            {
+                if (i < candicate_area) // 25600
+                {
+                    add_weight[i] = i % (width_base); //160
+                    add_weight[i + size_mul_weight] = i / (width_base); //
+                    mul_weight[i] = 8.f;
+                }
+                else if (i<int(std::round(i - candicate_area * 1.25)))
+                {
+                    add_weight[i] = (i - candicate_area) % (width_base / 2);
+                    add_weight[i + size_mul_weight] = (i - candicate_area) / (width_base / 2);
+                    mul_weight[i] = 16.f;
+                }
+                else
+                {
+                    add_weight[i] = int(std::round(i - candicate_area * 1.25)) % (width_base / 4);
+                    add_weight[i + size_mul_weight] = int(std::round(i - candicate_area * 1.25)) / (width_base / 4);
+                    mul_weight[i] = 32.f;
+                }
+            }
+            return;
         }
 
         exposing::param_vector<wander::box_info> detect(const exposing::param_span<std::uint8_t>& bitmap, int channels, int height, int width, int roi_x, int roi_y, int roi_width, int roi_height, std::map<std::string, double>& param_map,const std::vector<PedestrianInfo> &pedestrain_info)
@@ -65,6 +106,28 @@ namespace glasssix::wander
 			const std::string algo_module_version = "2.1.0";
 			return fmt::format(R"({{"nn_frame_version":"{}", "algo_module_version":"{}"}})", "", algo_module_version);
 		}
+        std::vector<float> yolo8_detect(cv::Mat& image, int w_, int h_)
+        {
+            auto new_shape = cv::Size(w_, h_);
+            cv::Mat blob;
+            float ratio = 0;
+            int pad_h = 0;
+            int pad_w = 0;
+            std::tie(blob, ratio) = preprocess_detection(image, pad_h, pad_w, new_shape);
+            std::vector<std::shared_ptr<memory::tensor<float>>> forwards;
+            std::shared_ptr<memory::tensor<float>> real_forwards;
+
+            auto network_result = net_pedestrian_->forward(blob.data, { 1, blob.rows, blob.cols,blob.channels() }, RKNN_TENSOR_NHWC);
+            float* cls_conf = network_result["output0"]->mutable_cpu_data();
+            std::vector<float> current_frame_result;
+            current_frame_result.push_back(cls_conf[0]);
+            current_frame_result.push_back(cls_conf[1]);
+            current_frame_result.push_back(cls_conf[2]);
+            current_frame_result.push_back(cls_conf[3]);
+            current_frame_result.push_back(cls_conf[4]);
+            return current_frame_result;
+
+        }
 
         std::string remove_library(int devices)
         {
@@ -109,6 +172,7 @@ namespace glasssix::wander
         std::vector<box_info_internal> run_detect(const exposing::param_span<std::uint8_t>& bitmap, int height, int width, int roi_x, int roi_y, int roi_width, int roi_height, 
             std::map<std::string, double>& param_map, const std::vector<PedestrianInfo> &pedestrain_info)
         {
+            double conf_thres = param_map.count("conf_thres") ? param_map["conf_thres"] : 0.7f;
             double device_id               = param_map.count("device_id") ? param_map["device_id"] : 0;
             double feature_table_size      = param_map.count("feature_table_size") ? param_map["feature_table_size"] : 10000.f;      
             double current_time            = param_map.count("current_time") ? param_map["current_time"] : 0.f;
@@ -139,10 +203,18 @@ namespace glasssix::wander
 
                 cv::Mat crop = image(cv::Range( std::round(body.y1), std::round(body.y2) ), cv::Range( std::round(body.x1), std::round(body.x2))).clone();
 
-                cv::Mat headimg;
-                cv::cvtColor(crop, crop, cv::COLOR_BGR2RGB);
+                cv::Mat headimg, pedestrian;
+                std::vector<float> cropped_result = yolo8_detect(crop, 256, 256);// 分类
+                cv::cvtColor(crop, crop, cv::COLOR_BGR2RGB);//检测是否为行人不能做这个操作
                 cv::resize(crop, headimg, cv::Size((int)(128), (int)(256)), cv::INTER_CUBIC);
 
+                int category = 5;
+                int index = std::max_element(cropped_result.begin(), cropped_result.begin() + category) - cropped_result.begin();
+                double confidence = cropped_result[index];
+                //printf("index = %d confidence = %0.6f\n", index, confidence);
+                // 0正常站立 1攀爬 2跌倒 3残缺 4其他;且分数低于0.7的不检测
+                if(confidence < conf_thres || index == 3 || index == 4 )
+                    continue;
                 auto  data = net_feature_->forward(headimg).begin()->second->cpu_data();
                 float xx = 0.f;
 
@@ -165,6 +237,7 @@ namespace glasssix::wander
                     result.first_show_time = person_info.first_show_time;
                     result.last_show_time = person_info.last_show_time;
                     result.cosine_similarity= person_info.cosine_similarity;
+                    result.detection_number = person_info.detection_number;
                 l_c.emplace_back(result);
                 tmp_bbox.id =  person_info.id;
                 temp_last_location_info.push_back(tmp_bbox);
@@ -181,8 +254,16 @@ namespace glasssix::wander
     private:
 
         std::shared_ptr<GenPipeline> net_feature_;
+        //std::shared_ptr<GenPipeline> net_pedestrian_;
         std::string model_directory_;
         int device_ ;
+        std::vector<float> add_weight_light;
+        std::vector<float> mul_weight_light;
+#if defined(USE_RKNNAPI) || defined(USE_RKNN2API)
+        std::unique_ptr < rknnwrapper::rknn_wrapper> net_pedestrian_;
+#else
+        std::unique_ptr < glasssix::excalibur::pipeline<float>> net_pedestrian_;
+#endif
 
     public:
         static std::vector<bbox> last_location_info;

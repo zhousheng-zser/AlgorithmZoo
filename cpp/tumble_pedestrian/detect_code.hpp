@@ -1,10 +1,10 @@
-#ifndef _CROWD_DETECT_CODE_HPP_
-#define _CROWD_DETECT_CODE_HPP_
+#ifndef _TUMBLE_PEDESTRIAN_DETECT_CODE_HPP_
+#define _TUMBLE_PEDESTRIAN_DETECT_CODE_HPP_
 
 #include "box_info.hpp"
 #include <abi/consumer.hpp>
 
-namespace glasssix::crowd
+namespace glasssix::tumble_pedestrian
 {
     struct detect_code;
 }
@@ -12,11 +12,11 @@ namespace glasssix::crowd
 namespace glasssix::exposing::impl
 {
     template <>
-    struct abi<crowd::detect_code>
+    struct abi<tumble_pedestrian::detect_code>
     {
         using identity_type = type_identity_interface;
 
-        static constexpr guid id{ "8D18F8DD-67BC-4EFA-A87C-97AE50DAFF5A" };
+        static constexpr guid id{ "CE3431F8-3717-B5D1-A0B9-B1277CDC79D9" };
 
         struct type : abi_unknown_object
         {
@@ -33,17 +33,16 @@ namespace glasssix::exposing::impl
                 std::int32_t roi_y,
                 std::int32_t roi_width,
                 std::int32_t roi_height,
-                std::int32_t min_cluster_size,
                 abi_in_t<exposing::param_hash_map<exposing::param_string, float>> param_map_abi,
-                abi_out_t<exposing::param_vector<crowd::box_info>> result) noexcept = 0;
+                abi_in_t<exposing::param_vector<pedestrian::box_info>> pedestrain_info_abi,
+                abi_out_t<exposing::param_vector<tumble_pedestrian::box_info>> result) noexcept = 0;
 
             virtual std::int32_t G6_ABI_CALL version(abi_out_t<param_string> result) noexcept = 0;
-            virtual std::int32_t G6_ABI_CALL remove_library(std::int32_t id, abi_out_t<param_string> result) noexcept = 0;
         };
     };
 
     template <typename Derived>
-    struct interface_vtable<Derived, crowd::detect_code> : interface_vtable_base<Derived, crowd::detect_code>
+    struct interface_vtable<Derived, tumble_pedestrian::detect_code> : interface_vtable_base<Derived, tumble_pedestrian::detect_code>
     {
 
         virtual std::int32_t G6_ABI_CALL init(
@@ -64,13 +63,13 @@ namespace glasssix::exposing::impl
             std::int32_t roi_y,
             std::int32_t roi_width,
             std::int32_t roi_height,
-            std::int32_t min_cluster_size,
             abi_in_t<exposing::param_hash_map<exposing::param_string, float>> param_map_abi,
-            abi_out_t<exposing::param_vector<crowd::box_info>> result) noexcept override
+            abi_in_t<exposing::param_vector<pedestrian::box_info>> pedestrian_info_abi,
+            abi_out_t<exposing::param_vector<tumble_pedestrian::box_info>> result) noexcept override
         {
             return abi_safe_call([&]
-                { *result = detach_abi(this->self().detect(create_from_abi<param_span<std::uint8_t>>(bitmap), channels, height, width, roi_x, roi_y, roi_width, roi_height, min_cluster_size,
-                   create_from_abi<exposing::param_hash_map<exposing::param_string, float>>(param_map_abi))); });
+                { *result = detach_abi(this->self().detect(create_from_abi<param_span<std::uint8_t>>(bitmap), channels, height, width, 
+                    roi_x, roi_y, roi_width, roi_height, create_from_abi<exposing::param_hash_map<exposing::param_string, float>>(param_map_abi),create_from_abi<exposing::param_vector<pedestrian::box_info>>(pedestrian_info_abi))); });
         }
 
         virtual std::int32_t G6_ABI_CALL version(abi_out_t<param_string> result) noexcept override
@@ -82,23 +81,13 @@ namespace glasssix::exposing::impl
                 }
                 );
         }
-
-        virtual std::int32_t G6_ABI_CALL remove_library(std::int32_t id, abi_out_t<param_string> result) noexcept override
-        {
-            return abi_safe_call(
-                [&]
-                {
-                    *result = detach_abi(this->self().remove_library(id));
-                }
-            );
-        }
     };
 
     template <>
-    struct abi_adapter<crowd::detect_code>
+    struct abi_adapter<tumble_pedestrian::detect_code>
     {
         template <typename Derived>
-        struct type : enable_self_abi_awareness<Derived, crowd::detect_code>
+        struct type : enable_self_abi_awareness<Derived, tumble_pedestrian::detect_code>
         {
             void init(
                 const param_string& model_directory,
@@ -109,7 +98,7 @@ namespace glasssix::exposing::impl
                     get_abi(device)));
             }
 
-            exposing::param_vector<crowd::box_info> detect(
+            exposing::param_vector<tumble_pedestrian::box_info> detect(
                 param_span<std::uint8_t> bitmap,
                 std::int32_t channels,
                 std::int32_t height,
@@ -118,10 +107,10 @@ namespace glasssix::exposing::impl
                 std::int32_t roi_y,
                 std::int32_t roi_width,
                 std::int32_t roi_height,
-                std::int32_t min_cluster_size,
-                const exposing::param_hash_map<exposing::param_string, float>& param_map_abi) const
+                const exposing::param_hash_map<exposing::param_string, float>& param_map_abi,
+                const exposing::param_vector<pedestrian::box_info>& pedestrain_info_abi) const
             {
-                exposing::param_vector<crowd::box_info> result{ nullptr };
+                exposing::param_vector<tumble_pedestrian::box_info> result{ nullptr };
 
                 return (check_abi_result(
                     this->self_abi().detect(
@@ -133,18 +122,11 @@ namespace glasssix::exposing::impl
                         roi_y,
                         roi_width,
                         roi_height,
-                        min_cluster_size,
                         get_abi(param_map_abi),
+                        get_abi(pedestrain_info_abi),
                         put_abi(result))
                 ),
-                result);
-            }
-
-            param_string remove_library(std::int32_t id) const
-            {
-                param_string result{ nullptr };
-
-                return (check_abi_result(this->self_abi().remove_library(id, put_abi(result))), result);
+                    result);
             }
 
             param_string version() const
@@ -157,7 +139,7 @@ namespace glasssix::exposing::impl
     };
 }
 
-namespace glasssix::crowd
+namespace glasssix::tumble_pedestrian
 {
     struct detect_code : exposing::inherits<detect_code>
     {

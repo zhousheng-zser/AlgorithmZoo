@@ -8,11 +8,11 @@
 #include <cstddef>
 #include <cstdint>
 #include <abi/param_span.hpp>
-
-#include "box_info.hpp"
 #include "../pedestrian/box_info.hpp"
 #include <opencv2/opencv.hpp>
-namespace glasssix::wander
+#include "box_info.hpp"
+
+namespace glasssix::climb_tumble_pedestrian
 {
     struct PedestrianInfo
     {
@@ -37,9 +37,8 @@ namespace glasssix::wander
 		std::int32_t x2;
 		std::int32_t y2;
 		float score;
-		//int category;//徘徊没用到这个值  
+		//int category;//攀爬没用到这个值  
     };
-
 
     struct box_info_internal
     {
@@ -47,16 +46,11 @@ namespace glasssix::wander
         int y1;
         int x2;
         int y2;
+        int category;
         float confidence;
-        int id;
-        double first_show_time=0.f;
-        double last_show_time=0.f;
-        float  cosine_similarity=0.f;
-        int detection_number = 1;
     };
 
-
-    class detect_code_internal 
+    class detect_code_internal
     {
     public:
         class impl;
@@ -75,16 +69,10 @@ namespace glasssix::wander
 
         std::string version();
 
-        std::string remove_library(int id);
+        exposing::param_vector<climb_tumble_pedestrian::box_info> detect(exposing::param_span<std::uint8_t> bitmap, int channels, int height, int width, int roi_x, int roi_y, int roi_width, int roi_height, std::map<std::string, float>& param_map, const std::vector<PedestrianInfo>& pedestrain_info) const;
 
-        std::string remove_person_by_index(int device_id,int id);
-   
-        exposing::param_vector<wander::box_info> detect(exposing::param_span<std::uint8_t> bitmap, int channels, int height, int width, 
-       int roi_x, int roi_y, int roi_width, int roi_height, std::map<std::string, double>& param_map, const std::vector<PedestrianInfo>& pedestrain_info) const;
-        //成员函数
     private:
         std::unique_ptr<impl> impl_;
     };
-
 }
 #endif
