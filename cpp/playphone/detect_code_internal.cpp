@@ -65,9 +65,9 @@ namespace glasssix::playphone
                     //detect phones
                     const auto playphone_det_region_rect = postureInfo.get_playphone_det_region(); // upperbody_img
                     const int max_upperbody_img_side = std::max(playphone_det_region_rect.width, playphone_det_region_rect.height);
-                    // Ear center to phone center threshold: 0.16 ¡Á longest side of playphone_det_region_rect.
+                    // Ear center to phone center threshold: 0.16 Ã— longest side of playphone_det_region_rect.
                     const float ear_tresh = max_upperbody_img_side * 0.16f;
-                    // Ear-to-nose distance too close threshold: 0.12 ¡Á longest side of playphone_det_region_rect.
+                    // Ear-to-nose distance too close threshold: 0.12 Ã— longest side of playphone_det_region_rect.
 					const float hand_nose_thresh= max_upperbody_img_side * 0.12f;
                     const bool hand_close_nose = postureInfo.if_hand_close_nose(hand_nose_thresh);
 
@@ -108,11 +108,11 @@ namespace glasssix::playphone
                         }
                     }
                 }
-                else 
-                {
-                    //body error
-                    pphone_box_info.set_body_error(postureInfo);
-                }
+                // else 
+                // {
+                //     //body error
+                //     pphone_box_info.set_body_error(postureInfo);
+                // }
 
                 result.push_back(exposing::make_as_first<box_info_impl>(pphone_box_info));
             }
