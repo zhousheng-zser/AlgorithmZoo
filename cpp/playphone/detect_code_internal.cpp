@@ -10,7 +10,7 @@
 #include <GenPipeline/GenPipeTools.hpp>
 #include <GenPipeline/PrePostProcessGenPipeline.hpp>
 #include "../genpipeline/market/yolov8_GEN.hpp"
-
+#include "trace_id.hpp"
 namespace glasssix::playphone
 {
     class detect_code_internal::impl {
@@ -34,6 +34,7 @@ namespace glasssix::playphone
 
         exposing::param_vector<playphone::box_info> detect(const exposing::param_span<std::uint8_t>& bitmap, int channels, int height, int width, int roi_x, int roi_y, int roi_width, int roi_height, exposing::param_vector<posture::box_info> posture_info_list_raw, std::map<std::string, float>& param_map)
         {
+            frame++;
             auto result = exposing::make_param_vector<playphone::box_info>();
             if (bitmap.empty())
             {
@@ -51,7 +52,7 @@ namespace glasssix::playphone
 
             float phone_conf_thres = param_map.count("phone_conf_thres") ? param_map["phone_conf_thres"] : 0.7f;
             float phone_nms_thres = param_map.count("phone_nms_thres") ? param_map["phone_nms_thres"] : 0.5f;
-
+            std::vector<Input_data> inputs;
             for (auto pinfo : posture_info_list_raw)
             {
                 PostureInfo postureInfo{ pinfo };
@@ -59,6 +60,14 @@ namespace glasssix::playphone
 
                 box_info_internal pphone_box_info;
                 pphone_box_info.set_man(postureInfo);
+
+                Input_data input_data;
+                input_data.x1 = postureInfo.xmin;
+                input_data.y1 = postureInfo.ymin;
+                input_data.x2 = postureInfo.xmax;
+                input_data.y2 = postureInfo.ymax;
+                input_data.width = postureInfo.xmax - postureInfo.xmin;
+                input_data.is_playphone = false;
 
                 if (postureInfo.invaild_hand_kpnum() < 2 && postureInfo.invaild_face_kpnum() < 2)
                 {
@@ -103,6 +112,8 @@ namespace glasssix::playphone
                                 }
 
                                 pphone_box_info.set_phone(phoneObj);
+                                input_data.is_playphone = true;
+
                                 break;
                             }
                         }
@@ -114,6 +125,8 @@ namespace glasssix::playphone
                 //     pphone_box_info.set_body_error(postureInfo);
                 // }
 
+                //todo
+                inputs.push_back(input_data);
                 result.push_back(exposing::make_as_first<box_info_impl>(pphone_box_info));
             }
 
