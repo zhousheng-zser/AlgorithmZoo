@@ -44,7 +44,7 @@ namespace glasssix::pedestrian
             Yolov8_Complement_instance = std::make_shared<Yolov8_Complement<GenPipeline>>(1280, 736, net_pedestrian_);
 #elif defined(USE_BMNN)
 
-            Yolov8_Complement_instance = std::make_shared<SophonYolov8Wrapper>( "/home/linaro/cw/updated_model_with_constant.bmodel");
+            Yolov8_Complement_instance = std::make_shared<SophonYolov8Wrapper>(model_dir + "/pedestriantest.bmodel");
             Yolov8_Complement_instance->init();
 #endif       
            
