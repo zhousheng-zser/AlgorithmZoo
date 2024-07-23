@@ -2,6 +2,7 @@
 #include <cmath>
 #include <tuple>
 
+#include "../posture/detect_code.hpp"
 #include "detect_code_internal.hpp"
 #include "box_info_impl.hpp"
 #include "logger.hpp"

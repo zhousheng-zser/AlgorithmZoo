@@ -21,14 +21,9 @@ namespace glasssix::wander
     class detect_code_internal::impl
     {
     public:
-        impl(const exposing::param_string str_params)
+        impl(const exposing::param_string model_directory, int device = -1)
         {
-            Json::Reader reader(Json::Features::strictMode());
-            Json::Value root;
-            if (!reader.parse(exposing::to_narrow_string(str_params), root))
-                throw Json::Exception("parse json failed");
-            std::string model_directory = root["models_directory"].asString();
-            int device = root.get("device", Json::Int(-1)).asInt();
+
 #if defined(USE_RKNNAPI) || defined(USE_RKNN2API)      
         net_feature_ = std::make_shared<GenPipeline>(std::string(model_directory) + "/people_feature.rknn", device);   
         net_pedestrian_ = std::make_unique<rknnwrapper::rknn_wrapper>(get_model_params("climbing_tumble_pedestrian", false),
@@ -192,7 +187,9 @@ namespace glasssix::wander
             for(auto& head:pedestrain_info)
             {
                 safe_crop_rect person_bbox(head.x1,head.x2,head.y1,head.y2,width,height);
-                auto body = person_bbox.feature_fetch_regionof_body();
+                auto body = person_bbox;
+                // auto body = person_bbox.feature_fetch_regionof_body();
+
                 bbox tmp_bbox;
                 int x1=std::round( head.x1)>0?std::round( head.x1):0  ;
                 int y1=std::round( head.y1)>0?std::round( head.y1):0  ;
@@ -204,7 +201,7 @@ namespace glasssix::wander
                 tmp_bbox.y1 =  person_bbox.y1;
                 tmp_bbox.y2 =  person_bbox.y2;
 
-                cv::Mat crop = image(cv::Range( std::round(body.y1), std::round(body.y2) ), cv::Range( std::round(body.x1), std::round(body.x2)));
+                cv::Mat crop = image(cv::Range( std::round(body.y1), std::round(body.y2) ), cv::Range( std::round(body.x1), std::round(body.x2))).clone();
 
                 cv::Mat headimg, pedestrian;
                 std::vector<float> cropped_result = yolo8_detect(crop, 256, 256);// 分类
@@ -225,10 +222,10 @@ namespace glasssix::wander
 
                 auto sqrt_xx=sqrt(xx);
                 std::lock_guard<std::mutex> lock(Feature_Table_Mutex);
-
-                auto person_info = feature_match(data, sqrt_xx,current_time, std::round(device_id), feature_tables, person_bbox.get_bbox(), allocate_id_current_frame, feature_table_size, feature_match_threshold );
+                std::vector<float> feature(data, data + 2048);
+                auto person_info = feature_match(feature.data(), sqrt_xx,current_time, std::round(device_id), feature_tables, person_bbox.get_bbox(), allocate_id_current_frame, feature_table_size, feature_match_threshold );
              
-                box_info_internal result;
+                    box_info_internal result;
                     result.x1=person_bbox.x1 ;
                     result.y1=person_bbox.y1 ;
                     result.x2=person_bbox.x2 ;
@@ -239,6 +236,7 @@ namespace glasssix::wander
                     result.first_show_time = person_info.first_show_time;
                     result.last_show_time = person_info.last_show_time;
                     result.cosine_similarity= person_info.cosine_similarity;
+                    result.detection_number = person_info.detection_number;
                 l_c.emplace_back(result);
                 tmp_bbox.id =  person_info.id;
                 temp_last_location_info.push_back(tmp_bbox);
@@ -272,8 +270,8 @@ namespace glasssix::wander
         static std::map<int, std::map<int, wander_info>>  feature_tables;
     };
 
-    detect_code_internal::detect_code_internal(std::string_view str_params)
-        : impl_{ std::make_unique<impl>(str_params) }
+    detect_code_internal::detect_code_internal(std::string_view model_directory, int device)
+        : impl_{ std::make_unique<impl>(model_directory, device) }
     {
 
     }

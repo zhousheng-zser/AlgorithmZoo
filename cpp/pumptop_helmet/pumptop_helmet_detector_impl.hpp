@@ -32,7 +32,7 @@ namespace glasssix::pumptop_helmet
 		pumptop_helmet_detector_impl();
 		~pumptop_helmet_detector_impl();
 
-		void init(const exposing::param_string& str_params);
+		void init(const exposing::param_string& models_directory, std::int32_t device);
 		exposing::param_string execute(const exposing::param_hash_map<exposing::param_string, exposing::unknown_object>& input_params_map);
 		exposing::param_string version() const;
 

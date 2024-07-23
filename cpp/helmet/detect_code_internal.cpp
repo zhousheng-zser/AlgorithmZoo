@@ -1,14 +1,10 @@
 #include <iostream>
 #include <cmath>
 #include <tuple>
-#include "json.h"
 
 #include "detect_code_internal.hpp"
 #include "box_info_impl.hpp"
 #include "logger.hpp"
-
-#include "hardcode.hpp"
-
 #include <abi/param_vector.hpp>
 #include <utility>
 
@@ -17,12 +13,6 @@
 #include <opencv2/dnn.hpp>
 #include <opencv2/imgproc.hpp>
 #include <tuple>
-
-#include "Excalibur/pipeline.hpp"
-#include "Excalibur/operation_make_border.hpp"
-#include "Excalibur/operation_safty_cut.hpp"
-#include "Primitives/tensor_conversions.hpp"
-#include <iomanip>
 
 #include <GenPipeline/PrePostProcessGenPipeline.hpp>
 #include <GenPipeline/GenPipeTools.hpp>
@@ -34,14 +24,8 @@ namespace glasssix::helmet
     public:
 
         impl() {}
-        impl(const exposing::param_string & str_params) :impl()
+        impl(const exposing::param_string model_directory, int device) :impl()
         {
-            Json::Reader reader(Json::Features::strictMode());
-            Json::Value root;
-            if (!reader.parse(exposing::to_narrow_string(str_params), root))
-                throw Json::Exception("parse json failed");
-            std::string model_directory = root["models_directory"].asString();
-            int device = root.get("device", Json::Int(-1)).asInt();
             std::string model_dir = exposing::to_narrow_string(model_directory);
             if (*model_dir.rbegin() != '/') model_dir += '/';
 #if defined(USE_RKNNAPI) || defined(USE_RKNN2API)
@@ -82,6 +66,18 @@ namespace glasssix::helmet
                 temp.y2 = hinfo.y2();
                 temp.score = hinfo.score();
                 head_info.push_back(temp);
+#if defined(USE_BMNN_NO)//新算法暂时不使用
+#else
+                //按照最新安全帽的协议:周杨瑞算法工程师,长宽需扩大1.2倍
+                float multiple = 0.2;
+                headInfo temp_new;
+                std::int32_t w = temp.x2 - temp.x1,h = temp.y2 - temp.y1;//人头的数据:宽/高
+                temp_new.x1 = std::max(static_cast<float>(roi_x)     ,temp.x1 - w * multiple / 2 );
+                temp_new.x2 = std::min(static_cast<float>(roi_width) ,temp.x2 + w * multiple / 2 );
+                temp_new.y1 = std::max(static_cast<float>(roi_y)     ,temp.y1 - h * multiple / 2 );
+                temp_new.y2 = std::min(static_cast<float>(roi_height),temp.y2 + h * multiple / 2 );
+                head_info.push_back(temp_new);
+#endif
             }
 
             std::vector<helmet::box_info_internal> result = helmet_detect(bitmap, height, width, roi_x, roi_y, roi_width, roi_height, head_info, param_map);
@@ -189,9 +185,9 @@ namespace glasssix::helmet
                 auto  tensor_out = net_class_->forward(headimg).begin()->second;//net has only single node out
 
                 float* helmet_conf = tensor_out->mutable_cpu_data();
-
-                // Softmax(helmet_conf, 3);
-
+#if defined(USE_RKNNAPI) || defined(USE_RKNN2API)
+                Softmax(helmet_conf, 3);
+#endif
                 box_info_internal  headp(head.x1, head.x2, head.y1, head.y2);
                 if (helmet_conf[0] > helmet_conf[1] && helmet_conf[0] > helmet_conf[2])
                 {
@@ -205,6 +201,14 @@ namespace glasssix::helmet
                     headp.score = helmet_conf[1];
                     output.push_back(headp);
                 }
+#if defined(USE_RKNNAPI) || defined(USE_RKNN2API)
+                else if (helmet_conf[2] > helmet_conf[0] && helmet_conf[2] > helmet_conf[1])
+                {
+                    headp.category = 1;
+                    headp.score = helmet_conf[2];//非人头
+                    output.push_back(headp);
+                }
+#endif
             }
             return output;
         }
@@ -232,8 +236,8 @@ namespace glasssix::helmet
         std::shared_ptr<PrePostProcessGenPipeline> net_class_;
     };
 
-    detect_code_internal::detect_code_internal(const exposing::param_string & str_params)
-        : impl_{ std::make_unique<impl>(str_params) }
+    detect_code_internal::detect_code_internal(std::string_view model_directory, int device)
+        : impl_{ std::make_unique<impl>(model_directory, device) }
     {
     }
 

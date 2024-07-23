@@ -1,13 +1,18 @@
 #include <iostream>
 #include <cmath>
 #include <tuple>
+
 #include "detect_code_internal.hpp"
 #include "box_info_impl.hpp"
 #include "logger.hpp"
 #include <chrono>
 #include <GenPipeline/GenPipeline.hpp>
 #include <YoloFamily/Yolo_wrapper.hpp>
+
 #include "general.hpp"
+#if defined(USE_RKNNAPI) || defined(USE_RKNN2API)
+#include <RKNN2Wrapper/rknn2_wrapper.hpp>
+#endif
 #include <abi/param_vector.hpp>
 #include <utility>
 
@@ -37,20 +42,13 @@ namespace glasssix::pump_mask
             : model_directory_{ std::string(model_directory) }, device_{ device }
         {
 #if defined(USE_RKNNAPI) || defined(USE_RKNN2API)
-            std::string model_ext{ ".rknn" };
-#elif defined(USE_BMNN)
-            std::string model_ext{ ".bmodel" };
-#else
-            std::string model_ext{ ".onnx" };
-#endif
-            net_mask_ = std::make_shared<GenPipeline>(model_directory_ + "/pump_mask" + model_ext, device);
+            net_mask_ = std::make_shared<GenPipeline>(model_directory_ + "/pump_mask.rknn", device);
             yolov8_instance_mask = std::make_shared<Yolov8<GenPipeline, true, false>>(160, 160, net_mask_); //2个模板变量分别对应 GenPipeline ，(通用yolov8)是否是李鑫尧的yolo  第三个参数默认为false
-            net_head_ = std::make_shared<GenPipeline>(model_directory_ + "/pump_mask_head" + model_ext, device);
+            net_head_ = std::make_shared<GenPipeline>(model_directory_ + "/pump_mask_head.rknn", device);
             yolov8_instance_head = std::make_shared<Yolov8<GenPipeline, true, false>>(1152, 640, net_head_); //2个模板变量分别对应 GenPipeline ，(通用yolov8)是否是李鑫尧的yolo  第三个参数默认为false
-            net_detect_face = std::make_shared<GenPipeline>(model_directory_ + "/pump_mask_face" + model_ext, device);
-            net_mask_->manual_possible_normalization(0, 1.f / 255);
-            net_head_->manual_possible_normalization(0, 1.f / 255);
-            net_detect_face->manual_possible_normalization(0, 1.f / 255);
+            net_detect_face = std::make_unique<rknnwrapper::rknn_wrapper>(get_model_params("pump_mask_face", false),
+                std::string(model_directory) + "/" + "pump_mask_face.rknn", device);
+#endif
         }
 
         std::string version()
@@ -59,7 +57,7 @@ namespace glasssix::pump_mask
 #if defined(USE_RKNNAPI) || defined(USE_RKNN2API)
             std::string nn_frame_version = "1.0.0";
 #else
-            std::string nn_frame_version = net_mask_->version();
+            std::string nn_frame_version = net_detect_mask->version();
 #endif
             return fmt::format(R"({{"nn_frame_version":"{}", "algo_module_version":"{}"}})", nn_frame_version, algo_module_version);
         }
@@ -443,12 +441,9 @@ namespace glasssix::pump_mask
 
             std::vector<std::shared_ptr<memory::tensor<float>>> model_result;
             std::vector<float*> transpose_result;
-            auto network_result = net_detect_face->forward(blob);
-#ifdef USE_BMNN
-            std::vector<std::string>  temp_out_names = { "stride_8_Concat_f32","stride_16_Concat_f32","stride_32_Concat_f32" };
-#else
+            auto network_result = net_detect_face->forward(blob.data, { 1, blob.rows, blob.cols,blob.channels() }, RKNN_TENSOR_NHWC);
+
             std::vector<std::string>  temp_out_names = { "stride_8","stride_16","stride_32" };
-#endif
             std::vector<std::string>  real_out_names = { "output","508","522" };
             for (size_t i = 0; i < temp_out_names.size(); i++)//对输出数据做处理
                 model_result.push_back(network_result[temp_out_names[i]]);
@@ -501,7 +496,8 @@ namespace glasssix::pump_mask
             }
             CHECK_EQ(channels, 3);
 
-            cv::Mat image(cv::Size(width, height), CV_8UC3, const_cast<uint8_t*>(bitmap.data()));
+            cv::Mat image(cv::Size(width, height), CV_8UC3);
+            std::memcpy(image.data, bitmap.data(), sizeof(uint8_t) * channels * height * width);
             std::vector<ObjectInfo> frame_result = yolov8_instance_head->get_objects(image, detect_thres, iou_thres);   //检测人体 人头
             std::vector<Bbox> person_box_list;
             std::vector<Bbox> head_box_list;
@@ -585,7 +581,7 @@ namespace glasssix::pump_mask
         std::shared_ptr<GenPipeline> net_mask_;
         std::shared_ptr<Yolov8<GenPipeline, true, false>> yolov8_instance_mask;// 防护面罩
 
-        std::shared_ptr<GenPipeline> net_detect_face;// 人脸
+        std::unique_ptr < rknnwrapper::rknn_wrapper> net_detect_face; // 人脸
 
     };
 

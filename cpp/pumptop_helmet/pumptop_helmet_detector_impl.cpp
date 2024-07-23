@@ -1,14 +1,24 @@
 #include "pumptop_helmet_detector_impl.hpp"
 #include "pumptop_helmet_info_impl.hpp"
+#ifdef USE_RKNNAPI
+#include "RKNNWrapper/rknn_wrapper.hpp"
 #include <opencv2/opencv.hpp>
 #include <opencv2/imgproc/types_c.h>
-#include <GenPipeline/GenPipeline.hpp>
+#elif defined(USE_RKNN2API)
+#include "RKNN2Wrapper/rknn2_wrapper.hpp"
+#include <opencv2/opencv.hpp>
+#include <opencv2/imgproc/types_c.h>
+#else
+#include "Excalibur/pipeline.hpp"
+#include "Excalibur/operation_safty_cut.hpp"
+#include "Excalibur/operation_resize.hpp"
+#include "Primitives/tensor_conversions.hpp"
+#endif
+#include <GenPipeline/PrePostProcessGenPipeline.hpp>
 #include <YoloFamily/Yolo_wrapper.hpp>
 #include "poly.hpp"
 #include <thread>
 #include <chrono>
-#include "json.h"
-#include <iostream>
 
 // #define RECTANGLE
 namespace glasssix::pumptop_helmet
@@ -21,31 +31,19 @@ namespace glasssix::pumptop_helmet
 		impl(std::string_view model_directory, int device)
 			: model_directory_{std::string(model_directory)}, device_{device}
 		{
-#if defined(USE_RKNNAPI) || defined(USE_RKNN2API)
-			std::string model_ext{ ".rknn" };
-#elif defined(USE_BMNN)
-			std::string model_ext{ ".bmodel" };
-#else
-			std::string model_ext{ ".onnx" };
-#endif
 			// 算法传过来的模型名:泵检测模型 1280-v1_ori_TAL
-			net_detect_1 = std::make_shared<GenPipeline>(model_directory_ + "/pumptop_helmet_pump" + model_ext, device_);
+			net_detect_1 = std::make_shared<GenPipeline>(model_directory_ + "/pumptop_helmet_pump.rknn", device_);
 			yolov8_instance_1 = std::make_shared<Yolov8<GenPipeline>>(1280, 1280, net_detect_1);
 
 			// 算法传过来的模型名:人检测模型 1280T320-0108_Person_best_detection
-			net_detect_2 = std::make_shared<GenPipeline>(model_directory_ + "/pumptop_helmet_person" + model_ext, device_);
+			net_detect_2 = std::make_shared<GenPipeline>(model_directory_ + "/pumptop_helmet_person.rknn", device_);
 			yolov8_instance_2 = std::make_shared<Yolov8<GenPipeline>>(1280, 736, net_detect_2);
 
 			// 算法传过来的模型名:人头检测模型 640T320-200epft-baoshinegtivev2-atss-nwd-wop
-			net_detect_3 = std::make_shared<GenPipeline>(model_directory_ + "/pumptop_helmet_head" + model_ext, device_);
-			//yolov8_instance_3 = std::make_shared<Yolov8<GenPipeline>>(128, 128, net_detect_3);
-			// 算法传过来的模型名:人头分类检测模型 helmetclassify-v2-96-labelsmooth-0.05
-			net_detect_4 = std::make_shared<GenPipeline>(model_directory_ + "/pumptop_helmet_helmet" + model_ext, device_);
+			net_detect_3 = std::make_unique<rknnwrapper::rknn_wrapper>(phais, std::string(model_directory) + "/" + "pumptop_helmet_head.rknn", device);
 
-			net_detect_1->manual_possible_normalization(0, 1.f / 255);
-			net_detect_2->manual_possible_normalization(0, 1.f / 255);
-			net_detect_3->manual_possible_normalization(0, 1.f / 255);
-			net_detect_4->manual_possible_normalization(0, 1.f / 255);
+			// 算法传过来的模型名:人头分类检测模型 helmetclassify-v2-96-labelsmooth-0.05
+			net_detect_4 = std::make_unique<rknnwrapper::rknn_wrapper>(phais, std::string(model_directory) + "/" + "pumptop_helmet_helmet.rknn", device);
 		}
 
 		~impl()
@@ -632,7 +630,7 @@ namespace glasssix::pumptop_helmet
 				throw exposing::abi_invalid_argument("current frame is empty");
 			}
 			auto results = exposing::make_param_vector<pumptop_helmet::pumptop_helmet_info>();
-            cv::Mat image(cv::Size(width, height), CV_8UC3, const_cast<uint8_t*>(bitmap.data()));
+			cv::Mat image(height, width, CV_8UC3, bitmap.data());
 			std::vector<cv::Rect> ori_rect = pump_detect(image, param_map, categorys, scores, helmet_scores);
 			for (int i = 0; i < ori_rect.size(); i++)
 			{
@@ -962,7 +960,7 @@ namespace glasssix::pumptop_helmet
 
 			v_blob.push_back(blob.cols);
 			v_blob.push_back(blob.channels());
-			auto network_results = net_detect_3->forward(blob);
+			auto network_results = net_detect_3->forward(blob.data, v_blob, RKNN_TENSOR_NHWC);
 
 			std::vector<std::string> out_names = {"355", "340", "output0"};
 
@@ -1022,7 +1020,7 @@ namespace glasssix::pumptop_helmet
 
 			v_blob.push_back(blob.cols);
 			v_blob.push_back(blob.channels());
-			auto network_results = net_detect_4->forward(blob);
+			auto network_results = net_detect_4->forward(blob.data, v_blob, RKNN_TENSOR_NHWC);
 
 			std::vector<std::string> out_names = {"output0"};
 
@@ -1050,8 +1048,8 @@ namespace glasssix::pumptop_helmet
 	private:
 		std::shared_ptr<GenPipeline> net_detect_1;
 		std::shared_ptr<GenPipeline> net_detect_2;
-		std::shared_ptr<GenPipeline> net_detect_3;
-		std::shared_ptr<GenPipeline> net_detect_4;
+		std::unique_ptr<rknnwrapper::rknn_wrapper> net_detect_3;
+		std::unique_ptr<rknnwrapper::rknn_wrapper> net_detect_4;
 		std::shared_ptr<Yolov8<GenPipeline, false>> yolov8_instance_1;
 		std::shared_ptr<Yolov8<GenPipeline, false>> yolov8_instance_2;
 
@@ -1072,81 +1070,25 @@ namespace glasssix::pumptop_helmet
 	pumptop_helmet_detector_impl::~pumptop_helmet_detector_impl()
 	{
 	}
-	void pumptop_helmet_detector_impl::init(const exposing::param_string & str_params)
+	void pumptop_helmet_detector_impl::init(const exposing::param_string &models_directory, std::int32_t device)
 	{
-		Json::Reader reader(Json::Features::strictMode());
-		Json::Value root;
-		if (!reader.parse(exposing::to_narrow_string(str_params), root))
-			throw Json::Exception("parse json failed");
-		std::string model_directory = root["models_directory"].asString();
-		int device = root.get("device", Json::Int(-1)).asInt();
-		impl_ = std::make_unique<impl>(model_directory, device);
+		impl_ = std::make_unique<impl>(models_directory, device);
 	}
-
-	exposing::param_string pumptop_helmet_detector_impl::execute(const exposing::param_hash_map<exposing::param_string, exposing::unknown_object>& input_params_map) {
-		if (!impl_)
-			throw exposing::abi_invalid_operation(u8"selene internal object not initialized");
-
-		Json::Reader reader(Json::Features::strictMode());
-		Json::FastWriter writer;
-		Json::Value root, value;
-		if (!reader.parse(exposing::to_narrow_string(exposing::unbox<exposing::param_string>(input_params_map.get_value("params"))), root))
-			throw Json::Exception("parse json failed");
-		Json::Value params = root.get("dyparams", Json::Value());
-
-		std::map<std::string, float> dynamic_param_map;
-
-		for (auto& param_name : params.getMemberNames()) {
-			dynamic_param_map.try_emplace(param_name, params[param_name].asFloat());
-		}
-
-		auto input_data = exposing::unbox<exposing::param_span<std::uint8_t>>(input_params_map.get_value("input_data"));
-		auto output_data = exposing::unbox<exposing::param_span<std::uint8_t>>(input_params_map.get_value("output_data"));
-		int order = exposing::unbox<int>(input_params_map.get_value("order"));
-		auto data_shape = input_params_map.get_value("data_shape").as<exposing::param_vector<int>>();
-
-
-		int num = data_shape[0];
-		int channels = data_shape[1];
-		int height = data_shape[2];
-		int width = data_shape[3];
-
-
-		int roi_x = 0;
-		int roi_y = 0;
-		int roi_width = width;
-		int roi_height = height;
-
-		auto result = impl_->detect(input_data, channels, height, width, dynamic_param_map);
-
-		Json::Value jarray_fire_detected(Json::arrayValue);
-		Json::Value jarray_box;
-		for (int i = 0; i < result.size(); i++)
-		{
-			int category = Json::Int(result[i].category());
-			// Json::Value jarray_box;
-			if (category == 0)
-			{
-				jarray_box["x1"] = Json::Int(result[i].x1());
-				jarray_box["y1"] = Json::Int(result[i].y1());
-				jarray_box["x2"] = Json::Int(result[i].x2());
-				jarray_box["y2"] = Json::Int(result[i].y2());
-				jarray_box["score"] = Json::Value(result[i].score());
-				jarray_box["helmet_score"] = Json::Value(result[i].helmet_score());
-				jarray_box["category"] = Json::Value(result[i].category());
-				jarray_fire_detected.append(jarray_box);
-			}
-		}
-
-		value["detect_info"]["person_list"] = jarray_fire_detected;
-		return exposing::to_param_string(writer.write(value));
-	}
-
 
 	exposing::param_string pumptop_helmet_detector_impl::version() const
 	{
 		return exposing::to_param_string(impl_->version());
 	}
 
-
+	exposing::param_vector<pumptop_helmet_info> pumptop_helmet_detector_impl::detect(exposing::param_span<std::uint8_t> bitmap, std::int32_t channels, std::int32_t height, std::int32_t width, const exposing::param_hash_map<exposing::param_string, float> &param_map_abi) const
+	{
+		if (!impl_)
+			throw exposing::abi_invalid_operation(u8"pumptop_helmet_detector_internal object not initialized");
+		std::map<std::string, float> param_map;
+		for (auto it : param_map_abi)
+		{
+			param_map.insert(std::make_pair(it.key(), it.value()));
+		}
+		return impl_->detect(bitmap, channels, height, width, param_map);
+	}
 }

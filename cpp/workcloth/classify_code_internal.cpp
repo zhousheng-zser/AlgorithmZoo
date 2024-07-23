@@ -1,5 +1,6 @@
 #include <iostream>
 #include <cmath>
+#include "hardcode.hpp"
 #include "general.hpp"
 
 #include "classify_code_internal.hpp"

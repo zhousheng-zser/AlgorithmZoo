@@ -18,7 +18,15 @@ namespace glasssix::pump_gate_status
     class gate_status_internal::impl
     {
     public:
+        impl(std::int32_t model_type, std::string_view racy_path, int device, bool use_int8) 
+        {
+        }
+
         impl() 
+        {
+        }
+
+        impl(const std::vector<std::string> &phai, std::string_view racy_path, int device) 
         {
         }
 
@@ -135,13 +143,7 @@ namespace glasssix::pump_gate_status
             contours.push_back(cv::Point(1520, 850));
             contours.push_back(cv::Point(883, 850));
             std::vector<std::vector<cv::Point>> pts{ contours };
-#if defined(USE_RKNNAPI) || defined(USE_RKNN2API)
             cv::fillPoly(mask, contours, cv::Scalar(255, 255, 255));
-#elif defined(USE_BMNN)
-            cv::fillPoly(mask, pts, cv::Scalar(255, 255, 255));
-#else
-			cv::fillPoly(mask, contours, cv::Scalar(255, 255, 255));
-#endif
 
             // 通过位运算提取ROI
             cv::Mat dst;
@@ -273,7 +275,8 @@ namespace glasssix::pump_gate_status
             CHECK_EQ(rois.size(), 8);
             CHECK_EQ(bitmap.size(), channels * height * width);
 
-			cv::Mat image(cv::Size(width, height), CV_8UC3, const_cast<uint8_t*>(bitmap.data()));
+            cv::Mat image(cv::Size(width, height), CV_8UC3);
+            std::memcpy(image.data, bitmap.data(), sizeof(uint8_t) * channels * height * width);
 
             ROI door(rois[0], rois[1], rois[2], rois[3]);
             ROI floor(rois[4], rois[5], rois[6], rois[7]);
@@ -296,6 +299,16 @@ namespace glasssix::pump_gate_status
     };
 
     gate_status_internal::gate_status_internal():impl_{std::make_unique<impl>()}
+    {
+    }
+    gate_status_internal::gate_status_internal(exposing::param_vector<int> hsvs)
+    {
+    }
+    gate_status_internal::gate_status_internal(std::int32_t model_type, std::string_view racy_path, int device, bool use_int8) : 
+    impl_{std::make_unique<impl>(model_type, racy_path, device, use_int8)}
+    {
+    }
+    gate_status_internal::gate_status_internal(const std::vector<std::string> &phai, std::string_view racy_path, int device) : impl_{std::make_unique<impl>(phai, racy_path, device)}
     {
     }
 

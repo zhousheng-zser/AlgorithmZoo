@@ -5,6 +5,7 @@
 #include "detect_code_internal.hpp"
 #include "box_info_impl.hpp"
 #include "logger.hpp"
+#include <RKNN2Wrapper/rknn2_wrapper.hpp>
 #include <opencv2/core.hpp>
 #include <opencv2/imgproc.hpp>
 #include <opencv2/opencv.hpp>
@@ -13,7 +14,6 @@
 #include "general.hpp"
 
 #include <GenPipeline/GenPipeline.hpp>
-#include <YoloFamily/Yolo_wrapper.hpp>
 
 #define not_draw_pic 
 #define LIBRARY_ID_MAX 1073741824
@@ -28,23 +28,8 @@ namespace glasssix::pump_hoisting
         }
         impl(std::string model_directory, int device) 
         {
-#if defined(USE_RKNNAPI) || defined(USE_RKNN2API)
-            std::string model_ext{ ".rknn" };
-            
-            const int letter_h = 736;
-            const int letter_w = 1280;
-#elif defined(USE_BMNN)
-            std::string model_ext{ ".bmodel" };
-            const int letter_h = 1280;
-            const int letter_w = 1280;
-#else
-            std::string model_ext(".onnx");
-            const int letter_h = 1280;
-            const int letter_w = 1280;
-#endif
-            net_pump_hoisting_detect2_ = std::make_shared<GenPipeline>(model_directory + "/pump_hoisting" + model_ext, device);
-            net_pump_hoisting_detect2_->manual_possible_normalization(0, 1.f / 255);
-            yolov8_instance = std::make_shared<Yolov8<GenPipeline>>(letter_w,letter_h, net_pump_hoisting_detect2_);
+            net_pump_hoisting_detect2_ = std::make_shared<GenPipeline>(model_directory + "/pump.rknn", device);
+            yolov8_instance = std::make_shared<Yolov8<GenPipeline>>(1280,736, net_pump_hoisting_detect2_);
         } 
 
 
@@ -135,7 +120,8 @@ namespace glasssix::pump_hoisting
             }
             CHECK_EQ(channels, 3);
             CHECK_EQ(bitmap.size(), channels * height * width);
-            cv::Mat image(cv::Size(width, height), CV_8UC3, const_cast<uint8_t*>(bitmap.data()));
+            cv::Mat image(cv::Size(width, height), CV_8UC3);
+            std::memcpy(image.data, bitmap.data(), sizeof (uint8_t) * channels * height * width);
             if(roi_x<0 || roi_x>width || roi_y>height || roi_y<0 ||roi_height<0 || (roi_height+roi_y) >height || roi_width<0 || (roi_width+roi_x) > width)
                   throw exposing::abi_invalid_argument("incorrect roi in pump_hoisting");
             auto result = exposing::make_param_vector<box_info>();
@@ -152,7 +138,7 @@ namespace glasssix::pump_hoisting
             cv::Mat draw = image.clone();
 
             // 获取检测到的对象
-            auto pump_objects =  yolov8_instance->get_objects( draw);
+            auto pump_objects =  yolov8_instance->get_objects( image);
 
             std::vector<Rectangle>  all_current_boxes;
 
@@ -233,10 +219,13 @@ namespace glasssix::pump_hoisting
         }
   
     private:
+#if defined(USE_RKNNAPI) || defined(USE_RKNN2API)
         // GenPipeline*  net_pump_hoisting_detect2_;
         std::shared_ptr<GenPipeline> net_pump_hoisting_detect2_;
         std::shared_ptr<Yolov8<GenPipeline, false>> yolov8_instance;
-
+#else
+		std::unique_ptr<excalibur::pipeline<float>> net_pump_hoisting_detect_;
+#endif
         pedestrian::classify_code pedestrain_instance_;
         std::string model_directory_;
         static std::map<int, std::map<int, Rectangle>>  librarys;

@@ -10,6 +10,7 @@
         double first_show_time=0.f;
         double last_show_time=0.f;
         float  cosine_similarity=0.f;
+        int detection_number = 1;
         int x1;
         int x2;
         int y1;
@@ -66,8 +67,8 @@
                 bbox output;
                 int centre_x = (x1+x2)/2;
                 int centre_y = (y1+y2)/2;
-                int width  = abs(x2- x1)*0.7;
-                int height = abs(y2- y1)*0.85;
+                int width  = abs(x2- x1)*1.0;
+                int height = abs(y2- y1)*1.0;
                 output.x1 = centre_x - width/2;
                 output.x2 = centre_x + width/2;
                 output.y1 = centre_y - height/2;
@@ -89,7 +90,7 @@
         double first_init_time;
         double last_match_time;
         bbox track_location;
-
+        int detection_number; //  统计这个人 被检测到的次数
         void refresh_feature(const float *data)
         {
             std::memcpy(feature.data(), data, 2048*sizeof(float));

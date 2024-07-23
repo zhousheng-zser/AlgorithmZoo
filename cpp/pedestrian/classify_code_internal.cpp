@@ -18,8 +18,13 @@
 #include <Primitives/fmt/format.h>
 #include <utility>
 
+#if defined(USE_RKNNAPI) || defined(USE_RKNN2API)
 #include <GenPipeline/GenPipeline.hpp>
 #include <YoloFamily/Yolo_wrapper.hpp>
+#elif defined(USE_BMNN)
+    #include <sophonyolov8/SophonYolov8Wrapper.hpp>
+#endif
+#include <chrono>
 
 
 namespace glasssix::pedestrian
@@ -34,12 +39,13 @@ namespace glasssix::pedestrian
             std::string model_dir = exposing::to_narrow_string(model_directory) + "/";
 #if defined(USE_RKNNAPI) || defined(USE_RKNN2API)
             net_pedestrian_ = std::make_shared<GenPipeline>(model_dir + "/pedestriantest.rknn", device);
-#elif defined(USE_BMNN)
-            net_pedestrian_ = std::make_shared<GenPipeline>(model_dir + "/pedestriantest.bmodel", device);
-#endif
-            net_pedestrian_->manual_possible_normalization(std::array<float,3>{0.f,0.f,0.f},std::array<float,3>{1.f / 255.f,1.f / 255.f,1.f / 255.f});
             Yolov8_Complement_instance = std::make_shared<Yolov8_Complement<GenPipeline>>(1280, 736, net_pedestrian_);
+#elif defined(USE_BMNN)
 
+            Yolov8_Complement_instance = std::make_shared<SophonYolov8Wrapper>(model_dir + "/pedestriantest.bmodel");
+            Yolov8_Complement_instance->init();
+#endif       
+           
         }
 
         exposing::param_vector<pedestrian::box_info> detect(const exposing::param_span<std::uint8_t> &bitmap, int channels, int height, int width, int roi_x, int roi_y, int roi_width, int roi_height, std::map<std::string, float> &param_map)
@@ -57,9 +63,11 @@ namespace glasssix::pedestrian
             }
 
             cv::Mat image(cv::Size(width, height), CV_8UC3, const_cast<uint8_t*>(bitmap.data()));
-            cv::Mat cropped_image = image(cv::Range(roi_y, roi_y + roi_height), cv::Range(roi_x, roi_x + roi_width));
 
-            auto pedestrian_list =  Yolov8_Complement_instance->get_objects( image, 0.2);
+            cv::Mat imagedevice;//默认分配soc上内存
+
+            image.copyTo(imagedevice);
+            auto pedestrian_list =  Yolov8_Complement_instance->get_objects(imagedevice, 0.2);
 
             std::cout<<"pedestrian_list size: "<< pedestrian_list.size()<< std::endl;
             for (auto person : pedestrian_list) {
@@ -110,8 +118,13 @@ namespace glasssix::pedestrian
         }
 
     private:
+
+#if defined(USE_RKNNAPI) || defined(USE_RKNN2API)
         std::shared_ptr<GenPipeline> net_pedestrian_;
         std::shared_ptr<Yolov8_Complement<GenPipeline>> Yolov8_Complement_instance;
+#elif defined(USE_BMNN)
+        std::shared_ptr<SophonYolov8Wrapper> Yolov8_Complement_instance;
+#endif
     };
 
     classify_code_internal::classify_code_internal(std::string_view model_directory, int device)

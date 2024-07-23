@@ -19,7 +19,7 @@ namespace glasssix::pump_work_status
         work_status_impl();
         ~work_status_impl();
 
-        void init(const exposing::param_string& str_params);
+        void init(std::int32_t device);
 
         exposing::param_string version() const;
 

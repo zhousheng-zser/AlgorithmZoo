@@ -20,7 +20,7 @@ namespace glasssix::exposing::impl
 
 		struct type : abi_unknown_object
 		{
-			virtual std::int32_t G6_ABI_CALL init(abi_in_t<param_string> str_params) noexcept = 0;
+			virtual std::int32_t G6_ABI_CALL init(abi_in_t<param_string> str_params, std::int32_t device) noexcept = 0;
 			virtual std::int32_t G6_ABI_CALL execute(abi_in_t<param_hash_map<param_string, unknown_object>> input_params_map, abi_out_t<param_string> result) = 0;
 			virtual std::int32_t G6_ABI_CALL version(abi_out_t<param_string> result) noexcept = 0;
 		};
@@ -29,9 +29,9 @@ namespace glasssix::exposing::impl
 	template<typename Derived>
 	struct interface_vtable<Derived, pumptop_helmet::pumptop_helmet_detector> : interface_vtable_base<Derived, pumptop_helmet::pumptop_helmet_detector>
 	{
-		virtual std::int32_t G6_ABI_CALL init(abi_in_t<param_string> str_params) noexcept override
+		virtual std::int32_t G6_ABI_CALL init(abi_in_t<param_string> str_params, std::int32_t device) noexcept override
 		{
-			return abi_safe_call([&] { this->self().init(create_from_abi<param_string>(str_params)); });
+			return abi_safe_call([&] { this->self().init(create_from_abi<param_string>(str_params),device); });
 		}
 		virtual std::int32_t G6_ABI_CALL execute(abi_in_t<param_hash_map<param_string, unknown_object>> input_params_map, abi_out_t<param_string> result)noexcept override
 		{
@@ -49,9 +49,9 @@ namespace glasssix::exposing::impl
 		template<typename Derived>
 		struct type : enable_self_abi_awareness<Derived, pumptop_helmet::pumptop_helmet_detector>
 		{
-			void init(const exposing::param_string& str_params) const
+			void init(const exposing::param_string& str_params, std::int32_t device = -1) const
 			{
-				check_abi_result(this->self_abi().init(get_abi(str_params)));
+				check_abi_result(this->self_abi().init(get_abi(str_params),get_abi(device)));
 			}
 
 			param_string execute(const param_hash_map<param_string, unknown_object>& input_params_map)
