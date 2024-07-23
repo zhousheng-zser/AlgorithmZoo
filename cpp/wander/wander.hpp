@@ -10,6 +10,7 @@
         double first_show_time=0.f;
         double last_show_time=0.f;
         float  cosine_similarity=0.f;
+        int detection_number = 1;
         int x1;
         int x2;
         int y1;
@@ -89,7 +90,7 @@
         double first_init_time;
         double last_match_time;
         bbox track_location;
-
+        int detection_number; //  统计这个人 被检测到的次数
         void refresh_feature(const float *data)
         {
             std::memcpy(feature.data(), data, 2048*sizeof(float));
@@ -227,6 +228,8 @@
                     allocated_id_current_frame[id_distance]=1;
 
                     feature_table[id_distance].last_match_time = current_time;
+
+                    feature_table[id_distance].detection_number++;
                     feature_table[id_distance].refresh_feature(data);
                     
                     feature_table[id_distance].refresh_location(curr_bbox);
@@ -235,7 +238,7 @@
                     person_result.last_show_time  = current_time;
                     person_result.id = id_distance;
                     person_result.cosine_similarity = similiar;
-
+                    person_result.detection_number = feature_table[id_distance].detection_number;
                     feature_tables[devices]=feature_table;
                     return person_result;
                 }
@@ -248,12 +251,14 @@
             {
                 allocated_id_current_frame[id]=1;
                 feature_table[id].last_match_time = current_time;
+                feature_table[id].detection_number++;
                 feature_table[id].refresh_feature(data);
                 feature_table[id].refresh_location(curr_bbox);
                 person_result.first_show_time = feature_table[id].first_init_time;
                 person_result.last_show_time  = current_time;
                 person_result.id = id;
                 person_result.cosine_similarity = similiar;
+                person_result.detection_number = feature_table[id].detection_number;
                 feature_tables[devices]=feature_table;
                 return person_result;
             }
@@ -271,12 +276,14 @@
                 w_i.feature = feature;
                 w_i.feature_sqrt_xx = sqrt_xx;
                 w_i.first_init_time = current_time;
+                w_i.detection_number = 1; 
                 feature_table[id] = w_i;     
                 person_result.id =id;
 
                 person_result.first_show_time = current_time;
                 person_result.last_show_time  = 0.f;
                 person_result.cosine_similarity = 0.f;
+                person_result.detection_number = 1;
                 feature_tables[devices]=feature_table;
 
             }

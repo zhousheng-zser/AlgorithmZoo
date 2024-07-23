@@ -1,6 +1,7 @@
 #include <iostream>
 #include <cmath>
 #include <tuple>
+#include <chrono>
 
 #include "detect_code_internal.hpp"
 #include "box_info_impl.hpp"
@@ -144,8 +145,35 @@ namespace glasssix::crowd
 
         }
 
+        void delete_area_map_by_id(int devices)
+        {
+            std::lock_guard<std::mutex> lock(list_crowd_area_mutex);
+            if (area1_map.count(devices))
+            {
+                area1_map.erase(devices);
+            }
+
+            if (time_area1_map.count(devices))
+            {
+                time_area1_map.erase(devices);
+            }
+            if (area2_map.count(devices))
+            {
+                area2_map.erase(devices);
+            }
+        }
+
+        std::string remove_library(int devices)
+        {
+            delete_area_map_by_id(devices);
+            const std::string delete_library = "ok";
+            return delete_library;
+        }
+
+
         static std::mutex list_crowd_area_mutex;
         static std::map<int, std::list<crowd::box_info> > area1_map;
+        static std::map<int, std::list<std::chrono::steady_clock::time_point> > time_area1_map;
         static std::map<int, std::list<crowd::box_info> > area2_map;
     private:
 
@@ -198,29 +226,43 @@ namespace glasssix::crowd
         {
             std::lock_guard<std::mutex> lock(list_crowd_area_mutex);
             bool flag = false;
+            std::list<std::chrono::steady_clock::time_point>& list_crowd_time_area1 = time_area1_map[device_id];
+
             std::list<crowd::box_info>& list_crowd_area1 = area1_map[device_id];
             std::list<crowd::box_info>& list_crowd_area2 = area2_map[device_id];
             if (list_crowd_area1.size() == 0)
+            {
                 list_crowd_area1.push_back(cluster_key);
+                list_crowd_time_area1.push_back(std::chrono::steady_clock::now());
+            }
             else
             {
                 float iou_ratio = area_iou(list_crowd_area1, cluster_key);
                 if (iou_ratio > nms_threshold)
+                {
                     list_crowd_area1.push_back(cluster_key);
+                    list_crowd_time_area1.push_back(std::chrono::steady_clock::now());
+                }
                 else
                     list_crowd_area2.push_back(cluster_key);
             }
+            auto duration = std::chrono::duration_cast<std::chrono::seconds> (std::chrono::steady_clock::now() - list_crowd_time_area1.front());
+
             if (list_crowd_area2.size() > max_area_list)
             {
                 list_crowd_area1.clear();
+                list_crowd_time_area1.clear();
                 list_crowd_area2.clear();
+
                 list_crowd_area1.push_back(cluster_key);
+                list_crowd_time_area1.push_back(std::chrono::steady_clock::now());
                 flag = false;
             }
-            else if (list_crowd_area1.size() > trigger_delay / 5)
+            else if (duration.count() >= trigger_delay)
             {
                 flag = true;
                 list_crowd_area1.pop_front();//删除第一个元素
+                list_crowd_time_area1.pop_front(); //删除第一个元素
                 //printf("list_crowd_area1 len =%llu\n", list_crowd_area1.size());
             }
             //printf("list_crowd_area2 len =%llu\n", list_crowd_area2.size()); 
@@ -433,6 +475,11 @@ namespace glasssix::crowd
         return impl_->version();
     }
 
+    std::string detect_code_internal::remove_library(int id)
+    {
+        return impl_->remove_library(id);
+    }
+
     exposing::param_vector<crowd::box_info> detect_code_internal::detect(exposing::param_span<std::uint8_t> bitmap, int channels, int height, int width, int roi_x, int roi_y, int roi_width, int roi_height, int min_cluster_size, std::map<std::string, float>& param_map) const
     {
         return impl_->detect(bitmap, channels, height, width, roi_x, roi_y, roi_width, roi_height, min_cluster_size, param_map);
@@ -440,5 +487,6 @@ namespace glasssix::crowd
 
     std::mutex detect_code_internal::impl::list_crowd_area_mutex;
     std::map<int, std::list<crowd::box_info> >detect_code_internal::impl::area1_map;
+    std::map<int, std::list<std::chrono::steady_clock::time_point> >detect_code_internal::impl::time_area1_map;
     std::map<int, std::list<crowd::box_info> >detect_code_internal::impl::area2_map;
 }

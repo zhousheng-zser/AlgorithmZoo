@@ -29,6 +29,7 @@ namespace glasssix::exposing::impl
             virtual float G6_ABI_CALL cosine_similarity(abi_out_t<float> result) noexcept = 0;
             virtual double G6_ABI_CALL first_show_time(abi_out_t<double> result) noexcept = 0;
             virtual double G6_ABI_CALL last_show_time(abi_out_t<double> result) noexcept = 0;
+            virtual int G6_ABI_CALL detection_number(abi_out_t<int> result) noexcept = 0;
         };
     };
 
@@ -87,6 +88,11 @@ namespace glasssix::exposing::impl
             return abi_safe_call([&]
                                  { *result = detach_abi(this->self().confidence()); });
         }
+         virtual int G6_ABI_CALL detection_number(abi_out_t<int> result) noexcept override
+         {
+             return abi_safe_call([&]
+                 { *result = detach_abi(this->self().detection_number()); });
+         }
     };
 
     template <>
@@ -151,6 +157,13 @@ namespace glasssix::exposing::impl
             {
                 float result = 0.f;
                 return (check_abi_result(this->self_abi().cosine_similarity(put_abi(result))), result);       
+            }
+
+
+            int detection_number() const
+            {
+                int result = 1;
+                return (check_abi_result(this->self_abi().detection_number(put_abi(result))), result);
             }
 
         };
