@@ -9,7 +9,7 @@
 
 namespace glasssix::pump_work_status
 {
-    inline constexpr exposing::utf8_string_view pump_work_status_work_status_qualified_name{u8"g6.pump_work_status.work_status"};
+    inline constexpr exposing::utf8_string_view pump_work_status_work_status_qualified_name{ u8"g6.pump_work_status.work_status" };
 
     class work_status_internal;
 
@@ -19,7 +19,7 @@ namespace glasssix::pump_work_status
         work_status_impl();
         ~work_status_impl();
 
-        void init(std::int32_t device);
+        void init(const exposing::param_string& str_params);
 
         exposing::param_string version() const;
 

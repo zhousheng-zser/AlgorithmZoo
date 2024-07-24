@@ -18,7 +18,7 @@ namespace glasssix::helmet
 			throw Json::Exception("parse json failed");
 		std::string model_directory = root["models_directory"].asString();
 		int device = root.get("device", Json::Int(-1)).asInt();
-		impl_ = std::make_unique<detect_code_internal>(str_params);
+		impl_ = std::make_unique<detect_code_internal>(model_directory, device);
 	}
 
 	exposing::param_string detect_code_impl::version() const

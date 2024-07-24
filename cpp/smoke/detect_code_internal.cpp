@@ -3,11 +3,14 @@
 #include <tuple>
 
 #include "../posture/detect_code.hpp"
+
 #include "detect_code_internal.hpp"
 #include "box_info_impl.hpp"
 #include "logger.hpp"
 
+#include "hardcode.hpp"
 
+#include <RKNN2Wrapper/rknn2_wrapper.hpp>
 #include <opencv2/core.hpp>
 #include <opencv2/imgproc.hpp>
 #include <opencv2/opencv.hpp>
@@ -26,18 +29,16 @@ namespace glasssix::smoke
     {
     public:
         impl(const exposing::param_string model_directory, int device = -1)
-                : impl{exposing::to_narrow_string(model_directory), device} 
+                : impl{get_model_params("smoke", false),  exposing::to_narrow_string(model_directory), device} 
         {
         }
 
-        impl(std::string model_directory, int device) 
+        impl(const std::vector<std::string> &phai, std::string model_directory, int device) 
         {
 #if defined(USE_RKNNAPI) || defined(USE_RKNN2API)
                 net_smoke_detect_ = std::make_shared<GenPipeline>(std::string(model_directory) + "/cigarette_detect.rknn", device);
 #elif defined(USE_BMNN)
                 net_smoke_detect_ = std::make_shared<GenPipeline>(std::string(model_directory) + "/cigarette_detect.bmodel", device);
-#else
-                net_smoke_detect_ = std::make_shared<GenPipeline>(std::string(model_directory) + "/cigarette_detect.onnx", device);
 #endif      
             net_smoke_detect_->manual_possible_normalization(std::array<float,3>{0.f,0.f,0.f},std::array<float,3>{1.f / 255.f,1.f / 255.f,1.f / 255.f});
             yolov8_instance = std::make_shared<Yolov8<GenPipeline>>(320,320, net_smoke_detect_);
