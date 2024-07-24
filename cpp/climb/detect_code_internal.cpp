@@ -33,7 +33,7 @@ namespace glasssix::climb
 #elif defined(USE_BMNN)
             net_climb_ = std::make_shared<GenPipeline>(std::string(model_directory) + "/climbing.bmodel", device);
 #else
-            net_climb_ = std::make_shared<GenPipeline>(get_model_params("climb_20240426cut"), std::string(model_directory) + "/climb_20240426cut.racy", device);
+            net_climb_ = std::make_shared<GenPipeline>(std::string(model_directory) + "/climbing.onnx", device);
 #endif
             net_climb_->manual_possible_normalization(std::array<float,3>{0.f,0.f,0.f},std::array<float,3>{1.f/255.f, 1.f/255.f, 1.f/255.f});
             yolov8_instance = std::make_shared<Yolov8<GenPipeline,true, true>>(640, 384, net_climb_);

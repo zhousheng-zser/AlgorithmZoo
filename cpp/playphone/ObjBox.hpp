@@ -20,8 +20,8 @@ namespace glasssix::playphone
 		std::vector<float> Kpoints_score;
 		cv::Rect origin_image_border;
 
-		static constexpr float vaild_face_thres = 0.8f;
-		static constexpr float vaild_hand_thres = 0.6f;
+		static constexpr float vaild_face_thres = 0.1f;
+		static constexpr float vaild_hand_thres = 0.1f;
 
 		PostureInfo(posture::box_info& b_info) {
 			xmin = b_info.x1();
@@ -66,9 +66,7 @@ namespace glasssix::playphone
 			int top = ymin - people_height * expand_people_ratio;
 			//int bottom = ymax + people_height * expand_people_ratio;
 
-			int crotch_bottom = std::max(Kpoints[11].y, Kpoints[12].y);
-			int knee_bottom = std::max(Kpoints[13].y, Kpoints[14].y);
-			int bottom = std::max(crotch_bottom, knee_bottom);
+			int bottom = std::max({ Kpoints[11].y, Kpoints[12].y ,Kpoints[13].y, Kpoints[14].y });
 			cv::Rect uprexpand{
 				cv::Point(std::round(left), std::round(top)),
 				cv::Point(std::round(right), std::round(bottom)) };
