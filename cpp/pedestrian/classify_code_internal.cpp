@@ -18,9 +18,16 @@
 #include <Primitives/fmt/format.h>
 #include <utility>
 
-#include <GenPipeline/PrePostProcessGenPipeline.hpp>
-#include <GenPipeline/GetPostprocessing.hpp>
-#include "../genpipeline/market/yolov8_GEN.hpp"
+#if defined(USE_RKNNAPI) || defined(USE_RKNN2API)
+    #include <GenPipeline/GenPipeline.hpp>
+    #include <YoloFamily/Yolo_wrapper.hpp>
+#elif defined(USE_BMNN)
+    #include <sophonyolov8/SophonYolov8Wrapper.hpp>
+#endif
+
+#include <chrono>
+
+
 
 namespace glasssix::pedestrian
 {
@@ -33,14 +40,18 @@ namespace glasssix::pedestrian
         {
             std::string model_dir = exposing::to_narrow_string(model_directory) + "/";
 #if defined(USE_RKNNAPI) || defined(USE_RKNN2API)
-            ioprocess_pipeline_ = PrePostProcessGenPipeline::mkSharePipeline(model_dir + "pedestrian.rknn", 0);
+            net_pedestrian_ = std::make_shared<GenPipeline>(model_dir + "/pedestriantest.rknn", device);
 #elif defined(USE_BMNN)
-            ioprocess_pipeline_ = PrePostProcessGenPipeline::mkSharePipeline(model_dir + "pedestrian.bmodel", 0);
-#else
-            ioprocess_pipeline_ = PrePostProcessGenPipeline::mkSharePipeline(model_dir + "pedestrian.onnx", 0);
+            net_pedestrian_ = std::make_shared<GenPipeline>(model_dir + "/pedestriantest.bmodel", device);
 #endif
-            ioprocess_pipeline_->manual_possible_normalization(0, 1.f / 255);
-            ioprocess_pipeline_->set_postprocessing(yolov8_GEN<1, 1>);
+            net_pedestrian_->manual_possible_normalization(std::array<float,3>{0.f,0.f,0.f},std::array<float,3>{1.f,1.f,1.f});
+            Yolov8_Complement_instance = std::make_shared<Yolov8_Complement<GenPipeline>>(1280, 736, net_pedestrian_);
+#elif defined(USE_BMNN)
+
+            Yolov8_Complement_instance = std::make_shared<SophonYolov8Wrapper>(model_dir + "/pedestriantest.bmodel");
+            Yolov8_Complement_instance->init();
+#endif       
+           
         }
 
         exposing::param_vector<pedestrian::box_info> detect(const exposing::param_span<std::uint8_t> &bitmap, int channels, int height, int width, int roi_x, int roi_y, int roi_width, int roi_height, std::map<std::string, float> &param_map)
@@ -57,61 +68,77 @@ namespace glasssix::pedestrian
                 throw exposing::abi_invalid_argument("incorrect roi in universal_pedestrian");
             }
 
+            std::cout<<"in pedestrian detect\n"<<std::endl;
+            
+            auto start = std::chrono::high_resolution_clock::now();
+
             cv::Mat image(cv::Size(width, height), CV_8UC3, const_cast<uint8_t*>(bitmap.data()));
-            cv::Mat cropped_image = image(cv::Range(roi_y, roi_y + roi_height), cv::Range(roi_x, roi_x + roi_width));
 
-            auto pedestrian_list = run_detect(cropped_image, param_map);
+            cv::Mat imagedevice;//默认分配soc上内存
 
+            image.copyTo(imagedevice);
+
+            auto pedestrian_list =  Yolov8_Complement_instance->get_objects(imagedevice, 0.2);
+
+            auto end = std::chrono::high_resolution_clock::now();
+            std::chrono::duration<float> duration = end - start; //记录经过了多长时间
+            std::cout << duration.count() << "sssss" << std::endl; //输出运行时间
+
+            std::cout<<"pedestrian_list size: "<< pedestrian_list.size()<< std::endl;
             for (auto person : pedestrian_list) {
                 box_info_internal box_info;
-                person.add(roi_x, roi_y);
-                box_info.x1 = person.xmin;
-                box_info.x2 = person.xmax;
-                box_info.y1 = person.ymin;
-                box_info.y2 = person.ymax;
+                box_info.x1 = person.x1;
+                box_info.x2 = person.x2;
+                box_info.y1 = person.y1;
+                box_info.y2 = person.y2;
                 box_info.score = person.score;
-                box_info.category = 1;
+                box_info.category = person.category;
                 results_box_info.push_back(glasssix::exposing::make_as_first<box_info_impl>(box_info));
             }
-
             return results_box_info;
         }
 
-        std::vector<PersonBBox> run_detect(cv::Mat& image, std::map<std::string, float>& param_map) {
-            float con_thres = param_map.count("conf_thres") ? param_map["conf_thres"] : 0.4f;
-            float iou_thres = param_map.count("nms_thres") ? param_map["nms_thres"] : 0.6f;
-            const int letter_h = 736;
-            const int letter_w = 1280;
+        // std::vector<PersonBBox> run_detect(cv::Mat& image, std::map<std::string, float>& param_map) {
+        //     float con_thres = param_map.count("conf_thres") ? param_map["conf_thres"] : 0.5f;
+        //     float iou_thres = param_map.count("nms_thres") ? param_map["nms_thres"] : 0.6f;
+        //     const int letter_h = 736;
+        //     const int letter_w = 1280;
 
-            GenPipTools::LetterInfo letter_op;
-            auto letter_img = GenPipTools::letter_image(image, letter_w, letter_h, letter_op, true);
-            auto tensor_out = ioprocess_pipeline_->forward(letter_img).begin()->second;
-            const int vf_nums = tensor_out->height(); //vf, visual field
-            const int per_vf_len = tensor_out->width();
-            std::vector<PersonBBox> box_list;
-            for (size_t idx = 0; idx < vf_nums; idx++) {
-                float* pdata = tensor_out->mutable_cpu_data() + idx * per_vf_len;
-                float conf = pdata[4];
-                if (conf > con_thres) {
-                    PersonBBox obj_box(pdata[0] * letter_w, pdata[1] * letter_h, pdata[2] * letter_w, pdata[3] * letter_h, conf, 0);
-                    box_list.push_back(obj_box);
-                }
-            }
-            GenPipTools::nms_cpu(box_list, iou_thres);
-            GenPipTools::letter_map_origin_location(box_list, letter_op);
+        //     GenPipTools::LetterInfo letter_op;
+        //     auto letter_img = GenPipTools::letter_image(image, letter_w, letter_h, letter_op, true);
+        //     auto tensor_out = ioprocess_pipeline_->forward(letter_img).begin()->second;
+        //     const int vf_nums = tensor_out->height(); //vf, visual field
+        //     const int per_vf_len = tensor_out->width();
+        //     std::vector<PersonBBox> box_list;
+        //     for (size_t idx = 0; idx < vf_nums; idx++) {
+        //         float* pdata = tensor_out->mutable_cpu_data() + idx * per_vf_len;
+        //         float conf = pdata[4];
+        //         if (conf > con_thres) {
+        //             PersonBBox obj_box(pdata[0] * letter_w, pdata[1] * letter_h, pdata[2] * letter_w, pdata[3] * letter_h, conf, 0);
+        //             box_list.push_back(obj_box);
+        //         }
+        //     }
+        //     GenPipTools::nms_cpu(box_list, iou_thres);
+        //     GenPipTools::letter_map_origin_location(box_list, letter_op);
 
-            return box_list;
-        }
+        //     return box_list;
+        // }
 
         std::string version()
         {
             const std::string algo_module_version = "4.1.1";
-            std::string nn_frame_version = ioprocess_pipeline_->version();
+            std::string nn_frame_version = "122";
             return fmt::format(R"({{"nn_frame_version":"{}", "algo_module_version":"{}"}})", nn_frame_version, algo_module_version);
         }
 
     private:
-        std::shared_ptr<PrePostProcessGenPipeline> ioprocess_pipeline_;
+
+#if defined(USE_RKNNAPI) || defined(USE_RKNN2API)
+        std::shared_ptr<GenPipeline> net_pedestrian_;
+        std::shared_ptr<Yolov8_Complement<GenPipeline>> Yolov8_Complement_instance;
+#elif defined(USE_BMNN)
+        std::shared_ptr<SophonYolov8Wrapper> Yolov8_Complement_instance;
+#endif
     };
 
     classify_code_internal::classify_code_internal(std::string_view model_directory, int device)

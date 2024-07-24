@@ -5,16 +5,10 @@
 #include <algorithm>
 #include <numeric>
 
-#include <Excalibur/pipeline.hpp>
+#include <GenPipeline/PrePostProcessGenPipeline.hpp>
+#include <YoloFamily/Yolo_wrapper.hpp>
 #include <Primitives/pool_allocator.hpp>
 #include <Primitives/tensor_conversions.hpp>
-#include <Excalibur/operation_safty_cut.hpp>
-#include <Excalibur/operation_safty_cut.hpp>
-#include "Primitives/tensor_conversions.hpp"
-#include "Excalibur/operation_make_border.hpp"
-#include "Excalibur/operation_resize.hpp"
-#include "Excalibur/operation_rgb2gray.hpp"
-
 #include <opencv2/core/core.hpp>
 #include <opencv2/highgui.hpp>
 #include <opencv2/imgproc/imgproc.hpp>
@@ -22,8 +16,6 @@
 #ifdef USE_CUDA
 #include <cuda_runtime_api.h>
 #endif
-
-#include "../../common/include/RKNN2Wrapper/rknn2_wrapper.hpp"
 
 #include "../posture/detect_code.hpp"
 #include "head_det.hpp"
@@ -37,11 +29,23 @@ namespace glasssix::pump_vesthelmet
 	public:
 		impl(std::string_view model_directory, int device)
 		{
+#if defined(USE_RKNNAPI) || defined(USE_RKNN2API)
+			std::string model_ext{ ".rknn" };
+#elif defined(USE_BMNN)
+			std::string model_ext{ ".bmodel" };
+#else
+			std::string model_ext{ ".onnx" };
+#endif
+			std::shared_ptr<GenPipeline> net_detect_4;
+			std::shared_ptr<Yolov8<GenPipeline, false>> yolov8_instance_1;
 			std::vector<std::string> phai;
 			posture_instance_ = glasssix::exposing::make_exported_interface<posture::detect_code>(exposing::param_string(model_directory), device, 1);
-			vest_cls_instance_ = std::make_unique<rknnwrapper::rknn_wrapper>(phai, std::string(model_directory) + "/" + "pump_vesthelmet_vest_cls.rknn", device);
-			head_det_instance_ = std::make_unique<rknnwrapper::rknn_wrapper>(phai, std::string(model_directory) + "/" + "pump_vesthelmet_head_det.rknn", device);
-			helmet_cls_instance_ = std::make_unique<rknnwrapper::rknn_wrapper>(phai, std::string(model_directory) + "/" + "pump_vesthelmet_helmet_cls.rknn", device);
+			vest_cls_instance_ = std::make_shared<GenPipeline>(std::string(model_directory) + "/pump_vesthelmet_vest_cls" + model_ext, device);
+			head_det_instance_ = std::make_shared<GenPipeline>(std::string(model_directory) + "/pump_vesthelmet_head_det" + model_ext, device);
+			helmet_cls_instance_ = std::make_shared<GenPipeline>(std::string(model_directory) + "/pump_vesthelmet_helmet_cls" + model_ext, device);
+			vest_cls_instance_->manual_possible_normalization(0, 1.f / 255);
+			head_det_instance_->manual_possible_normalization(0, 1.f / 255);
+			helmet_cls_instance_->manual_possible_normalization(0, 1.f / 255);
 		}
 
 		exposing::param_vector<pump_vesthelmet::box_info> detect(exposing::param_span<std::uint8_t> bitmap, int channels, int height, int width, std::map<std::string, float>& param_map_std)
@@ -55,9 +59,7 @@ namespace glasssix::pump_vesthelmet
 			}
 			CHECK_EQ(channels, 3);
 			CHECK_EQ(bitmap.size(), channels * height * width);
-			cv::Mat image(cv::Size(width, height), CV_8UC3);
-
-			std::memcpy(image.data, bitmap.data(), sizeof(uint8_t) * channels * height * width);
+			cv::Mat image(cv::Size(width, height), CV_8UC3, const_cast<uint8_t*>(bitmap.data()));
 
 			float posture_conf_thres = param_map_std.count("posture_conf_thres") ? param_map_std["posture_conf_thres"] : 0.1f;
 			float head_conf_thres = param_map_std.count("head_conf_thres") ? param_map_std["head_conf_thres"] : 0.6f;
@@ -105,7 +107,7 @@ namespace glasssix::pump_vesthelmet
 
 				cv::cvtColor(vest_cls_region, vest_cls_region, cv::COLOR_BGR2RGB);
 
-				auto vest_cls_rst_map = vest_cls_instance_->forward(vest_cls_region.data, { 1, vest_cls_region.rows, vest_cls_region.cols, vest_cls_region.channels() }, RKNN_TENSOR_NHWC);
+				auto vest_cls_rst_map = vest_cls_instance_->forward(vest_cls_region);
 				auto vest_cls_rst = vest_cls_rst_map.begin()->second;
 				auto vest_cls_scores = vest_cls_rst->cpu_data();
 				float is_refvest_score = vest_cls_scores[1];
@@ -173,7 +175,7 @@ namespace glasssix::pump_vesthelmet
 							cv::resize(helmet_cls, helmet_cls, cv::Size2i{ 96, 96 });
 
 							cv::cvtColor(helmet_cls, helmet_cls, cv::COLOR_BGR2RGB);
-							auto helmet_cls_rst_map = helmet_cls_instance_->forward(helmet_cls.data, { 1, helmet_cls.rows, helmet_cls.cols, helmet_cls.channels() }, RKNN_TENSOR_NHWC);
+							auto helmet_cls_rst_map = helmet_cls_instance_->forward(helmet_cls);
 							auto helmet_cls_rst = helmet_cls_rst_map.begin()->second;
 							auto helmet_cls_scores = helmet_cls_rst->mutable_cpu_data();// 3 * float
 
@@ -307,7 +309,7 @@ namespace glasssix::pump_vesthelmet
 			constexpr int reShapeSide = 128;
 			auto letter_img = letterbox(image, reShapeSide, reShapeSide);
 			cv::cvtColor(letter_img, letter_img, cv::COLOR_BGR2RGB);
-			auto det_rst_map = head_det_instance_->forward(letter_img.data, { 1, letter_img.rows, letter_img.cols, letter_img.channels() }, RKNN_TENSOR_NHWC);
+			auto det_rst_map = head_det_instance_->forward(letter_img);
 			auto det_rst_vec = sort_yolo_rst(det_rst_map);
 			auto tensor_out = yolov8_complement(det_rst_vec);
 
@@ -346,9 +348,12 @@ namespace glasssix::pump_vesthelmet
 
 	private:
 		posture::detect_code posture_instance_;
-		std::unique_ptr<rknnwrapper::rknn_wrapper> vest_cls_instance_;
-		std::unique_ptr<rknnwrapper::rknn_wrapper> head_det_instance_;
-		std::unique_ptr<rknnwrapper::rknn_wrapper> helmet_cls_instance_;
+		std::shared_ptr<GenPipeline> vest_cls_instance_;
+		std::shared_ptr<GenPipeline> head_det_instance_;
+		std::shared_ptr<GenPipeline> helmet_cls_instance_;
+		std::shared_ptr<Yolov8<GenPipeline, false>> yolov8_instance_vest;
+		std::shared_ptr<Yolov8<GenPipeline, false>> yolov8_instance_head;
+		std::shared_ptr<Yolov8<GenPipeline, false>> yolov8_instance_helmet;
 	};
 
 	detect_code_internal::detect_code_internal(std::string_view model_directory, int device)

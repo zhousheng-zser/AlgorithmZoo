@@ -1,20 +1,8 @@
 #include "pumptop_helmet_detector_impl.hpp"
 #include "pumptop_helmet_info_impl.hpp"
-#ifdef USE_RKNNAPI
-#include "RKNNWrapper/rknn_wrapper.hpp"
 #include <opencv2/opencv.hpp>
 #include <opencv2/imgproc/types_c.h>
-#elif defined(USE_RKNN2API)
-#include "RKNN2Wrapper/rknn2_wrapper.hpp"
-#include <opencv2/opencv.hpp>
-#include <opencv2/imgproc/types_c.h>
-#else
-#include "Excalibur/pipeline.hpp"
-#include "Excalibur/operation_safty_cut.hpp"
-#include "Excalibur/operation_resize.hpp"
-#include "Primitives/tensor_conversions.hpp"
-#endif
-#include <GenPipeline/PrePostProcessGenPipeline.hpp>
+#include <GenPipeline/GenPipeline.hpp>
 #include <YoloFamily/Yolo_wrapper.hpp>
 #include "poly.hpp"
 #include <thread>
@@ -31,130 +19,42 @@ namespace glasssix::pumptop_helmet
 		impl(std::string_view model_directory, int device)
 			: model_directory_{std::string(model_directory)}, device_{device}
 		{
+#if defined(USE_RKNNAPI) || defined(USE_RKNN2API)
+			std::string model_ext{ ".rknn" };
+			const int model_w = 128;
+			const int model_h = 128;
+#elif defined(USE_BMNN)
+			std::string model_ext{ ".bmodel" };
+			const int model_w = 128;
+			const int model_h = 128;
+#else
+			std::string model_ext{ ".onnx" };
+#endif
 			// 算法传过来的模型名:泵检测模型 1280-v1_ori_TAL
-			net_detect_1 = std::make_shared<GenPipeline>(model_directory_ + "/pumptop_helmet_pump.rknn", device_);
-			yolov8_instance_1 = std::make_shared<Yolov8<GenPipeline>>(1280, 1280, net_detect_1);
+			net_detect_1 = std::make_shared<GenPipeline>(model_directory_ + "/pumptop_helmet_pump" + model_ext, device_);
+			yolov8_instance_1 = std::make_shared<Yolov8<GenPipeline>>(1280 , 1280, net_detect_1);
 
 			// 算法传过来的模型名:人检测模型 1280T320-0108_Person_best_detection
-			net_detect_2 = std::make_shared<GenPipeline>(model_directory_ + "/pumptop_helmet_person.rknn", device_);
+			net_detect_2 = std::make_shared<GenPipeline>(model_directory_ + "/pumptop_helmet_person" + model_ext, device_);
 			yolov8_instance_2 = std::make_shared<Yolov8<GenPipeline>>(1280, 736, net_detect_2);
 
 			// 算法传过来的模型名:人头检测模型 640T320-200epft-baoshinegtivev2-atss-nwd-wop
-			net_detect_3 = std::make_unique<rknnwrapper::rknn_wrapper>(phais, std::string(model_directory) + "/" + "pumptop_helmet_head.rknn", device);
-
+			net_detect_3 = std::make_shared<GenPipeline>(model_directory_ + "/pumptop_helmet_head" + model_ext, device_);
+			yolov8_instance_3 = std::make_shared<Yolov8<GenPipeline>>(model_w, model_h, net_detect_3);
 			// 算法传过来的模型名:人头分类检测模型 helmetclassify-v2-96-labelsmooth-0.05
-			net_detect_4 = std::make_unique<rknnwrapper::rknn_wrapper>(phais, std::string(model_directory) + "/" + "pumptop_helmet_helmet.rknn", device);
+			net_detect_4 = std::make_shared<GenPipeline>(model_directory_ + "/pumptop_helmet_helmet" + model_ext, device_);
+
+			net_detect_1->manual_possible_normalization(0, 1.f / 255);
+			net_detect_2->manual_possible_normalization(0, 1.f / 255);
+			net_detect_3->manual_possible_normalization(0, 1.f / 255);
+			net_detect_4->manual_possible_normalization(0, 1.f / 255);
 		}
 
 		~impl()
 		{
 		}
 
-		// 检测前的预处理以及后处理相关函数
-		void init_data1280()
-		{
-			posture_add_weight_1280.resize(33600 * 2);
-			posture_mul_weight_1280.resize(33600);
-			for (size_t i = 0; i < 33600; i++)
-			{
-				if (i < 25600)
-				{
-					posture_add_weight_1280[i] = i % 160;
-					posture_add_weight_1280[i + 33600] = i / 160;
-					posture_mul_weight_1280[i] = 8.f;
-				}
-				else if (i < 32000)
-				{
-					posture_add_weight_1280[i] = (i - 25600) % 80;
-					posture_add_weight_1280[i + 33600] = (i - 25600) / 80;
-					posture_mul_weight_1280[i] = 16.f;
-				}
-				else
-				{
-					posture_add_weight_1280[i] = (i - 32000) % 40;
-					posture_add_weight_1280[i + 33600] = (i - 32000) / 40;
-					posture_mul_weight_1280[i] = 32.f;
-				}
-			}
-		}
-		void init_data640()
-		{
-			posture_add_weight_1280.resize(8400 * 2);
-			posture_mul_weight_1280.resize(8400);
-			for (int i = 0; i < 8400; i++)
-			{
-				if (i < 6400)
-				{
-					posture_add_weight_1280[i] = i % 80;
-					posture_add_weight_1280[i + 8400] = i / 80;
-					posture_mul_weight_1280[i] = 8.f;
-				}
-				else if (i < 8000)
-				{
-					posture_add_weight_1280[i] = (i - 6400) % 40;
-					posture_add_weight_1280[i + 8400] = (i - 6400) / 40;
-					posture_mul_weight_1280[i] = 16.f;
-				}
-				else
-				{
-					posture_add_weight_1280[i] = (i - 8000) % 20;
-					posture_add_weight_1280[i + 8400] = (i - 8000) / 20;
-					posture_mul_weight_1280[i] = 32.f;
-				}
-			}
-		}
-		void init_data320()
-		{
-			posture_add_weight_1280.resize(2100 * 2);
-			posture_mul_weight_1280.resize(2100);
-			for (size_t i = 0; i < 2100; i++)
-			{
-				if (i < 1600)
-				{
-					posture_add_weight_1280[i] = i % 40;
-					posture_add_weight_1280[i + 2100] = i / 40;
-					posture_mul_weight_1280[i] = 8.f;
-				}
-				else if (i < 2000)
-				{
-					posture_add_weight_1280[i] = (i - 1600) % 20;
-					posture_add_weight_1280[i + 2100] = (i - 1600) / 20;
-					posture_mul_weight_1280[i] = 16.f;
-				}
-				else
-				{
-					posture_add_weight_1280[i] = (i - 2000) % 10;
-					posture_add_weight_1280[i + 2100] = (i - 2000) / 10;
-					posture_mul_weight_1280[i] = 32.f;
-				}
-			}
-		}
-		void init_data128()
-		{
-			posture_add_weight_1280.resize(336 * 2);
-			posture_mul_weight_1280.resize(336);
-			for (size_t i = 0; i < 336; i++)
-			{
-				if (i < 256)
-				{
-					posture_add_weight_1280[i] = i % 16;
-					posture_add_weight_1280[i + 336] = i / 16;
-					posture_mul_weight_1280[i] = 8.f;
-				}
-				else if (i < 300)
-				{
-					posture_add_weight_1280[i] = (i - 256) % 8;
-					posture_add_weight_1280[i + 336] = (i - 256) / 8;
-					posture_mul_weight_1280[i] = 16.f;
-				}
-				else
-				{
-					posture_add_weight_1280[i] = (i - 300) % 4;
-					posture_add_weight_1280[i + 336] = (i - 300) / 4;
-					posture_mul_weight_1280[i] = 32.f;
-				}
-			}
-		}
+
 		std::tuple<cv::Mat, float> preprocess_detection(cv::Mat src, int &pad_h, int &pad_w, cv::Size input_shape = cv::Size(640, 640))
 		{
 			float scale = std::min((float)input_shape.width / (float)src.cols, (float)input_shape.height / (float)src.rows);
@@ -204,272 +104,6 @@ namespace glasssix::pumptop_helmet
 			if (x >= 1 || x < 0)
 				return NAN;
 			return static_cast<float>(log(x / (1 - x)));
-		}
-		std::shared_ptr<memory::tensor<float>> Yovo8se_Concat1280(std::vector<std::shared_ptr<memory::tensor<float>>> &outs, float conf, int &candicate_num)
-		{
-			conf = de_sigmoid(conf);
-			int input = 1280;
-			int box_tmp_size = 64;
-			int stride_8_num = input / 8;
-			int stride_16_num = input / 16;
-			int stride_32_num = input / 32;
-
-			int candidate_num = stride_8_num * stride_8_num + stride_16_num * stride_16_num + stride_32_num * stride_32_num;
-			int totol_size = stride_8_num * stride_8_num + stride_16_num * stride_16_num + stride_32_num * stride_32_num;
-			// 20 40 80
-			const float *data_stride_8 = outs[2]->cpu_data();
-			const float *data_stride_16 = outs[1]->cpu_data();
-			const float *data_stride_32 = outs[0]->cpu_data();
-
-			std::vector<int> match_index;
-
-			const float *data_stride_8_conf = data_stride_8 + stride_8_num * stride_8_num * box_tmp_size;
-			for (size_t i = 0; i < stride_8_num * stride_8_num; i++)
-				if (data_stride_8_conf[i] > conf)
-					match_index.push_back(i);
-			const float *data_stride_16_conf = data_stride_16 + stride_16_num * stride_16_num * box_tmp_size;
-			for (size_t i = 0; i < stride_16_num * stride_16_num; i++)
-				if (data_stride_16_conf[i] > conf)
-					match_index.push_back(i + stride_8_num * stride_8_num);
-			const float *data_stride_32_conf = data_stride_32 + stride_32_num * stride_32_num * box_tmp_size;
-			for (size_t i = 0; i < stride_32_num * stride_32_num; i++)
-				if (data_stride_32_conf[i] > conf)
-					match_index.push_back(i + stride_8_num * stride_8_num + stride_16_num * stride_16_num);
-
-			// concat the 80*40 40*40 20*20
-			std::vector<float> cat(65 * candidate_num); // 1*65*candidate_num = 64*candidate_num + 1*candidate_num
-			for (int i = 0, j = 0; i < 65; i++, j = 0)
-			{
-				std::copy(data_stride_8 + i * stride_8_num * stride_8_num, data_stride_8 + (i + 1) * stride_8_num * stride_8_num, cat.data() + i * candidate_num);
-				std::copy(data_stride_16 + i * stride_16_num * stride_16_num, data_stride_16 + (i + 1) * stride_16_num * stride_16_num, cat.data() + i * candidate_num + stride_8_num * stride_8_num);
-				std::copy(data_stride_32 + i * stride_32_num * stride_32_num, data_stride_32 + (i + 1) * stride_32_num * stride_32_num, cat.data() + i * candidate_num + stride_8_num * stride_8_num + stride_16_num * stride_16_num);
-			}
-
-			// tranpose and softmax
-			std::vector<float> reshape_box(candidate_num * 64);
-			tranpose(cat.data(), reshape_box.data(), 64, candidate_num);
-
-			candidate_num = match_index.size();
-
-			candicate_num = candidate_num;
-			std::vector<float> reshape_boxtmp(candidate_num * 64);
-			std::shared_ptr<glasssix::memory::tensor<float>> output0(new memory::tensor<float>(std::vector<int>{1, 5, candidate_num}, -1, memory::NCHW));
-
-			for (size_t i = 0; i < match_index.size(); i++)
-				std::copy(reshape_box.data() + match_index[i] * 64, reshape_box.data() + match_index[i] * 64 + 64, reshape_boxtmp.data() + i * 64);
-
-			int index = 0;
-			for (int i = 0; i < candidate_num; i++)
-				for (int j = 0; j < 4; j++)
-					Softmax(reshape_boxtmp.data() + 16 * index++, 16); // inplace softamax
-
-			for (int i = 0; i < candidate_num; i++)
-				for (int j = 0; j < 4; j++)
-					for (int k = 0; k < 16; k++)
-						cat[k * 4 * candidate_num + j * candidate_num + i] = reshape_boxtmp[i * 16 * 4 + j * 16 + k];
-
-			// 16 channels 1*1convolution
-			std::vector<float> conv(4 * candidate_num, 0);
-			for (int i = 0; i < 16; i++)
-				for (int j = 0; j < 4 * candidate_num; j++)
-					conv[j] = conv[j] + cat[i * 4 * candidate_num + j] * i;
-
-			std::vector<float> concat(candidate_num * 4);
-			for (int i = 0; i < candidate_num * 2; i++)
-			{
-				concat[i] = (conv[i + candidate_num * 2] - conv[i]) / 2.f + posture_add_weight_1280[i < candidate_num ? match_index[i] : (match_index[i - candidate_num] + totol_size)] + 0.5;
-				concat[i + candidate_num * 2] = (conv[i + candidate_num * 2] + conv[i]); // add_data[i]-sub_data[i]) ;
-			}
-
-			// concat the output
-			float *output = output0->mutable_cpu_data();
-			for (int i = 0; i < candidate_num; i++)
-			{
-				output[candidate_num * 0 + i] = concat[candidate_num * 0 + i] * posture_mul_weight_1280[match_index[i]];
-				output[candidate_num * 1 + i] = concat[candidate_num * 1 + i] * posture_mul_weight_1280[match_index[i]];
-				output[candidate_num * 2 + i] = concat[candidate_num * 2 + i] * posture_mul_weight_1280[match_index[i]];
-				output[candidate_num * 3 + i] = concat[candidate_num * 3 + i] * posture_mul_weight_1280[match_index[i]];
-				output[candidate_num * 4 + i] = sigmoid_x(cat[totol_size * 64 + match_index[i]]);
-			}
-			return output0;
-		}
-
-		std::shared_ptr<memory::tensor<float>> Yovo8se_Concat(std::vector<std::shared_ptr<memory::tensor<float>>> &outs, float conf, int &candicate_num)
-		{
-			conf = de_sigmoid(conf);
-			int input = 640;
-			int box_tmp_size = 64;
-			int stride_8_num = input / 8;
-			int stride_16_num = input / 16;
-			int stride_32_num = input / 32;
-
-			int candidate_num = stride_8_num * stride_8_num + stride_16_num * stride_16_num + stride_32_num * stride_32_num;
-			int totol_size = stride_8_num * stride_8_num + stride_16_num * stride_16_num + stride_32_num * stride_32_num;
-			// 20 40 80
-			const float *data_stride_8 = outs[2]->cpu_data();
-			const float *data_stride_16 = outs[1]->cpu_data();
-			const float *data_stride_32 = outs[0]->cpu_data();
-
-			std::vector<int> match_index;
-
-			const float *data_stride_8_conf = data_stride_8 + stride_8_num * stride_8_num * box_tmp_size;
-			for (size_t i = 0; i < stride_8_num * stride_8_num; i++)
-				if (data_stride_8_conf[i] > conf)
-					match_index.push_back(i);
-			const float *data_stride_16_conf = data_stride_16 + stride_16_num * stride_16_num * box_tmp_size;
-			for (size_t i = 0; i < stride_16_num * stride_16_num; i++)
-				if (data_stride_16_conf[i] > conf)
-					match_index.push_back(i + stride_8_num * stride_8_num);
-			const float *data_stride_32_conf = data_stride_32 + stride_32_num * stride_32_num * box_tmp_size;
-			for (size_t i = 0; i < stride_32_num * stride_32_num; i++)
-				if (data_stride_32_conf[i] > conf)
-					match_index.push_back(i + stride_8_num * stride_8_num + stride_16_num * stride_16_num);
-
-			// concat the 80*40 40*40 20*20
-			std::vector<float> cat(65 * candidate_num); // 1*65*candidate_num = 64*candidate_num + 1*candidate_num
-			for (int i = 0, j = 0; i < 65; i++, j = 0)
-			{
-				std::copy(data_stride_8 + i * stride_8_num * stride_8_num, data_stride_8 + (i + 1) * stride_8_num * stride_8_num, cat.data() + i * candidate_num);
-				std::copy(data_stride_16 + i * stride_16_num * stride_16_num, data_stride_16 + (i + 1) * stride_16_num * stride_16_num, cat.data() + i * candidate_num + stride_8_num * stride_8_num);
-				std::copy(data_stride_32 + i * stride_32_num * stride_32_num, data_stride_32 + (i + 1) * stride_32_num * stride_32_num, cat.data() + i * candidate_num + stride_8_num * stride_8_num + stride_16_num * stride_16_num);
-			}
-
-			// tranpose and softmax
-			std::vector<float> reshape_box(candidate_num * 64);
-			tranpose(cat.data(), reshape_box.data(), 64, candidate_num);
-
-			candidate_num = match_index.size();
-
-			candicate_num = candidate_num;
-			std::vector<float> reshape_boxtmp(candidate_num * 64);
-			std::shared_ptr<glasssix::memory::tensor<float>> output0(new memory::tensor<float>(std::vector<int>{1, 5, candidate_num}, -1, memory::NCHW));
-
-			for (size_t i = 0; i < match_index.size(); i++)
-				std::copy(reshape_box.data() + match_index[i] * 64, reshape_box.data() + match_index[i] * 64 + 64, reshape_boxtmp.data() + i * 64);
-
-			int index = 0;
-			for (int i = 0; i < candidate_num; i++)
-				for (int j = 0; j < 4; j++)
-					Softmax(reshape_boxtmp.data() + 16 * index++, 16); // inplace softamax
-
-			for (int i = 0; i < candidate_num; i++)
-				for (int j = 0; j < 4; j++)
-					for (int k = 0; k < 16; k++)
-						cat[k * 4 * candidate_num + j * candidate_num + i] = reshape_boxtmp[i * 16 * 4 + j * 16 + k];
-
-			// 16 channels 1*1convolution
-			std::vector<float> conv(4 * candidate_num, 0);
-			for (int i = 0; i < 16; i++)
-				for (int j = 0; j < 4 * candidate_num; j++)
-					conv[j] = conv[j] + cat[i * 4 * candidate_num + j] * i;
-
-			std::vector<float> concat(candidate_num * 4);
-			for (int i = 0; i < candidate_num * 2; i++)
-			{
-				concat[i] = (conv[i + candidate_num * 2] - conv[i]) / 2.f + posture_add_weight_1280[i < candidate_num ? match_index[i] : (match_index[i - candidate_num] + totol_size)] + 0.5;
-				concat[i + candidate_num * 2] = (conv[i + candidate_num * 2] + conv[i]); // add_data[i]-sub_data[i]) ;
-			}
-
-			// concat the output
-			float *output = output0->mutable_cpu_data();
-			for (int i = 0; i < candidate_num; i++)
-			{
-				output[candidate_num * 0 + i] = concat[candidate_num * 0 + i] * posture_mul_weight_1280[match_index[i]];
-				output[candidate_num * 1 + i] = concat[candidate_num * 1 + i] * posture_mul_weight_1280[match_index[i]];
-				output[candidate_num * 2 + i] = concat[candidate_num * 2 + i] * posture_mul_weight_1280[match_index[i]];
-				output[candidate_num * 3 + i] = concat[candidate_num * 3 + i] * posture_mul_weight_1280[match_index[i]];
-				output[candidate_num * 4 + i] = sigmoid_x(cat[totol_size * 64 + match_index[i]]);
-			}
-			return output0;
-		}
-
-		std::shared_ptr<memory::tensor<float>> Yovo8se_Concat_320(std::vector<std::shared_ptr<memory::tensor<float>>> &outs, float conf, int &candicate_num)
-		{
-			conf = de_sigmoid(conf);
-			int input = 320;
-			int box_tmp_size = 64;
-			int stride_8_num = input / 8;
-			int stride_16_num = input / 16;
-			int stride_32_num = input / 32;
-
-			int candidate_num = stride_8_num * stride_8_num + stride_16_num * stride_16_num + stride_32_num * stride_32_num;
-			int totol_size = candidate_num;
-			// 10 20 40
-			const float *data_stride_8 = outs[2]->cpu_data();
-			const float *data_stride_16 = outs[1]->cpu_data();
-			const float *data_stride_32 = outs[0]->cpu_data();
-
-			std::vector<int> match_index;
-
-			const float *data_stride_8_conf = data_stride_8 + stride_8_num * stride_8_num * box_tmp_size;
-			for (size_t i = 0; i < stride_8_num * stride_8_num; i++)
-				if (data_stride_8_conf[i] > conf)
-					match_index.push_back(i);
-			const float *data_stride_16_conf = data_stride_16 + stride_16_num * stride_16_num * box_tmp_size;
-			for (size_t i = 0; i < stride_16_num * stride_16_num; i++)
-				if (data_stride_16_conf[i] > conf)
-					match_index.push_back(i + stride_8_num * stride_8_num);
-			const float *data_stride_32_conf = data_stride_32 + stride_32_num * stride_32_num * box_tmp_size;
-			for (size_t i = 0; i < stride_32_num * stride_32_num; i++)
-				if (data_stride_32_conf[i] > conf)
-					match_index.push_back(i + stride_8_num * stride_8_num + stride_16_num * stride_16_num);
-
-			// concat the 80*80 40*40 20*20
-			std::vector<float> cat(65 * candidate_num); // 1*65*candidate_num = 64*candidate_num + 1*candidate_num
-			for (int i = 0, j = 0; i < 65; i++, j = 0)
-			{
-				std::copy(data_stride_8 + i * stride_8_num * stride_8_num, data_stride_8 + (i + 1) * stride_8_num * stride_8_num, cat.data() + i * candidate_num);
-				std::copy(data_stride_16 + i * stride_16_num * stride_16_num, data_stride_16 + (i + 1) * stride_16_num * stride_16_num, cat.data() + i * candidate_num + stride_8_num * stride_8_num);
-				std::copy(data_stride_32 + i * stride_32_num * stride_32_num, data_stride_32 + (i + 1) * stride_32_num * stride_32_num, cat.data() + i * candidate_num + stride_8_num * stride_8_num + stride_16_num * stride_16_num);
-			}
-
-			// tranpose and softmax
-			std::vector<float> reshape_box(candidate_num * 64);
-			tranpose(cat.data(), reshape_box.data(), 64, candidate_num);
-
-			candidate_num = match_index.size();
-
-			candicate_num = candidate_num;
-			std::vector<float> reshape_boxtmp(candidate_num * 64);
-			std::shared_ptr<glasssix::memory::tensor<float>> output0(new memory::tensor<float>(std::vector<int>{1, 5, candidate_num}, -1, memory::NCHW));
-
-			for (size_t i = 0; i < match_index.size(); i++)
-				std::copy(reshape_box.data() + match_index[i] * 64, reshape_box.data() + match_index[i] * 64 + 64, reshape_boxtmp.data() + i * 64);
-
-			int index = 0;
-			for (int i = 0; i < candidate_num; i++)
-				for (int j = 0; j < 4; j++)
-					Softmax(reshape_boxtmp.data() + 16 * index++, 16); // inplace softamax
-
-			for (int i = 0; i < candidate_num; i++)
-				for (int j = 0; j < 4; j++)
-					for (int k = 0; k < 16; k++)
-						cat[k * 4 * candidate_num + j * candidate_num + i] = reshape_boxtmp[i * 16 * 4 + j * 16 + k];
-
-			// 16 channels 1*1convolution
-			std::vector<float> conv(4 * candidate_num, 0);
-			for (int i = 0; i < 16; i++)
-				for (int j = 0; j < 4 * candidate_num; j++)
-					conv[j] = conv[j] + cat[i * 4 * candidate_num + j] * i;
-
-			std::vector<float> concat(candidate_num * 4);
-			for (int i = 0; i < candidate_num * 2; i++)
-			{
-				concat[i] = (conv[i + candidate_num * 2] - conv[i]) / 2.f + posture_add_weight_1280[i < candidate_num ? match_index[i] : (match_index[i - candidate_num] + totol_size)] + 0.5;
-				concat[i + candidate_num * 2] = (conv[i + candidate_num * 2] + conv[i]); // add_data[i]-sub_data[i]) ;
-			}
-
-			// concat the output
-			float *output = output0->mutable_cpu_data();
-			for (int i = 0; i < candidate_num; i++)
-			{
-				output[candidate_num * 0 + i] = concat[candidate_num * 0 + i] * posture_mul_weight_1280[match_index[i]];
-				output[candidate_num * 1 + i] = concat[candidate_num * 1 + i] * posture_mul_weight_1280[match_index[i]];
-				output[candidate_num * 2 + i] = concat[candidate_num * 2 + i] * posture_mul_weight_1280[match_index[i]];
-				output[candidate_num * 3 + i] = concat[candidate_num * 3 + i] * posture_mul_weight_1280[match_index[i]];
-				output[candidate_num * 4 + i] = sigmoid_x(cat[totol_size * 64 + match_index[i]]);
-			}
-			return output0;
 		}
 
 		std::shared_ptr<memory::tensor<float>> Yovo8se_Concat_128(std::vector<std::shared_ptr<memory::tensor<float>>> &outs, float conf, int &candicate_num)
@@ -630,7 +264,7 @@ namespace glasssix::pumptop_helmet
 				throw exposing::abi_invalid_argument("current frame is empty");
 			}
 			auto results = exposing::make_param_vector<pumptop_helmet::pumptop_helmet_info>();
-			cv::Mat image(height, width, CV_8UC3, bitmap.data());
+            cv::Mat image(cv::Size(width, height), CV_8UC3, const_cast<uint8_t*>(bitmap.data()));
 			std::vector<cv::Rect> ori_rect = pump_detect(image, param_map, categorys, scores, helmet_scores);
 			for (int i = 0; i < ori_rect.size(); i++)
 			{
@@ -673,15 +307,15 @@ namespace glasssix::pumptop_helmet
 				cv::Rect roiRect(x1, y1, x2 - x1, y2 - y1);
 				//& 画泵的分数
 #if defined(RECTANGLE)
-				 cv::putText(image, str, cv::Point(x2 + 10, y2 + 10), 0, 0.8, cv::Scalar(0, 0, 255));
-				 std::this_thread::sleep_for(std::chrono::milliseconds(200));
+				cv::putText(image, str, cv::Point(x2 + 10, y2 + 10), 0, 0.8, cv::Scalar(0, 0, 255));
+				std::this_thread::sleep_for(std::chrono::milliseconds(200));
 #endif
 				// 人检测
 				int category;
 				float score;
 				float helmet_score;
 				ori_rect = people_detect(image, roiRect, param_map, category, score, helmet_score); // roiRect 是泵的坐标
-				if (category != -1) // 满足目标才放入
+				if (category != -1)																	// 满足目标才放入
 				{
 					categorys.push_back(category);
 					result_rect.push_back(ori_rect);
@@ -808,12 +442,11 @@ namespace glasssix::pumptop_helmet
 
 				//& 画泵与泵顶区域
 #if defined(RECTANGLE)
-				 cv::rectangle(image, cv::Point(rect.x, rect.y), cv::Point(rect.x + rect.width, rect.y + rect.height), cv::Scalar(0, 0, 255), 1);
-				 std::vector<cv::Point> pts = {vertices[0], vertices[1], vertices[2], vertices[3], vertices[0]}; // 构造多边形的顶点序列
-				 cv::polylines(img, pts, true, cv::Scalar(0, 255, 0), 1);
+				cv::rectangle(image, cv::Point(rect.x, rect.y), cv::Point(rect.x + rect.width, rect.y + rect.height), cv::Scalar(0, 0, 255), 1);
+				std::vector<cv::Point> pts = {vertices[0], vertices[1], vertices[2], vertices[3], vertices[0]}; // 构造多边形的顶点序列
+				cv::polylines(img, pts, true, cv::Scalar(0, 255, 0), 1);
 #endif
 			}
-
 
 			auto nms_result = yolov8_instance_2->get_objects(image_ori_all, con_thres);
 			// 从结果里面拿取人的坐标
@@ -880,14 +513,14 @@ namespace glasssix::pumptop_helmet
 				flag = ratio_ret >= Threshold ? true : false;
 				//& 是否打印 人是否在泵顶
 #if defined(RECTANGLE)
-				 std::cout << "ratio_ret: " << ratio_ret << " - " << flag << std::endl;
-				 if (distance >= 0 && flag)
-				 {
-				 	std::cout << "\033[31mThis text will be red!  distance: *************************\033[0m"
-				 			  << "" << distance << std::endl;
-				 }
-				 else
-				 	std::cout << "distance: *************************" << distance << std::endl;
+				std::cout << "ratio_ret: " << ratio_ret << " - " << flag << std::endl;
+				if (distance >= 0 && flag)
+				{
+					std::cout << "\033[31mThis text will be red!  distance: *************************\033[0m"
+							  << "" << distance << std::endl;
+				}
+				else
+					std::cout << "distance: *************************" << distance << std::endl;
 #endif
 				if (distance >= 0 && flag)
 				{
@@ -908,24 +541,24 @@ namespace glasssix::pumptop_helmet
 					category = helmet_detect(image_ori_all, rect_head, param_map, helmet_score);
 					//& 画泵顶区域的人体与人体底部中心
 #if defined(RECTANGLE)
-					 cv::rectangle(img, cv::Point(rect_peple_ori.x, rect_peple_ori.y), cv::Point(rect_peple_ori.x + rect_peple_ori.width, rect_peple_ori.y + rect_peple_ori.height), cv::Scalar(0, 0, 255), 1);
-					 cv::circle(img, point_people_feet_center, 5, cv::Scalar(0, 0, 255), -1);
-					 cv::putText(img, std::to_string(people_score), cv::Point(rect_peple_ori.x + 10, rect_peple_ori.y + 10), 0, 1.5, cv::Scalar(0, 0, 255));
+					cv::rectangle(img, cv::Point(rect_peple_ori.x, rect_peple_ori.y), cv::Point(rect_peple_ori.x + rect_peple_ori.width, rect_peple_ori.y + rect_peple_ori.height), cv::Scalar(0, 0, 255), 1);
+					cv::circle(img, point_people_feet_center, 5, cv::Scalar(0, 0, 255), -1);
+					cv::putText(img, std::to_string(people_score), cv::Point(rect_peple_ori.x + 10, rect_peple_ori.y + 10), 0, 1.5, cv::Scalar(0, 0, 255));
 
 					//& 画人头
-					 cv::rectangle(img, cv::Point(rect_head.x, rect_head.y), cv::Point(rect_head.x + rect_head.width, rect_head.y + rect_head.height), cv::Scalar(0, 0, 255), 1);
-					 cv::putText(img, std::to_string(score) + "___" + std::to_string(helmet_score), cv::Point(rect_head.x + 10, rect_head.y + 10), 0, 1.5, cv::Scalar(0, 0, 255));
+					cv::rectangle(img, cv::Point(rect_head.x, rect_head.y), cv::Point(rect_head.x + rect_head.width, rect_head.y + rect_head.height), cv::Scalar(0, 0, 255), 1);
+					cv::putText(img, std::to_string(score) + "___" + std::to_string(helmet_score), cv::Point(rect_head.x + 10, rect_head.y + 10), 0, 1.5, cv::Scalar(0, 0, 255));
 				}
 				else
 				{
-					 //& 画不在泵顶里面的人体与底部中心
-					 std::cout << "The point is outside the rectangle!" << std::endl;
-					 cv::rectangle(img, cv::Point(people_rect.x, people_rect.y), cv::Point(people_rect.x + people_rect.width, people_rect.y + people_rect.height), cv::Scalar(255, 255, 0), 1);
-					 cv::circle(img, point_people_feet_center, 5, cv::Scalar(0, 0, 255), -1);
+					//& 画不在泵顶里面的人体与底部中心
+					std::cout << "The point is outside the rectangle!" << std::endl;
+					cv::rectangle(img, cv::Point(people_rect.x, people_rect.y), cv::Point(people_rect.x + people_rect.width, people_rect.y + people_rect.height), cv::Scalar(255, 255, 0), 1);
+					cv::circle(img, point_people_feet_center, 5, cv::Scalar(0, 0, 255), -1);
 				}
 			}
 			//& 写入图片文件
-			 cv::imwrite("../last" + std::to_string(num) + ".jpg", img);
+			cv::imwrite("../last" + std::to_string(num) + ".jpg", img);
 #else
 				}
 			}
@@ -945,46 +578,40 @@ namespace glasssix::pumptop_helmet
 
 			float con_thres = param_map.count("head_conf_thres") ? param_map["head_conf_thres"] : 0.6f;
 			float iou_thres = param_map.count("nms_thres") ? param_map["nms_thres"] : 0.5f;
-			init_data128();
 			auto new_shape = cv::Size(128, 128);
 			cv::Mat blob;
-			float ratio = 1.f;
-			int pad_h = 0;
-			int pad_w = 0;
-
-			std::tie(blob, ratio) = preprocess_detection(image, pad_h, pad_w, new_shape);
-			unsigned char *blobdata = blob.ptr<uchar>();
-			std::vector<int> v_blob;
-			v_blob.push_back(1);
-			v_blob.push_back(blob.rows);
-
-			v_blob.push_back(blob.cols);
-			v_blob.push_back(blob.channels());
-			auto network_results = net_detect_3->forward(blob.data, v_blob, RKNN_TENSOR_NHWC);
-
-			std::vector<std::string> out_names = {"355", "340", "output0"};
-
-			std::vector<std::shared_ptr<glasssix::memory::tensor<float>>> forwards;
-
-			for (size_t i = 0; i < out_names.size(); ++i)
-			{
-				forwards.push_back(network_results[out_names[i]]);
-			}
-
-			int candicate_num = 0;
-
-			auto real_output = Yovo8se_Concat_128(forwards, con_thres, candicate_num);
-
-			auto nms_result = post_process(real_output, blob, pad_h, pad_w, 1.f / ratio, candicate_num, con_thres, iou_thres);
+			auto nms_result = yolov8_instance_3->get_objects(image, con_thres, iou_thres);//使用这个就不会执行报错
+			//注释掉,就可以正常调用本算法了
+			// float ratio = 1.f;
+			// int pad_h = 0;
+			// int pad_w = 0;
+ 
+			// std::tie(blob, ratio) = preprocess_detection(image, pad_h, pad_w, new_shape);
+			// auto network_results = net_detect_3->forward(blob);
+ 
+			// std::vector<std::string> out_names = {"355", "340", "output0"};
+ 
+			// std::vector<std::shared_ptr<glasssix::memory::tensor<float>>> forwards;
+ 
+			// for (size_t i = 0; i < out_names.size(); ++i)
+			// {
+			// 	forwards.push_back(network_results[out_names[i]]);
+			// }
+ 
+			// int candicate_num = 0;
+ 
+			// auto real_output = Yovo8se_Concat_128(forwards, con_thres, candicate_num);
+ 
+			// auto nms_result_error = post_process(real_output, blob, pad_h, pad_w, 1.f / ratio, candicate_num, con_thres, iou_thres);//! 就是这一行
 			int num = 0;
 			// 从人头结果里面拿取人头的坐标
 			for (auto &pump : nms_result)
 			{
-				int x1 = std::round(pump[0]) > 0 ? std::round(pump[0]) : 0;
-				int y1 = std::round(pump[1]) > 0 ? std::round(pump[1]) : 0;
-				int x2 = std::round(pump[2]) < image.cols ? std::round(pump[2]) : image.cols;
-				int y2 = std::round(pump[3]) < image.rows ? std::round(pump[3]) : image.rows;
-				score = pump[4];
+				int x1 = std::round(pump.x1) > 0 ? std::round(pump.x1) : 0;
+				int y1 = std::round(pump.y1) > 0 ? std::round(pump.y1) : 0;
+				int x2 = std::round(pump.x2) < image.cols ? std::round(pump.x2) : image.cols;
+				int y2 = std::round(pump.y2) < image.rows ? std::round(pump.y2) : image.rows;
+				score = pump.score;
 				int x1_ori = x1 + rect.x;
 				int x2_ori = x2 + rect.x;
 				int y1_ori = y1 + rect.y;
@@ -1020,9 +647,13 @@ namespace glasssix::pumptop_helmet
 
 			v_blob.push_back(blob.cols);
 			v_blob.push_back(blob.channels());
-			auto network_results = net_detect_4->forward(blob.data, v_blob, RKNN_TENSOR_NHWC);
-
-			std::vector<std::string> out_names = {"output0"};
+			auto network_results = net_detect_4->forward(blob);
+#if defined(USE_BMNN)
+			std::string ext{"_Softmax"};
+#else
+			std::string ext{""};
+#endif
+			std::vector<std::string> out_names = {"output0" + ext};
 
 			// 直接拿结果
 			auto result = network_results[out_names[0]]->cpu_data();
@@ -1048,10 +679,11 @@ namespace glasssix::pumptop_helmet
 	private:
 		std::shared_ptr<GenPipeline> net_detect_1;
 		std::shared_ptr<GenPipeline> net_detect_2;
-		std::unique_ptr<rknnwrapper::rknn_wrapper> net_detect_3;
-		std::unique_ptr<rknnwrapper::rknn_wrapper> net_detect_4;
+		std::shared_ptr<GenPipeline> net_detect_3;
+		std::shared_ptr<GenPipeline> net_detect_4;
 		std::shared_ptr<Yolov8<GenPipeline, false>> yolov8_instance_1;
 		std::shared_ptr<Yolov8<GenPipeline, false>> yolov8_instance_2;
+		std::shared_ptr<Yolov8<GenPipeline, false>> yolov8_instance_3;
 
 		std::vector<std::string> phais;
 

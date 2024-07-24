@@ -143,7 +143,14 @@ namespace glasssix::pump_gate_status
             contours.push_back(cv::Point(1520, 850));
             contours.push_back(cv::Point(883, 850));
             std::vector<std::vector<cv::Point>> pts{ contours };
+#if defined(USE_RKNNAPI) || defined(USE_RKNN2API)
             cv::fillPoly(mask, contours, cv::Scalar(255, 255, 255));
+#elif defined(USE_BMNN)
+            cv::fillPoly(mask, pts, cv::Scalar(255, 255, 255));
+#else
+			cv::fillPoly(mask, contours, cv::Scalar(255, 255, 255));
+#endif
+
             // 通过位运算提取ROI
             cv::Mat dst;
             cv::bitwise_and(img_full, mask, dst);
@@ -274,8 +281,7 @@ namespace glasssix::pump_gate_status
             CHECK_EQ(rois.size(), 8);
             CHECK_EQ(bitmap.size(), channels * height * width);
 
-            cv::Mat image(cv::Size(width, height), CV_8UC3);
-            std::memcpy(image.data, bitmap.data(), sizeof(uint8_t) * channels * height * width);
+			cv::Mat image(cv::Size(width, height), CV_8UC3, const_cast<uint8_t*>(bitmap.data()));
 
             ROI door(rois[0], rois[1], rois[2], rois[3]);
             ROI floor(rois[4], rois[5], rois[6], rois[7]);
