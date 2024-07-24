@@ -155,6 +155,13 @@ public:
 		return forward(m_input_float, { 1,3,image.rows,image.cols }, 0);
 	}
 
+	std::unordered_map<std::string, std::shared_ptr<glasssix::memory::tensor<float>>> forwardtest(cv::Mat image) 
+	{
+		cv::Mat sample_float(m_net_h, m_net_w, CV_32FC3, cv::SophonDevice(this->m_dev_id));
+		image.convertTo(sample_float, CV_32FC3);
+		return forward(m_input_float, { 1,3,image.rows,image.cols }, 0);
+	}
+
 	std::unordered_map<std::string, std::shared_ptr<glasssix::memory::tensor<float>>> forward(std::shared_ptr<glasssix::memory::tensor<float>> input_ts) {
 		return forward(input_ts->cpu_data(), input_ts->data_shape(), input_ts->order());
 	}
