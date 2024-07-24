@@ -5,9 +5,7 @@
 #include <opencv2/core.hpp>
 #include <opencv2/imgproc.hpp>
 #include <opencv2/dnn.hpp>
-#include "hardcode.hpp"
 #include "Excalibur/pipeline.hpp"
-#include "Primitives/tensor_conversions.hpp"
 
 
 #define lxyyolo
