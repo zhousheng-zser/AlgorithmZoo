@@ -581,27 +581,28 @@ namespace glasssix::pumptop_helmet
 			auto new_shape = cv::Size(128, 128);
 			cv::Mat blob;
 			auto nms_result = yolov8_instance_3->get_objects(image, con_thres, iou_thres);//使用这个就不会执行报错
-			float ratio = 1.f;
-			int pad_h = 0;
-			int pad_w = 0;
-
-			std::tie(blob, ratio) = preprocess_detection(image, pad_h, pad_w, new_shape);
-			auto network_results = net_detect_3->forward(blob);
-
-			std::vector<std::string> out_names = {"355", "340", "output0"};
-
-			std::vector<std::shared_ptr<glasssix::memory::tensor<float>>> forwards;
-
-			for (size_t i = 0; i < out_names.size(); ++i)
-			{
-				forwards.push_back(network_results[out_names[i]]);
-			}
-
-			int candicate_num = 0;
-
-			auto real_output = Yovo8se_Concat_128(forwards, con_thres, candicate_num);
-
-			auto nms_result_error = post_process(real_output, blob, pad_h, pad_w, 1.f / ratio, candicate_num, con_thres, iou_thres);
+			//注释掉,就可以正常调用本算法了
+			// float ratio = 1.f;
+			// int pad_h = 0;
+			// int pad_w = 0;
+ 
+			// std::tie(blob, ratio) = preprocess_detection(image, pad_h, pad_w, new_shape);
+			// auto network_results = net_detect_3->forward(blob);
+ 
+			// std::vector<std::string> out_names = {"355", "340", "output0"};
+ 
+			// std::vector<std::shared_ptr<glasssix::memory::tensor<float>>> forwards;
+ 
+			// for (size_t i = 0; i < out_names.size(); ++i)
+			// {
+			// 	forwards.push_back(network_results[out_names[i]]);
+			// }
+ 
+			// int candicate_num = 0;
+ 
+			// auto real_output = Yovo8se_Concat_128(forwards, con_thres, candicate_num);
+ 
+			// auto nms_result_error = post_process(real_output, blob, pad_h, pad_w, 1.f / ratio, candicate_num, con_thres, iou_thres);//! 就是这一行
 			int num = 0;
 			// 从人头结果里面拿取人头的坐标
 			for (auto &pump : nms_result)
