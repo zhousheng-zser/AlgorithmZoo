@@ -21,14 +21,18 @@ namespace glasssix::pumptop_helmet
 		{
 #if defined(USE_RKNNAPI) || defined(USE_RKNN2API)
 			std::string model_ext{ ".rknn" };
+			const int model_w = 128;
+			const int model_h = 128;
 #elif defined(USE_BMNN)
 			std::string model_ext{ ".bmodel" };
+			const int model_w = 128;
+			const int model_h = 128;
 #else
 			std::string model_ext{ ".onnx" };
 #endif
 			// 算法传过来的模型名:泵检测模型 1280-v1_ori_TAL
 			net_detect_1 = std::make_shared<GenPipeline>(model_directory_ + "/pumptop_helmet_pump" + model_ext, device_);
-			yolov8_instance_1 = std::make_shared<Yolov8<GenPipeline>>(1280, 1280, net_detect_1);
+			yolov8_instance_1 = std::make_shared<Yolov8<GenPipeline>>(1280 , 1280, net_detect_1);
 
 			// 算法传过来的模型名:人检测模型 1280T320-0108_Person_best_detection
 			net_detect_2 = std::make_shared<GenPipeline>(model_directory_ + "/pumptop_helmet_person" + model_ext, device_);
@@ -36,7 +40,7 @@ namespace glasssix::pumptop_helmet
 
 			// 算法传过来的模型名:人头检测模型 640T320-200epft-baoshinegtivev2-atss-nwd-wop
 			net_detect_3 = std::make_shared<GenPipeline>(model_directory_ + "/pumptop_helmet_head" + model_ext, device_);
-			//yolov8_instance_3 = std::make_shared<Yolov8<GenPipeline>>(128, 128, net_detect_3);
+			yolov8_instance_3 = std::make_shared<Yolov8<GenPipeline>>(model_w, model_h, net_detect_3);
 			// 算法传过来的模型名:人头分类检测模型 helmetclassify-v2-96-labelsmooth-0.05
 			net_detect_4 = std::make_shared<GenPipeline>(model_directory_ + "/pumptop_helmet_helmet" + model_ext, device_);
 
@@ -50,32 +54,7 @@ namespace glasssix::pumptop_helmet
 		{
 		}
 
-		void init_data128()
-		{
-			posture_add_weight_1280.resize(336 * 2);
-			posture_mul_weight_1280.resize(336);
-			for (size_t i = 0; i < 336; i++)
-			{
-				if (i < 256)
-				{
-					posture_add_weight_1280[i] = i % 16;
-					posture_add_weight_1280[i + 336] = i / 16;
-					posture_mul_weight_1280[i] = 8.f;
-				}
-				else if (i < 300)
-				{
-					posture_add_weight_1280[i] = (i - 256) % 8;
-					posture_add_weight_1280[i + 336] = (i - 256) / 8;
-					posture_mul_weight_1280[i] = 16.f;
-				}
-				else
-				{
-					posture_add_weight_1280[i] = (i - 300) % 4;
-					posture_add_weight_1280[i + 336] = (i - 300) / 4;
-					posture_mul_weight_1280[i] = 32.f;
-				}
-			}
-		}
+
 		std::tuple<cv::Mat, float> preprocess_detection(cv::Mat src, int &pad_h, int &pad_w, cv::Size input_shape = cv::Size(640, 640))
 		{
 			float scale = std::min((float)input_shape.width / (float)src.cols, (float)input_shape.height / (float)src.rows);
@@ -599,21 +578,14 @@ namespace glasssix::pumptop_helmet
 
 			float con_thres = param_map.count("head_conf_thres") ? param_map["head_conf_thres"] : 0.6f;
 			float iou_thres = param_map.count("nms_thres") ? param_map["nms_thres"] : 0.5f;
-			init_data128();
 			auto new_shape = cv::Size(128, 128);
 			cv::Mat blob;
+			auto nms_result = yolov8_instance_3->get_objects(image, con_thres, iou_thres);//使用这个就不会执行报错
 			float ratio = 1.f;
 			int pad_h = 0;
 			int pad_w = 0;
 
 			std::tie(blob, ratio) = preprocess_detection(image, pad_h, pad_w, new_shape);
-			unsigned char *blobdata = blob.ptr<uchar>();
-			std::vector<int> v_blob;
-			v_blob.push_back(1);
-			v_blob.push_back(blob.rows);
-
-			v_blob.push_back(blob.cols);
-			v_blob.push_back(blob.channels());
 			auto network_results = net_detect_3->forward(blob);
 
 			std::vector<std::string> out_names = {"355", "340", "output0"};
@@ -629,16 +601,16 @@ namespace glasssix::pumptop_helmet
 
 			auto real_output = Yovo8se_Concat_128(forwards, con_thres, candicate_num);
 
-			auto nms_result = post_process(real_output, blob, pad_h, pad_w, 1.f / ratio, candicate_num, con_thres, iou_thres);
+			auto nms_result_error = post_process(real_output, blob, pad_h, pad_w, 1.f / ratio, candicate_num, con_thres, iou_thres);
 			int num = 0;
 			// 从人头结果里面拿取人头的坐标
 			for (auto &pump : nms_result)
 			{
-				int x1 = std::round(pump[0]) > 0 ? std::round(pump[0]) : 0;
-				int y1 = std::round(pump[1]) > 0 ? std::round(pump[1]) : 0;
-				int x2 = std::round(pump[2]) < image.cols ? std::round(pump[2]) : image.cols;
-				int y2 = std::round(pump[3]) < image.rows ? std::round(pump[3]) : image.rows;
-				score = pump[4];
+				int x1 = std::round(pump.x1) > 0 ? std::round(pump.x1) : 0;
+				int y1 = std::round(pump.y1) > 0 ? std::round(pump.y1) : 0;
+				int x2 = std::round(pump.x2) < image.cols ? std::round(pump.x2) : image.cols;
+				int y2 = std::round(pump.y2) < image.rows ? std::round(pump.y2) : image.rows;
+				score = pump.score;
 				int x1_ori = x1 + rect.x;
 				int x2_ori = x2 + rect.x;
 				int y1_ori = y1 + rect.y;
@@ -675,8 +647,12 @@ namespace glasssix::pumptop_helmet
 			v_blob.push_back(blob.cols);
 			v_blob.push_back(blob.channels());
 			auto network_results = net_detect_4->forward(blob);
-
-			std::vector<std::string> out_names = {"output0"};
+#if defined(USE_BMNN)
+			std::string ext{"_Softmax"};
+#else
+			std::string ext{""};
+#endif
+			std::vector<std::string> out_names = {"output0" + ext};
 
 			// 直接拿结果
 			auto result = network_results[out_names[0]]->cpu_data();
@@ -706,6 +682,7 @@ namespace glasssix::pumptop_helmet
 		std::shared_ptr<GenPipeline> net_detect_4;
 		std::shared_ptr<Yolov8<GenPipeline, false>> yolov8_instance_1;
 		std::shared_ptr<Yolov8<GenPipeline, false>> yolov8_instance_2;
+		std::shared_ptr<Yolov8<GenPipeline, false>> yolov8_instance_3;
 
 		std::vector<std::string> phais;
 
