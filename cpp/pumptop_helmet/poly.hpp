@@ -3,11 +3,7 @@
 #include <set>
 #include <vector>
 
-#if defined(USE_BMNN)
-#include <boost/geometry/geometry.hpp>
-#else
-#include <boost/geometry.hpp> 
-#endif
+#include <boost/geometry.hpp>
 #include <boost/geometry/geometries/point_xy.hpp>
 #include <boost/geometry/geometries/polygon.hpp>
 
