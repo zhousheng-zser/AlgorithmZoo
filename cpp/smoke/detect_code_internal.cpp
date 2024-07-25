@@ -10,14 +10,22 @@
 
 #include "hardcode.hpp"
 
+#include <RKNN2Wrapper/rknn2_wrapper.hpp>
 #include <opencv2/core.hpp>
 #include <opencv2/imgproc.hpp>
 #include <opencv2/opencv.hpp>
 #include <abi/param_vector.hpp>
 #include <utility>
 #include "general.hpp"
-#include <GenPipeline/GenPipeline.hpp>
+
+#if defined(USE_RKNNAPI) || defined(USE_RKNN2API)
+    #include <GenPipeline/GenPipeline.hpp>
+    //#include <YoloFamily/Yolo_wrapper.hpp>
+#elif defined(USE_BMNN)
+    #include <sophonyolov8/SophonYolov8Wrapper.hpp>
+#endif
 #include <YoloFamily/Yolo_wrapper.hpp>
+
 #define no_draw_pic 
 
 namespace glasssix::smoke
@@ -36,14 +44,12 @@ namespace glasssix::smoke
         {
 
 #if defined(USE_RKNNAPI) || defined(USE_RKNN2API)
-                net_smoke_detect_ = std::make_shared<GenPipeline>(std::string(model_directory) + "/cigarette_detect.rknn", device);
-#elif defined(USE_BMNN)
-                net_smoke_detect_ = std::make_shared<GenPipeline>(std::string(model_directory) + "/cigarette_detect.bmodel", device);
-#else
-                net_smoke_detect_ = std::make_shared<GenPipeline>(std::string(model_directory) + "/cigarette_detect.onnx", device);
-#endif      
-            net_smoke_detect_->manual_possible_normalization(std::array<float,3>{0.f,0.f,0.f},std::array<float,3>{1.f / 255.f,1.f / 255.f,1.f / 255.f});
+            net_smoke_detect_ = std::make_shared<GenPipeline>(std::string(model_directory) + "/cigarette_detect.rknn", device);
             yolov8_instance = std::make_shared<Yolov8<GenPipeline>>(320,320, net_smoke_detect_);
+#elif defined(USE_BMNN)
+            yolov8_instance = std::make_shared<SophonYolov8Wrapper>( "/home/linaro/cw/cigarette_detect.bmodel");
+            yolov8_instance->init();  
+#endif
         }
 
         exposing::param_vector<smoke::box_info> detect(const exposing::param_span<std::uint8_t>& bitmap, int channels, int height, int width, int roi_x, int roi_y, int roi_width, int roi_height, exposing::param_vector<posture::box_info> posture_info_list, std::map<std::string, float>& param_map)
@@ -151,16 +157,17 @@ namespace glasssix::smoke
         std::string version()
         {
             const std::string algo_module_version = "3.0.2";
-            std::string nn_frame_version = net_smoke_detect_->version();
+            std::string nn_frame_version = "3.0.2";
             return fmt::format(R"({{"nn_frame_version":"{}", "algo_module_version":"{}"}})", nn_frame_version, algo_module_version);
         }
 
     private:
+#if defined(USE_RKNNAPI) || defined(USE_RKNN2API)
         std::shared_ptr<GenPipeline> net_smoke_detect_;
         std::shared_ptr<Yolov8<GenPipeline>> yolov8_instance;
-        std::string model_directory_;
-        exposing::param_hash_map<exposing::param_string, float> posture_param_abi;
-        int device_ ;
+#elif defined(USE_BMNN)
+        std::shared_ptr<SophonYolov8Wrapper> yolov8_instance;
+#endif
 
     };
 

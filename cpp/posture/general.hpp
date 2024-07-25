@@ -4,9 +4,14 @@
 #include "Excalibur/pipeline.hpp"
 #include "Primitives/tensor_conversions.hpp"  
 
-#include <GenPipeline/GenPipeline.hpp>
-#include <YoloFamily/Yolo_wrapper.hpp>
+#if defined(USE_RKNNAPI) || defined(USE_RKNN2API)
+    #include <GenPipeline/GenPipeline.hpp>
+    
+#elif defined(USE_BMNN)
+    #include <sophonyolov8/SophonYolov8Wrapper.hpp>
+#endif
 
+#include <YoloFamily/Yolo_wrapper.hpp>
         using namespace glasssix;
         struct slide_pics_params
         {
