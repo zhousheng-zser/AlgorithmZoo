@@ -42,12 +42,6 @@ namespace glasssix::pedestrian
 #if defined(USE_RKNNAPI) || defined(USE_RKNN2API)
             net_pedestrian_ = std::make_shared<GenPipeline>(model_dir + "/pedestriantest.rknn", device);
 #elif defined(USE_BMNN)
-            net_pedestrian_ = std::make_shared<GenPipeline>(model_dir + "/pedestriantest.bmodel", device);
-#endif
-            net_pedestrian_->manual_possible_normalization(std::array<float,3>{0.f,0.f,0.f},std::array<float,3>{1.f,1.f,1.f});
-            Yolov8_Complement_instance = std::make_shared<Yolov8_Complement<GenPipeline>>(1280, 736, net_pedestrian_);
-#elif defined(USE_BMNN)
-
             Yolov8_Complement_instance = std::make_shared<SophonYolov8Wrapper>(model_dir + "/pedestriantest.bmodel");
             Yolov8_Complement_instance->init();
 #endif       
