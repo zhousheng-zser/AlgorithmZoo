@@ -69,7 +69,6 @@ namespace glasssix::pedestrian
             image.copyTo(imagedevice);
             auto pedestrian_list =  Yolov8_Complement_instance->get_objects(imagedevice, 0.2);
 
-            std::cout<<"pedestrian_list size: "<< pedestrian_list.size()<< std::endl;
             for (auto person : pedestrian_list) {
                 box_info_internal box_info;
                 box_info.x1 = person.x1;

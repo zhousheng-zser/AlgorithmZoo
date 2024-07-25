@@ -32,7 +32,6 @@ namespace glasssix::smoke
 		if (!impl_)
 			throw exposing::abi_invalid_operation(u8"selene internal object not initialized");
 
-		std::cout<<"dsdsd\n";
 		Json::Reader reader(Json::Features::strictMode());
 		Json::FastWriter writer;
 		Json::Value root, value;

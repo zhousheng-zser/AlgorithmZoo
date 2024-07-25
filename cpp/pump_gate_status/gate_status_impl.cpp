@@ -61,10 +61,8 @@ namespace glasssix::pump_gate_status
 		std::map<std::string, float> dparam_map;
 
 		for (auto& param_name : params.getMemberNames()) {
-			std::cout<<param_name<<"\n";
 			dparam_map.try_emplace(param_name, params[param_name].asFloat());
 		}
-		std::cout<<"dsds\n";
 
 		auto input_data = exposing::unbox<exposing::param_span<std::uint8_t>>(input_params_map.get_value("input_data"));
 		auto output_data = exposing::unbox<exposing::param_span<std::uint8_t>>(input_params_map.get_value("output_data"));

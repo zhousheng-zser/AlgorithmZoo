@@ -81,7 +81,7 @@ namespace glasssix::workcloth
 			auto posture_info_list = Json::Value(Json::arrayValue);
 		posture_info_list = params["posture_info_list"];
 
-		std::cout << posture_info_list.toStyledString() << std::endl;
+		//std::cout << posture_info_list.toStyledString() << std::endl;
 		
 		auto postures = exposing::make_param_vector<posture::box_info>();
 

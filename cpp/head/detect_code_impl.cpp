@@ -51,7 +51,7 @@ namespace glasssix::head
 		if (!reader.parse(exposing::to_narrow_string(exposing::unbox<exposing::param_string>(input_params_map.get_value("params"))), root))
 			throw Json::Exception("parse json failed");
 		//$
-		std::cout << root.toStyledString() << std::endl;
+		//std::cout << root.toStyledString() << std::endl;
 		Json::Value params = root.get("dyparams", Json::Value());
 
 		std::map<std::string, float> dynamic_param_map;

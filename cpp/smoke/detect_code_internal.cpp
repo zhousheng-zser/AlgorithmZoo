@@ -85,7 +85,7 @@ namespace glasssix::smoke
                                                                                                                         std::max(detect_rect.x2-detect_rect.x1,detect_rect.y2-detect_rect.y1) ))
                 { continue;}  //    
 
-                std::cout<<detect_rect.y1<<" "<<detect_rect.y2<<" "<<detect_rect.x1<<" "<<detect_rect.x2<<std::endl;
+                //std::cout<<detect_rect.y1<<" "<<detect_rect.y2<<" "<<detect_rect.x1<<" "<<detect_rect.x2<<std::endl;
                 cv::Mat cigarette_detect = image(cv::Range(detect_rect.y1, detect_rect.y2), cv::Range(detect_rect.x1, detect_rect.x2));
                
                 auto cigarette_objects = yolov8_instance->get_objects( cigarette_detect, smoke_conf_thres, smoke_iou_thres );
@@ -118,7 +118,7 @@ namespace glasssix::smoke
                             temp_box.y1 = postureInfo.y1;
                             temp_box.y2 = postureInfo.y2;
                             temp_box.confidence = cigrate.score;
-                            std::cout<<"smoke score: "<<temp_box.confidence<<"\n";
+                            //std::cout<<"smoke score: "<<temp_box.confidence<<"\n";
                             temp_box.key_points = exposing::make_param_vector<float>();
                             for(int j=0; j<postureInfo.Kpoints.size(); j++)
                             {
