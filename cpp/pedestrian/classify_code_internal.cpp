@@ -40,15 +40,11 @@ namespace glasssix::pedestrian
         {
             std::string model_dir = exposing::to_narrow_string(model_directory) + "/";
 #if defined(USE_RKNNAPI) || defined(USE_RKNN2API)
-            net_pedestrian_ = std::make_shared<GenPipeline>(model_dir + "/pedestriantest.rknn", device);
-#elif defined(USE_BMNN)
-            net_pedestrian_ = std::make_shared<GenPipeline>(model_dir + "/pedestriantest.bmodel", device);
-#endif
-            net_pedestrian_->manual_possible_normalization(std::array<float,3>{0.f,0.f,0.f},std::array<float,3>{1.f,1.f,1.f});
+            net_pedestrian_ = std::make_shared<GenPipeline>(model_dir + "/pedestrian.rknn", device);
             Yolov8_Complement_instance = std::make_shared<Yolov8_Complement<GenPipeline>>(1280, 736, net_pedestrian_);
 #elif defined(USE_BMNN)
 
-            Yolov8_Complement_instance = std::make_shared<SophonYolov8Wrapper>(model_dir + "/pedestriantest.bmodel");
+            Yolov8_Complement_instance = std::make_shared<SophonYolov8Wrapper>(model_dir + "/pedestrian.bmodel");
             Yolov8_Complement_instance->init();
 #endif       
            
@@ -56,6 +52,9 @@ namespace glasssix::pedestrian
 
         exposing::param_vector<pedestrian::box_info> detect(const exposing::param_span<std::uint8_t> &bitmap, int channels, int height, int width, int roi_x, int roi_y, int roi_width, int roi_height, std::map<std::string, float> &param_map)
         {
+
+            float con_thres = param_map.count("conf_thres") ? param_map["conf_thres"] : 0.5f;
+            float iou_thres = param_map.count("nms_thres") ? param_map["nms_thres"] : 0.6f;
             auto results_box_info = exposing::make_param_vector<pedestrian::box_info>();
             if (bitmap.empty())
             {
@@ -68,23 +67,28 @@ namespace glasssix::pedestrian
                 throw exposing::abi_invalid_argument("incorrect roi in universal_pedestrian");
             }
 
-            std::cout<<"in pedestrian detect\n"<<std::endl;
+            // std::cout<<"in pedestrian detect\n"<<std::endl;
             
-            auto start = std::chrono::high_resolution_clock::now();
+            // auto start = std::chrono::high_resolution_clock::now();
 
             cv::Mat image(cv::Size(width, height), CV_8UC3, const_cast<uint8_t*>(bitmap.data()));
 
+            // cv::imwrite("image.jpg",image );
+
             cv::Mat imagedevice;//默认分配soc上内存
 
-            image.copyTo(imagedevice);
+            // cv::Mat image_mat_temp(image.rows,image.cols,CV_8UC3,image.data,image.step[0]);
 
-            auto pedestrian_list =  Yolov8_Complement_instance->get_objects(imagedevice, 0.2);
+            // image.copyTo(imagedevice);
+            // image.copyTo(image_mat_temp);
 
-            auto end = std::chrono::high_resolution_clock::now();
-            std::chrono::duration<float> duration = end - start; //记录经过了多长时间
-            std::cout << duration.count() << "sssss" << std::endl; //输出运行时间
+            auto pedestrian_list =  Yolov8_Complement_instance->get_objects(image, con_thres,iou_thres);
 
-            std::cout<<"pedestrian_list size: "<< pedestrian_list.size()<< std::endl;
+            // auto end = std::chrono::high_resolution_clock::now();
+            // std::chrono::duration<float> duration = end - start; //记录经过了多长时间
+            // std::cout << duration.count() << "sssss" << std::endl; //输出运行时间
+
+            // std::cout<<"pedestrian_list size: "<< pedestrian_list.size()<< std::endl;
             for (auto person : pedestrian_list) {
                 box_info_internal box_info;
                 box_info.x1 = person.x1;
