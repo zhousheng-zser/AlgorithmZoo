@@ -18,7 +18,7 @@ if(CMAKE_CXX_COMPILER_ID STREQUAL "MSVC")
 endif()
 
 # 设置库
-set(BM_LIBS bmlib bmrt bmcv yuv)
+set(BM_LIBS bmlib bmrt bmcv yuv )
 set(JPU_LIBS bmjpuapi bmjpulite)
 set(OPENCV_LIBS opencv_imgproc opencv_core opencv_highgui opencv_imgcodecs opencv_videoio)
 
