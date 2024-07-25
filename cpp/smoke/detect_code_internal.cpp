@@ -30,8 +30,14 @@
 
 namespace glasssix::smoke
 {
+#if defined(USE_RKNNAPI) || defined(USE_RKNN2API)
     bool compareByFifthElement(const ObjectInfo& a, const ObjectInfo& b) {
                         return a.score > b.score;   }
+#elif defined(USE_BMNN)
+    bool compareByFifthElement(const Object& a, const Object& b) {
+        return a.score > b.score;
+    }
+#endif
     class detect_code_internal::impl
     {
     public:
