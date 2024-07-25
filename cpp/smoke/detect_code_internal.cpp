@@ -52,7 +52,7 @@ namespace glasssix::smoke
             net_smoke_detect_ = std::make_shared<GenPipeline>(std::string(model_directory) + "/cigarette_detect.rknn", device);
             yolov8_instance = std::make_shared<Yolov8<GenPipeline>>(320,320, net_smoke_detect_);
 #elif defined(USE_BMNN)
-            yolov8_instance = std::make_shared<SophonYolov8Wrapper>( "/home/linaro/cw/cigarette_detect.bmodel");
+            yolov8_instance = std::make_shared<SophonYolov8Wrapper>(std::string(model_directory) + "/cigarette_detect.bmodel", device);
             yolov8_instance->init();  
 #endif
         }
