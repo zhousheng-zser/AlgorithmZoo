@@ -30,8 +30,11 @@
 
 namespace glasssix::smoke
 {
-    bool compareByFifthElement(const ObjectInfo& a, const ObjectInfo& b) {
-                        return a.score > b.score;   }
+    template <typename T>
+    bool compareByFifthElement(const T& a, const T& b) {
+        return a.score > b.score;
+    }
+
     class detect_code_internal::impl
     {
     public:
@@ -101,8 +104,13 @@ namespace glasssix::smoke
 
                 if(cigarette_objects.size()>0)
                 {
-                    std::sort( cigarette_objects.begin(), cigarette_objects.end(), compareByFifthElement   );
-
+                    
+#if defined(USE_RKNNAPI) || defined(USE_RKNN2API)
+     std::sort( cigarette_objects.begin(), cigarette_objects.end(), compareByFifthElement<ObjectInfo>   );
+#elif defined(USE_BMNN)
+     std::sort( cigarette_objects.begin(), cigarette_objects.end(), compareByFifthElement<Object>   );
+#endif
+                   
                     auto cigrate = cigarette_objects[0];
                     {
                         int cigratex1=std::round( cigrate.x1 +detect_rect.x1)>0?std::round( cigrate.x1 +detect_rect.x1):0  ;
