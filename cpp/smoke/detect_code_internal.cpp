@@ -10,7 +10,9 @@
 
 #include "hardcode.hpp"
 
+#if defined(USE_RKNNAPI) || defined(USE_RKNN2API)
 #include <RKNN2Wrapper/rknn2_wrapper.hpp>
+#endif
 #include <opencv2/core.hpp>
 #include <opencv2/imgproc.hpp>
 #include <opencv2/opencv.hpp>
@@ -30,7 +32,7 @@
 
 namespace glasssix::smoke
 {
-    bool compareByFifthElement(const ObjectInfo& a, const ObjectInfo& b) {
+    bool compareByFifthElement(const Object& a, const Object& b) {
                         return a.score > b.score;   }
     class detect_code_internal::impl
     {
