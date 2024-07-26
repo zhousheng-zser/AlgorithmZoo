@@ -31,7 +31,7 @@ namespace glasssix::flame
             net_pedestrian_ = std::make_shared<GenPipeline>(model_dir + "/flame_v8_cut.rknn", device);
             Yolov8_Complement_instance = std::make_shared<Yolov8_Complement<GenPipeline>>(640, 640, net_pedestrian_);
 #elif defined(USE_BMNN)
-            Yolov8_Complement_instance = std::make_shared<SophonYolov8Wrapper>(model_dir + "/flame.bmodel");
+            Yolov8_Complement_instance = std::make_shared<SophonYolov8Wrapper>(model_dir + "/flame_v8_cut.bmodel");
             Yolov8_Complement_instance->init();
 #endif     
         }

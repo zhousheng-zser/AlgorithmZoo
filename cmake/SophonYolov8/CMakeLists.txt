@@ -7,9 +7,9 @@ file(GLOB SRC_FILES ${CMAKE_CURRENT_SOURCE_DIR}/../../cpp/common/include/sophony
 file(GLOB HEADER_FILES ${CMAKE_CURRENT_SOURCE_DIR}/../../cpp/common/include/sophonyolov8/*.hpp)
 
 # 设置库和可执行文件的输出路径
-set(LIBRARY_OUTPUT_PATH ${CMAKE_BINARY_DIR}/../)
-set(EXECUTABLE_OUTPUT_PATH ${CMAKE_BINARY_DIR}/../)
-
+set(LIBRARY_OUTPUT_PATH ${PROJECT_BINARY_DIR}/lib)
+set(CMAKE_RUNTIME_OUTPUT_DIRECTORY ${PROJECT_BINARY_DIR}/bin)
+set(EXECUTABLE_OUTPUT_PATH ${PROJECT_BINARY_DIR}/bin)
 add_library(${module_name} SHARED ${SRC_FILES} ${HEADER_FILES})
 
 
