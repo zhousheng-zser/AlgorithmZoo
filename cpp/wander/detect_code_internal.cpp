@@ -96,7 +96,8 @@ namespace glasssix::wander
             std::shared_ptr<memory::tensor<float>> real_forwards;
 
             auto network_result = net_pedestrian_->forward(blob);
-            float* cls_conf = network_result["output0"]->mutable_cpu_data();
+            auto wander_cls_rst = network_result.begin()->second;
+            float* cls_conf = wander_cls_rst->mutable_cpu_data();
             std::vector<float> current_frame_result;
             current_frame_result.push_back(cls_conf[0]);
             current_frame_result.push_back(cls_conf[1]);
