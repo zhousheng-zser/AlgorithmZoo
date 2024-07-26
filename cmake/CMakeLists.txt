@@ -160,7 +160,9 @@ if(BUILD_DEBUG_INFO)
 endif()
 
 add_subdirectory(GenPipeline)
-add_subdirectory(SophonYolov8)
+if(NOT ${SOPHON_SDK} STREQUAL "")
+	add_subdirectory(SophonYolov8)
+endif()
 
 if(BUILD_MATIERIAL_OCR_SDK)
 	add_subdirectory(Heimdall)
