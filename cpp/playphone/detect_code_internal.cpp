@@ -7,15 +7,9 @@
 #include "box_info_impl.hpp"
 #include "../posture/box_info.hpp"
 
-#if defined(USE_RKNNAPI) || defined(USE_RKNN2API)
-    #include <GenPipeline/GenPipeline.hpp>
-    //#include <YoloFamily/Yolo_wrapper.hpp>
-#elif defined(USE_BMNN)
-    #include <sophonyolov8/SophonYolov8Wrapper.hpp>
-#endif
-#include <YoloFamily/Yolo_wrapper.hpp>
-
-#include "trace_id.hpp"
+#include <GenPipeline/GenPipeTools.hpp>
+#include <GenPipeline/PrePostProcessGenPipeline.hpp>
+#include "../genpipeline/market/yolov8_GEN.hpp"
 namespace glasssix::playphone
 {
     class detect_code_internal::impl {
@@ -35,19 +29,10 @@ namespace glasssix::playphone
 #endif
             iopipe_phone_det_->manual_possible_normalization(0, 1.f / 255);
             iopipe_phone_det_->set_postprocessing(yolov8_GEN<1, 1>);
-
-#if defined(USE_RKNNAPI) || defined(USE_RKNN2API)
-            net_smoke_detect_ = std::make_shared<GenPipeline>(std::string(model_directory) + "/cigarette_detect.rknn", device);
-            yolov8_instance = std::make_shared<Yolov8<GenPipeline>>(320,320, net_smoke_detect_);
-#elif defined(USE_BMNN)
-            yolov8_instance = std::make_shared<SophonYolov8Wrapper>( "/home/linaro/cw/flame.bmodel");
-            yolov8_instance->init();  
-#endif
         }
 
         exposing::param_vector<playphone::box_info> detect(const exposing::param_span<std::uint8_t>& bitmap, int channels, int height, int width, int roi_x, int roi_y, int roi_width, int roi_height, exposing::param_vector<posture::box_info> posture_info_list_raw, std::map<std::string, float>& param_map)
         {
-            frame++;
             auto result = exposing::make_param_vector<playphone::box_info>();
             if (bitmap.empty())
             {
@@ -65,7 +50,6 @@ namespace glasssix::playphone
 
             float phone_conf_thres = param_map.count("phone_conf_thres") ? param_map["phone_conf_thres"] : 0.7f;
             float phone_nms_thres = param_map.count("phone_nms_thres") ? param_map["phone_nms_thres"] : 0.5f;
-            std::vector<Input_data> inputs;
             for (auto pinfo : posture_info_list_raw)
             {
                 PostureInfo postureInfo{ pinfo };
@@ -74,13 +58,7 @@ namespace glasssix::playphone
                 box_info_internal pphone_box_info;
                 pphone_box_info.set_man(postureInfo);
 
-                Input_data input_data;
-                input_data.x1 = postureInfo.xmin;
-                input_data.y1 = postureInfo.ymin;
-                input_data.x2 = postureInfo.xmax;
-                input_data.y2 = postureInfo.ymax;
-                input_data.width = postureInfo.xmax - postureInfo.xmin;
-                input_data.is_playphone = false;
+
 
                 if (postureInfo.invaild_hand_kpnum() < 2 && postureInfo.invaild_face_kpnum() < 2)
                 {
@@ -94,20 +72,18 @@ namespace glasssix::playphone
                     const bool hand_close_nose = postureInfo.if_hand_close_nose(hand_nose_thresh);
 
                     auto playphone_det_region = GenPipTools::safty_cut(image, playphone_det_region_rect);
-                    auto phone_list = yolov8_instance->get_objects( cigarette_detect, phone_conf_thres, phone_nms_thres );
+                    std::vector<PhoneBox> phone_list = phone_detect(playphone_det_region, phone_conf_thres, phone_nms_thres);
 
                     for (auto& phoneObj : phone_list)
                     {
                         phoneObj.add(playphone_det_region_rect.tl()); // mapping location
-                        // auto phoneRect = phoneObj.get_rect();
-
-                        cv::Rect phoneRect(phoneObj.x1, phoneObj.y1, phoneObj.x2-phoneObj.x1, phoneObj.y2-phoneObj.y1);
+                        auto phoneRect = phoneObj.get_rect();
 
                         if (hand_close_nose)
                             phoneObj.score *= 0.71;
 
                         // phone too close ears
-						cv::Point phoneRectCenter( (phoneObj.x1 + phoneObj.x2)/2 , (phoneObj.y1 + phoneObj.y2)/2);
+						cv::Point phoneRectCenter(phoneRect.x + phoneRect.width / 2, phoneRect.y + phoneRect.height / 2);
                         auto earD1 = cv::norm(phoneRectCenter - postureInfo.Kpoints[3]);
                         auto earD2 = cv::norm(phoneRectCenter - postureInfo.Kpoints[4]);
                         if (earD1 < ear_tresh || earD2 < ear_tresh) {
@@ -127,7 +103,6 @@ namespace glasssix::playphone
                                 }
 
                                 pphone_box_info.set_phone(phoneObj);
-                                input_data.is_playphone = true;
 
                                 break;
                             }
@@ -140,35 +115,34 @@ namespace glasssix::playphone
                 //     pphone_box_info.set_body_error(postureInfo);
                 // }
 
-                //todo
-                inputs.push_back(input_data);
                 result.push_back(exposing::make_as_first<box_info_impl>(pphone_box_info));
             }
 
             return result;
         }
 
-        // std::vector<PhoneBox> phone_detect(cv::Mat& image, float conf_thres, float iou_thres) {
-        //     const int letter_h = 384;
-        //     const int letter_w = 384;
-        //     std::vector<PhoneBox> box_list;
-        //     GenPipTools::LetterInfo letter_op;
-        //     auto letter_img = GenPipTools::letter_image(image, letter_w, letter_h, letter_op, true);
-        //     auto tensor_out = iopipe_phone_det_->forward(letter_img).begin()->second;
-        //     const int vf_nums = tensor_out->height(); //vf, visual field
-        //     const int per_vf_len = tensor_out->width();
-        //     for (size_t idx = 0; idx < vf_nums; idx++) {
-        //         float* pdata = tensor_out->mutable_cpu_data() + idx * per_vf_len;
-        //         float phone_conf = pdata[4];
-        //         if (phone_conf > conf_thres) {
-        //             PhoneBox obj_box(pdata[0] * letter_w, pdata[1] * letter_h, pdata[2] * letter_w, pdata[3] * letter_h, phone_conf, 1);
-        //             box_list.push_back(obj_box);
-        //         }
-        //     }
-        //     GenPipTools::nms_cpu(box_list, iou_thres);
-        //     GenPipTools::letter_map_origin_location(box_list, letter_op);
-        //     return box_list;
-        // }
+        std::vector<PhoneBox> phone_detect(cv::Mat& image, float conf_thres, float iou_thres) {
+            const int letter_h = 384;
+            const int letter_w = 384;
+            std::vector<PhoneBox> box_list;
+
+            GenPipTools::LetterInfo letter_op;
+            auto letter_img = GenPipTools::letter_image(image, letter_w, letter_h, letter_op, true);
+            auto tensor_out = iopipe_phone_det_->forward(letter_img).begin()->second;
+            const int vf_nums = tensor_out->height(); //vf, visual field
+            const int per_vf_len = tensor_out->width();
+            for (size_t idx = 0; idx < vf_nums; idx++) {
+                float* pdata = tensor_out->mutable_cpu_data() + idx * per_vf_len;
+                float phone_conf = pdata[4];
+                if (phone_conf > conf_thres) {
+                    PhoneBox obj_box(pdata[0] * letter_w, pdata[1] * letter_h, pdata[2] * letter_w, pdata[3] * letter_h, phone_conf, 1);
+                    box_list.push_back(obj_box);
+                }
+            }
+            GenPipTools::nms_cpu(box_list, iou_thres);
+            GenPipTools::letter_map_origin_location(box_list, letter_op);
+            return box_list;
+        }
 
         // if rectA intersect rectB
         bool overlap(cv::Rect phoneRect, cv::Rect handRect, float iou_thres)
@@ -181,7 +155,7 @@ namespace glasssix::playphone
         std::string version()
         {
 			const std::string algo_module_version = "3.0.0";
-			std::string nn_frame_version = "3.0.0";
+			std::string nn_frame_version = iopipe_phone_det_->version();
 			return fmt::format(R"({{"nn_frame_version":"{}", "algo_module_version":"{}"}})", nn_frame_version, algo_module_version);
         }
 
@@ -211,12 +185,7 @@ namespace glasssix::playphone
         }
 
     private:
-#if defined(USE_RKNNAPI) || defined(USE_RKNN2API)
-        std::shared_ptr<GenPipeline> net_smoke_detect_;
-        std::shared_ptr<Yolov8<GenPipeline>> yolov8_instance;
-#elif defined(USE_BMNN)
-        std::shared_ptr<SophonYolov8Wrapper> yolov8_instance;
-#endif
+        std::shared_ptr<PrePostProcessGenPipeline> iopipe_phone_det_;
     };
 
     detect_code_internal::detect_code_internal(std::string_view model_directory, int device)
