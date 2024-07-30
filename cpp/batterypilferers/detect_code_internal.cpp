@@ -10,6 +10,8 @@
 
 #if defined(USE_RKNNAPI) || defined(USE_RKNN2API)
     #include <RKNN2Wrapper/rknn2_wrapper.hpp>
+#elif defined(USE_BMNN)
+    #include <sophonyolov8/SophonYolov8Wrapper.hpp>
 #endif
 #include <abi/param_vector.hpp>
 #include <utility>
@@ -29,14 +31,14 @@ namespace glasssix::batterypilferers
             std::vector<std::string> phai;
 #if defined(USE_RKNNAPI) || defined(USE_RKNN2API)
             net_battery_person_car_detect_ = std::make_shared<GenPipeline>(std::string(model_directory) + "/batterypilferers_detect.rknn", device);
-            net_pilferage_ = std::make_shared<GenPipeline>(std::string(model_directory) + "/batterypilferers_class.rknn", device);   
-
-#elif defined(USE_BMNN)
-            net_battery_person_car_detect_ = std::make_shared<GenPipeline>(std::string(model_directory) + "/batterypilferers_detect.bmodel", device);
-            net_pilferage_ = std::make_shared<GenPipeline>(std::string(model_directory) + "/batterypilferers_class.bmodel", device);   
-#endif      
             net_battery_person_car_detect_->manual_possible_normalization(std::array<float,3>{0.f,0.f,0.f},std::array<float,3>{1.f / 255.f,1.f / 255.f,1.f / 255.f});
             yolov8_instance = std::make_shared<Yolov8<GenPipeline,true>>(1280,736, net_battery_person_car_detect_);  
+            net_pilferage_ = std::make_shared<GenPipeline>(std::string(model_directory) + "/batterypilferers_class.rknn", device);   
+#elif defined(USE_BMNN)
+            yolov8_instance = std::make_shared<SophonYolov8Wrapper>(std::string(model_directory) + "/batterypilferers_detect.bmodel");
+            yolov8_instance->init();
+            net_pilferage_ = std::make_shared<GenPipeline>(std::string(model_directory) + "/batterypilferers_class.bmodel", device);
+#endif      
         }
 
         std::string version()
@@ -166,9 +168,14 @@ if(frames_info.size())
         std::string model_directory_;
         int device_; 
 
-        std::shared_ptr<GenPipeline> net_battery_person_car_detect_;
         std::shared_ptr<GenPipeline> net_pilferage_;
+
+#if defined(USE_RKNNAPI) || defined(USE_RKNN2API)
+        std::shared_ptr<GenPipeline> net_battery_person_car_detect_;
         std::shared_ptr<Yolov8<GenPipeline, true>> yolov8_instance;
+#elif defined(USE_BMNN)
+        std::shared_ptr<SophonYolov8Wrapper> yolov8_instance;
+#endif
 
     };
 
