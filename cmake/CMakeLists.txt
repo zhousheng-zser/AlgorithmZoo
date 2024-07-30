@@ -181,7 +181,7 @@ if(BUILD_FACE_SDK)
 	add_subdirectory(Facelandmarks)	
 endif()
 if(BUILD_SAFE_PRODUCTION_SDK)
-	add_subdirectory(Batterypilferers)
+	#add_subdirectory(Batterypilferers) #模型没来 先不编2024/07/30
 	add_subdirectory(Posture)
 	add_subdirectory(Head)
 	add_subdirectory(Sleep)
