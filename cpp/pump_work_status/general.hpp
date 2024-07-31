@@ -274,9 +274,9 @@
                     new_mask_array_mask.at<int>(i, j) = mask_array[i][j];
 
 #if defined(USE_RKNNAPI) || defined(USE_RKNN2API)
-            cv::Mat mask = get_mask(image, new_mask_array_mask) ;
+            cv::Mat mask = get_mask(rotated_img, new_mask_array_mask) ;
 #else
-            cv::Mat mask = get_mask(image, points) ;
+            cv::Mat mask = get_mask(rotated_img, points) ;
 #endif
 
             cv::Mat rotated_mask;
@@ -363,9 +363,9 @@
             cut_mask_array.col(0) -= bounding_rect.x;
             cut_mask_array.col(1) -= bounding_rect.y;
 #if defined(USE_RKNNAPI) || defined(USE_RKNN2API)
-            cv::Mat cut_mask = get_mask(image, new_mask_array_mask) ;
+            cv::Mat cut_mask = get_mask(cut_image, new_mask_array_mask) ;
 #else
-            cv::Mat cut_mask = get_mask(image, points) ;
+            cv::Mat cut_mask = get_mask(cut_image, points) ;
 #endif
             cv::bitwise_and(cut_image, cut_mask, cut_image);
 
