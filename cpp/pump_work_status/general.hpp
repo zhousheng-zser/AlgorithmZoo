@@ -180,16 +180,20 @@
         {
             // 处理掩码数组
             std::vector<std::vector<int>> new_mask_array(mask_array.size()+2);
-            std::vector<cv::Point> pts;
+            std::vector<cv::Point> pts{mask_array.size()+2};
             std::vector<std::vector<cv::Point>> points;
             for(int i =0; i < mask_array.size(); i++)
             {
                 new_mask_array[i==0?i:i+2] = mask_array[i];
-                cv::Point pt;
-                pt.x = mask_array[i][0];
-                pt.y = mask_array[i][1];
-                pts.push_back(pt);
+                // cv::Point pt;
+                // pt.x = mask_array[i][0];
+                // pt.y = mask_array[i][1];
+                // pts.push_back(pt);
+                pts[i==0?i:i+2] = cv::Point{mask_array[i][0],mask_array[i][1]};
             }
+            
+            pts[1]=cv::Point{mask_array[0][0],0};
+            pts[2]=cv::Point{mask_array[1][0],0};
             points.push_back(pts);
             new_mask_array[1]=std::vector<int> {mask_array[0][0],0};
             new_mask_array[2]=std::vector<int> {mask_array[1][0],0};
