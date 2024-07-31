@@ -60,7 +60,7 @@ namespace glasssix::playphone
             float phone_nms_thres = param_map.count("phone_nms_thres") ? param_map["phone_nms_thres"] : 0.5f;
             std::vector<Boxes_list> people_list;
 	std::cout << " debug_zj    debug_zj debug_zj " << __LINE__ << std::endl;
-            trace_dic = trace_id(trace_dic, people_list, frame);
+            trace_dic = trace_id( people_list, frame);
             cv::imshow("Display Window", image);
             cv::imwrite("Display Window.jpg", image);
     int number = 0;
@@ -155,7 +155,7 @@ namespace glasssix::playphone
             }
 //cv::imwrite("/home/glasssix/yhc/AlgorithmZoo/cpp/playphone/img_vis.png", img_vis);
 	std::cout << " debug_zj    debug_zj debug_zj " << __LINE__ << std::endl;
-            trace_dic = trace_id(trace_dic, people_list, frame);
+            trace_dic = trace_id(people_list, frame);
             std::cout << "trace.size() = " << trace_dic.size() << std::endl;
             return result;
         }

@@ -4,6 +4,7 @@
 #include <algorithm>
 #include <sstream>
 #include <cmath>
+#define frame_limit 20
 // #include <unordered_map>
 typedef struct
 {
@@ -26,13 +27,12 @@ static std::map<int32_t, Boxes_list>  trace_dic{};
 int32_t check_continuous_keys(const std::map<int32_t, Boxes_list>& dictionary);
 // 追踪
 std::map<int32_t, Boxes_list> trace_id(
-    std::map<int32_t, Boxes_list> trace_dic,
     const std::vector<Boxes_list>& boxes_list,
     long long f_now) {
     
     std::map<int32_t, Boxes_list> show_dic; // 用于此帧结果可视化的字典
     long long f = f_now;
-    std::map<int32_t, Boxes_list> new_trace_dic = trace_dic; // 新的追踪字典
+    std::map<int32_t, Boxes_list> new_trace_dic; // 新的追踪字典
 
     if (!boxes_list.empty()) { // 如果此帧存在检测结果
         std::vector<std::vector<Boxes_list>> diff_all_list; // 所有检测结果的对比结果列表
@@ -45,7 +45,7 @@ std::map<int32_t, Boxes_list> trace_id(
             y1 = box.y1;
             y2 = box.y2;
             if (trace_dic.empty()) { // 如果历史结果为空，所有此帧结果新建
-                Boxes_list box_list{ x1,x2,y1,y2,0,0,0,0,0,f,0 };
+                Boxes_list box_list{ x1,x2,y1,y2,0,0,0,0,box.is_playphone,f,0 };
                 trace_dic[i] = box_list;
                 show_dic[i] = box_list;
             } else {
@@ -75,7 +75,7 @@ std::map<int32_t, Boxes_list> trace_id(
                  ////////////一般情况下,宽度不会为0,为0,表示没有数据 忽略
                 if (diff_list.empty()) { // 如果此帧此结果与历史所有结果无联系，新建
                     int new_id = check_continuous_keys(trace_dic);
-                    Boxes_list box_list{ x1,x2,y1,y2,0,0,0,0,0,f,0 };
+                    Boxes_list box_list{ x1,x2,y1,y2,0,0,0,0,box.is_playphone,f,0 };
                     trace_dic[new_id] = box_list;
                     show_dic[new_id] = box_list;
                 }
@@ -125,20 +125,21 @@ std::map<int32_t, Boxes_list> trace_id(
                     playing_num = trace_dic[id_res.second.id].play_num;
                     pf = trace_dic[id_res.second.id].pf;
                 }
-                Boxes_list box_temp{ new_x1,new_x2,new_y1,new_y2,0,playing_num,0,0,0,f,pf };
+                Boxes_list box_temp{ new_x1,new_x2,new_y1,new_y2,0,playing_num,0,0,trace_dic[id_res.second.id].is_playphone,f,pf };
                 trace_dic[id_res.second.id] = box_temp;
             }
         }
     }
 
     if (!trace_dic.empty()) { // 存在追踪结果的情况下
+        new_trace_dic = trace_dic;
         for (auto it: trace_dic) {
-            if(f - it.second.f >= 125) // 5s内再未更新框体（消失于画面或者位移过大），删除此id
+            if(f - it.second.f >= frame_limit) // 5s内再未更新框体（消失于画面或者位移过大），删除此id
             { 
-                new_trace_dic.erase(it.second.id);
+                new_trace_dic.erase(it.first);
             }
-            if (f - it.second.pf >= 125) // 10s内更新都没检测为玩手机，玩手机计数置0
-                new_trace_dic[it.second.id].play_num = 0;
+            if (f - it.second.pf >= frame_limit && new_trace_dic.find(it.first) != new_trace_dic.end()) // 10s内更新都没检测为玩手机，玩手机计数置0
+                new_trace_dic[it.first].play_num = 0;
             if (f > 9223372036854775807) // 重置帧上限
             {
                 int new_x1 = it.second.x1;
@@ -147,14 +148,16 @@ std::map<int32_t, Boxes_list> trace_id(
                 int new_y2 = it.second.y2;
                 int new_playnum = it.second.play_num;
                 int pf = it.second.pf;
-                Boxes_list box_temp{ new_x1,new_x2,new_y1,new_y2,0,new_playnum,0,0,0,0,pf };
-                new_trace_dic[it.second.id] = box_temp;
+                Boxes_list box_temp{ new_x1,new_x2,new_y1,new_y2,0,new_playnum,0,0,it.second.is_playphone,0,pf };
+                new_trace_dic[it.first] = box_temp;
             }
         }
     }
-    else
-        return trace_dic;
-    return { new_trace_dic};//todo
+    // else
+    //         return { new_trace_dic};//todo
+    //     return trace_dic;
+    trace_dic = new_trace_dic;
+    return trace_dic;
 }
 // 检查字典中键是否从0开始递增
 int32_t check_continuous_keys(const std::map<int32_t, Boxes_list>& dictionary) {
