@@ -66,20 +66,20 @@ namespace glasssix::helmet
                 temp.y2 = hinfo.y2();
                 temp.score = hinfo.score();
                 head_info.push_back(temp);
-#if defined(USE_BMNN_NO)//新算法暂时不使用
-#else
-                //按照最新安全帽的协议:周杨瑞算法工程师,长宽需扩大1.2倍
-                float multiple = 0.2;
-                headInfo temp_new;
-                std::int32_t w = temp.x2 - temp.x1,h = temp.y2 - temp.y1;//人头的数据:宽/高
-                temp_new.x1 = std::max(static_cast<float>(roi_x)     ,temp.x1 - w * multiple / 2 );
-                temp_new.x2 = std::min(static_cast<float>(roi_width) ,temp.x2 + w * multiple / 2 );
-                temp_new.y1 = std::max(static_cast<float>(roi_y)     ,temp.y1 - h * multiple / 2 );
-                temp_new.y2 = std::min(static_cast<float>(roi_height),temp.y2 + h * multiple / 2 );
-	            // printf("debug_zj--line=%d::%d,%d,%d,%d,%d,%d\n",__LINE__,temp.x1,temp.x2,temp.y1,temp.y2,w,h);
-	            // printf("debug_zj__line=%d::%d,%d,%d,%d,%d,%d\n",__LINE__,temp_new.x1,temp_new.x2,temp_new.y1,temp_new.y2,temp_new.x2 - temp_new.x1,temp_new.y2 - temp_new.y1);
-                head_info.push_back(temp_new);
-#endif
+// #if defined(USE_BMNN_NO)//新算法暂时不使用
+// #else
+//                 //按照最新安全帽的协议:周杨瑞算法工程师,长宽需扩大1.2倍
+//                 float multiple = 0.2;
+//                 headInfo temp_new;
+//                 std::int32_t w = temp.x2 - temp.x1,h = temp.y2 - temp.y1;//人头的数据:宽/高
+//                 temp_new.x1 = std::max(static_cast<float>(roi_x)     ,temp.x1 - w * multiple / 2 );
+//                 temp_new.x2 = std::min(static_cast<float>(roi_width) ,temp.x2 + w * multiple / 2 );
+//                 temp_new.y1 = std::max(static_cast<float>(roi_y)     ,temp.y1 - h * multiple / 2 );
+//                 temp_new.y2 = std::min(static_cast<float>(roi_height),temp.y2 + h * multiple / 2 );
+// 	            // printf("debug_zj--line=%d::%d,%d,%d,%d,%d,%d\n",__LINE__,temp.x1,temp.x2,temp.y1,temp.y2,w,h);
+// 	            // printf("debug_zj__line=%d::%d,%d,%d,%d,%d,%d\n",__LINE__,temp_new.x1,temp_new.x2,temp_new.y1,temp_new.y2,temp_new.x2 - temp_new.x1,temp_new.y2 - temp_new.y1);
+//                 head_info.push_back(temp_new);
+// #endif
             }
 
             std::vector<helmet::box_info_internal> result = helmet_detect(bitmap, height, width, roi_x, roi_y, roi_width, roi_height, head_info, param_map);
