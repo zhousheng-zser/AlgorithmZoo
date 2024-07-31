@@ -41,6 +41,7 @@ namespace glasssix::playphone
         exposing::param_vector<playphone::box_info> detect(const exposing::param_span<std::uint8_t>& bitmap, int channels, int height, int width, int roi_x, int roi_y, int roi_width, int roi_height, exposing::param_vector<posture::box_info> posture_info_list_raw, std::map<std::string, float>& param_map)
         {
             frame++;
+            std::cout << "frame = " << frame << std::endl;
             if (bitmap.empty())
             {
                 throw exposing::abi_invalid_argument("current frame is empty");
@@ -58,15 +59,19 @@ namespace glasssix::playphone
             float phone_conf_thres = param_map.count("phone_conf_thres") ? param_map["phone_conf_thres"] : 0.7f;
             float phone_nms_thres = param_map.count("phone_nms_thres") ? param_map["phone_nms_thres"] : 0.5f;
             std::vector<Boxes_list> people_list;
-            std::map<int32_t, Boxes_list>  trace_dic;
-            trace_dic = trace_id(trace_dic, people_list, frame);
 	std::cout << " debug_zj    debug_zj debug_zj " << __LINE__ << std::endl;
+            trace_dic = trace_id(trace_dic, people_list, frame);
+            cv::imshow("Display Window", image);
+            cv::imwrite("Display Window.jpg", image);
+    int number = 0;
             for (auto pinfo : posture_info_list_raw)
             {
-                std::cout << posture_info_list_raw.size() << std::endl;
+                // number++;
+                
+	            // std::cout << " number : " << number << std::endl;
+                // std::cout << posture_info_list_raw.size() << std::endl;
                 PostureInfo postureInfo{ pinfo };
 				postureInfo.set_origin_image_border(0, 0, width, height);
-
 //cv::rectangle(img_vis, postureInfo.get_rect(), { 0, 0, 255 }, 2);
 //cv::rectangle(img_vis, postureInfo.get_playphone_det_region(), { 0, 255, 0 }, 2);
 
@@ -82,7 +87,10 @@ namespace glasssix::playphone
                 boxes_list.y2 = pphone_box_info.y2;
                 boxes_list.body_width = body_width;
                 boxes_list.is_playphone = pphone_box_info.confidence == 0 ? 1:0;
-
+                cv::Mat body = image.clone();
+				cv::rectangle(body, cv::Point(boxes_list.x1, boxes_list.y1), cv::Point(boxes_list.x2, boxes_list.y2), cv::Scalar(0, 0, 255), 1);
+                cv::imshow("Display Window i", body);
+                cv::imwrite("Display Window i.jpg", body);
 
                 if (postureInfo.invaild_hand_kpnum() < 2 && postureInfo.invaild_face_kpnum() < 2)
                 {
@@ -90,10 +98,10 @@ namespace glasssix::playphone
                     const auto playphone_det_region_rect = postureInfo.get_playphone_det_region(); // upperbody_img
                     const int max_upperbody_img_side = std::max(playphone_det_region_rect.width, playphone_det_region_rect.height);
 
-					// ÒÔµÚ¶þ½×¶Î¼ì²â¿òµÄ×î³¤±ßµÄ0.16±¶×÷Îª¶ú¶äÖÐÐÄµãµ½ÊÖ»ú¿òÖÐÐÄµã¾àÀëãÐÖµ
+					// ä»¥ç¬¬äºŒé˜¶æ®µæ£€æµ‹æ¡†çš„æœ€é•¿è¾¹çš„0.16å€ä½œä¸ºè€³æœµä¸­å¿ƒç‚¹åˆ°æ‰‹æœºæ¡†ä¸­å¿ƒç‚¹è·ç¦»é˜ˆå€¼
                     const float ear_tresh = max_upperbody_img_side * 0.16f;
 
-                    // ÒÔµÚ¶þ½×¶Î¼ì²â¿òµÄ×î³¤±ßµÄ0.12±¶×÷Îª¶ú¶äµ½±Ç×Ó¾àÀë¹ý½üÅÐ¶¨ãÐÖµ
+                    // ä»¥ç¬¬äºŒé˜¶æ®µæ£€æµ‹æ¡†çš„æœ€é•¿è¾¹çš„0.12å€ä½œä¸ºè€³æœµåˆ°é¼»å­è·ç¦»è¿‡è¿‘åˆ¤å®šé˜ˆå€¼
 					const float hand_nose_thresh= max_upperbody_img_side * 0.12f;
                     const bool hand_close_nose = postureInfo.if_hand_close_nose(hand_nose_thresh);
 
@@ -108,7 +116,7 @@ namespace glasssix::playphone
                         if (hand_close_nose)
                             phoneObj.score *= 0.71;
 
-                        //ÊÖ»ú¿òÌ«¿¿½ü¶ú¶ä
+                        //æ‰‹æœºæ¡†å¤ªé è¿‘è€³æœµ
 						cv::Point phoneRectCenter(phoneRect.x + phoneRect.width / 2, phoneRect.y + phoneRect.height / 2);
                         auto earD1 = cv::norm(phoneRectCenter - postureInfo.Kpoints[3]);
                         auto earD2 = cv::norm(phoneRectCenter - postureInfo.Kpoints[4]);
@@ -129,7 +137,7 @@ namespace glasssix::playphone
                                 }
 
                                 pphone_box_info.set_phone(phoneObj);
-                                boxes_list.is_playphone = pphone_box_info.confidence == 0 ? 1:0;
+                                boxes_list.is_playphone = pphone_box_info.category == 0 ? 1:0;
 
                                 break;
                             }
@@ -142,12 +150,13 @@ namespace glasssix::playphone
                 //     pphone_box_info.set_body_error(postureInfo);
                 // }
                 people_list.push_back(boxes_list);
-                trace_dic = trace_id(trace_dic, people_list, frame);
 
                 result.push_back(exposing::make_as_first<box_info_impl>(pphone_box_info));
             }
 //cv::imwrite("/home/glasssix/yhc/AlgorithmZoo/cpp/playphone/img_vis.png", img_vis);
-
+	std::cout << " debug_zj    debug_zj debug_zj " << __LINE__ << std::endl;
+            trace_dic = trace_id(trace_dic, people_list, frame);
+            std::cout << "trace.size() = " << trace_dic.size() << std::endl;
             return result;
         }
 

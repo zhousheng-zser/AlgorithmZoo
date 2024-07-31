@@ -7,19 +7,23 @@
 // #include <unordered_map>
 typedef struct
 {
-    int x1;
-    int x2;
-    int y1;
-    int y2;
-    float body_width;
-    int play_num;
-    int distance;
-    int id;
-    bool is_playphone;
-    long long f;
-    long long pf;
+    int x1 = 0;
+    int x2 = 0;
+    int y1 = 0;
+    int y2 = 0;
+    float body_width = 0;//真是人宽度
+    int play_num = 0;//玩手机次数
+    int distance = 0;//距离比较
+    int id = 0;//玩手机的人对应id
+    bool is_playphone = false;//是否玩手机
+    long long f = 0;//当前帧数
+    long long pf = 0;
 } Boxes_list;
 static long long frame;
+static std::map<int32_t, Boxes_list>  trace_dic{};
+// static std::vector<Boxes_list> diff_list;
+// static std::vector<std::vector<Boxes_list>> diff_all_list; // 所有检测结果的对比结果列表
+int32_t check_continuous_keys(const std::map<int32_t, Boxes_list>& dictionary);
 // 追踪
 std::map<int32_t, Boxes_list> trace_id(
     std::map<int32_t, Boxes_list> trace_dic,
@@ -47,13 +51,14 @@ std::map<int32_t, Boxes_list> trace_id(
             } else {
                 // 比对
                 std::vector<Boxes_list> diff_list;
-                for (int i = 0; i < trace_dic.size(); i++)
+                for (int j = 0; j < trace_dic.size(); j++)
                 {
+                    auto& trace = trace_dic[j];
                     int x1_, x2_, y1_, y2_;
-                    x1_ = trace_dic[i].x1;
-                    x2_ = trace_dic[i].x2;
-                    y1_ = trace_dic[i].y1;
-                    y2_ = trace_dic[i].y2;
+                    x1_ = trace.x1;//! map的下标调用的时候,时刻记住,如果该下标不存在,会直接创建该下标的键值对的
+                    x2_ = trace.x2;
+                    y1_ = trace.y1;
+                    y2_ = trace.y2;
                     int new_box_center_x = (x1 + x2) / 2;
                     int new_box_center_y = (y1 + y2) / 2;
                     int his_box_center_x = (x1_ + x2_) / 2;
@@ -61,13 +66,15 @@ std::map<int32_t, Boxes_list> trace_id(
                     int distance = std::sqrt((new_box_center_y - his_box_center_y) * (new_box_center_y - his_box_center_y) + (new_box_center_x - his_box_center_x) * (new_box_center_x - his_box_center_x)); //求两个点的距离
 
                     if (distance < box.body_width * 0.1) {
-                        Boxes_list diff_list_temp{ x1,x2,y1,y2,0,0,distance,i,0,f,0 };
+                        Boxes_list diff_list_temp{ x1,x2,y1,y2,0,0,distance,i,box.is_playphone,f,0 };
                         diff_list.emplace_back( diff_list_temp);
                     }
+                    else
+                        continue;//说明已经找到符合条件的了,不不需要继续循环了
                 }
                  ////////////一般情况下,宽度不会为0,为0,表示没有数据 忽略
                 if (diff_list.empty()) { // 如果此帧此结果与历史所有结果无联系，新建
-                    int new_id = 1000;//todo
+                    int new_id = check_continuous_keys(trace_dic);
                     Boxes_list box_list{ x1,x2,y1,y2,0,0,0,0,0,f,0 };
                     trace_dic[new_id] = box_list;
                     show_dic[new_id] = box_list;
@@ -148,4 +155,20 @@ std::map<int32_t, Boxes_list> trace_id(
     else
         return trace_dic;
     return { new_trace_dic};//todo
+}
+// 检查字典中键是否从0开始递增
+int32_t check_continuous_keys(const std::map<int32_t, Boxes_list>& dictionary) {
+     // 使用迭代器遍历字典的键
+     auto it = dictionary.begin();
+     int32_t expected_key = 0;
+     for (; it != dictionary.end(); ++it) {
+         if (it->first != expected_key) {
+             // 如果键不连续，返回当前的键
+             return it->first;
+         }
+         // 更新预期的下一个键
+         ++expected_key;
+     }
+     // 如果所有键都是连续的，返回下一个预期的键
+     return expected_key;
 }
