@@ -185,9 +185,6 @@ namespace glasssix::helmet
                 auto  tensor_out = net_class_->forward(headimg).begin()->second;//net has only single node out
 
                 float* helmet_conf = tensor_out->mutable_cpu_data();
-#if defined(USE_RKNNAPI) || defined(USE_RKNN2API)
-                Softmax(helmet_conf, 3);
-#endif
                 box_info_internal  headp(head.x1, head.x2, head.y1, head.y2);
                 if (helmet_conf[0] > helmet_conf[1] && helmet_conf[0] > helmet_conf[2])
                 {
