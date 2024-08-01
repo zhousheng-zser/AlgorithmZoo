@@ -26,6 +26,14 @@ static std::map<int32_t, Boxes_list>  trace_dic{};
 // static std::vector<std::vector<Boxes_list>> diff_all_list; // 所有检测结果的对比结果列表
 int32_t check_continuous_keys(const std::map<int32_t, Boxes_list>& dictionary);
 // 追踪
+
+/*
+    Boxes_list 要用到的数据
+    boxes_list : x1, y1, x2, y2, body_width, is_playphone
+    trace_dic  : x1, y1, x2, y2, play_num, f, pf                is_playphone, id(后两个没有业务需求)
+    diff_list  : x1, y1, x2, y2, distance, id, is_playphone     
+
+*/
 std::map<int32_t, Boxes_list> trace_id(
     const std::vector<Boxes_list>& boxes_list,
     long long f_now) {
@@ -45,7 +53,7 @@ std::map<int32_t, Boxes_list> trace_id(
             y1 = box.y1;
             y2 = box.y2;
             if (trace_dic.empty()) { // 如果历史结果为空，所有此帧结果新建
-                Boxes_list box_list{ x1,x2,y1,y2,0,0,0,0,box.is_playphone,f,0 };
+                Boxes_list box_list{ x1,x2,y1,y2,0,0,0,i,box.is_playphone,f,0 };
                 trace_dic[i] = box_list;
                 show_dic[i] = box_list;
             } else {
@@ -75,7 +83,7 @@ std::map<int32_t, Boxes_list> trace_id(
                  ////////////一般情况下,宽度不会为0,为0,表示没有数据 忽略
                 if (diff_list.empty()) { // 如果此帧此结果与历史所有结果无联系，新建
                     int new_id = check_continuous_keys(trace_dic);
-                    Boxes_list box_list{ x1,x2,y1,y2,0,0,0,0,box.is_playphone,f,0 };
+                    Boxes_list box_list{ x1,x2,y1,y2,0,0,0,new_id,box.is_playphone,f,0 };
                     trace_dic[new_id] = box_list;
                     show_dic[new_id] = box_list;
                 }
