@@ -4,6 +4,7 @@
 #include <algorithm>
 #include <sstream>
 #include <cmath>
+#include <iostream>
 #define frame_limit 20
 // #include <unordered_map>
 typedef struct
@@ -59,9 +60,9 @@ std::map<int32_t, Boxes_list> trace_id(
             } else {
                 // 比对
                 std::vector<Boxes_list> diff_list;
-                for (int j = 0; j < trace_dic.size(); j++)
+                for (auto &trace_one : trace_dic)
                 {
-                    auto& trace = trace_dic[j];
+                    auto& trace = trace_one.second;
                     int x1_, x2_, y1_, y2_;
                     x1_ = trace.x1;//! map的下标调用的时候,时刻记住,如果该下标不存在,会直接创建该下标的键值对的
                     x2_ = trace.x2;
@@ -72,9 +73,10 @@ std::map<int32_t, Boxes_list> trace_id(
                     int his_box_center_x = (x1_ + x2_) / 2;
                     int his_box_center_y = (y1_ + y2_) / 2;
                     int distance = std::sqrt((new_box_center_y - his_box_center_y) * (new_box_center_y - his_box_center_y) + (new_box_center_x - his_box_center_x) * (new_box_center_x - his_box_center_x)); //求两个点的距离
+                    std::cout << "distance ： " << distance << std::endl;
 
                     if (distance < box.body_width * 0.1) {
-                        Boxes_list diff_list_temp{ x1,x2,y1,y2,0,0,distance,i,box.is_playphone,f,0 };
+                        Boxes_list diff_list_temp{ x1,x2,y1,y2,0,0,distance,trace_one.first,box.is_playphone,f,0 };
                         diff_list.emplace_back( diff_list_temp);
                     }
                     else
