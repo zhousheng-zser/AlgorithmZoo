@@ -9,17 +9,17 @@
 // #include <unordered_map>
 typedef struct
 {
-    int x1 = 0;
-    int x2 = 0;
-    int y1 = 0;
-    int y2 = 0;
-    float body_width = 0;//真是人宽度
-    int play_num = 0;//玩手机次数
-    int distance = 0;//距离比较
-    int id = 0;//玩手机的人对应id
+    int x1 = -1;
+    int x2 = -1;
+    int y1 = -1;
+    int y2 = -1;
+    float body_width = -1.f;//真实人宽度
+    int play_num = -1;//玩手机次数
+    int distance = -1;//距离比较
+    int id = -1;//玩手机的人对应id
     bool is_playphone = false;//是否玩手机
-    long long f = 0;//当前帧数
-    long long pf = 0;
+    long long f = -1;//当前帧数
+    long long pf = -1;
 } Boxes_list;
 static long long frame;
 static std::map<int32_t, Boxes_list>  trace_dic{};
@@ -73,14 +73,15 @@ std::map<int32_t, Boxes_list> trace_id(
                     int his_box_center_x = (x1_ + x2_) / 2;
                     int his_box_center_y = (y1_ + y2_) / 2;
                     int distance = std::sqrt((new_box_center_y - his_box_center_y) * (new_box_center_y - his_box_center_y) + (new_box_center_x - his_box_center_x) * (new_box_center_x - his_box_center_x)); //求两个点的距离
-                    std::cout << "distance ： " << distance << std::endl;
+                    std::cout << "distance ： " << distance << " id : " << trace_one.first << " width*0.1 : " << box.body_width * 0.1 << std::endl;
 
                     if (distance < box.body_width * 0.1) {
                         Boxes_list diff_list_temp{ x1,x2,y1,y2,0,0,distance,trace_one.first,box.is_playphone,f,0 };
-                        diff_list.emplace_back( diff_list_temp);
+                        diff_list.emplace_back( diff_list_temp);//continue;//正式情况要删掉
                     }
                     else
-                        continue;//说明已经找到符合条件的了,不不需要继续循环了
+                    ;
+                        // continue;//说明已经找到符合条件的了,不不需要继续循环了;python使用的是 pass
                 }
                  ////////////一般情况下,宽度不会为0,为0,表示没有数据 忽略
                 if (diff_list.empty()) { // 如果此帧此结果与历史所有结果无联系，新建
@@ -103,40 +104,51 @@ std::map<int32_t, Boxes_list> trace_id(
             return {trace_dic};//todo
         } else { // 若有关联，确保每个关联只被更新一次，只更新为最接近的关联
             std::map<int, Boxes_list> grouped_lists;
+            std::vector< Boxes_list> person_box;
+            std::map<int, std::vector< Boxes_list>> grouped_list_;
 
             for (const auto& boxdiflist : diff_all_list) {
                 for (const auto& boxlist : boxdiflist)
                 {
                     int key = boxlist.id;
-                    if (!grouped_lists.count(key))
+                    //if (person_box.size() == 0)
+                    //{
+                    //    person_box.push_back(boxlist);
+                    //}
+                    //else
+                    //{
+
+                    //}
+                    if (grouped_lists.count(key))
                     {
                         grouped_lists[key] = {};
                     }
-                    std::vector<std::vector<Boxes_list>> list;
+                    //std::vector<std::vector<Boxes_list>> list;
                     //list.push_back(boxlist);//todo todo
-                    grouped_lists[key]=(boxlist);
+                    //person_box.push_back(boxlist);
+                    grouped_list_[key].push_back(boxlist);
                 }
             }
 
-            for (const auto& id_res : grouped_lists) {
-                int new_x1 = id_res.second.x1;
-                int new_x2 = id_res.second.x2;
-                int new_y1 = id_res.second.y1;
-                int new_y2 = id_res.second.y2;
-                bool is_playing_phone = id_res.second.is_playphone;
+            for (const auto& id_res : grouped_list_) {
+                int new_x1 = id_res.second[0].x1;
+                int new_x2 = id_res.second[0].x2;
+                int new_y1 = id_res.second[0].y1;
+                int new_y2 = id_res.second[0].y2;
+                bool is_playing_phone = id_res.second[0].is_playphone;
                 long long pf;
                 int playing_num;
                 if (is_playing_phone) {
-                    playing_num = trace_dic[id_res.second.id].play_num + 1;
+                    playing_num = trace_dic[id_res.second[0].id].play_num + 1;
                     pf = f;
                 }
                 else
                 {
-                    playing_num = trace_dic[id_res.second.id].play_num;
-                    pf = trace_dic[id_res.second.id].pf;
+                    playing_num = trace_dic[id_res.second[0].id].play_num;
+                    pf = trace_dic[id_res.second[0].id].pf;
                 }
-                Boxes_list box_temp{ new_x1,new_x2,new_y1,new_y2,0,playing_num,0,0,trace_dic[id_res.second.id].is_playphone,f,pf };
-                trace_dic[id_res.second.id] = box_temp;
+                Boxes_list box_temp{ new_x1,new_x2,new_y1,new_y2,0,playing_num,0,id_res.second[0].id,trace_dic[id_res.second[0].id].is_playphone,f,pf };
+                trace_dic[id_res.second[0].id] = box_temp;
             }
         }
     }
@@ -158,7 +170,7 @@ std::map<int32_t, Boxes_list> trace_id(
                 int new_y2 = it.second.y2;
                 int new_playnum = it.second.play_num;
                 int pf = it.second.pf;
-                Boxes_list box_temp{ new_x1,new_x2,new_y1,new_y2,0,new_playnum,0,0,it.second.is_playphone,0,pf };
+                Boxes_list box_temp{ new_x1,new_x2,new_y1,new_y2,0,new_playnum,0,it.first,it.second.is_playphone,0,pf };
                 new_trace_dic[it.first] = box_temp;
             }
         }
