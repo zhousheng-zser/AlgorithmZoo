@@ -59,8 +59,9 @@ namespace glasssix::playphone
             float phone_conf_thres = param_map.count("phone_conf_thres") ? param_map["phone_conf_thres"] : 0.7f;
             float phone_nms_thres = param_map.count("phone_nms_thres") ? param_map["phone_nms_thres"] : 0.5f;
             std::vector<Boxes_list> people_list;
+            box_info_internal pphone_box_info_temp;
 	        std::cout << " debug_zj " << __LINE__ << std::endl;
-            trace_dic = trace_id( people_list, frame);
+            trace_dic = trace_id( people_list, frame, pphone_box_info_temp);
             cv::imshow("Display Window", image);
             cv::imwrite("Display Window.jpg", image);
     int number = 0;
@@ -153,7 +154,7 @@ namespace glasssix::playphone
                 std::vector<Boxes_list> people_one;
 	            std::cout << " debug_zj " << __LINE__ << std::endl;
                 people_list.push_back(boxes_list);//写在这里就不用改写 trace_id 函数了
-                trace_dic = trace_id(people_list, frame);
+                trace_dic = trace_id(people_list, frame ,pphone_box_info);
                 std::cout << "trace.size() = " << trace_dic.size() << std::endl;
 
                 result.push_back(exposing::make_as_first<box_info_impl>(pphone_box_info));

@@ -7,6 +7,7 @@
 #include <cmath>
 #include <iostream>
 #include <mutex>
+#include "detect_code_internal.hpp"
 #define frame_limit 20
 // #include <unordered_map>
 typedef struct
@@ -56,7 +57,7 @@ int32_t check_continuous_keys(const std::map<int32_t, Boxes_list>& dictionary);
 */
 std::map<int32_t, Boxes_list> trace_id(
     const std::vector<Boxes_list>& boxes_list,
-    long long f_now) {
+    long long f_now, glasssix::playphone::box_info_internal& box_info) {
     
     std::map<int32_t, Boxes_list> show_dic; // 用于此帧结果可视化的字典
     long long f = f_now;
@@ -76,6 +77,7 @@ std::map<int32_t, Boxes_list> trace_id(
                 Boxes_list box_list{ x1,x2,y1,y2,0,0,0,i,box.is_playphone,f,0 };
                 trace_dic[i] = box_list;
                 show_dic[i] = box_list;
+                box_info.id = i;
             } else {
                 // 比对
                 std::vector<Boxes_list> diff_list;
@@ -107,6 +109,7 @@ std::map<int32_t, Boxes_list> trace_id(
                     int new_id = check_continuous_keys(trace_dic);
                     Boxes_list box_list{ x1,x2,y1,y2,0,0,0,new_id,box.is_playphone,f,0 };
                     trace_dic[new_id] = box_list;
+                    box_info.id = new_id;
                     show_dic[new_id] = box_list;
                 }
                 else {
@@ -168,6 +171,7 @@ std::map<int32_t, Boxes_list> trace_id(
                 }
                 Boxes_list box_temp{ new_x1,new_x2,new_y1,new_y2,0,playing_num,0,id_res.second[0].id,trace_dic[id_res.second[0].id].is_playphone,f,pf };
                 trace_dic[id_res.second[0].id] = box_temp;
+                box_info.frequency = playing_num;
             }
         }
     }
@@ -179,9 +183,13 @@ std::map<int32_t, Boxes_list> trace_id(
             { 
                 std::cout << it.second << std::endl;
                 new_trace_dic.erase(it.first);
+                box_info.category = 3;
             }
             if (f - it.second.pf >= frame_limit && new_trace_dic.find(it.first) != new_trace_dic.end()) // 10s内更新都没检测为玩手机，玩手机计数置0
+            {
                 new_trace_dic[it.first].play_num = 0;
+                box_info.frequency = 0;
+            }
             if (f > 9223372036854775807) // 重置帧上限
             {
                 int new_x1 = it.second.x1;

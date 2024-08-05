@@ -25,6 +25,8 @@ namespace glasssix::exposing::impl
             virtual std::int32_t G6_ABI_CALL y2(abi_out_t<int> result) noexcept = 0;
             virtual std::int32_t G6_ABI_CALL category(abi_out_t<int> result) noexcept = 0;
             virtual std::int32_t G6_ABI_CALL confidence(abi_out_t<float> result) noexcept = 0;
+            virtual std::int32_t G6_ABI_CALL frequency(abi_out_t<float> result) noexcept = 0;
+            virtual std::int32_t G6_ABI_CALL id(abi_out_t<float> result) noexcept = 0;
             virtual std::int32_t G6_ABI_CALL phonelocal_list(abi_out_t<exposing::param_vector<std::int32_t>> result) noexcept = 0;
             virtual std::int32_t G6_ABI_CALL phonescore_list(abi_out_t<exposing::param_vector<float>> result) noexcept = 0;
         };
@@ -70,6 +72,24 @@ namespace glasssix::exposing::impl
             return abi_safe_call([&]
                 {
                     *result = detach_abi(this->self().confidence());
+                }
+            );
+        }
+
+        virtual std::int32_t G6_ABI_CALL frequency(abi_out_t<float> result) noexcept override
+        {
+            return abi_safe_call([&]
+                {
+                    *result = detach_abi(this->self().frequency());
+                }
+            );
+        }
+
+        virtual std::int32_t G6_ABI_CALL id(abi_out_t<float> result) noexcept override
+        {
+            return abi_safe_call([&]
+                {
+                    *result = detach_abi(this->self().id());
                 }
             );
         }
@@ -136,6 +156,18 @@ namespace glasssix::exposing::impl
             {
                 float result;
                 return (check_abi_result(this->self_abi().confidence(put_abi(result))), result);
+            }
+
+            int frequency() const
+            {
+                int result;
+                return (check_abi_result(this->self_abi().frequency(put_abi(result))), result);
+            }
+
+            int id() const
+            {
+                int result;
+                return (check_abi_result(this->self_abi().id(put_abi(result))), result);
             }
 
             exposing::param_vector<std::int32_t> phonelocal_list() const
