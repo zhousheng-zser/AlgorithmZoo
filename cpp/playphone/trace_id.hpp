@@ -23,6 +23,22 @@ typedef struct
     long long f = -1;//当前帧数
     long long pf = -1;
 } Boxes_list;
+// 重载operator<<
+std::ostream& operator<<(std::ostream& os, const Boxes_list& box) {
+    os << "Boxes_list: "
+       << "x1=" << box.x1 << ", "
+       << "x2=" << box.x2 << ", "
+       << "y1=" << box.y1 << ", "
+       << "y2=" << box.y2 << ", "
+       << "body_width=" << box.body_width << ", "
+       << "play_num=" << box.play_num << ", "
+       << "distance=" << box.distance << ", "
+       << "id=" << box.id << ", "
+       << "is_playphone=" << (box.is_playphone ? "true" : "false") << ", "
+       << "f=" << box.f << ", "
+       << "pf=" << box.pf;
+    return os;
+}
 static long long frame;
 static std::map<int32_t, Boxes_list>  trace_dic{};
 std::mutex trace_mutex;
@@ -76,7 +92,7 @@ std::map<int32_t, Boxes_list> trace_id(
                     int his_box_center_x = (x1_ + x2_) / 2;
                     int his_box_center_y = (y1_ + y2_) / 2;
                     int distance = std::sqrt((new_box_center_y - his_box_center_y) * (new_box_center_y - his_box_center_y) + (new_box_center_x - his_box_center_x) * (new_box_center_x - his_box_center_x)); //求两个点的距离
-                    std::cout << "distance ： " << distance << " id : " << trace_one.first << " width*0.1 : " << box.body_width * 0.1 << std::endl;
+                    // std::cout << "distance ： " << distance << " id : " << trace_one.first << " width*0.1 : " << box.body_width * 0.1 << std::endl;
 
                     if (distance < box.body_width * 0.1) {
                         Boxes_list diff_list_temp{ x1,x2,y1,y2,0,0,distance,trace_one.first,box.is_playphone,f,0 };
@@ -161,6 +177,7 @@ std::map<int32_t, Boxes_list> trace_id(
         for (auto it: trace_dic) {
             if(f - it.second.f >= frame_limit) // 5s内再未更新框体（消失于画面或者位移过大），删除此id
             { 
+                std::cout << it.second << std::endl;
                 new_trace_dic.erase(it.first);
             }
             if (f - it.second.pf >= frame_limit && new_trace_dic.find(it.first) != new_trace_dic.end()) // 10s内更新都没检测为玩手机，玩手机计数置0
