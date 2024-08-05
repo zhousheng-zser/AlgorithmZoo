@@ -25,8 +25,8 @@ namespace glasssix::exposing::impl
             virtual std::int32_t G6_ABI_CALL y2(abi_out_t<int> result) noexcept = 0;
             virtual std::int32_t G6_ABI_CALL category(abi_out_t<int> result) noexcept = 0;
             virtual std::int32_t G6_ABI_CALL confidence(abi_out_t<float> result) noexcept = 0;
-            virtual std::int32_t G6_ABI_CALL frequency(abi_out_t<float> result) noexcept = 0;
-            virtual std::int32_t G6_ABI_CALL id(abi_out_t<float> result) noexcept = 0;
+            virtual std::int32_t G6_ABI_CALL frequency(abi_out_t<int> result) noexcept = 0;
+            virtual std::int32_t G6_ABI_CALL id(abi_out_t<int> result) noexcept = 0;
             virtual std::int32_t G6_ABI_CALL phonelocal_list(abi_out_t<exposing::param_vector<std::int32_t>> result) noexcept = 0;
             virtual std::int32_t G6_ABI_CALL phonescore_list(abi_out_t<exposing::param_vector<float>> result) noexcept = 0;
         };
@@ -76,7 +76,7 @@ namespace glasssix::exposing::impl
             );
         }
 
-        virtual std::int32_t G6_ABI_CALL frequency(abi_out_t<float> result) noexcept override
+        virtual std::int32_t G6_ABI_CALL frequency(abi_out_t<int> result) noexcept override
         {
             return abi_safe_call([&]
                 {
@@ -85,7 +85,7 @@ namespace glasssix::exposing::impl
             );
         }
 
-        virtual std::int32_t G6_ABI_CALL id(abi_out_t<float> result) noexcept override
+        virtual std::int32_t G6_ABI_CALL id(abi_out_t<int> result) noexcept override
         {
             return abi_safe_call([&]
                 {
