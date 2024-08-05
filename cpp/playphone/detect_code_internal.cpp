@@ -155,13 +155,12 @@ namespace glasssix::playphone
 	            std::cout << " debug_zj " << __LINE__ << std::endl;
                 people_one.push_back(boxes_list);//写在这里就不用改写 trace_id 函数了
                 trace_dic = trace_id(people_one, frame ,pphone_box_info);
-                for(int i=0; i<trace_dic.size();i++)
+                for(auto trace : trace_dic)
                 {
-                    auto trace = trace_dic[i];
-                    if (pphone_box_info.x1 == trace.x1 && pphone_box_info.x2 == trace.x2 && pphone_box_info.y1 == trace.y1 && pphone_box_info.y2 == trace.y2)
+                    if (pphone_box_info.x1 == trace.second.x1 && pphone_box_info.x2 == trace.second.x2 && pphone_box_info.y1 == trace.second.y1 && pphone_box_info.y2 == trace.second.y2)
                     {
-                        pphone_box_info.id = trace.id;
-                        pphone_box_info.frequency = trace.play_num;
+                        pphone_box_info.id = trace.second.id;
+                        pphone_box_info.frequency = trace.second.play_num;
                     }
 
                 }
