@@ -5,6 +5,7 @@
 #include <sstream>
 #include <cmath>
 #include <iostream>
+#include <mutex>
 #define frame_limit 20
 // #include <unordered_map>
 typedef struct
@@ -23,6 +24,7 @@ typedef struct
 } Boxes_list;
 static long long frame;
 static std::map<int32_t, Boxes_list>  trace_dic{};
+std::mutex trace_mutex;
 // static std::vector<Boxes_list> diff_list;
 // static std::vector<std::vector<Boxes_list>> diff_all_list; // 所有检测结果的对比结果列表
 int32_t check_continuous_keys(const std::map<int32_t, Boxes_list>& dictionary);
@@ -103,9 +105,9 @@ std::map<int32_t, Boxes_list> trace_id(
         if (diff_all_list.empty()) { // 如果此帧所有结果没有与历史帧关联，此时返回结果
             return {trace_dic};//todo
         } else { // 若有关联，确保每个关联只被更新一次，只更新为最接近的关联
-            std::map<int, Boxes_list> grouped_lists;
+            // std::map<int, Boxes_list> grouped_lists;
             std::vector< Boxes_list> person_box;
-            std::map<int, std::vector< Boxes_list>> grouped_list_;
+            std::map<int, std::vector< Boxes_list>> grouped_lists;
 
             for (const auto& boxdiflist : diff_all_list) {
                 for (const auto& boxlist : boxdiflist)
@@ -119,18 +121,18 @@ std::map<int32_t, Boxes_list> trace_id(
                     //{
 
                     //}
-                    if (grouped_lists.count(key))
-                    {
-                        grouped_lists[key] = {};
-                    }
+                    // if (grouped_lists.count(key))
+                    // {
+                    //     grouped_lists[key] = {};
+                    // }
                     //std::vector<std::vector<Boxes_list>> list;
                     //list.push_back(boxlist);//todo todo
                     //person_box.push_back(boxlist);
-                    grouped_list_[key].push_back(boxlist);
+                    grouped_lists[key].push_back(boxlist);
                 }
             }
 
-            for (const auto& id_res : grouped_list_) {
+            for (const auto& id_res : grouped_lists) {
                 int new_x1 = id_res.second[0].x1;
                 int new_x2 = id_res.second[0].x2;
                 int new_y1 = id_res.second[0].y1;
