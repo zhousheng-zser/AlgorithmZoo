@@ -40,7 +40,10 @@ namespace glasssix::playphone
 
         exposing::param_vector<playphone::box_info> detect(const exposing::param_span<std::uint8_t>& bitmap, int channels, int height, int width, int roi_x, int roi_y, int roi_width, int roi_height, exposing::param_vector<posture::box_info> posture_info_list_raw, std::map<std::string, float>& param_map)
         {
-            frame++;
+            {
+                std::guard_lock<std::mutex> lock(trace_mutex);
+                frame++;
+            }
             std::cout << "frame = " << frame << std::endl;
             if (bitmap.empty())
             {
@@ -155,7 +158,13 @@ namespace glasssix::playphone
                 std::vector<Boxes_list> people_one;
 	            // std::cout << " debug_zj " << __LINE__ << std::endl;
                 people_one.push_back(boxes_list);//写在这里就不用改写 trace_id 函数了
-                trace_dic = trace_id(people_one, frame ,pphone_box_info);
+                //必須使用另外個變量來接受,防止加锁时间过长
+                std::map<int32_t, Boxes_list> trace_temp;
+                trace_temp = trace_id(people_list, frame);
+                {
+                    std::guard_lock<std::mutex> lock(trace_mutex);
+                    trace_dic = trace_temp;
+                }
                 for(auto trace : trace_dic)
                 {
                     if (pphone_box_info.x1 == trace.second.x1 && pphone_box_info.x2 == trace.second.x2 && pphone_box_info.y1 == trace.second.y1 && pphone_box_info.y2 == trace.second.y2)
