@@ -75,7 +75,10 @@ std::map<int32_t, Boxes_list> trace_id(
             y2 = box.y2;
             if (trace_dic.empty()) { // 如果历史结果为空，所有此帧结果新建
                 Boxes_list box_list{ x1,x2,y1,y2,0,0,0,i,box.is_playphone,f,0 };
-                trace_dic[i] = box_list;
+                {
+                    std::lock_guard<std::mutex> lock(trace_mutex);
+                    trace_dic[i] = box_list;
+                }
                 show_dic[i] = box_list;
                 box_info.id = i;
             } else {
@@ -108,7 +111,11 @@ std::map<int32_t, Boxes_list> trace_id(
                 if (diff_list.empty()) { // 如果此帧此结果与历史所有结果无联系，新建
                     int new_id = check_continuous_keys(trace_dic);
                     Boxes_list box_list{ x1,x2,y1,y2,0,0,0,new_id,box.is_playphone,f,0 };
-                    trace_dic[new_id] = box_list;
+                    {
+                        
+                        std::lock_guard<std::mutex> lock(trace_mutex);
+                        trace_dic[new_id] = box_list;
+                    }
                     box_info.id = new_id;
                     show_dic[new_id] = box_list;
                 }
@@ -206,6 +213,9 @@ std::map<int32_t, Boxes_list> trace_id(
     // else
     //         return { new_trace_dic};//todo
     //     return trace_dic;
+
+
+    std::lock_guard<std::mutex> lock(trace_mutex);
     trace_dic = new_trace_dic;
     return trace_dic;
 }
