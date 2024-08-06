@@ -227,7 +227,7 @@ int32_t check_continuous_keys(const std::map<int32_t, Boxes_list>& dictionary) {
      for (; it != dictionary.end(); ++it) {
          if (it->first != expected_key) {
              // 如果键不连续，返回当前的键
-             return it->first;
+             return expected_key;
          }
          // 更新预期的下一个键
          ++expected_key;

@@ -62,8 +62,9 @@ namespace glasssix::playphone
             // box_info_internal pphone_box_info_temp;
 	        // std::cout << " debug_zj " << __LINE__ << std::endl;
             // trace_dic = trace_id( people_list, frame, pphone_box_info_temp);
-            cv::imshow("Display Window", image);
-            cv::imwrite("Display Window.jpg", image);
+            // linux 环境不能瞎用
+            // cv::imshow("Display Window", image);
+            // cv::imwrite("Display Window.jpg", image);
     int number = 0;
             for (auto pinfo : posture_info_list_raw)
             {
@@ -90,8 +91,8 @@ namespace glasssix::playphone
                 boxes_list.is_playphone = pphone_box_info.confidence == 0 ? 1:0;
                 cv::Mat body = image.clone();
 				cv::rectangle(body, cv::Point(boxes_list.x1, boxes_list.y1), cv::Point(boxes_list.x2, boxes_list.y2), cv::Scalar(0, 0, 255), 1);
-                cv::imshow("Display Window i", body);
-                cv::imwrite("Display Window i.jpg", body);
+                // cv::imshow("Display Window i", body);
+                // cv::imwrite("Display Window i.jpg", body);
 
                 if (postureInfo.invaild_hand_kpnum() < 2 && postureInfo.invaild_face_kpnum() < 2)
                 {
@@ -152,7 +153,7 @@ namespace glasssix::playphone
                 // }
                 // people_list.push_back(boxes_list);
                 std::vector<Boxes_list> people_one;
-	            std::cout << " debug_zj " << __LINE__ << std::endl;
+	            // std::cout << " debug_zj " << __LINE__ << std::endl;
                 people_one.push_back(boxes_list);//写在这里就不用改写 trace_id 函数了
                 trace_dic = trace_id(people_one, frame ,pphone_box_info);
                 for(auto trace : trace_dic)
@@ -164,14 +165,19 @@ namespace glasssix::playphone
                     }
 
                 }
-                std::cout << "trace.size() = " << trace_dic.size() << std::endl;
+                // std::cout << "trace_dic.size() = " << trace_dic.size() << std::endl;
 
                 result.push_back(exposing::make_as_first<box_info_impl>(pphone_box_info));
             }
 //cv::imwrite("/home/glasssix/yhc/AlgorithmZoo/cpp/playphone/img_vis.png", img_vis);
 	        // std::cout << " debug_zj " << __LINE__ << std::endl;
             // trace_dic = trace_id(people_list, frame);
-            // std::cout << "trace.size() = " << trace_dic.size() << std::endl;
+            std::cout << "trace_dic.size() = " << trace_dic.size() << std::endl;
+            //& 打印 trace_dic
+            for(auto trace :trace_dic)
+            {
+                std::cout << " trace key: " << trace.first << " data: " << trace.second << std::endl;
+            }
             return result;
         }
 
