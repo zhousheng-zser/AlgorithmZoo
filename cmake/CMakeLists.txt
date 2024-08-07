@@ -236,6 +236,7 @@ if(BUILD_MODULE_FRAME_GEN AND (CMAKE_CXX_COMPILER_ID STREQUAL "MSVC"))
 endif()
 
 if(BUILD_TEST_MODEL)
-	add_subdirectory(TestModel)
-	add_subdirectory(GenpipelineDemo)
+	#算丰平台7.252机器会编译不过
+	#add_subdirectory(TestModel)
+	#add_subdirectory(GenpipelineDemo)
 endif()
