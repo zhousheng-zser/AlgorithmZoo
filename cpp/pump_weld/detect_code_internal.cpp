@@ -77,18 +77,18 @@ namespace glasssix::pump_weld
 
             //auto [weld_box_list, candidate_box_list] = weld_detect(BatchImgs, height, width, candidate_box_width, candidate_box_height);
 
-			auto [wlight_list_batch, machine_list_batch] = weld_yolo_seqdet(BatchImgs, wmachine_conf_thres, wlight_conf_thres, weld_machine_nms_thres);
+			auto [wlight_list_batch, machine_list_batch] = weld_yolo_seqdet(BatchImgs, wmachine_conf_thres, weld_machine_nms_thres);
 
-            std::vector<std::vector<cv::Rect>> time_light_box_list;
-            for (auto& wlight_list : wlight_list_batch) {
-                std::vector<cv::Rect> wlight_list_rec;
-                for (auto& wlight : wlight_list) {
-                    wlight_list_rec.push_back(wlight.get_rect());
-                }
-                time_light_box_list.emplace_back(wlight_list_rec);
-            }
+            //std::vector<std::vector<cv::Rect>> time_light_box_list;
+            //for (auto& wlight_list : wlight_list_batch) {
+            //    std::vector<cv::Rect> wlight_list_rec;
+            //    for (auto& wlight : wlight_list) {
+            //        wlight_list_rec.push_back(wlight.get_rect());
+            //    }
+            //    time_light_box_list.emplace_back(wlight_list_rec);
+            //}
 
-			auto weld_box_list = get_weld_box(time_light_box_list);
+			auto weld_box_list = get_weld_box(wlight_list_batch, wlight_conf_thres);
             auto candidate_box_list = weld_box_list;
             get_candidate_box(candidate_box_list, width, height, candidate_box_width, candidate_box_height);
 
@@ -167,17 +167,12 @@ namespace glasssix::pump_weld
             return result;
         }
 
-        struct WlightBox :public GenPipTools::YoloBoxBase {
-        public:
-            using YoloBoxBase::YoloBoxBase; //Inheriting Constructors
-        };
-
         struct MachineBox :public GenPipTools::YoloBoxBase {
         public:
             using YoloBoxBase::YoloBoxBase; //Inheriting Constructors
         };
 
-		std::pair<std::vector<std::vector<WlightBox>>, std::vector<MachineBox>> weld_yolo_seqdet(std::vector<cv::Mat>& BatchImgs, float wmachine_conf_thres, float wlight_conf_thres, float weld_machine_nms_thres) {
+		std::pair<std::vector<std::vector<WlightBox>>, std::vector<MachineBox>> weld_yolo_seqdet(std::vector<cv::Mat>& BatchImgs, float wmachine_conf_thres, float weld_machine_nms_thres) {
             constexpr int infrW = 1280;
             constexpr int infrH = 736;
             constexpr bool ifCvtRGB = true;
@@ -210,7 +205,7 @@ namespace glasssix::pump_weld
                         MachineBox tubeBox(pdata[0] * infrW, pdata[1] * infrH, pdata[2] * infrW, pdata[3] * infrH, tube_conf, 1);
                         tube_list.push_back(tubeBox);
                     }
-                    if (wlight_conf > wlight_conf_thres) {
+                    if (wlight_conf > wmachine_conf_thres) {
                         WlightBox wlightBox(pdata[0] * infrW, pdata[1] * infrH, pdata[2] * infrW, pdata[3] * infrH, wlight_conf, 3);
                         wlight_list.push_back(wlightBox);
                     }
