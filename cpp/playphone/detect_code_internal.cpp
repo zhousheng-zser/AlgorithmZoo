@@ -44,7 +44,7 @@ namespace glasssix::playphone
                 std::lock_guard<std::mutex> lock(trace_mutex);
                 frame++;
             }
-            std::cout << "frame = " << frame << std::endl;
+            // std::cout << "frame = " << frame << std::endl;
             if (bitmap.empty())
             {
                 throw exposing::abi_invalid_argument("current frame is empty");
@@ -181,12 +181,12 @@ namespace glasssix::playphone
 //cv::imwrite("/home/glasssix/yhc/AlgorithmZoo/cpp/playphone/img_vis.png", img_vis);
 	        // std::cout << " debug_zj " << __LINE__ << std::endl;
             // trace_dic = trace_id(people_list, frame);
-            std::cout << "trace_dic.size() = " << trace_dic.size() << std::endl;
+            //std::cout << "trace_dic.size() = " << trace_dic.size() << std::endl;
             //& 打印 trace_dic
-            for(auto trace :trace_dic)
-            {
-                std::cout << " trace key: " << trace.first << " data: " << trace.second << std::endl;
-            }
+            // for(auto trace :trace_dic)
+            // {
+            //     std::cout << " trace key: " << trace.first << " data: " << trace.second << std::endl;
+            // }
             return result;
         }
 

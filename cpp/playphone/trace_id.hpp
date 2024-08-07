@@ -188,7 +188,7 @@ std::map<int32_t, Boxes_list> trace_id(
         for (auto it: trace_dic) {
             if(f - it.second.f >= frame_limit) // 5s内再未更新框体（消失于画面或者位移过大），删除此id
             { 
-                std::cout << it.second << std::endl;
+                // std::cout << it.second << std::endl;
                 new_trace_dic.erase(it.first);
                 box_info.category = 3;
             }
