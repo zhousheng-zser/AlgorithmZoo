@@ -41,7 +41,7 @@ namespace glasssix::playphone
         exposing::param_vector<playphone::box_info> detect(const exposing::param_span<std::uint8_t>& bitmap, int channels, int height, int width, int roi_x, int roi_y, int roi_width, int roi_height, exposing::param_vector<posture::box_info> posture_info_list_raw, std::map<std::string, float>& param_map)
         {
             {
-                std::guard_lock<std::mutex> lock(trace_mutex);
+                std::lock_guard<std::mutex> lock(trace_mutex);
                 frame++;
             }
             std::cout << "frame = " << frame << std::endl;
@@ -160,9 +160,9 @@ namespace glasssix::playphone
                 people_one.push_back(boxes_list);//写在这里就不用改写 trace_id 函数了
                 //必須使用另外個變量來接受,防止加锁时间过长
                 std::map<int32_t, Boxes_list> trace_temp;
-                trace_temp = trace_id(people_list, frame);
+                trace_dic = trace_id(people_one, frame ,pphone_box_info);
                 {
-                    std::guard_lock<std::mutex> lock(trace_mutex);
+                    std::lock_guard<std::mutex> lock(trace_mutex);
                     trace_dic = trace_temp;
                 }
                 for(auto trace : trace_dic)
