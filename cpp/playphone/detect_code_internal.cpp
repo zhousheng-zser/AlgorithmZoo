@@ -5,7 +5,6 @@
 
 #include "detect_code_internal.hpp"
 #include "box_info_impl.hpp"
-#include "hardcode.hpp"
 
 #include <abi/param_vector.hpp>
 #include <opencv2/core.hpp>

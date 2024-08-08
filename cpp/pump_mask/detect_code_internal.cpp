@@ -52,13 +52,15 @@ namespace glasssix::pump_mask
             yolov8_instance_mask = std::make_shared<Yolov8_Complement<GenPipeline, true, false>>(160, 160, net_mask_); //2个模板变量分别对应 Yolov8_Complement ，(通用yolov8)是否是李鑫尧的yolo  第三个参数默认为false
             net_head_ = std::make_shared<GenPipeline>(model_directory_ + "/pump_mask_head" + model_ext, device);
             yolov8_instance_head = std::make_shared<Yolov8_Complement<GenPipeline, true, false>>(1152, 640, net_head_); //2个模板变量分别对应 GenPipeline ，(通用yolov8)是否是李鑫尧的yolo  第三个参数默认为false
+            net_detect_face = std::make_shared<GenPipeline>(model_directory_ + "/pump_mask_face" + model_ext, device);
 #elif defined(USE_BMNN)
             yolov8_instance_mask = std::make_shared<SophonYolov8Wrapper>(model_directory_ + "/pump_mask" + model_ext, device);
             yolov8_instance_mask->init();
             yolov8_instance_head = std::make_shared<SophonYolov8Wrapper>(model_directory_ + "/pump_mask_head" + model_ext, device);
             yolov8_instance_head->init();
+            net_detect_face = std::make_shared<SophonYolov8Wrapper>(model_directory_ + "/pump_mask_face" + model_ext, device);
+            net_detect_face->init();
 #endif
-            net_detect_face = std::make_shared<GenPipeline>(model_directory_ + "/pump_mask_face" + model_ext, device);
         }
 
         std::string version()
@@ -67,7 +69,7 @@ namespace glasssix::pump_mask
 #if defined(USE_RKNNAPI) || defined(USE_RKNN2API)
             std::string nn_frame_version = "1.0.0";
 #else
-            std::string nn_frame_version = net_mask_->version();
+            std::string nn_frame_version = "1.0.0";
 #endif
             return fmt::format(R"({{"nn_frame_version":"{}", "algo_module_version":"{}"}})", nn_frame_version, algo_module_version);
         }
@@ -235,64 +237,6 @@ namespace glasssix::pump_mask
             return { mask_image,scale };
         }
 
-        std::vector<std::vector<float>> Yolov7_concat(std::vector<float*>& outs, float conf_thres)
-        {
-            int category = 21;
-            const float anchors[3][6] = { {4,5, 6,8, 10,12}, {15,19, 23,30, 39,52}, {72,97, 123,164, 209,297} };
-            const float stride[3] = { 8.0, 16.0, 32.0 };//80 40 20 ->   30 15 60
-            std::vector<std::vector<float>> result;
-            for (int n = 0; n < 3; n++)
-            {
-                int num_grid_x = (int)(img_size / stride[n]);
-                int num_grid_y = (int)(img_size / stride[n]);
-
-                int ind = 0;
-                float* ptr_out = outs[n];
-                for (int q = 0; q < 3; q++)
-                {
-                    const float anchor_w = anchors[n][q * 2];
-                    const float anchor_h = anchors[n][q * 2 + 1];
-                    for (int i = 0; i < num_grid_x; i++)
-                    {
-                        for (int j = 0; j < num_grid_y; j++)
-                        {
-                            float* pdata = ptr_out + ind * category;
-                            float box_score = yolo_wrapper::sigmoid_x(pdata[4]);
-
-                            float cx = (yolo_wrapper::sigmoid_x(pdata[0]) * 2.f - 0.5f + j) * stride[n];  // cx
-                            float cy = (yolo_wrapper::sigmoid_x(pdata[1]) * 2.f - 0.5f + i) * stride[n];  // cy
-                            float w = powf(yolo_wrapper::sigmoid_x(pdata[2]) * 2.f, 2.f) * anchor_w;      // w
-                            float h = powf(yolo_wrapper::sigmoid_x(pdata[3]) * 2.f, 2.f) * anchor_h;      // h
-
-
-                            float x1 = powf(yolo_wrapper::sigmoid_x(pdata[4]) * 2.f, 2.f) * anchor_w;      // h
-                            float y1 = powf(yolo_wrapper::sigmoid_x(pdata[5]) * 2.f, 2.f) * anchor_h;      // h
-
-                            float x2 = powf(yolo_wrapper::sigmoid_x(pdata[7]) * 2.f, 2.f) * anchor_w;      // h
-                            float y2 = powf(yolo_wrapper::sigmoid_x(pdata[8]) * 2.f, 2.f) * anchor_h;      // h
-
-                            std::vector<float> element = { cx, cy, w, h, box_score, yolo_wrapper::sigmoid_x(pdata[5]) };
-                            for (size_t k = 0; k < 5; k++)
-                            {
-                                float point_x = ((pdata[6 + k * 3 + 0]) * 2.f - 0.5f + j) * stride[n];
-                                float point_y = ((pdata[6 + k * 3 + 1]) * 2.f - 0.5f + i) * stride[n];
-                                float score = yolo_wrapper::sigmoid_x(pdata[6 + k * 3 + 2]);
-                                element.push_back(point_x);
-                                element.push_back(point_y);
-                                element.push_back(score);
-                            }
-
-                            if (box_score * yolo_wrapper::sigmoid_x(pdata[5]) > 0.45)
-                                result.push_back(element);
-
-                            ind++;
-                        }
-                    }
-                }
-            }
-            return result;
-        }
-
         inline std::vector<boxes_conf> xywh2xyxy(std::vector<std::vector<float>>& src, float conf_thres = 0.f)
         {
             int index = 0;
@@ -440,62 +384,6 @@ namespace glasssix::pump_mask
             int l = 0;
         }
 
-        std::vector<Bbox> yolo7_detect(cv::Mat& image) {
-
-            auto new_shape = cv::Size(img_size, img_size);
-            cv::Mat blob;
-            float ratio = 0;
-            int pad_h = 0;
-            int pad_w = 0;
-            std::tie(blob, ratio) = face_imgprocess(image, pad_h, pad_w, new_shape);
-
-            std::vector<std::shared_ptr<memory::tensor<float>>> model_result;
-            std::vector<float*> transpose_result;
-            auto network_result = net_detect_face->forward(blob);
-#ifdef USE_BMNN
-            std::vector<std::string>  temp_out_names = { "stride_8_Concat_f32","stride_16_Concat_f32","stride_32_Concat_f32" };
-#else
-            std::vector<std::string>  temp_out_names = { "stride_8","stride_16","stride_32" };
-#endif
-            std::vector<std::string>  real_out_names = { "output","508","522" };
-            for (size_t i = 0; i < temp_out_names.size(); i++)//对输出数据做处理
-                model_result.push_back(network_result[temp_out_names[i]]);
-
-            std::shared_ptr<glasssix::memory::tensor<float>> tensor_stride8
-            (new memory::tensor<float>(std::vector<int>{3, img_size / 8, img_size / 8, 21}, -1, memory::NCHW));
-
-            std::shared_ptr<glasssix::memory::tensor<float>> tensor_stride16
-            (new memory::tensor<float>(std::vector<int>{3, img_size / 16, img_size / 16, 21}, -1, memory::NCHW));
-
-            std::shared_ptr<glasssix::memory::tensor<float>> tensor_stride32
-            (new memory::tensor<float>(std::vector<int>{3, img_size / 32, img_size / 32, 21}, -1, memory::NCHW));
-
-
-            transpose_result.push_back(tensor_stride8->mutable_cpu_data());
-            transpose_result.push_back(tensor_stride16->mutable_cpu_data());
-            transpose_result.push_back(tensor_stride32->mutable_cpu_data());
-
-
-            for (size_t i = 0; i < real_out_names.size(); i++)  //对输出数据做处理
-            {
-                transpose(model_result[i]->cpu_data(), transpose_result[i], model_result[i]->count());
-            }
-
-            float conf_threshold = 0.25;
-            float iou_threshold = 0.5f;
-
-            auto result = Yolov7_concat(transpose_result, conf_threshold);
-            std::vector<Bbox> nms_result = non_max_suppression(result, conf_threshold, iou_threshold, 1 / ratio, pad_h, pad_w);
-            for (auto& it : nms_result)
-            {
-                it.x1 = it.x1 < 1 ? 0 : it.x1;
-                it.y1 = it.y1 < 1 ? 0 : it.y1;
-                it.y2 = it.y2 > (image.rows - 1) ? (image.rows - 1) : it.y2;
-                it.x2 = it.x2 > (image.cols - 1) ? (image.cols - 1) : it.x2;
-            }
-            return  nms_result;
-        }
-
         exposing::param_vector<pump_mask::box_info> detect(const exposing::param_span<std::uint8_t>& bitmap, int channels, int height, int width,
             std::map<std::string, float>& param_map)
         {
@@ -510,12 +398,12 @@ namespace glasssix::pump_mask
             CHECK_EQ(channels, 3);
 
             cv::Mat image(cv::Size(width, height), CV_8UC3, const_cast<uint8_t*>(bitmap.data()));
-            std::vector<ObjectInfo> frame_result = yolov8_instance_head->get_objects(image, detect_thres, iou_thres);   //检测人体 人头
+            std::vector<Object> frame_result = yolov8_instance_head->get_objects(image, detect_thres, iou_thres);   //检测人体 人头
             std::vector<Bbox> person_box_list;
             std::vector<Bbox> head_box_list;
             std::vector<Bbox> valid_head_box_list;    ///在人体框里的有效人头
 
-            for (ObjectInfo& it : frame_result) {
+            for (Object& it : frame_result) {
                 if (it.category == 0)
                     person_box_list.push_back(Bbox{ it.x1,it.y1,it.x2,it.y2,it.category,it.score,0 });
                 else if (it.x2 - it.x1 > 30 || it.y2 - it.y1 > 30)
@@ -534,16 +422,27 @@ namespace glasssix::pump_mask
             auto fin_result = exposing::make_param_vector<pump_mask::box_info>();
             if (valid_head_box_list.size() == 0)
                 return  fin_result;      ///没有人头直接返回空数组
-            std::vector<Bbox> face_box_list = yolo7_detect(image);// 检测人脸 
+            std::vector<Object> face_box_list_temp = net_detect_face->get_objects(image);// 检测人脸
+            std::vector<Bbox> face_box_list;
+            for (auto& face : face_box_list_temp)
+            {
+                Bbox box;
+                box.x1 = face.x1;
+                box.x2 = face.x2;
+                box.y1 = face.y1;
+                box.y2 = face.y2;
+                face_box_list.push_back(box);
+            }
+            //std::vector<Bbox> face_box_list = net_detect_face->get_objects(image);// 检测人脸 
             std::vector<Bbox> unwear_gas_mask_head_box_list;
             for (int i = 0; i < valid_head_box_list.size(); i++)
             {
                 int move_x, move_y;
                 cv::Mat cropped_image = process_of_image_by_stage1(image, image.cols, image.rows, valid_head_box_list[i], move_x, move_y);
                 //0: 'head', 1: 'face', 2: 'face_mask', 3: 'gas_mask'  #没用这个里的face
-                std::vector<ObjectInfo> cropped_result = yolov8_instance_mask->get_objects(cropped_image, con_thres, iou_thres);// 防护面罩检测
+                std::vector<Object> cropped_result = yolov8_instance_mask->get_objects(cropped_image, con_thres, iou_thres);// 防护面罩检测
                 std::vector<Bbox> frame_result;
-                for (ObjectInfo& it : cropped_result) {
+                for (Object& it : cropped_result) {
                     frame_result.push_back(Bbox{ it.x1,it.y1,it.x2,it.y2,it.category,it.score,0 });
                 }
 
@@ -593,11 +492,12 @@ namespace glasssix::pump_mask
         std::shared_ptr<Yolov8_Complement<GenPipeline, true, false>> yolov8_instance_head;//人体人头
         std::shared_ptr<GenPipeline> net_mask_;
         std::shared_ptr<Yolov8_Complement<GenPipeline, true, false>> yolov8_instance_mask;// 防护面罩
+        std::shared_ptr<GenPipeline> net_detect_face;// 人脸
 #elif defined(USE_BMNN)
         std::shared_ptr<SophonYolov8Wrapper> yolov8_instance_head;//人体人头
         std::shared_ptr<SophonYolov8Wrapper> yolov8_instance_mask;// 防护面罩
+        std::shared_ptr<SophonYolov8Wrapper> net_detect_face;// 人脸
 #endif
-        std::shared_ptr<GenPipeline> net_detect_face;// 人脸
 
     };
 
