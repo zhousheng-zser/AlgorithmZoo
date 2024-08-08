@@ -29,7 +29,7 @@ namespace glasssix::playphone
 
 #if defined(USE_RKNNAPI) || defined(USE_RKNN2API)
             iopipe_phone_det_ = std::make_shared<GenPipeline>(model_dir + "playphone_4b.rknn", 0);
-            yolov8_instance = std::make_shared<Yolov8<GenPipeline>>(320,320, iopipe_phone_det_);
+            yolov8_instance = std::make_shared<Yolov8<GenPipeline>>(384,384, iopipe_phone_det_);
 #elif defined(USE_BMNN)
             yolov8_instance = std::make_shared<SophonYolov8Wrapper>(model_dir + "playphone_4b.bmodel", 0);
             yolov8_instance->init();
