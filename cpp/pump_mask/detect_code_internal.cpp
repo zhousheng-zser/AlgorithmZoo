@@ -424,14 +424,9 @@ namespace glasssix::pump_mask
                 return  fin_result;      ///没有人头直接返回空数组
             std::vector<Object> face_box_list_temp = net_detect_face->get_objects(image);// 检测人脸
             std::vector<Bbox> face_box_list;
-            for (auto& face : face_box_list_temp)
+            for (auto& it : face_box_list_temp)
             {
-                Bbox box;
-                box.x1 = face.x1;
-                box.x2 = face.x2;
-                box.y1 = face.y1;
-                box.y2 = face.y2;
-                face_box_list.push_back(box);
+                face_box_list.push_back(Bbox{it.x1,it.y1,it.x2,it.y2,it.category,it.score,0});
             }
             //std::vector<Bbox> face_box_list = net_detect_face->get_objects(image);// 检测人脸 
             std::vector<Bbox> unwear_gas_mask_head_box_list;
