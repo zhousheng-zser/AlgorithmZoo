@@ -5,8 +5,12 @@
 #include "box_info_impl.hpp"
 #include "logger.hpp"
 #include <chrono>
-#include <GenPipeline/GenPipeline.hpp>
-#include <YoloFamily/Yolo_wrapper.hpp>
+#if defined(USE_RKNNAPI) || defined(USE_RKNN2API)
+    #include <GenPipeline/GenPipeline.hpp>
+    #include <YoloFamily/Yolo_wrapper.hpp>
+#elif defined(USE_BMNN)
+    #include <sophonyolov8/SophonYolov8Wrapper.hpp>
+#endif
 #include "general.hpp"
 #include <abi/param_vector.hpp>
 #include <utility>
@@ -43,14 +47,18 @@ namespace glasssix::pump_mask
 #else
             std::string model_ext{ ".onnx" };
 #endif
+#if defined(USE_RKNNAPI) || defined(USE_RKNN2API)
             net_mask_ = std::make_shared<GenPipeline>(model_directory_ + "/pump_mask" + model_ext, device);
-            yolov8_instance_mask = std::make_shared<Yolov8<GenPipeline, true, false>>(160, 160, net_mask_); //2个模板变量分别对应 GenPipeline ，(通用yolov8)是否是李鑫尧的yolo  第三个参数默认为false
+            yolov8_instance_mask = std::make_shared<Yolov8<Yolov8_Complement, true, false>>(160, 160, net_mask_); //2个模板变量分别对应 Yolov8_Complement ，(通用yolov8)是否是李鑫尧的yolo  第三个参数默认为false
             net_head_ = std::make_shared<GenPipeline>(model_directory_ + "/pump_mask_head" + model_ext, device);
-            yolov8_instance_head = std::make_shared<Yolov8<GenPipeline, true, false>>(1152, 640, net_head_); //2个模板变量分别对应 GenPipeline ，(通用yolov8)是否是李鑫尧的yolo  第三个参数默认为false
+            yolov8_instance_head = std::make_shared<Yolov8_Complement<GenPipeline, true, false>>(1152, 640, net_head_); //2个模板变量分别对应 GenPipeline ，(通用yolov8)是否是李鑫尧的yolo  第三个参数默认为false
+#elif defined(USE_BMNN)
+            yolov8_instance_mask = std::make_shared<SophonYolov8Wrapper>(model_directory_ + "/pump_mask" + model_ext, device);
+            yolov8_instance_mask->init();
+            yolov8_instance_head = std::make_shared<SophonYolov8Wrapper>(model_directory_ + "/pump_mask_head" + model_ext, device);
+            yolov8_instance_head->init();
+#endif
             net_detect_face = std::make_shared<GenPipeline>(model_directory_ + "/pump_mask_face" + model_ext, device);
-            net_mask_->manual_possible_normalization(0, 1.f / 255);
-            net_head_->manual_possible_normalization(0, 1.f / 255);
-            net_detect_face->manual_possible_normalization(0, 1.f / 255);
         }
 
         std::string version()
@@ -580,11 +588,15 @@ namespace glasssix::pump_mask
         std::string model_directory_;
         int device_;
         int img_size = 1280;
+#if defined(USE_RKNNAPI) || defined(USE_RKNN2API)
         std::shared_ptr<GenPipeline> net_head_;
-        std::shared_ptr<Yolov8<GenPipeline, true, false>> yolov8_instance_head;//人体人头
+        std::shared_ptr<Yolov8_Complement<GenPipeline, true, false>> yolov8_instance_head;//人体人头
         std::shared_ptr<GenPipeline> net_mask_;
-        std::shared_ptr<Yolov8<GenPipeline, true, false>> yolov8_instance_mask;// 防护面罩
-
+        std::shared_ptr<Yolov8_Complement<GenPipeline, true, false>> yolov8_instance_mask;// 防护面罩
+#elif defined(USE_BMNN)
+        std::shared_ptr<SophonYolov8Wrapper> yolov8_instance_head;//人体人头
+        std::shared_ptr<SophonYolov8Wrapper> yolov8_instance_mask;// 防护面罩
+#endif
         std::shared_ptr<GenPipeline> net_detect_face;// 人脸
 
     };
