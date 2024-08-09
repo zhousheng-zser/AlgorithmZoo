@@ -17,6 +17,10 @@
 #include <opencv2/core/core.hpp>
 #include <opencv2/imgproc/imgproc.hpp>
 
+#if defined(USE_BMNN)
+#include <sophonyolov8/SophonYolov8Wrapper.hpp>
+#endif
+
 #ifdef USE_CUDA
 #include <cuda_runtime_api.h>
 #endif
@@ -46,13 +50,12 @@ namespace glasssix::pump_weld
 
 #if defined(USE_RKNNAPI) || defined(USE_RKNN2API)
             ioprocess_pipeline_ = PrePostProcessGenPipeline::mkSharePipeline(model_dir + "pump_weld.rknn", 0);
-#elif defined(USE_BMNN)
-            ioprocess_pipeline_ = PrePostProcessGenPipeline::mkSharePipeline(model_dir + "pump_weld.bmodel", 0);
-#else
-            ioprocess_pipeline_ = PrePostProcessGenPipeline::mkSharePipeline(model_dir + "pump_weld.onnx", 0);
-#endif
-			ioprocess_pipeline_->manual_possible_normalization(0, 0.003921568);
+            ioprocess_pipeline_->manual_possible_normalization(0, 0.003921568);
             ioprocess_pipeline_->set_postprocessing(yolov8_GEN<3, 0>);
+#elif defined(USE_BMNN)
+            ioprocess_pipeline_ = std::make_shared<SophonYolov8Wrapper>(std::string(model_directory) + "/pump_weld.bmodel");
+            ioprocess_pipeline_->init();
+#endif
         }
 
         exposing::param_vector<pump_weld::box_info> detect(exposing::param_span<std::uint8_t> bitmap, int batch, int height, int width, std::map<std::string,float>& param_map_std)
@@ -184,7 +187,7 @@ namespace glasssix::pump_weld
                 std::vector<MachineBox> chassis_list;
                 std::vector<MachineBox> tube_list;
                 std::vector<WlightBox> wlight_list;
-
+#if defined(USE_RKNNAPI) || defined(USE_RKNN2API)
                 GenPipTools::LetterInfo letter_op;
                 auto letter_img = GenPipTools::letter_image(image, infrW, infrH, letter_op, ifCvtRGB);
                 auto net_rstmap = ioprocess_pipeline_->forward(letter_img);
@@ -216,6 +219,27 @@ namespace glasssix::pump_weld
                 GenPipTools::letter_map_origin_location(chassis_list, letter_op);
                 GenPipTools::letter_map_origin_location(tube_list, letter_op);
                 GenPipTools::letter_map_origin_location(wlight_list, letter_op);
+#elif defined(USE_BMNN)
+                auto cropped_result = ioprocess_pipeline_->get_objects(image, wmachine_conf_thres, weld_machine_nms_thres);// ·À»¤ÃæÕÖ¼ì²â
+                for (auto& object : cropped_result)
+                {
+                    if (object.category == 0)
+                    {
+                        MachineBox chassisBox(object.x1, object.y1, object.x2 - object.x1, object.y2 - object.y1, object.score, 0);
+                        chassis_list.push_back(chassisBox);
+                    }
+                    else if (object.category == 1)
+                    {
+                        MachineBox tubeBox(object.x1, object.y1, object.x2 - object.x1, object.y2 - object.y1, object.score, 1);
+                        tube_list.push_back(tubeBox);
+                    }
+                    else if (object.category == 2)
+                    {
+                        WlightBox wlightBox(object.x1, object.y1, object.x2- object.x1, object.y2 - object.y1, object.score, 3);
+                        wlight_list.push_back(wlightBox);
+                    }
+                }
+#endif  
                 machine_list_batch.insert(machine_list_batch.begin(), chassis_list.begin(), chassis_list.end());
                 machine_list_batch.insert(machine_list_batch.begin(), tube_list.begin(), tube_list.end());
                 wlight_list_batch.push_back(wlight_list);
@@ -228,13 +252,17 @@ namespace glasssix::pump_weld
         {
             const std::string algo_module_version = "2.0.3";
 
-            std::string nn_frame_version = ioprocess_pipeline_->version();
+            std::string nn_frame_version = "2.0.3";
 
             return fmt::format(R"({ {"nn_frame_version":"{}", "algo_module_version" : "{}"} })", nn_frame_version, algo_module_version);
         }
 
     private:
+#if defined(USE_RKNNAPI) || defined(USE_RKNN2API)
         std::shared_ptr<PrePostProcessGenPipeline> ioprocess_pipeline_;
+#elif defined(USE_BMNN)
+        std::shared_ptr<SophonYolov8Wrapper> ioprocess_pipeline_;
+#endif
         int device_;
     };
 
