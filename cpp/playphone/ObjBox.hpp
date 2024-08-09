@@ -3,95 +3,23 @@
 #include<opencv2/core.hpp>
 #include "../posture/box_info.hpp"
 //#include "dbg.h"
+#include <GenPipeline/GenPipeTools.hpp>
 
 namespace glasssix::playphone
 {
-	struct ObjBox {
-		float xmin;
-		float ymin;
-		float xmax;
-		float ymax;
-		float score;
-		int cid = 0;
-
-		ObjBox() = default;
-
-		ObjBox(cv::Rect rect, float the_score) {
-			xmin = rect.x;
-			xmax = rect.x + rect.width;
-			ymin = rect.y;
-			ymax = rect.y + rect.height;
-			score = the_score;
-		}
-
-		ObjBox(float cx, float cy, float w, float h, float the_score) {
-			xmin = cx - w / 2;
-			xmax = cx + w / 2;
-			ymin = cy - h / 2;
-			ymax = cy + h / 2;
-			score = the_score;
-		}
-
-		void add(cv::Point2f point) {
-			xmin += point.x;
-			ymin += point.y;
-			xmax += point.x;
-			ymax += point.y;
-		}
-		void add(int x, int y) {
-			xmin += x;
-			ymin += y;
-			xmax += x;
-			ymax += y;
-		}
-
-		void mul_ratio(float ratio) {
-			xmin = xmin * ratio;
-			ymin = ymin * ratio;
-			xmax = xmax * ratio;
-			ymax = ymax * ratio;
-		}
-
-		std::vector<cv::Point2f> points() {
-			std::vector<cv::Point2f> rect_points{
-				cv::Point2f(std::round(xmin),std::round(ymin)),
-				cv::Point2f(std::round(xmin),std::round(ymax)),
-				cv::Point2f(std::round(xmax),std::round(ymin)),
-				cv::Point2f(std::round(xmax),std::round(ymax)) };
-			return rect_points;
-		}
-
-		cv::Rect get_rect() {
-			return cv::Rect{
-				cv::Point(std::round(xmin), std::round(ymin)),
-				cv::Point(std::round(xmax), std::round(ymax)) };
-		}
-
-		cv::Point2f get_center() {
-			auto p1 = cv::Point2f(std::round(xmin), std::round(ymin));
-			auto p2 = cv::Point2f(std::round(xmax), std::round(ymax));
-			return (p1 + p2) / 2;
-		}
-
-		float get_area() {
-			return (xmax - xmin) * (ymax - ymin);
-		}
+	struct PhoneBox :public GenPipTools::YoloBoxBase {
+	public:
+		using YoloBoxBase::YoloBoxBase; //Inheriting Constructors
 	};
 
-	struct PostureInfo
-	{
-		std::int32_t xmin;
-		std::int32_t ymin;
-		std::int32_t xmax;
-		std::int32_t ymax;
-		float score;
-		int category;
+	struct PostureInfo :public GenPipTools::YoloBoxBase {
+	public:
+		using YoloBoxBase::YoloBoxBase; //Inheriting Constructors
+
 		std::vector<cv::Point> Kpoints;
 		std::vector<float> Kpoints_score;
-		//cv::Rect color_cut;
-
 		cv::Rect origin_image_border;
-
+		//这里是追踪之后的修改，0.8，0.6是之前，所以会出现追踪无结果的情况
 		static constexpr float vaild_face_thres = 0.1f;
 		static constexpr float vaild_hand_thres = 0.1f;
 
@@ -101,7 +29,7 @@ namespace glasssix::playphone
 			ymin = b_info.y1();
 			ymax = b_info.y2();
 			score = b_info.score();
-			category = b_info.category();
+			cid = b_info.category();
 
 			auto key_points = b_info.key_points(); // 3 elems peer group : x, y, score
 			for (size_t i = 0; i < (int)key_points.size() / 3; i++) {
@@ -119,9 +47,9 @@ namespace glasssix::playphone
 			const cv::Point& rgt_wrist_pt = Kpoints[9];
 			const cv::Point& lft_wrist_pt = Kpoints[10];
 			auto dis_nose_rgtwrist = cv::norm(nose_pt - rgt_wrist_pt);
-			auto dis_nose_lftwrist = cv::norm(nose_pt - lft_wrist_pt);			
+			auto dis_nose_lftwrist = cv::norm(nose_pt - lft_wrist_pt);
 			auto hand_nose_dis = std::min(dis_nose_rgtwrist, dis_nose_lftwrist);
-			return hand_nose_dis<= hand_nose_thresh;
+			return hand_nose_dis <= hand_nose_thresh;
 		}
 
 		void set_origin_image_border(int x, int y, int width, int height) {
@@ -189,42 +117,6 @@ namespace glasssix::playphone
 			return invaild_num;
 		}
 
-		cv::Rect get_rect() {
-			return cv::Rect{
-				cv::Point(std::round(xmin), std::round(ymin)),
-				cv::Point(std::round(xmax), std::round(ymax)) };
-		}
 
 	};
-
-	static inline void NMS_CPU(std::vector<ObjBox>& bboxes, float iou_thres) {
-		if (bboxes.empty()) return;
-		std::sort(bboxes.begin(), bboxes.end(), [&](ObjBox b1, ObjBox b2) {return b1.score > b2.score; });
-		std::vector<float> area(bboxes.size());
-		for (int i = 0; i < bboxes.size(); ++i) {
-			area[i] = (bboxes[i].xmax - bboxes[i].xmin + 1) * (bboxes[i].ymax - bboxes[i].ymin + 1);
-		}
-		for (int i = 0; i < bboxes.size(); ++i) {
-			for (int j = i + 1; j < bboxes.size(); ) {
-				float left = std::max(bboxes[i].xmin, bboxes[j].xmin);
-				float right = std::min(bboxes[i].xmax, bboxes[j].xmax);
-				float top = std::max(bboxes[i].ymin, bboxes[j].ymin);
-				float bottom = std::min(bboxes[i].ymax, bboxes[j].ymax);
-				float width = std::max(right - left + 1, 0.f);
-				float height = std::max(bottom - top + 1, 0.f);
-				float u_area = height * width;
-				float iou = (u_area) / (area[i] + area[j] - u_area);
-
-				if (iou >= iou_thres) {
-					bboxes.erase(bboxes.begin() + j);
-					area.erase(area.begin() + j);
-				}
-				else {
-					++j;
-				}
-			}
-		}
-		if (bboxes.size() < 2) return;
-		std::sort(bboxes.begin(), bboxes.end(), [&](ObjBox b1, ObjBox b2) {return b1.score > b2.score; });
-	}
 }

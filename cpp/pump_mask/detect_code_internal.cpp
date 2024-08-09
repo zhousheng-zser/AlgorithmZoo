@@ -41,6 +41,8 @@ namespace glasssix::pump_mask
             : model_directory_{ std::string(model_directory) }, device_{ device }
         {
 #if defined(USE_RKNNAPI) || defined(USE_RKNN2API)
+            std::string model_ext{ ".rknn" };
+
             net_mask_ = std::make_shared<GenPipeline>(model_directory_ + "/pump_mask.rknn", device);
             yolov8_instance_mask = std::make_shared<Yolov8<GenPipeline, true, false>>(160, 160, net_mask_); //2个模板变量分别对应 GenPipeline ，(通用yolov8)是否是李鑫尧的yolo  第三个参数默认为false
             net_mask_->manual_possible_normalization(0, 1.f / 255);

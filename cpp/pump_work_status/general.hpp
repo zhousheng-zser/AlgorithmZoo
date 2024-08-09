@@ -338,20 +338,21 @@
         {
             std::vector<cv::Point> pts;
             std::vector<std::vector<cv::Point>> points;
-            for(int i =0; i < mask_array.size(); i++)
-            {
-                cv::Point pt;
-                pt.x = mask_array[i][0];
-                pt.y = mask_array[i][1];
-                pts.push_back(pt);
-            }
-            points.push_back(pts);
             cv::Mat new_mask_array_mask(mask_array.size(), 2, CV_32SC1);
             for (int i = 0; i < mask_array.size(); ++i) 
                 for (int j = 0; j < 2; ++j) 
                     new_mask_array_mask.at<int>(i, j) = mask_array[i][j];
 
             cv::Rect bounding_rect = cv::boundingRect(new_mask_array_mask);
+
+            for(int i =0; i < mask_array.size(); i++)
+            {
+                cv::Point pt;
+                pt.x = mask_array[i][0] - bounding_rect.x;
+                pt.y = mask_array[i][1] - bounding_rect.y;
+                pts.push_back(pt);
+            }
+            points.push_back(pts);
 
             int x2 = (bounding_rect.x + bounding_rect.width)<image.cols?(bounding_rect.x + bounding_rect.width) : image.cols-1   ;
             int y2 = (bounding_rect.y + bounding_rect.height)<image.rows?(bounding_rect.y + bounding_rect.height) : image.rows-1 ;

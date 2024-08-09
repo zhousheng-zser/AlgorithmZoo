@@ -20,10 +20,10 @@ namespace glasssix::playphone
 		int y1;
 		int x2;
 		int y2;
-		int category = -1;//0 man with phone; 1 man; 2 man bodyerr; -1 unknow; 3 追踪中被删掉的人
+		int category = -1;//0 man with phone; 1 man; 2 man bodyerr; -1 unknow; 3 杩借釜涓鍒犳帀鐨勪汉
 		float confidence;
-		int frequency = -1; //检测到玩手机的次数
-		int id = -1;// 人对应的id
+		int frequency = -1; //妫�娴嬪埌鐜╂墜鏈虹殑娆℃暟
+		int id = -1;// 浜哄搴旂殑id
 
 		exposing::param_vector<std::int32_t> phonelocal_list;
 		exposing::param_vector<float> phonescore_list;
@@ -43,7 +43,7 @@ namespace glasssix::playphone
 			category = 1;
 		}
 
-		void set_phone(ObjBox& phone) {
+		void set_phone(PhoneBox& phone) {
 			phonelocal_list.clear();
 			phonescore_list.clear();
 			phonelocal_list.push_back(phone.xmin);
