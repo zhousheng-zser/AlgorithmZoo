@@ -13,7 +13,7 @@
 #elif defined(USE_BMNN)
     #include <sophonyolov8/SophonYolov8Wrapper.hpp>
 #endif
-#include <YoloFamily/Yolo_wrapper.hpp>
+#include <YoloFamily/Yolo_wrapper.hpp>//这个不能注释掉哦,注释掉了 yolov8 对应的变量就是未定义了
 
 // #include "trace_id.hpp"
 namespace glasssix::playphone
