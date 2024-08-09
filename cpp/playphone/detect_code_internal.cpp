@@ -15,10 +15,11 @@
 #endif
 #include <YoloFamily/Yolo_wrapper.hpp>//这个不能注释掉哦,注释掉了 yolov8 对应的变量就是未定义了
 
-// #include "trace_id.hpp"
+#include "trace_id.hpp"
 namespace glasssix::playphone
 {
-    class detect_code_internal::impl {
+    class detect_code_internal::impl
+    {
     public:
         impl() {}
 
@@ -38,6 +39,11 @@ namespace glasssix::playphone
 
         exposing::param_vector<playphone::box_info> detect(const exposing::param_span<std::uint8_t>& bitmap, int channels, int height, int width, int roi_x, int roi_y, int roi_width, int roi_height, exposing::param_vector<posture::box_info> posture_info_list_raw, std::map<std::string, float>& param_map)
         {
+            {
+                std::lock_guard<std::mutex> lock(trace_mutex);
+                frame++;
+            }
+            // std::cout << "frame = " << frame << std::endl;
             auto result = exposing::make_param_vector<playphone::box_info>();
             if (bitmap.empty())
             {
@@ -47,7 +53,7 @@ namespace glasssix::playphone
             CHECK_EQ(bitmap.size(), channels * height * width);
             if (roi_x < 0 || roi_x > width || roi_y > height || roi_y < 0 || roi_height < 0 || (roi_height + roi_y) > height || roi_width < 0 || (roi_width + roi_x) > width)
             {
-                throw exposing::abi_invalid_argument("incorrect roi");
+                  throw exposing::abi_invalid_argument("incorrect roi in playphone");
             }
 
             cv::Mat image(cv::Size(width, height), CV_8UC3, const_cast<uint8_t*>(bitmap.data()));
@@ -55,27 +61,54 @@ namespace glasssix::playphone
 
             float phone_conf_thres = param_map.count("phone_conf_thres") ? param_map["phone_conf_thres"] : 0.7f;
             float phone_nms_thres = param_map.count("phone_nms_thres") ? param_map["phone_nms_thres"] : 0.5f;
-
+            std::vector<Boxes_list> people_list;
+            // box_info_internal pphone_box_info_temp;
+	        // std::cout << " debug_zj " << __LINE__ << std::endl;
+            // trace_dic = trace_id( people_list, frame, pphone_box_info_temp);
+            // linux 环境不能瞎用
+            // cv::imshow("Display Window", image);
+            // cv::imwrite("Display Window.jpg", image);
+    int number = 0;
             for (auto pinfo : posture_info_list_raw)
             {
+                // number++;
+                
+	            // std::cout << " number : " << number << std::endl;
+                // std::cout << posture_info_list_raw.size() << std::endl;
                 PostureInfo postureInfo{ pinfo };
 				postureInfo.set_origin_image_border(0, 0, width, height);
 
                 box_info_internal pphone_box_info;
                 pphone_box_info.set_man(postureInfo);
 
+
+                Boxes_list boxes_list;
+                int body_width = pphone_box_info.x2 - pphone_box_info.x1;
+                boxes_list.x1 = pphone_box_info.x1;
+                boxes_list.x2 = pphone_box_info.x2;
+                boxes_list.y1 = pphone_box_info.y1;
+                boxes_list.y2 = pphone_box_info.y2;
+                boxes_list.body_width = body_width;
+                boxes_list.is_playphone = pphone_box_info.confidence == 0 ? 1:0;
+                cv::Mat body = image.clone();
+				cv::rectangle(body, cv::Point(boxes_list.x1, boxes_list.y1), cv::Point(boxes_list.x2, boxes_list.y2), cv::Scalar(0, 0, 255), 1);
+                // cv::imshow("Display Window i", body);
+                // cv::imwrite("Display Window i.jpg", body);
+
                 if (postureInfo.invaild_hand_kpnum() < 2 && postureInfo.invaild_face_kpnum() < 2)
                 {
                     //detect phones
                     const auto playphone_det_region_rect = postureInfo.get_playphone_det_region(); // upperbody_img
                     const int max_upperbody_img_side = std::max(playphone_det_region_rect.width, playphone_det_region_rect.height);
-                    // Ear center to phone center threshold: 0.16 × longest side of playphone_det_region_rect.
+
+					// 以第二阶段检测框的最长边的0.16倍作为耳朵中心点到手机框中心点距离阈值
                     const float ear_tresh = max_upperbody_img_side * 0.16f;
-                    // Ear-to-nose distance too close threshold: 0.12 × longest side of playphone_det_region_rect.
+
+                    // 以第二阶段检测框的最长边的0.12倍作为耳朵到鼻子距离过近判定阈值
 					const float hand_nose_thresh= max_upperbody_img_side * 0.12f;
                     const bool hand_close_nose = postureInfo.if_hand_close_nose(hand_nose_thresh);
 
-                    auto playphone_det_region = GenPipTools::safty_cut(image, playphone_det_region_rect);
+                    auto playphone_det_region = GenPipTools::safty_cut(cropped_image, playphone_det_region_rect);
                     auto phone_list_temp = yolov8_instance->get_objects( playphone_det_region, phone_conf_thres, phone_nms_thres );
 
                     std::vector< PhoneBox > phone_list;
@@ -94,7 +127,7 @@ namespace glasssix::playphone
                         if (hand_close_nose)
                             phoneObj.score *= 0.71;
 
-                        // phone too close ears
+                        //手机框太靠近耳朵
 						cv::Point phoneRectCenter( (phoneObj.xmin + phoneObj.xmax)/2 , (phoneObj.ymin + phoneObj.ymax)/2);
                         auto earD1 = cv::norm(phoneRectCenter - postureInfo.Kpoints[3]);
                         auto earD2 = cv::norm(phoneRectCenter - postureInfo.Kpoints[4]);
@@ -115,20 +148,51 @@ namespace glasssix::playphone
                                 }
 
                                 pphone_box_info.set_phone(phoneObj);
+                                boxes_list.is_playphone = pphone_box_info.category == 0 ? 1:0;
+
                                 break;
                             }
                         }
                     }
                 }
-                else 
+                // else 
+                // {
+                //     //body error
+                //     pphone_box_info.set_body_error(postureInfo);
+                // }
+                // people_list.push_back(boxes_list);
+                std::vector<Boxes_list> people_one;
+	            // std::cout << " debug_zj " << __LINE__ << std::endl;
+                people_one.push_back(boxes_list);//写在这里就不用改写 trace_id 函数了
+                //必須使用另外個變量來接受,防止加锁时间过长
+                std::map<int32_t, Boxes_list> trace_temp;
+                trace_temp = trace_id(people_one, frame ,pphone_box_info);
                 {
-                    //body error
-                    pphone_box_info.set_body_error(postureInfo);
+                    std::lock_guard<std::mutex> lock(trace_mutex);
+                    trace_dic = trace_temp;
                 }
+                for(auto trace : trace_dic)
+                {
+                    if (pphone_box_info.x1 == trace.second.x1 && pphone_box_info.x2 == trace.second.x2 && pphone_box_info.y1 == trace.second.y1 && pphone_box_info.y2 == trace.second.y2)
+                    {
+                        pphone_box_info.id = trace.second.id;
+                        pphone_box_info.frequency = trace.second.play_num;
+                    }
+
+                }
+                // std::cout << "trace_dic.size() = " << trace_dic.size() << std::endl;
 
                 result.push_back(exposing::make_as_first<box_info_impl>(pphone_box_info));
             }
-
+//cv::imwrite("/home/glasssix/yhc/AlgorithmZoo/cpp/playphone/img_vis.png", img_vis);
+	        // std::cout << " debug_zj " << __LINE__ << std::endl;
+            // trace_dic = trace_id(people_list, frame);
+            //std::cout << "trace_dic.size() = " << trace_dic.size() << std::endl;
+            //& 打印 trace_dic
+            // for(auto trace :trace_dic)
+            // {
+            //     std::cout << " trace key: " << trace.first << " data: " << trace.second << std::endl;
+            // }
             return result;
         }
 
