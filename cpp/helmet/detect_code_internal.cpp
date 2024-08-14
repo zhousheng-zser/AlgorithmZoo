@@ -29,11 +29,9 @@ namespace glasssix::helmet
             std::string model_dir = exposing::to_narrow_string(model_directory);
             if (*model_dir.rbegin() != '/') model_dir += '/';
 #if defined(USE_RKNNAPI) || defined(USE_RKNN2API)
-            net_class_ = PrePostProcessGenPipeline::mkSharePipeline(model_dir + "helmet_sim.rknn", 0);
+            net_class_ = std::make_shared<GenPipeline>(model_dir + "helmet_sim.rknn", 0);
 #elif defined(USE_BMNN)
-            net_class_ = PrePostProcessGenPipeline::mkSharePipeline(model_dir + "helmet_sim.bmodel", 0);
-#else
-            net_class_ = PrePostProcessGenPipeline::mkSharePipeline(model_dir + "helmet_sim.onnx", 0);
+            net_class_ = std::make_shared<GenPipeline>(model_dir + "helmet_sim.bmodel", 0);
 #endif
             net_class_->manual_possible_normalization(0, 1.f / 255);
         }
@@ -102,7 +100,7 @@ namespace glasssix::helmet
         std::string version()
         {
             const std::string algo_module_version = "2.2.1";
-            std::string nn_frame_version = net_class_->version();
+            std::string nn_frame_version = "2.2.1";
             return fmt::format(R"({{"nn_frame_version":"{}", "algo_module_version":"{}"}})", nn_frame_version, algo_module_version);
 
         }
@@ -141,18 +139,11 @@ namespace glasssix::helmet
         }
 
         cv::Mat preprocess_detection(cv::Mat& src, cv::Size input_shape = cv::Size(96, 96))
-
         {
-            float scale = std::min((float)input_shape.width / (float)src.cols, (float)input_shape.height / (float)src.rows);
-            cv::Mat cut_image;
-            cv::Mat mask_image(input_shape, CV_8UC3, cv::Scalar(114, 114, 114));
+            cv::Mat mask_image;
             if (src.rows != input_shape.height || src.cols != input_shape.width)
             {
-                cv::resize(src, cut_image, cv::Size((int)(src.cols * scale), (int)(src.rows * scale)), cv::INTER_LINEAR);
-
-                auto pad_h = int((input_shape.height - cut_image.rows) / 2);
-                auto pad_w = int((input_shape.width - cut_image.cols) / 2);
-                cv::copyMakeBorder(cut_image, mask_image, pad_h, input_shape.height - cut_image.rows - pad_h, pad_w, input_shape.width - cut_image.cols - pad_w, cv::BORDER_CONSTANT, cv::Scalar{ 114,114,114 });
+                cv::resize(src, mask_image, input_shape, cv::INTER_LINEAR);
             }
             else
             {
@@ -176,12 +167,8 @@ namespace glasssix::helmet
 
                 if (crop.cols < 24 || crop.rows < 24)
                     continue;
-
-                // cv::Mat headimg;
-                crop = hisEqulColor(crop);
-
-                auto headimg = preprocess_detection(crop);
-
+                auto new_shape = cv::Size(128, 128);
+                auto headimg = preprocess_detection(crop, new_shape);
                 auto  tensor_out = net_class_->forward(headimg).begin()->second;//net has only single node out
 
                 float* helmet_conf = tensor_out->mutable_cpu_data();
@@ -192,13 +179,13 @@ namespace glasssix::helmet
                 if (helmet_conf[0] > helmet_conf[1] && helmet_conf[0] > helmet_conf[2])
                 {
                     headp.category = 2;
-                    headp.score = helmet_conf[0];//人头
+                    headp.score = helmet_conf[0];//未戴安全帽的人头
                     output.push_back(headp);
                 }
                 else if (helmet_conf[1] > helmet_conf[0] && helmet_conf[1] > helmet_conf[2])
                 {
                     headp.category = 0;
-                    headp.score = helmet_conf[1];//安全帽
+                    headp.score = helmet_conf[1];//戴安全帽的人头
                     output.push_back(headp);
                 }
 #if defined(USE_RKNNAPI) || defined(USE_RKNN2API)
@@ -213,27 +200,10 @@ namespace glasssix::helmet
             return output;
         }
 
-        cv::Mat hisEqulColor(const cv::Mat& img)
-        {
-            cv::Mat ycrcb;
-            cv::cvtColor(img, ycrcb, cv::COLOR_BGR2YCrCb);
-            std::vector<cv::Mat> channels;
-            cv::split(ycrcb, channels);
-
-            cv::Ptr<cv::CLAHE> clahe = cv::createCLAHE();
-            clahe->setClipLimit(2.0);
-            clahe->setTilesGridSize(cv::Size(8, 8));
-            clahe->apply(channels[0], channels[0]);
-            cv::merge(channels, ycrcb);
-            cv::cvtColor(ycrcb, img, cv::COLOR_YCrCb2BGR);
-
-            return img;
-        }
-
     private:
         std::string model_directory_;
         int device_;
-        std::shared_ptr<PrePostProcessGenPipeline> net_class_;
+        std::shared_ptr<GenPipeline> net_class_;
     };
 
     detect_code_internal::detect_code_internal(std::string_view model_directory, int device)
