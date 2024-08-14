@@ -22,6 +22,10 @@
 #include <GenPipeline/GetPostprocessing.hpp>
 #include "../genpipeline/market/yolov8_GEN.hpp"
 
+#if defined(USE_BMNN)
+#include <sophonyolov8/SophonYolov8Wrapper.hpp>
+#endif
+
 // #include "dbg.h"
 
 namespace glasssix::vehicle
@@ -37,13 +41,12 @@ namespace glasssix::vehicle
                 model_dir += '/';
 #if defined(USE_RKNNAPI) || defined(USE_RKNN2API)
             ioprocess_pipeline_ = PrePostProcessGenPipeline::mkSharePipeline(model_dir + "vehicle.rknn", 0);
-#elif defined(USE_BMNN)
-            ioprocess_pipeline_ = PrePostProcessGenPipeline::mkSharePipeline(model_dir + "vehicle.bmodel", 0);
-#else
-            ioprocess_pipeline_ = PrePostProcessGenPipeline::mkSharePipeline(model_dir + "vehicle.onnx", 0);
-#endif
             ioprocess_pipeline_->manual_possible_normalization(0, 1.f / 255);
             ioprocess_pipeline_->set_postprocessing(yolov8_GEN<1, 0>);
+#elif defined(USE_BMNN)
+            ioprocess_pipeline_ = std::make_shared<SophonYolov8Wrapper>(model_dir + "vehicle.bmodel");
+            ioprocess_pipeline_->init();
+#endif
         }
 
         struct VehicleBox : public GenPipTools::YoloBoxBase
@@ -138,14 +141,15 @@ namespace glasssix::vehicle
             constexpr int infrW = 640;
             constexpr int infrH = 640;
             constexpr bool ifCvtRGB = true;
-            GenPipTools::LetterInfo letter_op;
+            std::vector<VehicleBox> box_list;
 
+#if defined(USE_RKNNAPI) || defined(USE_RKNN2API)
+            GenPipTools::LetterInfo letter_op;
             auto letter_img = GenPipTools::letter_image(image, infrW, infrH, letter_op, ifCvtRGB);
             auto net_rstmap = ioprocess_pipeline_->forward(letter_img);
             auto tensor_out = net_rstmap.begin()->second;
             const int vf_nums = tensor_out->height(); // vf, visual field
             const int per_vf_len = tensor_out->width();
-            std::vector<VehicleBox> box_list;
             for (size_t idx = 0; idx < vf_nums; idx++)
             {
                 float *pdata = tensor_out->mutable_cpu_data() + idx * per_vf_len;
@@ -158,13 +162,21 @@ namespace glasssix::vehicle
             }
             GenPipTools::nms_cpu(box_list, nms_thres);
             GenPipTools::letter_map_origin_location(box_list, letter_op);
+#elif defined(USE_BMNN)
+            auto cropped_result = ioprocess_pipeline_->get_objects(image, conf_thres, nms_thres);// 防护面罩检测
+            for (auto& object : cropped_result)
+            {
+                VehicleBox obj_box((object.x1 + object.x2) * 0.5, (object.y1 + object.y2) * 0.5, object.x2 - object.x1, object.y2 - object.y1, object.score, 0);
+                box_list.push_back(obj_box);
+            }
+#endif  
             return box_list;
         }
 
         std::string version()
         {
             const std::string algo_module_version = "2.1.1";
-            std::string nn_frame_version = ioprocess_pipeline_->version();
+            std::string nn_frame_version = "2.1.1";
             return fmt::format(R"({ {"nn_frame_version":"{}", "algo_module_version" : "{}"} })", nn_frame_version, algo_module_version);
         }
         // 输出五边形对应的函数
@@ -312,7 +324,11 @@ namespace glasssix::vehicle
         }
 
     private:
+#if defined(USE_RKNNAPI) || defined(USE_RKNN2API)
         std::shared_ptr<PrePostProcessGenPipeline> ioprocess_pipeline_;
+#elif defined(USE_BMNN)
+        std::shared_ptr<SophonYolov8Wrapper> ioprocess_pipeline_;
+#endif
     };
 
     classify_code_internal::classify_code_internal(std::string_view model_directory, int device)

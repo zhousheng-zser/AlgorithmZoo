@@ -225,17 +225,17 @@ namespace glasssix::pump_weld
                 {
                     if (object.category == 0)
                     {
-                        MachineBox chassisBox(object.x1, object.y1, object.x2 - object.x1, object.y2 - object.y1, object.score, 0);
+                        MachineBox chassisBox((object.x1 + object.x2) * 0.5, (object.y1 + object.y2) * 0.5, object.x2 - object.x1, object.y2 - object.y1, object.score, 0);
                         chassis_list.push_back(chassisBox);
                     }
                     else if (object.category == 1)
                     {
-                        MachineBox tubeBox(object.x1, object.y1, object.x2 - object.x1, object.y2 - object.y1, object.score, 1);
+                        MachineBox tubeBox((object.x1 + object.x2) * 0.5, (object.y1 + object.y2) * 0.5, object.x2 - object.x1, object.y2 - object.y1, object.score, 1);
                         tube_list.push_back(tubeBox);
                     }
                     else if (object.category == 2)
                     {
-                        WlightBox wlightBox(object.x1, object.y1, object.x2- object.x1, object.y2 - object.y1, object.score, 3);
+                        WlightBox wlightBox((object.x1 + object.x2) * 0.5, (object.y1 + object.y2) * 0.5, object.x2- object.x1, object.y2 - object.y1, object.score, 3);
                         wlight_list.push_back(wlightBox);
                     }
                 }
