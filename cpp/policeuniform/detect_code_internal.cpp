@@ -172,7 +172,7 @@ namespace glasssix::policeuniform
                     continue;
                 }
 
-                //std::cout << person.y1<<" "<< person.y2 << " " << person.x1<< " " << person.x2 << "\n";
+                //std::cout <<person.x1<< " " << person.x2<< " " << person.y1<<" "<< person.y2  <<  "\n";
                 // TODO 把这个人拿去做分类
                 cv::Mat crop = cropped_image(cv::Range(person.y1, person.y2), cv::Range(person.x1, person.x2)).clone();
                 auto new_shape = cv::Size(128, 128);
@@ -180,15 +180,15 @@ namespace glasssix::policeuniform
                 auto tensor_out = net_policeuniform_cls->forward(blob).begin()->second;
                 float* cls_conf = tensor_out->mutable_cpu_data();
                 //std::cout << cls_conf[0] << " " << cls_conf[1] << "\n";
-                if (cls_conf[1] > cls_conf[0])
+                if (cls_conf[1] < cls_conf[0])
                 {
                     policeuniform::box_info_internal val;
                     val.x1 = person.x1 + roi_x;
                     val.y1 = person.y1 + roi_y;
                     val.x2 = person.x2 + roi_x;
                     val.y2 = person.y2 + roi_y;
-                    val.score = cls_conf[1];
-                    val.category = 1;
+                    val.score = cls_conf[0];
+                    val.category = 0;
                     results.push_back(glasssix::exposing::make_as_first<box_info_impl>(val));
                 }
             }
