@@ -163,7 +163,7 @@ namespace glasssix::vehicle
             GenPipTools::nms_cpu(box_list, nms_thres);
             GenPipTools::letter_map_origin_location(box_list, letter_op);
 #elif defined(USE_BMNN)
-            auto cropped_result = ioprocess_pipeline_->get_objects(image, conf_thres, nms_thres);// 防护面罩检测
+            auto cropped_result = ioprocess_pipeline_->get_objects(image, conf_thres, nms_thres);// 车辆检测
             for (auto& object : cropped_result)
             {
                 VehicleBox obj_box((object.x1 + object.x2) * 0.5, (object.y1 + object.y2) * 0.5, object.x2 - object.x1, object.y2 - object.y1, object.score, 0);
