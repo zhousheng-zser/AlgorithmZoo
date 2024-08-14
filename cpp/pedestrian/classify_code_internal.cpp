@@ -40,8 +40,18 @@ namespace glasssix::pedestrian
         {
             std::string model_dir = exposing::to_narrow_string(model_directory) + "/";
 #if defined(USE_RKNNAPI) || defined(USE_RKNN2API)
+    #ifdef ENABLE_PUMP//泵业的行人
+            const int width = 640;
+            const int height = 384;
+            net_pedestrian_ = std::make_shared<GenPipeline>(model_dir + "/pedestrian_pump.rknn", device);
+            std::cout << "pedestrian_pump.rknn\n";
+    #else//通用行人(默认使用)
+            const int width = 1280;
+            const int height = 736;
             net_pedestrian_ = std::make_shared<GenPipeline>(model_dir + "/pedestrian.rknn", device);
-            Yolov8_Complement_instance = std::make_shared<Yolov8_Complement<GenPipeline>>(1280, 736, net_pedestrian_);
+            //std::cout << "pedestrian.rknn\n";
+#endif
+            Yolov8_Complement_instance = std::make_shared<Yolov8<GenPipeline>>(width, height, net_pedestrian_);
 #elif defined(USE_BMNN)
 
             Yolov8_Complement_instance = std::make_shared<SophonYolov8Wrapper>(model_dir + "/pedestrian.bmodel");
@@ -139,7 +149,7 @@ namespace glasssix::pedestrian
 
 #if defined(USE_RKNNAPI) || defined(USE_RKNN2API)
         std::shared_ptr<GenPipeline> net_pedestrian_;
-        std::shared_ptr<Yolov8_Complement<GenPipeline>> Yolov8_Complement_instance;
+        std::shared_ptr<Yolov8<GenPipeline>> Yolov8_Complement_instance;
 #elif defined(USE_BMNN)
         std::shared_ptr<SophonYolov8Wrapper> Yolov8_Complement_instance;
 #endif

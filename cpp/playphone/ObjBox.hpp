@@ -19,7 +19,7 @@ namespace glasssix::playphone
 		std::vector<cv::Point> Kpoints;
 		std::vector<float> Kpoints_score;
 		cv::Rect origin_image_border;
-
+		//这里是追踪之后的修改，0.8，0.6是之前，所以会出现追踪无结果的情况
 		static constexpr float vaild_face_thres = 0.1f;
 		static constexpr float vaild_hand_thres = 0.1f;
 

@@ -38,6 +38,16 @@ namespace glasssix::playphone
 		return internal_.category;
 	}
 
+	float box_info_impl::frequency() const
+	{
+		return internal_.frequency;
+	}
+
+	float box_info_impl::id() const
+	{
+		return internal_.id;
+	}
+
 	float box_info_impl::confidence() const
 	{
 		return internal_.confidence;

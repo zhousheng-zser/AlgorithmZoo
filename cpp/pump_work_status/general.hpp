@@ -180,16 +180,20 @@
         {
             // 处理掩码数组
             std::vector<std::vector<int>> new_mask_array(mask_array.size()+2);
-            std::vector<cv::Point> pts;
+            std::vector<cv::Point> pts{mask_array.size()+2};
             std::vector<std::vector<cv::Point>> points;
             for(int i =0; i < mask_array.size(); i++)
             {
                 new_mask_array[i==0?i:i+2] = mask_array[i];
-                cv::Point pt;
-                pt.x = mask_array[i][0];
-                pt.y = mask_array[i][1];
-                pts.push_back(pt);
+                // cv::Point pt;
+                // pt.x = mask_array[i][0];
+                // pt.y = mask_array[i][1];
+                // pts.push_back(pt);
+                pts[i==0?i:i+2] = cv::Point{mask_array[i][0],mask_array[i][1]};
             }
+            
+            pts[1]=cv::Point{mask_array[0][0],0};
+            pts[2]=cv::Point{mask_array[1][0],0};
             points.push_back(pts);
             new_mask_array[1]=std::vector<int> {mask_array[0][0],0};
             new_mask_array[2]=std::vector<int> {mask_array[1][0],0};
@@ -270,9 +274,9 @@
                     new_mask_array_mask.at<int>(i, j) = mask_array[i][j];
 
 #if defined(USE_RKNNAPI) || defined(USE_RKNN2API)
-            cv::Mat mask = get_mask(image, new_mask_array_mask) ;
+            cv::Mat mask = get_mask(rotated_img, new_mask_array_mask) ;
 #else
-            cv::Mat mask = get_mask(image, points) ;
+            cv::Mat mask = get_mask(rotated_img, points) ;
 #endif
 
             cv::Mat rotated_mask;
@@ -334,20 +338,21 @@
         {
             std::vector<cv::Point> pts;
             std::vector<std::vector<cv::Point>> points;
-            for(int i =0; i < mask_array.size(); i++)
-            {
-                cv::Point pt;
-                pt.x = mask_array[i][0];
-                pt.y = mask_array[i][1];
-                pts.push_back(pt);
-            }
-            points.push_back(pts);
             cv::Mat new_mask_array_mask(mask_array.size(), 2, CV_32SC1);
             for (int i = 0; i < mask_array.size(); ++i) 
                 for (int j = 0; j < 2; ++j) 
                     new_mask_array_mask.at<int>(i, j) = mask_array[i][j];
 
             cv::Rect bounding_rect = cv::boundingRect(new_mask_array_mask);
+
+            for(int i =0; i < mask_array.size(); i++)
+            {
+                cv::Point pt;
+                pt.x = mask_array[i][0] - bounding_rect.x;
+                pt.y = mask_array[i][1] - bounding_rect.y;
+                pts.push_back(pt);
+            }
+            points.push_back(pts);
 
             int x2 = (bounding_rect.x + bounding_rect.width)<image.cols?(bounding_rect.x + bounding_rect.width) : image.cols-1   ;
             int y2 = (bounding_rect.y + bounding_rect.height)<image.rows?(bounding_rect.y + bounding_rect.height) : image.rows-1 ;
@@ -359,9 +364,9 @@
             cut_mask_array.col(0) -= bounding_rect.x;
             cut_mask_array.col(1) -= bounding_rect.y;
 #if defined(USE_RKNNAPI) || defined(USE_RKNN2API)
-            cv::Mat cut_mask = get_mask(image, new_mask_array_mask) ;
+            cv::Mat cut_mask = get_mask(cut_image, new_mask_array_mask) ;
 #else
-            cv::Mat cut_mask = get_mask(image, points) ;
+            cv::Mat cut_mask = get_mask(cut_image, points) ;
 #endif
             cv::bitwise_and(cut_image, cut_mask, cut_image);
 

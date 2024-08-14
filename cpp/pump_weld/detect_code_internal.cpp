@@ -220,7 +220,7 @@ namespace glasssix::pump_weld
                 GenPipTools::letter_map_origin_location(tube_list, letter_op);
                 GenPipTools::letter_map_origin_location(wlight_list, letter_op);
 #elif defined(USE_BMNN)
-                auto cropped_result = ioprocess_pipeline_->get_objects(image, wmachine_conf_thres, weld_machine_nms_thres);// ·À»¤ÃæÕÖ¼ì²â
+                auto cropped_result = ioprocess_pipeline_->get_objects(image, wmachine_conf_thres, weld_machine_nms_thres);// é˜²æŠ¤é¢ç½©æ£€æµ‹
                 for (auto& object : cropped_result)
                 {
                     if (object.category == 0)
