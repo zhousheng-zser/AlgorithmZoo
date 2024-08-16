@@ -2,6 +2,8 @@ cmake_minimum_required(VERSION 3.14.3)
 set(module_name cassius)
 file(GLOB src ${CMAKE_CURRENT_SOURCE_DIR}/../../cpp/cassius/*.cpp)
 file(GLOB header ${CMAKE_CURRENT_SOURCE_DIR}/../../cpp/cassius/*.hpp)
+target_link_libraries(${module_name} PRIVATE genpipeline)
+add_dependencies(${module_name} genpipeline)
 
 add_library(${module_name} SHARED ${src} ${header})
 
