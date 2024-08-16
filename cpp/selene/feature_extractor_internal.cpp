@@ -69,7 +69,7 @@ namespace glasssix::selene
 
 				bitmaps = exposing::param_span<std::uint8_t>(temp_data.data(), temp_data.size());
 			}
-			cv::Mat image(cv::Size(width, height), CV_8UC3, const_cast<uint8_t*>(temp_data.data()));
+			cv::Mat image(cv::Size(single_bitmap_width, single_bitmap_height), CV_8UC3, const_cast<uint8_t*>(temp_data.data()));
 
 			std::vector<std::vector<float>> result;
 #if defined(USE_RKNNAPI) || defined(USE_RKNN2API)
@@ -77,7 +77,7 @@ namespace glasssix::selene
 
 			auto network_result = (*feature_extractor_instance_).forward(image);
 			//std::string output_name = model_type_ == 3 ? "Conv_Conv_71/out0_0" : "conv5_dw_83_84";
-#else
+#elif defined(USE_RKNN2API)
 			//rknn2 can't transform order, so manual transform is needed
 			std::unordered_map<std::string, std::shared_ptr<memory::tensor<float>>> network_result;
 			if (order == 0)
@@ -96,14 +96,12 @@ namespace glasssix::selene
 						nhwc_bitmaps[i * single_bitmap_bytes + j * single_bitmap_channels + 2] = c3[j];
 					}
 				}
-				cv::Mat image(cv::Size(width, height), CV_8UC3, const_cast<uint8_t*>(nhwc_bitmaps.data()));
+				cv::Mat image(cv::Size(single_bitmap_width, single_bitmap_height), CV_8UC3, const_cast<uint8_t*>(nhwc_bitmaps.data()));
 				// cv::Mat image_fix = image(cv::Size(single_bitmap_width, single_bitmap_height));//这是错误的写法
-				cv::Mat crop;
-				cv::resize(image, crop, cv::Size(single_bitmap_width, single_bitmap_height));
-				network_result = (*feature_extractor_instance_).forward(crop);
+				network_result = (*feature_extractor_instance_).forward(image);
 			}
 			else
-				network_result = (*feature_extractor_instance_).forward(bitmaps.data(), { static_cast<int>(count), single_bitmap_height, single_bitmap_width, single_bitmap_channels }, rknn_tensor_format::RKNN_TENSOR_NHWC);
+				network_result = (*feature_extractor_instance_).forward(image);
 
 			//std::string output_name = model_type_ == 3 ? "predict" : "conv5_dw";
 #endif

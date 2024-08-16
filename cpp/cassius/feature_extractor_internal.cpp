@@ -1,5 +1,4 @@
 #include "feature_extractor_internal.hpp"
-#include "hardcode.hpp"
 
 #include <algorithm>
 
@@ -25,8 +24,9 @@ namespace glasssix::cassius
     class feature_extractor_internal::impl
     {
     public:
+        std::vector<std::string> phai;
         impl(std::int32_t model_type, std::string_view racy_path, int device, bool use_int8) :
-        impl{get_model_params(model_type ? "SimpleRepUnicorn" : "SimpleRepUnicorn", use_int8), racy_path, device}
+        impl{phai, racy_path, device}
         {
         }
 		#if defined(USE_RKNNAPI) || defined(USE_RKNN2API)
@@ -36,7 +36,7 @@ namespace glasssix::cassius
 		#else
             std::string model_ext{".onnx"};
 		#endif
-        impl(const std::vector<std::string> &phai, std::string_view racy_path, int device) try : device_{device}, unicorn_{phai, std::string{racy_path}+std::string("/SimpleRepUnicorn128" + model_ext), device}
+        impl(const std::vector<std::string> &phai, std::string_view racy_path, int device) try : device_{device}, unicorn_{std::string{racy_path}+std::string("/SimpleRepUnicorn128" + model_ext), device}
         {
 			unicorn_->manual_possible_normalization({104,117,123}, {1.f / 128, 1.f / 128, 1.f / 128});
         }
@@ -60,13 +60,11 @@ namespace glasssix::cassius
                         face_nhwc[h*128*3 + w * 3 + 1] = bitmaps[1 * 128 * 128 + h * 128 + w];
                         face_nhwc[h*128*3 + w * 3 + 2] = bitmaps[2 * 128 * 128 + h * 128 + w];
                     }
-            cv::Mat image(cv::Size(width, height), CV_8UC3, const_cast<uint8_t*>(face_nhwc.data()));
+            cv::Mat image(cv::Size(single_bitmap_width, single_bitmap_height), CV_8UC3, const_cast<uint8_t*>(face_nhwc.data()));
 
-			cv::Mat blob = GenPipeTools::letter_image(image, single_bitmap_width, single_bitmap_height, true);
-            auto network_result = unicorn_->forward(blob).begin()->second;
+            auto network_result = unicorn_->forward(image).begin()->second;
             std::vector<float> feature(feature_size);
-            std::copy(iter_conv5, iter_conv5 + feature_size, feature.data());
-            iter_conv5 += feature_size;
+            std::copy(network_result, network_result + feature_size, feature.data());
             result.emplace_back(feature);
 
             return result;
