@@ -52,7 +52,15 @@ namespace glasssix::cassius
             
             std::vector<std::vector<float>> result;
             std::array<std::uint8_t,128*128*3> face_nhwc;
-			cv::Mat image(cv::Size(width, height), CV_8UC3, const_cast<uint8_t*>(bitmap.data()));
+            if( order == 0 ) 
+                for (size_t h = 0; h < 128; h++)
+                    for (size_t w = 0; w < 128; w++)
+                    {
+                        face_nhwc[h*128*3 + w * 3 + 0] = bitmaps[0 * 128 * 128 + h * 128 + w];
+                        face_nhwc[h*128*3 + w * 3 + 1] = bitmaps[1 * 128 * 128 + h * 128 + w];
+                        face_nhwc[h*128*3 + w * 3 + 2] = bitmaps[2 * 128 * 128 + h * 128 + w];
+                    }
+            cv::Mat image(cv::Size(width, height), CV_8UC3, const_cast<uint8_t*>(face_nhwc.data()));
 
 			cv::Mat blob = GenPipeTools::letter_image(image, single_bitmap_width, single_bitmap_height, true);
             auto network_result = unicorn_->forward(blob).begin()->second;
