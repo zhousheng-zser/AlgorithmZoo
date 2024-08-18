@@ -36,7 +36,7 @@ namespace glasssix::cassius
 		#else
             std::string model_ext{".onnx"};
 		#endif
-        impl(const std::vector<std::string> &phai, std::string_view racy_path, int device) try : device_{device}, unicorn_{std::string{racy_path}+std::string("/SimpleRepUnicorn128" + model_ext), device}
+        impl(const std::vector<std::string> &phai, std::string_view racy_path, int device) try : device_{device}, unicorn_{std::make_unique<GenPipeline>(std::string{racy_path}+std::string("/SimpleRepUnicorn128" + model_ext), device)}
         {
 			unicorn_->manual_possible_normalization({104,117,123}, {1.f / 128, 1.f / 128, 1.f / 128});
         }
