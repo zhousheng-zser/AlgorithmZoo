@@ -52,7 +52,7 @@ namespace glasssix::cassius
             
             std::vector<std::vector<float>> result;
             cv::Mat image(cv::Size(single_bitmap_width, single_bitmap_height), CV_8UC3, const_cast<uint8_t*>(bitmaps.data()));
-            auto network_result = unicorn_->forward(image).begin()->second.cpu_data();
+            auto network_result = unicorn_->forward(image).begin()->second->cpu_data();
                 for (std::size_t i = 0; i < count; i++)
                 {
                     std::vector<float> feature(feature_size);
