@@ -109,7 +109,6 @@ namespace glasssix::selene
 			// init_cache(bitmaps, count, order);
 			// auto network_result = (*feature_extractor_instance_).forward(cache_ | memory::tensor_convert_to<float>);
 			
-			cv::Mat image(cv::Size(width, height), CV_8UC3, const_cast<uint8_t*>(bitmaps.data()));
 			auto network_result = (*feature_extractor_instance_).forward(image);
 			//std::string output_name = model_type_ == 3 ? "predict" : "conv5_dw";
 #endif
