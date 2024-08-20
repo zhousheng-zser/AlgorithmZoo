@@ -2,7 +2,7 @@
 
 #include <algorithm>
 
-
+#include <fstream>
 #include <GenPipeline/GenPipeline.hpp>
 #include <GenPipeline/GenPipeTools.hpp>
 
@@ -60,6 +60,17 @@ namespace glasssix::cassius
                     network_result += feature_size;
                     result.emplace_back(feature);
                 }
+                std::ofstream outfile("./outfile_cassius.txt");
+                std::cout << "cassius " << std::endl;
+                
+				for_each(result.begin(), result.end(), [&outfile](std::vector<float> vals) {
+				for_each(vals.begin(), vals.end(), [&outfile](float val) {
+					std::cout << val << std::endl;
+					outfile << val << std::endl;
+					});
+					});
+					std::cout << std::endl << " selene end" << std::endl;
+					outfile.close();
             return result;
         }
 
