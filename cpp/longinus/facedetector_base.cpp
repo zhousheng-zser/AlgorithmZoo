@@ -455,11 +455,11 @@ namespace glasssix::longinus
         }
         
 
-        // for (size_t i = 2; i < 5; i++)
-        // {
-        //     trackfaceinfo.pts.x[i] = landmark_data[2 * (i - 2) + 8] * width + offset_x;
-        //     trackfaceinfo.pts.y[i] = landmark_data[2 * (i - 2) + 9] * height + offset_y;
-        // }
+        for (size_t i = 2; i < 5; i++)
+        {
+            trackfaceinfo.pts.x[i] = landmark_data[2 * (i - 2) + 8] * width + offset_x;
+            trackfaceinfo.pts.y[i] = landmark_data[2 * (i - 2) + 9] * height + offset_y;
+        }
 #if 1 //五个关键点 trackfaceinfo.pts 只能接受5个点
         trackfaceinfo.pts.x[0] = landmark_data[192]* width + offset_x;//96
         trackfaceinfo.pts.y[0] = landmark_data[193] * height+ offset_y;
