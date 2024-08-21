@@ -90,7 +90,7 @@ namespace glasssix::longinus
         std::vector<face_info_internal> temp_vec;
         for (auto& face : face_infos)
         {
-            refine(face, height, width, true);
+            refine(face, height, width, true);//生成新的正方形
 
             if (do_attributing)
             {
@@ -100,12 +100,21 @@ namespace glasssix::longinus
                 face.headpose[0] = face.headpose[1] = face.headpose[2] = std::numeric_limits<float>::min();
                 face.clarity = std::numeric_limits<float>::min();
                 face.is_alive = false;
-                face.has_mask = std::numeric_limits<float>::min();
+                face.has_mask = std::numeric_limits<float>::min();//初始化结构体信息
 
                 cv::Rect rect(face.rect.x, face.rect.y, face.rect.w, face.rect.h);
                 cv::Mat faceROI_in_frame_mat;
-                mat_safty_cut(cache_temp, faceROI_in_frame_mat, rect);
-                tracking_landmark(faceROI_in_frame_mat, face, rect.x, rect.y);
+                mat_safty_cut(cache_temp, faceROI_in_frame_mat, rect);//从原图cache_temp截图截出人脸faceROI_in_frame_mat
+                tracking_landmark(faceROI_in_frame_mat, face, rect.x, rect.y,true);//利用新的关键点模型计算出更准确的人脸位置 rect.x是原人脸截图在新生成的正方形的的x坐标
+
+                
+        for (size_t i = 0; i < 5; i++)
+        {
+            cv::circle(cache_temp, cv::Point(int( face.pts.x[i] ), int(face.pts.y[i] ) ), 3, CV_RGB(125, 255, 0), 2);
+        }
+        cv::imwrite("faceROI_in_frame_mat.jpg", cache_temp);
+
+
                 refine(face, height, width, true);
             }
 
