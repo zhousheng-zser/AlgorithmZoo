@@ -460,6 +460,7 @@ namespace glasssix::longinus
         //     trackfaceinfo.pts.x[i] = landmark_data[2 * (i - 2) + 8] * width + offset_x;
         //     trackfaceinfo.pts.y[i] = landmark_data[2 * (i - 2) + 9] * height + offset_y;
         // }
+#if 1 //五个关键点 trackfaceinfo.pts 只能接受5个点
         trackfaceinfo.pts.x[0] = landmark_data[192]* width + offset_x;//96
         trackfaceinfo.pts.y[0] = landmark_data[193] * height+ offset_y;
         trackfaceinfo.pts.x[1] = landmark_data[194]* width + offset_x;//97
@@ -471,14 +472,36 @@ namespace glasssix::longinus
         trackfaceinfo.pts.y[3] = landmark_data[153] * height+ offset_y;
         trackfaceinfo.pts.x[4] = landmark_data[164]* width + offset_x;//82
         trackfaceinfo.pts.y[4] = landmark_data[165] * height+ offset_y;
+#else //七个关键点(trackfaceinfo.pts 无法接受7个点)
+        trackfaceinfo.pts.x[0] = landmark_data[120]* width + offset_x;//60
+        trackfaceinfo.pts.y[0] = landmark_data[121] * height+ offset_y;
+        trackfaceinfo.pts.x[1] = landmark_data[128]* width + offset_x;//64
+        trackfaceinfo.pts.y[1] = landmark_data[129] * height+ offset_y;
+        trackfaceinfo.pts.x[2] = landmark_data[136]* width + offset_x;//68
+        trackfaceinfo.pts.y[2] = landmark_data[137] * height+ offset_y;
+        trackfaceinfo.pts.x[3] = landmark_data[144]* width + offset_x;//72
+        trackfaceinfo.pts.y[3] = landmark_data[145] * height+ offset_y;
+
+        trackfaceinfo.pts.x[4] = landmark_data[108]* width + offset_x;//54
+        trackfaceinfo.pts.y[4] = landmark_data[109] * height+ offset_y;
+        trackfaceinfo.pts.x[5] = landmark_data[152]* width + offset_x;//76
+        trackfaceinfo.pts.y[5] = landmark_data[153] * height+ offset_y;
+        trackfaceinfo.pts.x[6] = landmark_data[164]* width + offset_x;//82
+        trackfaceinfo.pts.y[6] = landmark_data[165] * height+ offset_y;
+#endif
         for (size_t i = 0; i < 2; i++)
         {
             cv::circle(face, cv::Point(int( trackfaceinfo.pts.x[i]-offset_x ), int(trackfaceinfo.pts.y[i]-offset_y ) ), 1, CV_RGB(125, 255, 0), 1);
         }
         cv::imwrite("face.jpg", face);
-
+        //目前14个数据
+        std::vector<float> landmark_data_vector{
+landmark_data[120],landmark_data[121],landmark_data[128],landmark_data[129],landmark_data[136],landmark_data[137],landmark_data[144],landmark_data[145],landmark_data[108],landmark_data[109],landmark_data[152],landmark_data[153],landmark_data[164],landmark_data[165]
+        };
+        float* landmark_data_seven = landmark_data_vector.data();
+        
         float yaw, pitch, roll;
-        estimate_head_pose(landmark_data, bbox_data, yaw, pitch, roll);
+        estimate_head_pose(landmark_data_seven, bbox_data, yaw, pitch, roll);
         trackfaceinfo.headpose[0] = yaw;
         trackfaceinfo.headpose[1] = pitch;
 
