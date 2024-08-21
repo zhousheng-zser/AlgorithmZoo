@@ -467,17 +467,17 @@ namespace glasssix::longinus
 
         trackfaceinfo.pts.x[2] = landmark_data[108]* width + offset_x;//54
         trackfaceinfo.pts.y[2] = landmark_data[109] * height+ offset_y;
-        trackfaceinfo.pts.x[3] = landmark_data[142]* width + offset_x;//76
-        trackfaceinfo.pts.y[3] = landmark_data[143] * height+ offset_y;
+        trackfaceinfo.pts.x[3] = landmark_data[152]* width + offset_x;//76
+        trackfaceinfo.pts.y[3] = landmark_data[153] * height+ offset_y;
         trackfaceinfo.pts.x[4] = landmark_data[164]* width + offset_x;//82
         trackfaceinfo.pts.y[4] = landmark_data[165] * height+ offset_y;
->>>>>>> Stashed changes
         for (size_t i = 0; i < 2; i++)
         {
             cv::circle(face, cv::Point(int( trackfaceinfo.pts.x[i]-offset_x ), int(trackfaceinfo.pts.y[i]-offset_y ) ), 1, CV_RGB(125, 255, 0), 1);
         }
         cv::imwrite("face.jpg", face);
 
+        float yaw, pitch, roll;
         estimate_head_pose(landmark_data, bbox_data, yaw, pitch, roll);
         trackfaceinfo.headpose[0] = yaw;
         trackfaceinfo.headpose[1] = pitch;
