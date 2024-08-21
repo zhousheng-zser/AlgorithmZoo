@@ -44,6 +44,7 @@ namespace glasssix::longinus
         //Excalibur needs to distinguish between float and int8 models, rknn and rknn2 does not
 #if defined(USE_RKNNAPI) || defined(USE_RKNN2API)
         tracker_ = PrePostProcessGenPipeline::mkSharePipeline(std::string(models_directory) + "/pfld_land71_simp.rknn", device);
+            pipeline_ = std::make_shared<GenPipeline>(std::string(models_directory) + "/face_landmark.rknn", 0);
 
 #if defined(USE_RKNN2API)
 #if defined(BUILD_RV1106) 
@@ -63,8 +64,11 @@ namespace glasssix::longinus
 #endif
 #endif
 #else
+            pipeline_ = std::make_shared<GenPipeline>(std::string(models_directory) + "/face_landmark.bmodel", 0);
+			pipeline_->manual_possible_normalization(127.5f, 1.f / 127.5f);
         tracker_ = PrePostProcessGenPipeline::mkSharePipeline(std::string(models_directory) + "/pfld_land71_simp.bmodel", 0);
         tracker_->manual_possible_normalization(std::array<float,3>{104.f,117.f,124.f},std::array<float,3>{0.00961538f,0.008547f,0.00806451f});
+
 #endif
     }
 
@@ -204,8 +208,8 @@ namespace glasssix::longinus
         float ldmk_mat[2 * 7 + 1];
         for (size_t i = 0; i < 7; i++)
         {
-            ldmk_mat[i * 2 + 0] = (ldmk7_data[i * 2 + 0] - bbox_data[0]) / 40 / ratio;
-            ldmk_mat[i * 2 + 1] = (ldmk7_data[i * 2 + 1] - bbox_data[1]) / 40 / ratio;
+            ldmk_mat[i * 2 + 0] = (ldmk7_data[i * 2 + 0] - bbox_data[0]) / ratio;
+            ldmk_mat[i * 2 + 1] = (ldmk7_data[i * 2 + 1] - bbox_data[1]) / ratio;
         }
 
         ldmk_mat[2 * 7] = 1.0f;
@@ -279,21 +283,30 @@ namespace glasssix::longinus
         const float* landmark_data = res["215_MatMul_f32"]->cpu_data();
         const float* bbox_data = res["output_MatMul_f32"]->cpu_data();
 #endif
+
         int x1 = bbox_data[0] * width / 10 + offset_x;
         int y1 = bbox_data[1] * height / 10 + offset_y;
         int x2 = bbox_data[2] * width / 10 + width + offset_x;
         int y2 = bbox_data[3] * height / 10 + height + offset_y;
+        std::cout<< "res count: " << res["215"]->count() << ";" << std::endl;
+        // int x1 = offset_x;
+        // int y1 = offset_y;
+        // int x2 = width ;
+        // int y2 =  height ;
+
         trackfaceinfo.rect.x = x1;
         trackfaceinfo.rect.w = x2 - x1 + 1;
         trackfaceinfo.rect.y = y1;
         trackfaceinfo.rect.h = y2 - y1 + 1;
         trackfaceinfo.glass_index = std::max_element(glass_data, glass_data + 3) - glass_data;
         trackfaceinfo.mask_index = std::max_element(mask_data, mask_data + 2) - mask_data;
-        for (size_t i = 0; i < 2; i++)
+        for (size_t i = 0; i < 2; i++)//四个眼角
         {
             trackfaceinfo.pts.x[i] = (landmark_data[4 * i] + landmark_data[4 * i + 2]) * width / 80 + offset_x;
             trackfaceinfo.pts.y[i] = (landmark_data[4 * i + 1] + landmark_data[4 * i + 3]) * height / 80 + offset_y;
         }
+        
+       
 
         for (size_t i = 2; i < 5; i++)
         {
@@ -301,8 +314,194 @@ namespace glasssix::longinus
             trackfaceinfo.pts.y[i] = landmark_data[2 * (i - 2) + 9] * height / 40 + offset_y;
         }
 
+        for (size_t i = 0; i < 2; i++)
+        {
+            cv::circle(face, cv::Point(int( trackfaceinfo.pts.x[i]-offset_x ), int(trackfaceinfo.pts.y[i]-offset_y ) ), 1, CV_RGB(125, 255, 0), 1);
+        }
+        cv::imwrite("face.jpg", face);
+
         float yaw, pitch, roll;
         estimate_head_pose(landmark_data, bbox_data, yaw, pitch, roll);
+        trackfaceinfo.headpose[0] = yaw;
+        trackfaceinfo.headpose[1] = pitch;
+
+        float y_sub_eye = trackfaceinfo.pts.y[0] - trackfaceinfo.pts.y[1];
+        float x_sub_eye = trackfaceinfo.pts.x[0] - trackfaceinfo.pts.x[1];
+        float y_sub_mouth = trackfaceinfo.pts.y[3] - trackfaceinfo.pts.y[4];
+        float x_sub_mouth = trackfaceinfo.pts.x[3] - trackfaceinfo.pts.x[4];
+
+        float l2_eye = std::sqrt(y_sub_eye * y_sub_eye + x_sub_eye * x_sub_eye);
+        float l2_mouth = std::sqrt(y_sub_mouth * y_sub_mouth + x_sub_mouth * x_sub_mouth);
+
+        int n = 0;
+        float mean_slope = 0.f;
+        if ((l2_eye > std::numeric_limits<float>::epsilon()) && (x_sub_eye != 0))
+        {
+            mean_slope += y_sub_eye / x_sub_eye;
+            n++;
+        }
+
+        if ((l2_mouth > std::numeric_limits<float>::epsilon()) && (x_sub_mouth != 0))
+        {
+            mean_slope += y_sub_mouth / x_sub_mouth;
+            n++;
+        }
+
+        if (n != 0)
+            mean_slope /= n;
+
+        trackfaceinfo.headpose[2] = atan(mean_slope) * 180 / 3.1415926;
+    }
+
+    void facedetector_base::tracking_landmark(cv::Mat& face, face_info_internal& trackfaceinfo, int offset_x, int offset_y, bool is_landmark)
+    {
+        int width = face.cols;
+        int height = face.rows;
+
+        cv::resize(face, face, cv::Size(128, 128));
+        // auto res = tracker_->forward(face);
+        auto res = pipeline_->forward(face);
+            std::vector<std::shared_ptr<glasssix::memory::tensor<float>>> nodes;
+            for (auto& node : res) {
+                nodes.emplace_back(node.second);
+            }
+            // std::sort(nodes.begin(), nodes.end(),
+            //     [](std::shared_ptr<glasssix::memory::tensor<float>>& A, std::shared_ptr<glasssix::memory::tensor<float>>& B) {return A->count() < B->count(); });
+            float* landmark_data = nodes[0]->mutable_cpu_data();
+            // const size_t land_sz = nodes[0]->count();
+            yolo_wrapper::Softmax(nodes[0]->mutable_cpu_data(), 2);
+
+            // land_info_internal landmark;
+            // landmark.score = nodes[0]->mutable_cpu_data()[1];
+
+			// for (size_t i = 0; i < land_sz / 2; i++) {
+            //     // when use cv::resize no pad, mul width & height
+			// 	landmark.pts.push_back(exposing::make_param_pair(land[2 * i] * width, land[2 * i + 1] * height));
+            // }
+// #if defined(USE_RKNNAPI) || defined(USE_RKNN2API) 
+// #ifdef USE_RKNNAPI
+//         trackfaceinfo.score = res["Softmax_Softmax_103/out0_2"]->cpu_data()[1];
+//         const float* glass_data = res["Softmax_Softmax_76/out0_3"]->cpu_data();
+//         const float* mask_data = res["Softmax_Softmax_79/out0_4"]->cpu_data();
+//         const float* landmark_data = res["MatMul_MatMul_124/out0_1"]->cpu_data();
+//         const float* bbox_data = res["MatMul_MatMul_113/out0_0"]->cpu_data();
+// #elif defined(USE_RKNN2API)
+//         trackfaceinfo.score = res["188"]->cpu_data()[1];
+//         const float* glass_data = res["157"]->cpu_data();
+//         const float* mask_data = res["161"]->cpu_data();
+// #if defined(USE_RKNN2API) && defined(BUILD_RV1106) 
+//         std::array<std::string, 7> intermediate_out{ "185","199","212","114","118","122","126" };
+//         float concat_data[208] = { 0.f };
+//         float* ptr = concat_data;
+//         for (size_t i = 0; i < intermediate_out.size(); i++)
+//         {
+//             std::memcpy(ptr, res[intermediate_out[i]]->cpu_data(), res[intermediate_out[i]]->count() * sizeof(float));
+//             ptr += res[intermediate_out[i]]->count();
+//         }
+
+//         float landmark_data[14] = { 0.f };
+//         excalibur::juliusblas::cblas_sgemv_AnoTrans(14, 208, 1.f, matmul_weight_.data(), 208, concat_data, 1, 0.f, landmark_data, 1);
+//         //for (size_t i = 0; i < 14; i++)
+//         //{   
+//         //    float lmrk = 0.f;
+//         //    for (size_t j = 0; j < 208; j++)
+//         //    {
+//         //        lmrk += (matmul_weight_[i*208+j]*concat_data[j]);
+//         //    }
+//         //}
+// #else
+// #if defined(USE_RKNN2API)
+//         const float* landmark_data = res["215"]->cpu_data();
+// #endif
+// #endif
+//         const float* bbox_data = res["output"]->cpu_data();
+// #endif
+// #endif
+
+// #if defined(USE_BMNN)
+//         trackfaceinfo.score = res["188_Softmax"]->cpu_data()[1];
+//         const float* glass_data = res["157_Softmax"]->cpu_data();
+//         const float* mask_data = res["161_Softmax"]->cpu_data();
+//         const float* landmark_data = res["215_MatMul_f32"]->cpu_data();
+//         const float* bbox_data = res["output_MatMul_f32"]->cpu_data();
+// #endif
+
+        // int x1 = bbox_data[0] * width / 10 + offset_x;
+        // int y1 = bbox_data[1] * height / 10 + offset_y;
+        // int x2 = bbox_data[2] * width / 10 + width + offset_x;
+        // int y2 = bbox_data[3] * height / 10 + height + offset_y;
+        // std::cout<< "res count: " << res["215"]->count() << ";" << std::endl;
+        int x1 = offset_x;
+        int y1 = offset_y;
+        int x2 = width + offset_x;
+        int y2 =  height + offset_y;
+        // float * bbox_data{x1,y1,x2,y2};//这种写法不允许
+        float * bbox_data;
+        bbox_data[0] = float(x1);
+        bbox_data[1] = float(x2);
+        bbox_data[2] = float(y1);
+        bbox_data[3] = float(y2);
+
+        trackfaceinfo.rect.x = x1;
+        trackfaceinfo.rect.w = x2 - x1 + 1;
+        trackfaceinfo.rect.y = y1;
+        trackfaceinfo.rect.h = y2 - y1 + 1;
+        // trackfaceinfo.glass_index = std::max_element(glass_data, glass_data + 3) - glass_data;
+        // trackfaceinfo.mask_index = std::max_element(mask_data, mask_data + 2) - mask_data;
+        for (size_t i = 0; i < 2; i++)//四个眼角
+        {
+            trackfaceinfo.pts.x[i] = (landmark_data[4 * i] + landmark_data[4 * i + 2]) * width + offset_x;
+            trackfaceinfo.pts.y[i] = (landmark_data[4 * i + 1] + landmark_data[4 * i + 3]) * height+ offset_y;
+        }
+        
+
+        for (size_t i = 2; i < 5; i++)
+        {
+            trackfaceinfo.pts.x[i] = landmark_data[2 * (i - 2) + 8] * width + offset_x;
+            trackfaceinfo.pts.y[i] = landmark_data[2 * (i - 2) + 9] * height + offset_y;
+        }
+#if 1 //五个关键点 trackfaceinfo.pts 只能接受5个点
+        trackfaceinfo.pts.x[0] = landmark_data[192]* width + offset_x;//96
+        trackfaceinfo.pts.y[0] = landmark_data[193] * height+ offset_y;
+        trackfaceinfo.pts.x[1] = landmark_data[194]* width + offset_x;//97
+        trackfaceinfo.pts.y[1] = landmark_data[195] * height+ offset_y;
+
+        trackfaceinfo.pts.x[2] = landmark_data[108]* width + offset_x;//54
+        trackfaceinfo.pts.y[2] = landmark_data[109] * height+ offset_y;
+        trackfaceinfo.pts.x[3] = landmark_data[152]* width + offset_x;//76
+        trackfaceinfo.pts.y[3] = landmark_data[153] * height+ offset_y;
+        trackfaceinfo.pts.x[4] = landmark_data[164]* width + offset_x;//82
+        trackfaceinfo.pts.y[4] = landmark_data[165] * height+ offset_y;
+#else //七个关键点(trackfaceinfo.pts 无法接受7个点)
+        trackfaceinfo.pts.x[0] = landmark_data[120]* width + offset_x;//60
+        trackfaceinfo.pts.y[0] = landmark_data[121] * height+ offset_y;
+        trackfaceinfo.pts.x[1] = landmark_data[128]* width + offset_x;//64
+        trackfaceinfo.pts.y[1] = landmark_data[129] * height+ offset_y;
+        trackfaceinfo.pts.x[2] = landmark_data[136]* width + offset_x;//68
+        trackfaceinfo.pts.y[2] = landmark_data[137] * height+ offset_y;
+        trackfaceinfo.pts.x[3] = landmark_data[144]* width + offset_x;//72
+        trackfaceinfo.pts.y[3] = landmark_data[145] * height+ offset_y;
+
+        trackfaceinfo.pts.x[4] = landmark_data[108]* width + offset_x;//54
+        trackfaceinfo.pts.y[4] = landmark_data[109] * height+ offset_y;
+        trackfaceinfo.pts.x[5] = landmark_data[152]* width + offset_x;//76
+        trackfaceinfo.pts.y[5] = landmark_data[153] * height+ offset_y;
+        trackfaceinfo.pts.x[6] = landmark_data[164]* width + offset_x;//82
+        trackfaceinfo.pts.y[6] = landmark_data[165] * height+ offset_y;
+#endif
+        for (size_t i = 0; i < 2; i++)
+        {
+            cv::circle(face, cv::Point(int( trackfaceinfo.pts.x[i]-offset_x ), int(trackfaceinfo.pts.y[i]-offset_y ) ), 1, CV_RGB(125, 255, 0), 1);
+        }
+        // cv::imwrite("face.jpg", face);
+        //目前14个数据
+        std::vector<float> landmark_data_vector{
+landmark_data[120],landmark_data[121],landmark_data[128],landmark_data[129],landmark_data[136],landmark_data[137],landmark_data[144],landmark_data[145],landmark_data[108],landmark_data[109],landmark_data[152],landmark_data[153],landmark_data[164],landmark_data[165]
+        };
+        float* landmark_data_seven = landmark_data_vector.data();
+        
+        float yaw, pitch, roll;
+        estimate_head_pose(landmark_data_seven, bbox_data, yaw, pitch, roll);
         trackfaceinfo.headpose[0] = yaw;
         trackfaceinfo.headpose[1] = pitch;
 

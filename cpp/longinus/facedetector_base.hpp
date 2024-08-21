@@ -97,6 +97,7 @@ namespace glasssix::longinus
         void init_cache(exposing::param_span<std::uint8_t>& bitmap, std::int32_t channels, std::int32_t height, std::int32_t width, std::int32_t order, std::shared_ptr<memory::tensor<std::uint8_t>>& cache);
 
         void tracking_landmark(cv::Mat& face, face_info_internal& trackfaceinfo, int offset_x, int offset_y);
+        void tracking_landmark(cv::Mat& face, face_info_internal& trackfaceinfo, int offset_x, int offset_y, bool isLandmark);
         cv::Mat cache0_;
         cv::Mat cache1_;
 
@@ -104,6 +105,7 @@ namespace glasssix::longinus
 	private:
         int device_;
         std::shared_ptr<PrePostProcessGenPipeline> tracker_;
+        std::shared_ptr<GenPipeline> pipeline_;
 
 #if defined(USE_RKNN2API)
 #if defined(BUILD_RV1106) 
