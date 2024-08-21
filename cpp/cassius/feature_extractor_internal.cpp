@@ -52,6 +52,7 @@ namespace glasssix::cassius
             
             std::vector<std::vector<float>> result;
             cv::Mat image(cv::Size(single_bitmap_width, single_bitmap_height), CV_8UC3, const_cast<uint8_t*>(bitmaps.data()));
+            cv::imwrite("./cassius.jpg", image);
             auto network_result = unicorn_->forward(image).begin()->second->cpu_data();
                 for (std::size_t i = 0; i < count; i++)
                 {
@@ -61,15 +62,15 @@ namespace glasssix::cassius
                     result.emplace_back(feature);
                 }
                 std::ofstream outfile("./outfile_cassius.txt");
-                std::cout << "cassius " << std::endl;
+                // std::cout << "cassius " << std::endl;
                 
 				for_each(result.begin(), result.end(), [&outfile](std::vector<float> vals) {
 				for_each(vals.begin(), vals.end(), [&outfile](float val) {
-					std::cout << val << std::endl;
+					// std::cout << val << std::endl;
 					outfile << val << std::endl;
 					});
 					});
-					std::cout << std::endl << " selene end" << std::endl;
+					// std::cout << std::endl << " selene end" << std::endl;
 					outfile.close();
             return result;
         }
