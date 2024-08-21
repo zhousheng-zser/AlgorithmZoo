@@ -108,11 +108,11 @@ namespace glasssix::longinus
                 tracking_landmark(faceROI_in_frame_mat, face, rect.x, rect.y,true);//利用新的关键点模型计算出更准确的人脸位置 rect.x是原人脸截图在新生成的正方形的的x坐标
 
                 
-        for (size_t i = 0; i < 5; i++)
-        {
-            cv::circle(cache_temp, cv::Point(int( face.pts.x[i] ), int(face.pts.y[i] ) ), 3, CV_RGB(125, 255, 0), 2);
-        }
-        cv::imwrite("faceROI_in_frame_mat.jpg", cache_temp);
+        // for (size_t i = 0; i < 5; i++)
+        // {
+        //     cv::circle(cache_temp, cv::Point(int( face.pts.x[i] ), int(face.pts.y[i] ) ), 3, CV_RGB(125, 255, 0), 2);
+        // }
+        // cv::imwrite("faceROI_in_frame_mat.jpg", cache_temp);
 
 
                 refine(face, height, width, true);

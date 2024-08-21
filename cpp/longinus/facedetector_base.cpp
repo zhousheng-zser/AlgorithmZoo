@@ -493,7 +493,7 @@ namespace glasssix::longinus
         {
             cv::circle(face, cv::Point(int( trackfaceinfo.pts.x[i]-offset_x ), int(trackfaceinfo.pts.y[i]-offset_y ) ), 1, CV_RGB(125, 255, 0), 1);
         }
-        cv::imwrite("face.jpg", face);
+        // cv::imwrite("face.jpg", face);
         //目前14个数据
         std::vector<float> landmark_data_vector{
 landmark_data[120],landmark_data[121],landmark_data[128],landmark_data[129],landmark_data[136],landmark_data[137],landmark_data[144],landmark_data[145],landmark_data[108],landmark_data[109],landmark_data[152],landmark_data[153],landmark_data[164],landmark_data[165]
