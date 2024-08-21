@@ -208,8 +208,8 @@ namespace glasssix::longinus
         float ldmk_mat[2 * 7 + 1];
         for (size_t i = 0; i < 7; i++)
         {
-            ldmk_mat[i * 2 + 0] = (ldmk7_data[i * 2 + 0] - bbox_data[0]) / 40 / ratio;
-            ldmk_mat[i * 2 + 1] = (ldmk7_data[i * 2 + 1] - bbox_data[1]) / 40 / ratio;
+            ldmk_mat[i * 2 + 0] = (ldmk7_data[i * 2 + 0] - bbox_data[0]) / ratio;
+            ldmk_mat[i * 2 + 1] = (ldmk7_data[i * 2 + 1] - bbox_data[1]) / ratio;
         }
 
         ldmk_mat[2 * 7] = 1.0f;
