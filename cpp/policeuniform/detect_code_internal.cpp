@@ -74,7 +74,7 @@ namespace glasssix::policeuniform
 #if defined(USE_RKNNAPI) || defined(USE_RKNN2API)
             net_policeuniform_detect_ = std::make_shared<GenPipeline>(model_dir + "policeuniform_detect.rknn", device);
             net_policeuniform_detect_->manual_possible_normalization(std::array<float, 3>{0.f, 0.f, 0.f}, std::array<float, 3>{1.f / 255.f, 1.f / 255.f, 1.f / 255.f});
-            yolov8_instance = std::make_shared<Yolov8<GenPipeline>>(1280, 1280, net_policeuniform_detect_);
+            yolov8_instance = std::make_shared<Yolov8<GenPipeline>>(1280, 736, net_policeuniform_detect_);
             net_policeuniform_cls = PrePostProcessGenPipeline::mkSharePipeline(model_dir + "policeuniform_class.rknn", device);
 #elif defined(USE_BMNN)
             yolov8_instance = std::make_shared<SophonYolov8Wrapper>(model_dir + "policeuniform_detect.bmodel");
