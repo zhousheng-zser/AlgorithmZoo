@@ -41,6 +41,9 @@ YoloV8::~YoloV8() {
 //     m_nmsThreshold = nms_thresh;
 // }
 
+void YoloV8::setyolov8_type(PostureType yolov8type)
+{}
+
 int YoloV8::Init(float confThresh, float nmsThresh) {
     m_confThreshold = confThresh;
     m_nmsThreshold = nmsThresh;
@@ -229,7 +232,7 @@ float YoloV8::get_aspect_scaled_ratio(int src_w, int src_h, int dst_w, int dst_h
     return ratio;
 }
 
-int YoloV8::post_process(const bm_image& image, YoloV8BoxVec& detected_boxes,float conf,float nms_thresh) {
+int YoloV8::post_process(const bm_image& image, YoloV8BoxVec& detected_boxes,float conf,float nms_thresh ) {
     YoloV8BoxVec yolobox_vec;
     std::vector<cv::Rect> bbox_vec;
     std::vector<std::shared_ptr<BMNNTensor>> outputTensors(output_num);
@@ -250,9 +253,9 @@ int YoloV8::post_process(const bm_image& image, YoloV8BoxVec& detected_boxes,flo
 
         // Single output
         auto out_tensor = outputTensors[min_idx];
-        m_class_num = out_tensor->get_shape()->dims[1] - mask_num - 4;
-        int feat_num = out_tensor->get_shape()->dims[2];
-        int nout = m_class_num + mask_num + 4;
+        m_class_num = out_tensor->get_shape()->dims[1] - mask_num - 4; //category
+        int feat_num = out_tensor->get_shape()->dims[2];  //19320
+        int nout = m_class_num + mask_num + 4;     //x1 y1 x2 y2 category
         float* output_data = nullptr;
         std::vector<float> decoded_data;
 

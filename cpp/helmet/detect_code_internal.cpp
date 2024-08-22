@@ -29,11 +29,9 @@ namespace glasssix::helmet
             std::string model_dir = exposing::to_narrow_string(model_directory);
             if (*model_dir.rbegin() != '/') model_dir += '/';
 #if defined(USE_RKNNAPI) || defined(USE_RKNN2API)
-            net_class_ = PrePostProcessGenPipeline::mkSharePipeline(model_dir + "helmet_sim.rknn", 0);
+            net_class_ = std::make_shared<GenPipeline>(model_dir + "helmet_sim.rknn", 0);
 #elif defined(USE_BMNN)
-            net_class_ = PrePostProcessGenPipeline::mkSharePipeline(model_dir + "helmet_sim.bmodel", 0);
-#else
-            net_class_ = PrePostProcessGenPipeline::mkSharePipeline(model_dir + "helmet_sim.onnx", 0);
+            net_class_ = std::make_shared<GenPipeline>(model_dir + "helmet_sim.bmodel", 0);
 #endif
             net_class_->manual_possible_normalization(0, 1.f / 255);
         }
@@ -66,18 +64,20 @@ namespace glasssix::helmet
                 temp.y2 = hinfo.y2();
                 temp.score = hinfo.score();
                 head_info.push_back(temp);
-#if defined(USE_BMNN_NO)//ĞÂËã·¨ÔİÊ±²»Ê¹ÓÃ
-#else
-                //°´ÕÕ×îĞÂ°²È«Ã±µÄĞ­Òé:ÖÜÑîÈğËã·¨¹¤³ÌÊ¦,³¤¿íĞèÀ©´ó1.2±¶
-                float multiple = 0.2;
-                headInfo temp_new;
-                std::int32_t w = temp.x2 - temp.x1,h = temp.y2 - temp.y1;//ÈËÍ·µÄÊı¾İ:¿í/¸ß
-                temp_new.x1 = std::max(static_cast<float>(roi_x)     ,temp.x1 - w * multiple / 2 );
-                temp_new.x2 = std::min(static_cast<float>(roi_width) ,temp.x2 + w * multiple / 2 );
-                temp_new.y1 = std::max(static_cast<float>(roi_y)     ,temp.y1 - h * multiple / 2 );
-                temp_new.y2 = std::min(static_cast<float>(roi_height),temp.y2 + h * multiple / 2 );
-                head_info.push_back(temp_new);
-#endif
+// #if defined(USE_BMNN_NO)//æ–°ç®—æ³•æš‚æ—¶ä¸ä½¿ç”¨
+// #else
+//                 //æŒ‰ç…§æœ€æ–°å®‰å…¨å¸½çš„åè®®:å‘¨æ¨ç‘ç®—æ³•å·¥ç¨‹å¸ˆ,é•¿å®½éœ€æ‰©å¤§1.2å€
+//                 float multiple = 0.2;
+//                 headInfo temp_new;
+//                 std::int32_t w = temp.x2 - temp.x1,h = temp.y2 - temp.y1;//äººå¤´çš„æ•°æ®:å®½/é«˜
+//                 temp_new.x1 = std::max(static_cast<float>(roi_x)     ,temp.x1 - w * multiple / 2 );
+//                 temp_new.x2 = std::min(static_cast<float>(roi_width) ,temp.x2 + w * multiple / 2 );
+//                 temp_new.y1 = std::max(static_cast<float>(roi_y)     ,temp.y1 - h * multiple / 2 );
+//                 temp_new.y2 = std::min(static_cast<float>(roi_height),temp.y2 + h * multiple / 2 );
+// 	            // printf("debug_zj--line=%d::%d,%d,%d,%d,%d,%d\n",__LINE__,temp.x1,temp.x2,temp.y1,temp.y2,w,h);
+// 	            // printf("debug_zj__line=%d::%d,%d,%d,%d,%d,%d\n",__LINE__,temp_new.x1,temp_new.x2,temp_new.y1,temp_new.y2,temp_new.x2 - temp_new.x1,temp_new.y2 - temp_new.y1);
+//                 head_info.push_back(temp_new);
+// #endif
             }
 
             std::vector<helmet::box_info_internal> result = helmet_detect(bitmap, height, width, roi_x, roi_y, roi_width, roi_height, head_info, param_map);
@@ -100,7 +100,7 @@ namespace glasssix::helmet
         std::string version()
         {
             const std::string algo_module_version = "2.2.1";
-            std::string nn_frame_version = net_class_->version();
+            std::string nn_frame_version = "2.2.1";
             return fmt::format(R"({{"nn_frame_version":"{}", "algo_module_version":"{}"}})", nn_frame_version, algo_module_version);
 
         }
@@ -126,7 +126,6 @@ namespace glasssix::helmet
 
         void  Softmax(float* data, int num)
         {
-
             double L2_Sum = 0.f;
             for (size_t i = 0; i < num; i++)
             {
@@ -139,19 +138,12 @@ namespace glasssix::helmet
             }
         }
 
-
         cv::Mat preprocess_detection(cv::Mat& src, cv::Size input_shape = cv::Size(96, 96))
         {
-            float scale = std::min((float)input_shape.width / (float)src.cols, (float)input_shape.height / (float)src.rows);
-            cv::Mat cut_image;
-            cv::Mat mask_image(input_shape, CV_8UC3, cv::Scalar(114, 114, 114));
+            cv::Mat mask_image;
             if (src.rows != input_shape.height || src.cols != input_shape.width)
             {
-                cv::resize(src, cut_image, cv::Size((int)(src.cols * scale), (int)(src.rows * scale)), cv::INTER_LINEAR);
-
-                auto pad_h = int((input_shape.height - cut_image.rows) / 2);
-                auto pad_w = int((input_shape.width - cut_image.cols) / 2);
-                cv::copyMakeBorder(cut_image, mask_image, pad_h, input_shape.height - cut_image.rows - pad_h, pad_w, input_shape.width - cut_image.cols - pad_w, cv::BORDER_CONSTANT, cv::Scalar{ 114,114,114 });
+                cv::resize(src, mask_image, input_shape, cv::INTER_LINEAR);
             }
             else
             {
@@ -168,7 +160,6 @@ namespace glasssix::helmet
             std::vector<box_info_internal> output;
 
             cv::Mat image(cv::Size(width, height), CV_8UC3, const_cast<uint8_t*>(bitmap.data()));
-
             for (auto& head : head_info)
             {
                 cv::Rect headrect(head.x1, head.y1, head.x2 - head.x1, head.y2 - head.y1);
@@ -176,36 +167,29 @@ namespace glasssix::helmet
 
                 if (crop.cols < 24 || crop.rows < 24)
                     continue;
-
-                // cv::Mat headimg;
-                crop = hisEqulColor(crop);
-
-                auto headimg = preprocess_detection(crop);
-
+                auto new_shape = cv::Size(128, 128);
+                auto headimg = preprocess_detection(crop, new_shape);
                 auto  tensor_out = net_class_->forward(headimg).begin()->second;//net has only single node out
 
                 float* helmet_conf = tensor_out->mutable_cpu_data();
-#if defined(USE_RKNNAPI) || defined(USE_RKNN2API)
-                Softmax(helmet_conf, 3);
-#endif
                 box_info_internal  headp(head.x1, head.x2, head.y1, head.y2);
                 if (helmet_conf[0] > helmet_conf[1] && helmet_conf[0] > helmet_conf[2])
                 {
                     headp.category = 2;
-                    headp.score = helmet_conf[0];
+                    headp.score = helmet_conf[0];//æœªæˆ´å®‰å…¨å¸½çš„äººå¤´
                     output.push_back(headp);
                 }
                 else if (helmet_conf[1] > helmet_conf[0] && helmet_conf[1] > helmet_conf[2])
                 {
                     headp.category = 0;
-                    headp.score = helmet_conf[1];
+                    headp.score = helmet_conf[1];//æˆ´å®‰å…¨å¸½çš„äººå¤´
                     output.push_back(headp);
                 }
 #if defined(USE_RKNNAPI) || defined(USE_RKNN2API)
                 else if (helmet_conf[2] > helmet_conf[0] && helmet_conf[2] > helmet_conf[1])
                 {
                     headp.category = 1;
-                    headp.score = helmet_conf[2];//·ÇÈËÍ·
+                    headp.score = helmet_conf[2];//éäººå¤´
                     output.push_back(headp);
                 }
 #endif
@@ -213,27 +197,10 @@ namespace glasssix::helmet
             return output;
         }
 
-        cv::Mat hisEqulColor(const cv::Mat& img)
-        {
-            cv::Mat ycrcb;
-            cv::cvtColor(img, ycrcb, cv::COLOR_BGR2YCrCb);
-            std::vector<cv::Mat> channels;
-            cv::split(ycrcb, channels);
-
-            cv::Ptr<cv::CLAHE> clahe = cv::createCLAHE();
-            clahe->setClipLimit(2.0);
-            clahe->setTilesGridSize(cv::Size(8, 8));
-            clahe->apply(channels[0], channels[0]);
-            cv::merge(channels, ycrcb);
-            cv::cvtColor(ycrcb, img, cv::COLOR_YCrCb2BGR);
-
-            return img;
-        }
-
     private:
         std::string model_directory_;
         int device_;
-        std::shared_ptr<PrePostProcessGenPipeline> net_class_;
+        std::shared_ptr<GenPipeline> net_class_;
     };
 
     detect_code_internal::detect_code_internal(std::string_view model_directory, int device)
