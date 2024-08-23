@@ -112,7 +112,7 @@ namespace glasssix::selene
 			auto network_result = (*feature_extractor_instance_).forward(image);
 			//std::string output_name = model_type_ == 3 ? "predict" : "conv5_dw";
 #endif
-			std::ofstream outfile("./outfile.txt");
+			// std::ofstream outfile("./outfile.txt");
 			CHECK_EQ(1, network_result.size());
 			auto node = *network_result.begin();
 			auto iter_conv5 = node.second->cpu_data();
@@ -125,15 +125,15 @@ namespace glasssix::selene
 				iter_conv5 += feature_size;
 				result.emplace_back(feature);
 			}
-			std::cout << " selene " << std::endl;
-				for_each(result.begin(), result.end(), [&outfile](std::vector<float> vals) {
-				for_each(vals.begin(), vals.end(), [&outfile](float val) {
-					std::cout << val << std::endl;
-					outfile << val << std::endl;
-					});
-					});
-					std::cout << std::endl << " selene end" << std::endl;
-					outfile.close();
+			// std::cout << " selene " << std::endl;
+			// 	for_each(result.begin(), result.end(), [&outfile](std::vector<float> vals) {
+			// 	for_each(vals.begin(), vals.end(), [&outfile](float val) {
+			// 		std::cout << val << std::endl;
+			// 		outfile << val << std::endl;
+			// 		});
+			// 		});
+			// 		std::cout << std::endl << " selene end" << std::endl;
+			// 		outfile.close();
 			return result;
 		}
 

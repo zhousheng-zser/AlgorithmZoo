@@ -44,7 +44,7 @@ namespace glasssix::pedestrian
             const int width = 640;
             const int height = 384;
             net_pedestrian_ = std::make_shared<GenPipeline>(model_dir + "/pedestrian_pump.rknn", device);
-            std::cout << "pedestrian_pump.rknn\n";
+            // std::cout << "pedestrian_pump.rknn\n";
     #else//通用行人(默认使用)
             const int width = 1280;
             const int height = 736;
