@@ -75,13 +75,10 @@ namespace glasssix::policeuniform
             net_policeuniform_detect_ = std::make_shared<GenPipeline>(model_dir + "policeuniform_detect.rknn", device);
             net_policeuniform_detect_->manual_possible_normalization(std::array<float, 3>{0.f, 0.f, 0.f}, std::array<float, 3>{1.f / 255.f, 1.f / 255.f, 1.f / 255.f});
             yolov8_instance = std::make_shared<Yolov8<GenPipeline>>(1280, 736, net_policeuniform_detect_);
-            net_policeuniform_cls = PrePostProcessGenPipeline::mkSharePipeline(model_dir + "policeuniform_class.rknn", device);
 #elif defined(USE_BMNN)
             yolov8_instance = std::make_shared<SophonYolov8Wrapper>(model_dir + "policeuniform_detect.bmodel");
             yolov8_instance->init();
-            net_policeuniform_cls = PrePostProcessGenPipeline::mkSharePipeline(model_dir + "policeuniform_class.bmodel", device);
 #endif
-            net_policeuniform_cls->manual_possible_normalization(0, 1.f / 255);
         }
         double iou_betweenbox(Bbox& box1, Bbox& box2)
         {
@@ -136,61 +133,26 @@ namespace glasssix::policeuniform
             cv::Mat cropped_image = image(cv::Range(roi_y, roi_y + roi_height), cv::Range(roi_x, roi_x + roi_width)).clone();
 
             auto objects = yolov8_instance->get_objects(cropped_image, conf_thres, iou_thres);
-            //std::cout << "objects size = " << objects.size() << "\n";
             std::vector<Bbox> person_list; // 行人
             std::vector<Bbox> uniform_list; //警服
+            auto results = exposing::make_param_vector<policeuniform::box_info>();
             for (auto& it : objects)
             {
                 //std::cout << it.x1 << " " << it.x2 << " " << it.y1 << " " << it.y2 <<"**"<< it.category << "  \n";
                 if (it.category == 0)
-                    person_list.push_back(Bbox(it.x1, it.y1, it.x2, it.y2, it.category, it.score, 0));
-                else if (it.category == 1)
-                    uniform_list.push_back(Bbox(it.x1, it.y1, it.x2, it.y2, it.category, it.score, 0));
-            }
-            //std::cout << "uniform_list size = " << uniform_list.size() << "\n";
-            //std::cout << "person_list size = " << person_list.size() << "\n";
-            std::vector<bool> uniform_flag_list(uniform_list.size(), true); // 警服标记
-            auto results = exposing::make_param_vector<policeuniform::box_info>();
-            for (auto& person : person_list)
-            {
-                double iou_ = 0;
-                int id_ = -1;
-                for (int j = 0; j < uniform_list.size(); ++j)
-                {
-                    if (!uniform_flag_list[j])
-                        continue;
-                    double temp = iou_betweenbox(person, uniform_list[j]);
-                    if (temp >= 0.8 && temp > iou_)
-                    {
-                        id_ = j;
-                        iou_ = temp;
-                    }
-                }
-                if (~id_)
-                {
-                    uniform_flag_list[id_] = false;
-                    continue;
-                }
-
-                //std::cout <<person.x1<< " " << person.x2<< " " << person.y1<<" "<< person.y2  <<  "\n";
-                // TODO 把这个人拿去做分类
-                cv::Mat crop = cropped_image(cv::Range(person.y1, person.y2), cv::Range(person.x1, person.x2)).clone();
-                auto new_shape = cv::Size(128, 128);
-                cv::Mat blob = preprocess_detection(crop, new_shape);
-                auto tensor_out = net_policeuniform_cls->forward(blob).begin()->second;
-                float* cls_conf = tensor_out->mutable_cpu_data();
-                //std::cout << cls_conf[0] << " " << cls_conf[1] << "\n";
-                if (cls_conf[1] < cls_conf[0])
                 {
                     policeuniform::box_info_internal val;
-                    val.x1 = person.x1 + roi_x;
-                    val.y1 = person.y1 + roi_y;
-                    val.x2 = person.x2 + roi_x;
-                    val.y2 = person.y2 + roi_y;
-                    val.score = cls_conf[0];
+                    val.x1 = it.x1 + roi_x;
+                    val.y1 = it.y1 + roi_y;
+                    val.x2 = it.x2 + roi_x;
+                    val.y2 = it.y2 + roi_y;
+                    val.score = it.score;
                     val.category = 0;
                     results.push_back(glasssix::exposing::make_as_first<box_info_impl>(val));
+                    person_list.push_back(Bbox(it.x1, it.y1, it.x2, it.y2, it.category, it.score, 0)); //先留着
                 }
+                else if (it.category == 1)
+                    uniform_list.push_back(Bbox(it.x1, it.y1, it.x2, it.y2, it.category, it.score, 0));//先留着
             }
 
             return results;
@@ -206,8 +168,6 @@ namespace glasssix::policeuniform
     private:
         std::string model_directory_;
         int device_;
-        std::shared_ptr<PrePostProcessGenPipeline> net_policeuniform_cls;
-
 #if defined(USE_RKNNAPI) || defined(USE_RKNN2API)
         std::shared_ptr<GenPipeline> net_policeuniform_detect_;
         std::shared_ptr<Yolov8<GenPipeline>> yolov8_instance;
