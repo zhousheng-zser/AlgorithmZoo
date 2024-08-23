@@ -59,8 +59,8 @@ namespace glasssix::facelandmarks
             }
             std::sort(nodes.begin(), nodes.end(),
                 [](std::shared_ptr<glasssix::memory::tensor<float>>& A, std::shared_ptr<glasssix::memory::tensor<float>>& B) {return A->count() < B->count(); });
-            float* land = nodes[1]->mutable_cpu_data();
-            const size_t land_sz = nodes[1]->count();
+            float* land = nodes[0]->mutable_cpu_data();
+            const size_t land_sz = nodes[0]->count();
             Softmax(nodes[0]->mutable_cpu_data(), 2);
 
             land_info_internal landmark;

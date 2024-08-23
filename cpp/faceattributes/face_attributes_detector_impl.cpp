@@ -118,7 +118,7 @@ namespace glasssix::face_attributes
         	dst = mat;
     	}
 
-		static inline void refine(cv::Rect2f& face, int height, int width)
+		static inline void refine(cv::Rect2f& face, int height, int width)//以中心点 和最长边生成正方形
 		{
 			float bbw = 0, bbh = 0, maxSide = 0, minSide = 0;
 			float h = 0, w = 0;
