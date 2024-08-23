@@ -37,27 +37,27 @@ namespace glasssix::pump_light
             net_detect_light = std::make_shared<GenPipeline>(model_directory_ + "/pump_light" + model_ext, device);
             net_detect_light->manual_possible_normalization(0, 1.f / 255);
         } 
-        
-       std::tuple<cv::Mat, float> preprocess_detection(cv::Mat& src, int& pad_h, int& pad_w, cv::Size input_shape = cv::Size(640, 640))
-{
-    float scale = std::min((float)input_shape.width / (float)src.cols, (float)input_shape.height / (float)src.rows);
-    cv::Mat cut_image;
-    cv::Mat mask_image(input_shape, CV_8UC3, cv::Scalar(114, 114, 114));
-    if (src.rows != input_shape.height || src.cols != input_shape.width)
-    {
-        cv::resize(src, cut_image, cv::Size((int)(src.cols * scale), (int)(src.rows * scale)), cv::INTER_LINEAR);
 
-        pad_h = int((input_shape.height - cut_image.rows) / 2);
-        pad_w = int((input_shape.width - cut_image.cols) / 2);
-        cv::copyMakeBorder(cut_image, mask_image, pad_h, input_shape.height - cut_image.rows - pad_h, pad_w, input_shape.width - cut_image.cols - pad_w, cv::BORDER_CONSTANT, cv::Scalar{ 114,114,114 });
-    }
-    else
-    {
-        src.copyTo(mask_image);
-    }
-    cv::cvtColor(mask_image, mask_image, cv::COLOR_BGR2RGB);
-    return { mask_image,scale };
-}
+        std::tuple<cv::Mat, float> preprocess_detection(cv::Mat& src, int& pad_h, int& pad_w, cv::Size input_shape = cv::Size(640, 640))
+        {
+            float scale = std::min((float)input_shape.width / (float)src.cols, (float)input_shape.height / (float)src.rows);
+            cv::Mat cut_image;
+            cv::Mat mask_image(input_shape, CV_8UC3, cv::Scalar(114, 114, 114));
+            if (src.rows != input_shape.height || src.cols != input_shape.width)
+            {
+                cv::resize(src, cut_image, cv::Size((int)(src.cols * scale), (int)(src.rows * scale)), cv::INTER_LINEAR);
+
+                pad_h = int((input_shape.height - cut_image.rows) / 2);
+                pad_w = int((input_shape.width - cut_image.cols) / 2);
+                cv::copyMakeBorder(cut_image, mask_image, pad_h, input_shape.height - cut_image.rows - pad_h, pad_w, input_shape.width - cut_image.cols - pad_w, cv::BORDER_CONSTANT, cv::Scalar{ 114,114,114 });
+            }
+            else
+            {
+                src.copyTo(mask_image);
+            }
+            cv::cvtColor(mask_image, mask_image, cv::COLOR_BGR2RGB);
+            return { mask_image,scale };
+        }
 
         pump_light::box_info detect(const exposing::param_span<std::uint8_t>& bitmap, int channels, int height, int width, std::map<std::string, float>& param_map)
         {
@@ -95,7 +95,14 @@ namespace glasssix::pump_light
             std::shared_ptr<memory::tensor<float>> real_forwards;
 
             auto network_result = net_detect_light->forward(blob);
-            float* light_conf = network_result["output0"]->mutable_cpu_data();
+            
+#if defined(USE_BMNN)
+			std::string ext{"_Softmax"};
+#else
+			std::string ext{""};
+#endif
+			std::string out_names = {"output0" + ext};
+            float* light_conf = network_result[out_names]->mutable_cpu_data();
             std::vector<float> current_frame_result;
             current_frame_result.push_back(light_conf[0]);
             current_frame_result.push_back(light_conf[1]);

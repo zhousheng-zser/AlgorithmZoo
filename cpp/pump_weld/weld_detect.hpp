@@ -10,6 +10,9 @@
 
 #include <opencv2/core/core.hpp>
 #include <opencv2/imgproc/imgproc.hpp>
+#include <GenPipeline/PrePostProcessGenPipeline.hpp>
+#include <GenPipeline/GetPostprocessing.hpp>
+#include "../genpipeline/market/yolov8_GEN.hpp"
 
 #ifdef BUILD_DEBUG_INFO
 #define GetShowRatio(visual_img) std::min(float(1920.f / visual_img.cols), float(1080.f / visual_img.rows)) * 0.75
@@ -20,6 +23,11 @@
 
 namespace glasssix::pump_weld
 {
+
+    struct WlightBox :public GenPipTools::YoloBoxBase {
+    public:
+        using YoloBoxBase::YoloBoxBase; //Inheriting Constructors
+    };
 
     float weld_count_iou(cv::Rect rec_a, cv::Rect rec_b, bool for_a = true, bool for_b = true) {
         auto a_xmin = rec_a.x;
@@ -140,15 +148,15 @@ namespace glasssix::pump_weld
     }
 
     //rect to xywh
-    std::string RectToString(const cv::Rect& rect) {
+    std::string RectToString(const WlightBox& rect) {
         std::stringstream ss;
-        ss << rect.x << "," << rect.y << "," << rect.width << "," << rect.height;
+        ss << std::round(rect.xmin) << "," << std::round(rect.ymin) << "," << std::round(rect.xmax-rect.xmin) << "," << std::round(rect.ymax - rect.ymin);
         return ss.str();
     }
 
     //xywh to rect
     cv::Rect StringToRect(const std::string& str) {
-        std::vector<int> values;
+        std::vector<float> values;
         std::stringstream ss(str);
         std::string value;
 
@@ -163,48 +171,49 @@ namespace glasssix::pump_weld
         return cv::Rect(values[0], values[1], values[2], values[3]);
     }
 
-    std::vector<cv::Rect> get_weld_box(const std::vector<std::vector<cv::Rect>>& time_light_box_list) {
+    std::vector<cv::Rect> get_weld_box(const std::vector<std::vector<WlightBox>>& time_light_box_list,float wlight_conf_thres) {
         constexpr float MIN_IOU_BETWEEN_LIGHT_BOX = 0.3;
-        constexpr float MAX_IOU_BETWEEN_LIGHT_BOX = 0.86;
+        constexpr float MAX_IOU_BETWEEN_LIGHT_BOX = 0.9;
         constexpr int WELD_MIN_LIGHT_FRAME = 2;
-        constexpr int WELD_MAX_LIGHT_FRAME = 3;
+        constexpr int WELD_MAX_LIGHT_FRAME = 5;
 
-        std::unordered_map<std::string, std::vector<int>> box_light_dict;
+        std::unordered_map<std::string, std::vector<float>> box_light_dict;
         std::vector<cv::Rect> weld_box_list;
 
-        for (size_t time_idx = 0; time_idx < time_light_box_list.size(); ++time_idx) {
-            std::unordered_map<std::string, std::vector<int>> new_box_light_dict;
+        for (size_t time_idx = 0; time_idx < time_light_box_list.size(); ++time_idx) { //遍历每张图片
+            std::unordered_map<std::string, std::vector<float>> new_box_light_dict;
             std::vector<std::string> matched_box_list;
 
-            for (const cv::Rect& light_box : time_light_box_list[time_idx]) {
+            for (const WlightBox& light_box : time_light_box_list[time_idx]) { ///遍历图上的框
                 bool new_box_flag = true;
+                cv::Rect light_box_rect= light_box.get_rect();
 
                 for (const auto& pair : box_light_dict) {
                     cv::Rect existing_box = StringToRect(pair.first);
-                    float iou = weld_count_iou(light_box, existing_box);
+                    float iou = weld_count_iou(light_box_rect, existing_box);
                     if (MIN_IOU_BETWEEN_LIGHT_BOX <= iou && iou <= MAX_IOU_BETWEEN_LIGHT_BOX) {
                         new_box_flag = false;
-                        std::vector<int> area_list = pair.second;
-                        area_list.push_back(light_box.area());
-                        new_box_light_dict[RectToString(light_box)] = area_list;
+                        std::vector<float> score_list = pair.second;
+                        score_list.push_back(light_box.score);
+                        new_box_light_dict[RectToString(light_box)] = score_list;
                         matched_box_list.push_back(pair.first);
                         break;
                     }
                 }
 
                 if (new_box_flag) {
-                    std::vector<int> area_list(time_idx, 0);
-                    area_list.push_back(light_box.area());
-                    new_box_light_dict[RectToString(light_box)] = area_list;
+                    std::vector<float> score_list(time_idx, 0);
+                    score_list.push_back(light_box.score);
+                    new_box_light_dict[RectToString(light_box)] = score_list;
                 }
             }
 
             // Add unlight info  
             for (const auto& pair : box_light_dict) {
                 if (std::find(matched_box_list.begin(), matched_box_list.end(), pair.first) == matched_box_list.end()) {
-                    std::vector<int> area_list = pair.second;
-                    area_list.push_back(0);
-                    new_box_light_dict[pair.first] = area_list;
+                    std::vector<float> score_list = pair.second;
+                    score_list.push_back(0);
+                    new_box_light_dict[pair.first] = score_list;
                 }
             }
 
@@ -213,12 +222,17 @@ namespace glasssix::pump_weld
 
         for (const auto& pair : box_light_dict) {
             cv::Rect box = StringToRect(pair.first);
-            const std::vector<int>& area_list = pair.second;
-            int light_num = std::count_if(area_list.begin(), area_list.end(), [](int x) { return x > 0; });
+            const std::vector<float>& score_list = pair.second;
+            int light_num = std::count_if(score_list.begin(), score_list.end(), [](float x) { return x > 0; });
 
-            if (WELD_MIN_LIGHT_FRAME <= light_num && light_num <= WELD_MAX_LIGHT_FRAME) {
-                weld_box_list.push_back(box);
+            if ( light_num > WELD_MAX_LIGHT_FRAME) {
+                    continue;
             }
+            int light_high_score_num = std::count_if(score_list.begin(), score_list.end(), [&wlight_conf_thres](float x) { return x >= wlight_conf_thres; });
+            if (light_high_score_num < WELD_MIN_LIGHT_FRAME) {
+                continue;
+            }
+            weld_box_list.push_back(box);
         }
 
         return weld_box_list;

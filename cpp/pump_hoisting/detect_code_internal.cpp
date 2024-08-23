@@ -12,8 +12,12 @@
 #include <utility>
 #include "general.hpp"
 
+#if defined(USE_RKNNAPI) || defined(USE_RKNN2API)
 #include <GenPipeline/GenPipeline.hpp>
 #include <YoloFamily/Yolo_wrapper.hpp>
+#elif defined(USE_BMNN)
+#include <sophonyolov8/SophonYolov8Wrapper.hpp>
+#endif
 
 #define not_draw_pic 
 #define LIBRARY_ID_MAX 1073741824
@@ -31,20 +35,28 @@ namespace glasssix::pump_hoisting
 #if defined(USE_RKNNAPI) || defined(USE_RKNN2API)
             std::string model_ext{ ".rknn" };
             
-            const int letter_h = 736;
-            const int letter_w = 1280;
+            const int letter_h = 384;
+            const int letter_w = 640;
 #elif defined(USE_BMNN)
             std::string model_ext{ ".bmodel" };
-            const int letter_h = 1280;
-            const int letter_w = 1280;
+            const int letter_h = 384;
+            const int letter_w = 640;
 #else
             std::string model_ext(".onnx");
-            const int letter_h = 1280;
-            const int letter_w = 1280;
+            const int letter_h = 384;
+            const int letter_w = 640;
 #endif
+
+            std::cout << "pedestrian_pump.rknn\n";
+#if defined(USE_RKNNAPI) || defined(USE_RKNN2API)
             net_pump_hoisting_detect2_ = std::make_shared<GenPipeline>(model_directory + "/pump_hoisting" + model_ext, device);
             net_pump_hoisting_detect2_->manual_possible_normalization(0, 1.f / 255);
-            yolov8_instance = std::make_shared<Yolov8<GenPipeline>>(letter_w,letter_h, net_pump_hoisting_detect2_);
+            yolov8_instance = std::make_shared<Yolov8<GenPipeline>>(letter_w, letter_h, net_pump_hoisting_detect2_);
+#elif defined(USE_BMNN)
+            yolov8_instance = std::make_shared<SophonYolov8Wrapper>(model_directory + "/pump_hoisting" + model_ext);
+            yolov8_instance->init();
+#endif
+
         } 
 
 
@@ -234,8 +246,12 @@ namespace glasssix::pump_hoisting
   
     private:
         // GenPipeline*  net_pump_hoisting_detect2_;
+#if defined(USE_RKNNAPI) || defined(USE_RKNN2API)
         std::shared_ptr<GenPipeline> net_pump_hoisting_detect2_;
         std::shared_ptr<Yolov8<GenPipeline, false>> yolov8_instance;
+#elif defined(USE_BMNN)
+        std::shared_ptr<SophonYolov8Wrapper> yolov8_instance;
+#endif
 
         pedestrian::classify_code pedestrain_instance_;
         std::string model_directory_;

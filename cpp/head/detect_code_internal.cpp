@@ -22,11 +22,11 @@ namespace glasssix::head
             std::string model_dir = exposing::to_narrow_string(model_directory);
             if (*model_dir.rbegin() != '/') model_dir += '/';
 #if defined(USE_RKNNAPI) || defined(USE_RKNN2API)
-            net_pedestrian_ = std::make_shared<GenPipeline>(model_dir + "/pedestriantest.rknn", device);
-            Yolov8_Complement_instance = std::make_shared<Yolov8_Complement<GenPipeline>>(640, 640, net_pedestrian_);
+            net_pedestrian_ = std::make_shared<GenPipeline>(model_dir + "/head_detect.rknn", device);
+            Yolov8_Complement_instance = std::make_shared<Yolov8_Complement<GenPipeline>>(1280, 1280, net_pedestrian_);
 #elif defined(USE_BMNN)
 
-            Yolov8_Complement_instance = std::make_shared<SophonYolov8Wrapper>( "/home/linaro/cw/head.bmodel");
+            Yolov8_Complement_instance = std::make_shared<SophonYolov8Wrapper>( model_dir + "/head_detect.bmodel");
             Yolov8_Complement_instance->init();
 #endif  
         }

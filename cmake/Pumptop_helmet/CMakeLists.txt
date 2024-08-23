@@ -12,6 +12,11 @@ target_include_directories(${module_name} PRIVATE ${COMMON_INCLUDE_DIRS})
 target_link_libraries(${module_name} PRIVATE ${COMMON_LIBRARIES})
 #add_dependencies(${module_name} hardcode)
 
+if(NOT ${SOPHON_SDK} STREQUAL "")
+    target_link_libraries(${module_name} PRIVATE yolov8_bmcv)
+    add_dependencies(${module_name} yolov8_bmcv)
+endif()
+
 target_include_directories(${module_name} PRIVATE ${OpenCV_INCLUDE_DIRS})
 if(NOT OPENCV_FOUND)
     target_link_directories(${module_name} PRIVATE ${OpenCV_LIBRARY_DIRS})

@@ -2,12 +2,17 @@
 #include "pumptop_helmet_info_impl.hpp"
 #include <opencv2/opencv.hpp>
 #include <opencv2/imgproc/types_c.h>
-#include <GenPipeline/GenPipeline.hpp>
-#include <YoloFamily/Yolo_wrapper.hpp>
 #include "poly.hpp"
 #include <thread>
 #include <chrono>
 
+#if defined(USE_RKNNAPI) || defined(USE_RKNN2API)
+#include <YoloFamily/Yolo_wrapper.hpp>
+#elif defined(USE_BMNN)
+#include <sophonyolov8/SophonYolov8Wrapper.hpp>
+#endif
+
+#include <GenPipeline/GenPipeline.hpp>
 // #define RECTANGLE
 namespace glasssix::pumptop_helmet
 {
@@ -30,6 +35,8 @@ namespace glasssix::pumptop_helmet
 #else
 			std::string model_ext{ ".onnx" };
 #endif
+
+#if defined(USE_RKNNAPI) || defined(USE_RKNN2API)
 			// 算法传过来的模型名:泵检测模型 1280-v1_ori_TAL
 			net_detect_1 = std::make_shared<GenPipeline>(model_directory_ + "/pumptop_helmet_pump" + model_ext, device_);
 			yolov8_instance_1 = std::make_shared<Yolov8<GenPipeline>>(1280 , 1280, net_detect_1);
@@ -41,13 +48,22 @@ namespace glasssix::pumptop_helmet
 			// 算法传过来的模型名:人头检测模型 640T320-200epft-baoshinegtivev2-atss-nwd-wop
 			net_detect_3 = std::make_shared<GenPipeline>(model_directory_ + "/pumptop_helmet_head" + model_ext, device_);
 			yolov8_instance_3 = std::make_shared<Yolov8<GenPipeline>>(model_w, model_h, net_detect_3);
-			// 算法传过来的模型名:人头分类检测模型 helmetclassify-v2-96-labelsmooth-0.05
-			net_detect_4 = std::make_shared<GenPipeline>(model_directory_ + "/pumptop_helmet_helmet" + model_ext, device_);
 
 			net_detect_1->manual_possible_normalization(0, 1.f / 255);
 			net_detect_2->manual_possible_normalization(0, 1.f / 255);
 			net_detect_3->manual_possible_normalization(0, 1.f / 255);
+#elif defined(USE_BMNN)
+			yolov8_instance_1 = std::make_shared<SophonYolov8Wrapper>(model_directory_ + "/pumptop_helmet_pump" + model_ext);
+			yolov8_instance_1->init();
+			yolov8_instance_2 = std::make_shared<SophonYolov8Wrapper>(model_directory_ + "/pumptop_helmet_person" + model_ext);
+			yolov8_instance_2->init();
+			yolov8_instance_3 = std::make_shared<SophonYolov8Wrapper>(model_directory_ + "/pumptop_helmet_head" + model_ext);
+			yolov8_instance_3->init();
+#endif
+			// 算法传过来的模型名:人头分类检测模型 helmetclassify-v2-96-labelsmooth-0.05
+			net_detect_4 = std::make_shared<GenPipeline>(model_directory_ + "/pumptop_helmet_helmet" + model_ext, device_);
 			net_detect_4->manual_possible_normalization(0, 1.f / 255);
+
 		}
 
 		~impl()
@@ -677,13 +693,19 @@ namespace glasssix::pumptop_helmet
 		}
 
 	private:
+#if defined(USE_RKNNAPI) || defined(USE_RKNN2API)
 		std::shared_ptr<GenPipeline> net_detect_1;
 		std::shared_ptr<GenPipeline> net_detect_2;
 		std::shared_ptr<GenPipeline> net_detect_3;
-		std::shared_ptr<GenPipeline> net_detect_4;
 		std::shared_ptr<Yolov8<GenPipeline, false>> yolov8_instance_1;
 		std::shared_ptr<Yolov8<GenPipeline, false>> yolov8_instance_2;
 		std::shared_ptr<Yolov8<GenPipeline, false>> yolov8_instance_3;
+#elif defined(USE_BMNN)
+		std::shared_ptr<SophonYolov8Wrapper> yolov8_instance_1;
+		std::shared_ptr<SophonYolov8Wrapper> yolov8_instance_2;
+		std::shared_ptr<SophonYolov8Wrapper> yolov8_instance_3;
+#endif
+		std::shared_ptr<GenPipeline> net_detect_4;
 
 		std::vector<std::string> phais;
 

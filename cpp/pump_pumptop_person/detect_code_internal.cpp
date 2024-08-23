@@ -8,6 +8,9 @@
 #include <GenPipeline/PrePostProcessGenPipeline.hpp>
 #include <GenPipeline/GetPostprocessing.hpp>
 #include "../genpipeline/market/yolov8_GEN.hpp"
+#if defined(USE_BMNN)
+#include <sophonyolov8/SophonYolov8Wrapper.hpp>
+#endif
 
 namespace glasssix::pump_pumptop_person
 {
@@ -21,13 +24,12 @@ namespace glasssix::pump_pumptop_person
             if (*model_dir.rbegin() != '/') model_dir += '/';
 #if defined(USE_RKNNAPI) || defined(USE_RKNN2API)
             ioprocess_pipeline_ = PrePostProcessGenPipeline::mkSharePipeline(model_dir + "pumptop_person.rknn", 0);
-#elif defined(USE_BMNN)
-            ioprocess_pipeline_ = PrePostProcessGenPipeline::mkSharePipeline(model_dir + "pumptop_person.bmodel", 0);
-#else
-            ioprocess_pipeline_ = PrePostProcessGenPipeline::mkSharePipeline(model_dir + "pumptop_person.onnx", 0);
-#endif
             ioprocess_pipeline_->manual_possible_normalization(0, 1.f / 255);
             ioprocess_pipeline_->set_postprocessing(yolov8_GEN<1, 1>);
+#elif defined(USE_BMNN)
+            ioprocess_pipeline_ = std::make_shared<SophonYolov8Wrapper>(model_dir + "pumptop_person.bmodel");
+            ioprocess_pipeline_->init();
+#endif
         }
 
         exposing::param_vector<pump_pumptop_person::box_info> detect(exposing::param_span<std::uint8_t> bitmap, int height, int width, const std::vector<PedestrianInfo>& pedestrian_info_list, std::map<std::string,float>& param_map_std)
@@ -117,10 +119,11 @@ namespace glasssix::pump_pumptop_person
 
             const int letter_h = 736;
             const int letter_w = 1280;
+            std::vector<PptopBBox> box_list;
 
+#if defined(USE_RKNNAPI) || defined(USE_RKNN2API)
             GenPipTools::LetterInfo letter_op;
             auto letter_img = GenPipTools::letter_image(image, letter_w, letter_h, letter_op, true);
-            std::vector<PptopBBox> box_list;
             auto tensor_out = ioprocess_pipeline_->forward(letter_img).begin()->second;
             const int vf_nums = tensor_out->height(); //vf, visual field
             const int per_vf_len = tensor_out->width();
@@ -134,7 +137,14 @@ namespace glasssix::pump_pumptop_person
             }
             GenPipTools::nms_cpu(box_list, 0.6);
             GenPipTools::letter_map_origin_location(box_list, letter_op);
-
+#elif defined(USE_BMNN)
+            auto cropped_result = ioprocess_pipeline_->get_objects(image, conf_thres, 0.6);// ±Ã¼ì²â
+            for (auto& object : cropped_result)
+            {
+                PptopBBox obj_box((object.x1 + object.x2) * 0.5, (object.y1 + object.y2) * 0.5, object.x2 - object.x1, object.y2 - object.y1, object.score, 0);
+                box_list.push_back(obj_box);
+            }
+#endif  
             return box_list;
         }
 
@@ -177,12 +187,16 @@ namespace glasssix::pump_pumptop_person
 		std::string version()
 		{
 			const std::string algo_module_version = "2.0.0";
-			std::string nn_frame_version = ioprocess_pipeline_->version();
+			std::string nn_frame_version = "2.0.0";
 			return fmt::format(R"({ {"nn_frame_version":"{}", "algo_module_version" : "{}"} })", nn_frame_version, algo_module_version);
 		}
 
     private:
-	    std::shared_ptr<PrePostProcessGenPipeline> ioprocess_pipeline_;
+#if defined(USE_RKNNAPI) || defined(USE_RKNN2API)
+        std::shared_ptr<PrePostProcessGenPipeline> ioprocess_pipeline_;
+#elif defined(USE_BMNN)
+        std::shared_ptr<SophonYolov8Wrapper> ioprocess_pipeline_;
+#endif
     };
 
     detect_code_internal::detect_code_internal(std::string_view model_directory, int device)

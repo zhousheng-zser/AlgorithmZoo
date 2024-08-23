@@ -8,13 +8,9 @@
 
 #include <abi/param_vector.hpp>
 #include <utility>
-#include "general.hpp"
 #include <mutex>
 #include "wander.hpp"
 #include <GenPipeline/GenPipeline.hpp>
-#if defined(USE_RKNNAPI) || defined(USE_RKNN2API)
-#include <RKNN2Wrapper/rknn2_wrapper.hpp>
-#endif
 
 namespace glasssix::wander
 {
@@ -25,48 +21,30 @@ namespace glasssix::wander
         {
 
 #if defined(USE_RKNNAPI) || defined(USE_RKNN2API)      
-        net_feature_ = std::make_shared<GenPipeline>(std::string(model_directory) + "/people_feature.rknn", device);   
-        net_pedestrian_ = std::make_unique<rknnwrapper::rknn_wrapper>(get_model_params("climbing_tumble_pedestrian", false),
-            std::string(model_directory) + "/" + "climbing_tumble_pedestrian.rknn", device);
+        net_feature_ = std::make_shared<GenPipeline>(std::string(model_directory) + "/people_feature.rknn", device);
+        net_pedestrian_ = std::make_shared<GenPipeline>(std::string(model_directory) + "/climbing_tumble_pedestrian.rknn", device);
 #elif defined(USE_BMNN)
         net_feature_ = std::make_shared<GenPipeline>(std::string(model_directory) + "/people_feature.bmodel", device);   
-        //net_pedestrian_ = std::make_shared<GenPipeline>(std::string(model_directory) + "/climbing_tumble_pedestrian_temp.bmodel", device); //sophon的暂时没出来
         net_feature_->manual_possible_normalization(std::array<float, 3>{0.f, 0.f, 0.f}, std::array<float, 3>{1.0, 1.0, 1.0});
+        net_pedestrian_ = std::make_shared<GenPipeline>(std::string(model_directory) + "/climbing_tumble_pedestrian.bmodel" , device);
 #endif 
-        init_data_compatible(256, 256, add_weight_light, mul_weight_light);
+        net_pedestrian_->manual_possible_normalization(0, 1.f / 255);
         }
-        void init_data_compatible(int width, int height, std::vector<float>& add_weight, std::vector<float>& mul_weight)
-        {
-            int size_mul_weight = width * height * 21 / 1024; //33600
-            int size_add_weight = 2 * size_mul_weight;
-            int width_base = width / 8;
-            int height_base = height / 8;
-            int candicate_area = width_base * height_base; //160*160
 
-            add_weight.resize(size_add_weight);
-            mul_weight.resize(size_mul_weight);
-            for (size_t i = 0; i < candicate_area * 21 / 16; i++)
+        std::tuple<cv::Mat, float> preprocess_detection(cv::Mat& src, int& pad_h, int& pad_w, cv::Size input_shape = cv::Size(640, 640))
+        {
+            float scale = std::min((float)input_shape.width / (float)src.cols, (float)input_shape.height / (float)src.rows);
+            cv::Mat mask_image;
+            if (src.rows != input_shape.height || src.cols != input_shape.width)
             {
-                if (i < candicate_area) // 25600
-                {
-                    add_weight[i] = i % (width_base); //160
-                    add_weight[i + size_mul_weight] = i / (width_base); //
-                    mul_weight[i] = 8.f;
-                }
-                else if (i<int(std::round(i - candicate_area * 1.25)))
-                {
-                    add_weight[i] = (i - candicate_area) % (width_base / 2);
-                    add_weight[i + size_mul_weight] = (i - candicate_area) / (width_base / 2);
-                    mul_weight[i] = 16.f;
-                }
-                else
-                {
-                    add_weight[i] = int(std::round(i - candicate_area * 1.25)) % (width_base / 4);
-                    add_weight[i + size_mul_weight] = int(std::round(i - candicate_area * 1.25)) / (width_base / 4);
-                    mul_weight[i] = 32.f;
-                }
+                cv::resize(src, mask_image, input_shape, cv::INTER_LINEAR);
             }
-            return;
+            else
+            {
+                src.copyTo(mask_image);
+            }
+            cv::cvtColor(mask_image, mask_image, cv::COLOR_BGR2RGB);
+            return { mask_image,scale };
         }
 
         exposing::param_vector<wander::box_info> detect(const exposing::param_span<std::uint8_t>& bitmap, int channels, int height, int width, int roi_x, int roi_y, int roi_width, int roi_height, std::map<std::string, double>& param_map,const std::vector<PedestrianInfo> &pedestrain_info)
@@ -78,9 +56,6 @@ namespace glasssix::wander
             CHECK_EQ(channels, 3);
             CHECK_EQ(bitmap.size(), channels * height * width);
             
-            cv::Mat image(cv::Size(width, height), CV_8UC3);
-            std::memcpy(image.data, bitmap.data(), sizeof (uint8_t) * channels * height * width);
-                 
             if(roi_x<0 || roi_x>width || roi_y>height || roi_y<0 ||roi_height<0 || (roi_height+roi_y) >height || roi_width<0 || (roi_width+roi_x) > width)
                   throw exposing::abi_invalid_argument("incorrect roi in wander");
 
@@ -117,8 +92,9 @@ namespace glasssix::wander
             std::vector<std::shared_ptr<memory::tensor<float>>> forwards;
             std::shared_ptr<memory::tensor<float>> real_forwards;
 
-            auto network_result = net_pedestrian_->forward(blob.data, { 1, blob.rows, blob.cols,blob.channels() }, RKNN_TENSOR_NHWC);
-            float* cls_conf = network_result["output0"]->mutable_cpu_data();
+            auto network_result = net_pedestrian_->forward(blob);
+            auto wander_cls_rst = network_result.begin()->second;
+            float* cls_conf = wander_cls_rst->mutable_cpu_data();
             std::vector<float> current_frame_result;
             current_frame_result.push_back(cls_conf[0]);
             current_frame_result.push_back(cls_conf[1]);
@@ -254,16 +230,9 @@ namespace glasssix::wander
     private:
 
         std::shared_ptr<GenPipeline> net_feature_;
-        //std::shared_ptr<GenPipeline> net_pedestrian_;
+        std::shared_ptr<GenPipeline> net_pedestrian_;
         std::string model_directory_;
         int device_ ;
-        std::vector<float> add_weight_light;
-        std::vector<float> mul_weight_light;
-#if defined(USE_RKNNAPI) || defined(USE_RKNN2API)
-        std::unique_ptr < rknnwrapper::rknn_wrapper> net_pedestrian_;
-#else
-        std::unique_ptr < glasssix::excalibur::pipeline<float>> net_pedestrian_;
-#endif
 
     public:
         static std::vector<bbox> last_location_info;
