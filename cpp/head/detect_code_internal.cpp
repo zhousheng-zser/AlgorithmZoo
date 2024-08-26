@@ -75,7 +75,7 @@ namespace glasssix::head
     private:
 #if defined(USE_RKNNAPI) || defined(USE_RKNN2API)
         std::shared_ptr<GenPipeline> net_pedestrian_;
-        std::shared_ptr<Yolov8_Complement<GenPipeline>> Yolov8_Complement_instance;
+        std::shared_ptr<Yolov8<GenPipeline>> Yolov8_Complement_instance;
 #elif defined(USE_BMNN)
         std::shared_ptr<SophonYolov8Wrapper> Yolov8_Complement_instance;
 #endif
