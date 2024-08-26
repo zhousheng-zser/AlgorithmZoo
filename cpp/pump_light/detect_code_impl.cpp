@@ -11,9 +11,9 @@ namespace glasssix::pump_light
 	detect_code_impl::~detect_code_impl() = default;
 
 
-	void detect_code_impl::init(const exposing::param_string& model_directory, std::int32_t device)
+	void detect_code_impl::init(const exposing::param_string& model_directory, std::int32_t device, std::int32_t model_type)
 	{
-		impl_ = std::make_unique<detect_code_internal>(exposing::to_narrow_string(model_directory), device);
+		impl_ = std::make_unique<detect_code_internal>(exposing::to_narrow_string(model_directory), device, model_type);
 	}
 
 	exposing::param_string detect_code_impl::version() const
