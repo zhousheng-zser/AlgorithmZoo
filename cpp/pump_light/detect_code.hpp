@@ -22,7 +22,8 @@ namespace glasssix::exposing::impl
         {
             virtual std::int32_t G6_ABI_CALL init(
                 abi_in_t<param_string> model_directory,
-                std::int32_t device) noexcept = 0;
+                std::int32_t device,
+                std::int32_t model_type) noexcept = 0;
 
             virtual std::int32_t G6_ABI_CALL detect(
                 abi_in_t<param_span<std::uint8_t>> bitmap,
@@ -42,12 +43,12 @@ namespace glasssix::exposing::impl
 
         virtual std::int32_t G6_ABI_CALL init(
             abi_in_t<param_string> model_directory,
-            std::int32_t device) noexcept override
+            std::int32_t device, std::int32_t model_type) noexcept override
         {
             return abi_safe_call([&]
                 { this->self().init(
                     create_from_abi<param_string>(model_directory),
-                    device); });
+                    device, model_type); });
         }
 
         virtual std::int32_t G6_ABI_CALL detect(abi_in_t<param_span<std::uint8_t>> bitmap,
@@ -81,11 +82,11 @@ namespace glasssix::exposing::impl
         {
             void init(
                 const param_string& model_directory,
-                std::int32_t device) const
+                std::int32_t device, std::int32_t model_type) const
             {
                 check_abi_result(this->self_abi().init(
                     get_abi(model_directory),
-                    get_abi(device)));
+                    get_abi(device), get_abi(model_type)));
             }
 
             pump_light::box_info detect(

@@ -36,7 +36,7 @@ namespace glasssix::pump_light
     public:
         class impl;
 
-        detect_code_internal(std::string_view model_directory, int device);
+        detect_code_internal(std::string_view model_directory, int device, int model_type);
 
         virtual ~detect_code_internal();
 
