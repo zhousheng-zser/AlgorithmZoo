@@ -23,7 +23,7 @@ namespace glasssix::head
             if (*model_dir.rbegin() != '/') model_dir += '/';
 #if defined(USE_RKNNAPI) || defined(USE_RKNN2API)
             net_pedestrian_ = std::make_shared<GenPipeline>(model_dir + "/head_detect.rknn", device);
-            Yolov8_Complement_instance = std::make_shared<Yolov8_Complement<GenPipeline>>(1280, 1280, net_pedestrian_);
+            Yolov8_Complement_instance = std::make_shared<Yolov8<GenPipeline>>(1280, 1280, net_pedestrian_);
 #elif defined(USE_BMNN)
 
             Yolov8_Complement_instance = std::make_shared<SophonYolov8Wrapper>( model_dir + "/head_detect.bmodel");
@@ -75,7 +75,7 @@ namespace glasssix::head
     private:
 #if defined(USE_RKNNAPI) || defined(USE_RKNN2API)
         std::shared_ptr<GenPipeline> net_pedestrian_;
-        std::shared_ptr<Yolov8_Complement<GenPipeline>> Yolov8_Complement_instance;
+        std::shared_ptr<Yolov8<GenPipeline>> Yolov8_Complement_instance;
 #elif defined(USE_BMNN)
         std::shared_ptr<SophonYolov8Wrapper> Yolov8_Complement_instance;
 #endif
