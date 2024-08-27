@@ -1,6 +1,6 @@
 #include "facedetector_impl.hpp"
 #include "retina_net.hpp"
-#include "yolov7_net.hpp"
+#include "yolo_net.hpp"
 #include "face_info_impl.hpp"
 
 namespace glasssix::longinus
@@ -22,7 +22,7 @@ namespace glasssix::longinus
 			impl_ = std::make_unique<retina_net>(exposing::to_narrow_string(models_directory), model_type, nms_threshold, device);
 			break;
 		case 1:
-			impl_ = std::make_unique<yolov7_net>(exposing::to_narrow_string(models_directory), model_type, nms_threshold, device);
+			impl_ = std::make_unique<yolo_net>(exposing::to_narrow_string(models_directory), model_type, nms_threshold, device);
 			break;
 		default:
 			throw exposing::abi_invalid_argument(u8"Invalid param 'model_type'");
