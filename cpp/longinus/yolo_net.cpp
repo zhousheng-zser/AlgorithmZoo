@@ -1,4 +1,4 @@
-#include "yolov7_net.hpp"
+#include "yolo_net.hpp"
 #include "hardcode.hpp"
 #include "face_info_impl.hpp"
 #include <opencv2/opencv.hpp>
@@ -11,7 +11,7 @@
 namespace glasssix::longinus
 {
  
-    yolov7_net::yolov7_net(std::string_view models_directory, int model_type, float nms_threshold, int device)
+    yolo_net::yolo_net(std::string_view models_directory, int model_type, float nms_threshold, int device)
         : facedetector_base{ models_directory, model_type, nms_threshold, device },
         model_type_{ model_type },
         nms_threshold_{ nms_threshold }
@@ -22,43 +22,36 @@ namespace glasssix::longinus
         switch (model_type)
         {
             case 0:
-                yolov7_face_ = std::make_shared<GenPipeline>(std::string(models_directory) + "/yolov7_320.rknn", device);
+                yolo_face_ = std::make_shared<GenPipeline>(std::string(models_directory) + "/Yolo_320.rknn", device);
                 width = 320;
                 height = 320;
                 break;
             case 1:
-                yolov7_face_ = std::make_shared<GenPipeline>(std::string(models_directory) + "/yolov7_640.rknn", device);
+                yolo_face_ = std::make_shared<GenPipeline>(std::string(models_directory) + "/Yolo_640.rknn", device);
                 width = 640;
-                height = 640;
+                height = 384;
                 break;
         }
+        #if defined(USE_RKNNAPI) || defined(USE_RKNN2API) 
+            #ifdef USE_RKNN2API
+                    Yolo_instance = std::make_shared<Yolov8_Complement<GenPipeline>>(width,height, yolo_face_);
+            #else
+                    Yolo_instance = std::make_shared<Yolov7<GenPipeline,false,true>>(width,height, yolo_face_);
+            #endif
+        #endif
+       
 #elif defined(USE_BMNN)
-        switch (model_type)
-        {
-            case 0:
-                yolov7_face_ = std::make_shared<GenPipeline>(std::string(models_directory) + "/yolov7_320.bmodel", device);
-                width = 320;
-                height = 320;
-                break;
-            case 1:
-                yolov7_face_ = std::make_shared<GenPipeline>(std::string(models_directory) + "/yolov7_640.bmodel", device);
-                width = 640;
-                height = 640;
-                break;
-        }
+            Yolo_instance = std::make_shared<SophonYolov8Wrapper>(std::string(models_directory) + "/Yolo_face.bmodel");
+            Yolo_instance->init();
 #endif
-            // yolov7_face_->manual_possible_normalization(std::array<float,3>{104.f,117.f,124.f},std::array<float,3>{0.00961538f / 255.f,0.008547f / 255.f,0.00806451f / 255.f});
 
-            yolov7_face_->manual_possible_normalization(std::array<float,3>{0.f,0.f,0.f},std::array<float,3>{1.f / 255.f,1.f / 255.f,1.f / 255.f});
-
-            yolov7_instance = std::make_shared<Yolov7<GenPipeline,false,true>>(width,height, yolov7_face_);
     }
 
-    yolov7_net::~yolov7_net()
+    yolo_net::~yolo_net()
     {
     }
 
-    exposing::param_vector<longinus::face_info> yolov7_net::detect(exposing::param_span<std::uint8_t> bitmap, int channels, int height, int width, int min_size, float threshold, int order, bool do_attributing)
+    exposing::param_vector<longinus::face_info> yolo_net::detect(exposing::param_span<std::uint8_t> bitmap, int channels, int height, int width, int min_size, float threshold, int order, bool do_attributing)
     {
         if (bitmap.empty())
             throw exposing::abi_invalid_argument("current frame is empty");
@@ -71,8 +64,8 @@ namespace glasssix::longinus
 
         cv::Mat cache_temp(height, width, CV_8UC3, bitmap.data());
 
-
-        auto face_object = yolov7_instance->get_objects( cache_temp, threshold, nms_threshold_ );
+        
+        auto face_object = Yolo_instance->get_objects( cache_temp, threshold, nms_threshold_ );
 
 
         std::vector<face_info_internal> face_infos;
@@ -133,7 +126,7 @@ namespace glasssix::longinus
         return faces;
     }
     
-    std::string yolov7_net::version() const
+    std::string yolo_net::version() const
     {
         return "1.0.0";
     }
