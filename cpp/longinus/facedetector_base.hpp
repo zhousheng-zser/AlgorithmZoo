@@ -6,9 +6,14 @@
 #include <opencv2/opencv.hpp>
 #include <opencv2/imgproc/types_c.h>
 
-#include <YoloFamily/Yolo_wrapper.hpp>
-#include <GenPipeline/PrePostProcessGenPipeline.hpp>
-#include <GenPipeline/GenPipeTools.hpp>
+#if defined(USE_RKNNAPI) || defined(USE_RKNN2API)
+    #include <YoloFamily/Yolo_wrapper.hpp>
+    #include <GenPipeline/PrePostProcessGenPipeline.hpp>
+    #include <GenPipeline/GenPipeTools.hpp>
+#elif defined(USE_BMNN)
+    #include <sophonyolov8/SophonYolov8Wrapper.hpp>
+#endif
+
 
 #if defined(BUILD_RV1106) 
 #include <fstream>
