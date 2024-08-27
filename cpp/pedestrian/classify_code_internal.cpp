@@ -19,12 +19,14 @@
 #include <utility>
 
 #if defined(USE_RKNNAPI) || defined(USE_RKNN2API)
-#include <GenPipeline/GenPipeline.hpp>
-#include <YoloFamily/Yolo_wrapper.hpp>
+    #include <GenPipeline/GenPipeline.hpp>
+    #include <YoloFamily/Yolo_wrapper.hpp>
 #elif defined(USE_BMNN)
     #include <sophonyolov8/SophonYolov8Wrapper.hpp>
 #endif
+
 #include <chrono>
+
 
 
 namespace glasssix::pedestrian
@@ -38,11 +40,21 @@ namespace glasssix::pedestrian
         {
             std::string model_dir = exposing::to_narrow_string(model_directory) + "/";
 #if defined(USE_RKNNAPI) || defined(USE_RKNN2API)
-            net_pedestrian_ = std::make_shared<GenPipeline>(model_dir + "/pedestriantest.rknn", device);
-            Yolov8_Complement_instance = std::make_shared<Yolov8_Complement<GenPipeline>>(1280, 736, net_pedestrian_);
+    #ifdef ENABLE_PUMP//泵业的行人
+            const int width = 640;
+            const int height = 384;
+            net_pedestrian_ = std::make_shared<GenPipeline>(model_dir + "/pedestrian_pump.rknn", device);
+            std::cout << "pedestrian_pump.rknn\n";
+    #else//通用行人(默认使用)
+            const int width = 1280;
+            const int height = 736;
+            net_pedestrian_ = std::make_shared<GenPipeline>(model_dir + "/pedestrian.rknn", device);
+            //std::cout << "pedestrian.rknn\n";
+#endif
+            Yolov8_Complement_instance = std::make_shared<Yolov8<GenPipeline>>(width, height, net_pedestrian_);
 #elif defined(USE_BMNN)
 
-            Yolov8_Complement_instance = std::make_shared<SophonYolov8Wrapper>(model_dir + "/pedestriantest.bmodel");
+            Yolov8_Complement_instance = std::make_shared<SophonYolov8Wrapper>(model_dir + "/pedestrian.bmodel");
             Yolov8_Complement_instance->init();
 #endif       
            
@@ -50,6 +62,9 @@ namespace glasssix::pedestrian
 
         exposing::param_vector<pedestrian::box_info> detect(const exposing::param_span<std::uint8_t> &bitmap, int channels, int height, int width, int roi_x, int roi_y, int roi_width, int roi_height, std::map<std::string, float> &param_map)
         {
+
+            float con_thres = param_map.count("conf_thres") ? param_map["conf_thres"] : 0.5f;
+            float iou_thres = param_map.count("nms_thres") ? param_map["nms_thres"] : 0.6f;
             auto results_box_info = exposing::make_param_vector<pedestrian::box_info>();
             if (bitmap.empty())
             {
@@ -62,13 +77,28 @@ namespace glasssix::pedestrian
                 throw exposing::abi_invalid_argument("incorrect roi in universal_pedestrian");
             }
 
+            // std::cout<<"in pedestrian detect\n"<<std::endl;
+            
+            // auto start = std::chrono::high_resolution_clock::now();
+
             cv::Mat image(cv::Size(width, height), CV_8UC3, const_cast<uint8_t*>(bitmap.data()));
 
-            cv::Mat imagedevice;//Ĭ�Ϸ���soc���ڴ�
+            // cv::imwrite("image.jpg",image );
 
-            image.copyTo(imagedevice);
-            auto pedestrian_list =  Yolov8_Complement_instance->get_objects(imagedevice, 0.2);
+            cv::Mat imagedevice;//默认分配soc上内存
 
+            // cv::Mat image_mat_temp(image.rows,image.cols,CV_8UC3,image.data,image.step[0]);
+
+            // image.copyTo(imagedevice);
+            // image.copyTo(image_mat_temp);
+
+            auto pedestrian_list =  Yolov8_Complement_instance->get_objects(image, con_thres,iou_thres);
+
+            // auto end = std::chrono::high_resolution_clock::now();
+            // std::chrono::duration<float> duration = end - start; //记录经过了多长时间
+            // std::cout << duration.count() << "sssss" << std::endl; //输出运行时间
+
+            // std::cout<<"pedestrian_list size: "<< pedestrian_list.size()<< std::endl;
             for (auto person : pedestrian_list) {
                 box_info_internal box_info;
                 box_info.x1 = person.x1;
@@ -79,7 +109,6 @@ namespace glasssix::pedestrian
                 box_info.category = person.category;
                 results_box_info.push_back(glasssix::exposing::make_as_first<box_info_impl>(box_info));
             }
-
             return results_box_info;
         }
 
@@ -120,7 +149,7 @@ namespace glasssix::pedestrian
 
 #if defined(USE_RKNNAPI) || defined(USE_RKNN2API)
         std::shared_ptr<GenPipeline> net_pedestrian_;
-        std::shared_ptr<Yolov8_Complement<GenPipeline>> Yolov8_Complement_instance;
+        std::shared_ptr<Yolov8<GenPipeline>> Yolov8_Complement_instance;
 #elif defined(USE_BMNN)
         std::shared_ptr<SophonYolov8Wrapper> Yolov8_Complement_instance;
 #endif

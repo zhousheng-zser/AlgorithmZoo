@@ -120,11 +120,9 @@ else
 				// {
 				// 	cv::Mat testimg = cv::imread(std::to_string(i)+".jpg");
 				// 	cv::resize(testimg, testimg, cv::Size2i{ FIGHT_INFER_W_, FIGHT_INFER_H_ });
-				// cv::cvtColor(sub_region, sub_region, cv::COLOR_BGR2RGB);
-				// 	may_ft_region_batch_images.emplace_back(testimg);
+				// 	cv::cvtColor(testimg, testimg, cv::COLOR_BGR2RGB);
+				// 	// may_ft_region_batch_images.emplace_back(testimg);
 				// }
-
-				// std::cout<<"dsdsd\n";
 
 				float score = fight_detect_10B_handnormalization(may_ft_region_batch_images);
 				// std::cout<<"dsdsd2\n";
@@ -133,10 +131,8 @@ else
 
 				result.push_back(exposing::make_as_first<box_info_impl>(fightdet_box));
 			}
-
 			return result;
 		}
-
 
 		std::vector<cv::Rect> get_person_box_by_detect_result_list(
 			std::vector<cv::Mat> batchImages,
@@ -162,6 +158,7 @@ else
 #endif // BUILD_DEBUG_INFO
 				auto Vis = batchImages[f_id].clone();
 				auto frame_persons = person_detect(f_id, InteImageStp, person_conf_thres, person_nms_thres);
+
 				float model_input_scale_rate =460.f/256.f;
 				std::vector<cv::Rect> combined_box_list;
 				for (auto& frame_person : frame_persons) {
@@ -176,16 +173,18 @@ else
 						h = int(h * 1.3);
 
 						frame_person.reset_w_h_kepCenter(w, h);
-						frame_person.constraintRectBoundary(width, height);
+						frame_person.constraintRectBoundary(width, height);  //‰øÆÊîπÈóÆÈ¢ò
 						combined_box_list.emplace_back(frame_person.get_rect());
+
 #ifdef BUILD_DEBUG_INFO
-						//cv::rectangle(Vis, frame_person.get_rect(), { 0,255,0 }, 2);
 						cv::rectangle(VisFrame, frame_person.get_rect(), { 0,255,0 }, 2);
 #endif // BUILD_DEBUG_INFO
 					}
 				}
 						combine_related_box(combined_box_list, 0.01f);
-					
+						// for (auto  x :combined_box_list)
+								// cv::rectangle(Vis, x, { 0,100,255 }, 2);
+						
 						if(person_box_list.size()==0) 						
 							person_box_list = combined_box_list;
 						else
@@ -195,6 +194,7 @@ else
 							{
 								for (auto it = combined_box_list.begin(); it != combined_box_list.end();)
 								{
+									// std::cout<<"inner"<<
 									if (count_iou_(person_box, *it) > 0.01)
 									{
 										auto outer_box = get_outer_box_(person_box, *it);
@@ -216,10 +216,10 @@ else
 										temp_frame_person.constraintRectBoundary(width, height); 
 										new_person_box_list.push_back(temp_frame_person.get_rect());
 
-										// ≤¡≥˝µ±«∞µƒ combined_box
+										// Êì¶Èô§ÂΩìÂâçÁöÑ combined_box
 										it = combined_box_list.erase(it);
 										break;
-				}
+									}
 									else
 									{
 										++it;
@@ -236,7 +236,7 @@ else
 				// 	cv::rectangle(Vis, x, { 255,0, 0 }, 2);
 
 				// sleep(1);
-					// cv::imwrite("Vis.jpg", Vis );
+				// cv::imwrite("Vis.jpg", Vis );
 #ifdef BUILD_DEBUG_INFO
 				//AdpShow(VisFrame);
 #endif // BUILD_DEBUG_INFO

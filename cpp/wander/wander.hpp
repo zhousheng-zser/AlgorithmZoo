@@ -172,7 +172,9 @@
             {
                 return -1;
             }
-            return xy/(sqrt_xx*sqrt_yy); 
+            if (sqrt_xx * sqrt_yy == 0)
+                return 1;
+            return std::min(xy/(sqrt_xx*sqrt_yy),1.f ); 
         }
 
 
@@ -182,7 +184,7 @@
             std::map<int, wander_info> feature_table;
             if(feature_tables.count(devices))
             {   
-                feature_table = feature_tables[devices];
+                feature_table = feature_tables.at(devices);
             } 
 
             float currend_box_width = (curr_bbox.x2 - curr_bbox.x1)*1.5;
@@ -226,6 +228,8 @@
                     allocated_id_current_frame[id_distance]=1;
 
                     feature_table[id_distance].last_match_time = current_time;
+
+                    feature_table[id_distance].detection_number++;
                     feature_table[id_distance].refresh_feature(data);
                     
                     feature_table[id_distance].refresh_location(curr_bbox);
@@ -234,7 +238,7 @@
                     person_result.last_show_time  = current_time;
                     person_result.id = id_distance;
                     person_result.cosine_similarity = similiar;
-
+                    person_result.detection_number = feature_table[id_distance].detection_number;
                     feature_tables[devices]=feature_table;
                     return person_result;
                 }
@@ -247,12 +251,14 @@
             {
                 allocated_id_current_frame[id]=1;
                 feature_table[id].last_match_time = current_time;
+                feature_table[id].detection_number++;
                 feature_table[id].refresh_feature(data);
                 feature_table[id].refresh_location(curr_bbox);
                 person_result.first_show_time = feature_table[id].first_init_time;
                 person_result.last_show_time  = current_time;
                 person_result.id = id;
                 person_result.cosine_similarity = similiar;
+                person_result.detection_number = feature_table[id].detection_number;
                 feature_tables[devices]=feature_table;
                 return person_result;
             }
@@ -270,12 +276,14 @@
                 w_i.feature = feature;
                 w_i.feature_sqrt_xx = sqrt_xx;
                 w_i.first_init_time = current_time;
+                w_i.detection_number = 1; 
                 feature_table[id] = w_i;     
                 person_result.id =id;
 
                 person_result.first_show_time = current_time;
                 person_result.last_show_time  = 0.f;
                 person_result.cosine_similarity = 0.f;
+                person_result.detection_number = 1;
                 feature_tables[devices]=feature_table;
 
             }

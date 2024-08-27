@@ -172,10 +172,29 @@ namespace glasssix::subway_anomaly
             if (notclosed_ratio  >= normal_closedoor_thresh) {
                 ans.anomaly_status = 0;   //报警
                 ans.score = notclosed_ratio;
+                return exposing::make_as_first<box_info_impl>(ans);
+            }
+            //判断横条
+            int transverse_x = std::round(param_map["transverse_x"]);
+            int transverse_y = std::round(param_map["transverse_y"]);
+            int transverse_w = std::round(param_map["transverse_w"]);
+            int transverse_h = std::round(param_map["transverse_h"]);
+            cv::Rect compare_area2(transverse_x, transverse_y, transverse_w, transverse_h); // x, y, width, height
+            cv::Mat thresh2;
+            cv::threshold(image(compare_area2), thresh2, 150, 255, cv::THRESH_BINARY);
+            cv::Mat black_pixels2;
+            cv::inRange(thresh2, cv::Scalar(255,255,255), cv::Scalar(255,255,255), black_pixels2);
+            double num_black_pixels2 = cv::countNonZero(black_pixels2);
+            double total_pixels2 = thresh2.total();
+            double black_pixel_ratio2 = num_black_pixels2 / total_pixels2;
+            if (black_pixel_ratio2 >= normal_closedoor_thresh)
+            {
+                ans.anomaly_status = 0;   //报警
+                ans.score = black_pixel_ratio2;
             }
             else {
-                ans.anomaly_status = 1;   //报警
-                ans.score = notclosed_ratio;
+                ans.anomaly_status = 1;   //不报警
+                ans.score = black_pixel_ratio2;
             }
             return exposing::make_as_first<box_info_impl>(ans);
         }

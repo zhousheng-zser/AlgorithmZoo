@@ -20,8 +20,10 @@ namespace glasssix::playphone
 		int y1;
 		int x2;
 		int y2;
-		int category = -1;//0 man with phone; 1 man; 2 man bodyerr; -1 unknow
+		int category = -1;//0 man with phone; 1 man; 2 man bodyerr; -1 unknow; 3 追踪中被删掉的人
 		float confidence;
+		int frequency = -1; //检测到玩手机的次数
+		int id = -1;// 人对应的id
 
 		exposing::param_vector<std::int32_t> phonelocal_list;
 		exposing::param_vector<float> phonescore_list;

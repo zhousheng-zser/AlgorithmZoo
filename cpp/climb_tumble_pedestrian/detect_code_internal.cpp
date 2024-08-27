@@ -8,16 +8,11 @@
 
 #include <abi/param_vector.hpp>
 #include <utility>
-#include "general.hpp"
 
 #include <opencv2/core.hpp>
 #include <opencv2/imgproc.hpp>
 
-#if defined(USE_RKNNAPI) || defined(USE_RKNN2API)
-#include <RKNN2Wrapper/rknn2_wrapper.hpp>
-#endif
-
-#include <Primitives/tensor_conversions.hpp>
+#include <GenPipeline/GenPipeline.hpp>
 
 namespace glasssix::climb_tumble_pedestrian
 {
@@ -38,46 +33,30 @@ namespace glasssix::climb_tumble_pedestrian
         impl( std::string model_directory, int device)
         {
 #if defined(USE_RKNNAPI) || defined(USE_RKNN2API)
-            net_detect_light = std::make_unique<rknnwrapper::rknn_wrapper>(get_model_params("climbing_tumble_pedestrian", false),
-                std::string(model_directory) + "/" + "climbing_tumble_pedestrian.rknn", device);
+            std::string model_ext{ ".rknn" };
+#elif defined(USE_BMNN)
+            std::string model_ext{ ".bmodel" };
 #else
-            net_detect_light = std::make_unique<glasssix::excalibur::pipeline<float>>(get_model_params("climbing_tumble_pedestrian", false),
-                std::string(model_directory) + "/" + "climbing_tumble_pedestrian.racy", device);
-#endif  
-            init_data_compatible(256, 256, add_weight_light, mul_weight_light);
+            std::string model_ext{ ".onnx" };
+#endif
+            net_detect_person = std::make_shared<GenPipeline>(model_directory + "/climbing_tumble_pedestrian" + model_ext, device);
+            net_detect_person->manual_possible_normalization(0, 1.f / 255);
         }
-        void init_data_compatible(int width, int height, std::vector<float>& add_weight, std::vector<float>& mul_weight)
-        {
-            int size_mul_weight = width * height * 21 / 1024; //33600
-            int size_add_weight = 2 * size_mul_weight;
-            int width_base = width / 8;
-            int height_base = height / 8;
-            int candicate_area = width_base * height_base; //160*160
 
-            add_weight.resize(size_add_weight);
-            mul_weight.resize(size_mul_weight);
-            for (size_t i = 0; i < candicate_area * 21 / 16; i++)
+        std::tuple<cv::Mat, float> preprocess_detection(cv::Mat& src, int& pad_h, int& pad_w, cv::Size input_shape = cv::Size(640, 640))
+        {
+            float scale = std::min((float)input_shape.width / (float)src.cols, (float)input_shape.height / (float)src.rows);
+            cv::Mat mask_image;
+            if (src.rows != input_shape.height || src.cols != input_shape.width)
             {
-                if (i < candicate_area) // 25600
-                {
-                    add_weight[i] = i % (width_base); //160
-                    add_weight[i + size_mul_weight] = i / (width_base); //
-                    mul_weight[i] = 8.f;
-                }
-                else if (i<int(std::round(i - candicate_area * 1.25)))
-                {
-                    add_weight[i] = (i - candicate_area) % (width_base / 2);
-                    add_weight[i + size_mul_weight] = (i - candicate_area) / (width_base / 2);
-                    mul_weight[i] = 16.f;
-                }
-                else
-                {
-                    add_weight[i] = int(std::round(i - candicate_area * 1.25)) % (width_base / 4);
-                    add_weight[i + size_mul_weight] = int(std::round(i - candicate_area * 1.25)) / (width_base / 4);
-                    mul_weight[i] = 32.f;
-                }
+                cv::resize(src, mask_image, input_shape, cv::INTER_LINEAR);
             }
-            return;
+            else
+            {
+                src.copyTo(mask_image);
+            }
+            cv::cvtColor(mask_image, mask_image, cv::COLOR_BGR2RGB);
+            return { mask_image,scale };
         }
 
         exposing::param_vector<climb_tumble_pedestrian::box_info> detect(const exposing::param_span<std::uint8_t>& bitmap, int channels, int height, int width, int roi_x, int roi_y, int roi_width, int roi_height,  std::map<std::string, float>& param_map,const std::vector<PedestrianInfo> &pedestrain_info)
@@ -167,11 +146,11 @@ namespace glasssix::climb_tumble_pedestrian
             int pad_w = 0;
             std::tie(blob, ratio) = preprocess_detection(image, pad_h, pad_w, new_shape);
             std::vector<std::shared_ptr<memory::tensor<float>>> forwards;
-
             std::shared_ptr<memory::tensor<float>> real_forwards;
 
-            auto network_result = net_detect_light->forward(blob.data, { 1, blob.rows, blob.cols,blob.channels() }, RKNN_TENSOR_NHWC);
-            float* cls_conf = network_result["output0"]->mutable_cpu_data();
+            auto network_result = net_detect_person->forward(blob);
+            auto temp_cls_rst = network_result.begin()->second;
+            float* cls_conf = temp_cls_rst->mutable_cpu_data();
             std::vector<float> current_frame_result;
             current_frame_result.push_back(cls_conf[0]);
             current_frame_result.push_back(cls_conf[1]);
@@ -185,13 +164,7 @@ namespace glasssix::climb_tumble_pedestrian
     private:
         std::string model_directory_;
         int device_;
-        std::vector<float> add_weight_light;
-        std::vector<float> mul_weight_light;
-#if defined(USE_RKNNAPI) || defined(USE_RKNN2API)
-        std::unique_ptr < rknnwrapper::rknn_wrapper> net_detect_light;
-#else
-        std::unique_ptr < glasssix::excalibur::pipeline<float>> net_detect_light;
-#endif
+        std::shared_ptr<GenPipeline> net_detect_person;
 
         static std::mutex list_tumble_mutex;
         static std::map<int, std::vector<climb_tumble_pedestrian::box_info_internal> >list_tumble_map;

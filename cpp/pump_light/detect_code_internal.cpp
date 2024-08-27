@@ -8,19 +8,14 @@
 
 #include <abi/param_vector.hpp>
 #include <utility>
-#include "general.hpp"
+// #include "general.hpp"
 
+#include <GenPipeline/GenPipeline.hpp>
 
-#if defined(USE_RKNNAPI) || defined(USE_RKNN2API)
-#include <RKNN2Wrapper/rknn2_wrapper.hpp>
-#endif
-
-#include <Primitives/tensor_conversions.hpp>
 
 #include <opencv2/opencv.hpp>
 #include <opencv2/core.hpp>
 #include <opencv2/imgproc.hpp>
-#include <opencv2/dnn.hpp>
 
 
 
@@ -29,50 +24,57 @@ namespace glasssix::pump_light
     class detect_code_internal::impl
     {
     public:
-        impl(std::string_view model_directory, int device)
-            : model_directory_{ std::string(model_directory) }, device_{ device } 
+        impl(std::string_view model_directory, int device,int model_type)
+            : model_directory_{ std::string(model_directory) }, device_{ device }, model_type_{ model_type }
         {
 #if defined(USE_RKNNAPI) || defined(USE_RKNN2API)
-            net_detect_light = std::make_unique<rknnwrapper::rknn_wrapper>(get_model_params("pump_light", false),
-                std::string(model_directory) + "/" + "pump_light.rknn", device);
+            std::string model_ext{ ".rknn" };
+#elif defined(USE_BMNN)
+            std::string model_ext{ ".bmodel" };
 #else
-            net_detect_light = std::make_unique<glasssix::excalibur::pipeline<float>>(get_model_params("pump_light", false),
-                std::string(model_directory) + "/" + "pump_light.racy", device);
-#endif  
-            init_data_compatible(128, 128, add_weight_light, mul_weight_light);
+            std::string model_ext{ ".onnx" };
+#endif
+            if(model_type == 0)
+                net_detect_light = std::make_shared<GenPipeline>(model_directory_ + "/pump_light" + model_ext, device);
+            else if(model_type == 1)
+                net_detect_light = std::make_shared<GenPipeline>(model_directory_ + "/pump_light_32" + model_ext, device);
+            net_detect_light->manual_possible_normalization(0, 1.f / 255);
         } 
-        void init_data_compatible(int width, int height, std::vector<float>& add_weight, std::vector<float>& mul_weight)
-        {
-            int size_mul_weight = width * height * 21 / 1024; //33600
-            int size_add_weight = 2 * size_mul_weight;
-            int width_base = width / 8;
-            int height_base = height / 8;
-            int candicate_area = width_base * height_base; //160*160
 
-            add_weight.resize(size_add_weight);
-            mul_weight.resize(size_mul_weight);
-            for (size_t i = 0; i < candicate_area * 21 / 16; i++)
+        std::tuple<cv::Mat, float> preprocess_detection(cv::Mat& src, int& pad_h, int& pad_w, cv::Size input_shape = cv::Size(640, 640))
+        {
+            float scale = std::min((float)input_shape.width / (float)src.cols, (float)input_shape.height / (float)src.rows);
+            cv::Mat cut_image;
+            cv::Mat mask_image(input_shape, CV_8UC3, cv::Scalar(114, 114, 114));
+            if (src.rows != input_shape.height || src.cols != input_shape.width)
             {
-                if (i < candicate_area) // 25600
-                {
-                    add_weight[i] = i % (width_base); //160
-                    add_weight[i + size_mul_weight] = i / (width_base); //
-                    mul_weight[i] = 8.f;
-                }
-                else if (i<int(std::round(i - candicate_area * 1.25)))
-                {
-                    add_weight[i] = (i - candicate_area) % (width_base / 2);
-                    add_weight[i + size_mul_weight] = (i - candicate_area) / (width_base / 2);
-                    mul_weight[i] = 16.f;
-                }
-                else
-                {
-                    add_weight[i] = int(std::round(i - candicate_area * 1.25)) % (width_base / 4);
-                    add_weight[i + size_mul_weight] = int(std::round(i - candicate_area * 1.25)) / (width_base / 4);
-                    mul_weight[i] = 32.f;
-                }
+                cv::resize(src, cut_image, cv::Size((int)(src.cols * scale), (int)(src.rows * scale)), cv::INTER_LINEAR);
+
+                pad_h = int((input_shape.height - cut_image.rows) / 2);
+                pad_w = int((input_shape.width - cut_image.cols) / 2);
+                cv::copyMakeBorder(cut_image, mask_image, pad_h, input_shape.height - cut_image.rows - pad_h, pad_w, input_shape.width - cut_image.cols - pad_w, cv::BORDER_CONSTANT, cv::Scalar{ 114,114,114 });
             }
-            return;
+            else
+            {
+                src.copyTo(mask_image);
+            }
+            cv::cvtColor(mask_image, mask_image, cv::COLOR_BGR2RGB);
+            return { mask_image,scale };
+        }
+        std::tuple<cv::Mat, float> preprocess_detection_32(cv::Mat& src, int& pad_h, int& pad_w, cv::Size input_shape = cv::Size(640, 640))
+        {
+            float scale = std::min((float)input_shape.width / (float)src.cols, (float)input_shape.height / (float)src.rows);
+            cv::Mat mask_image;
+            if (src.rows != input_shape.height || src.cols != input_shape.width)
+            {
+                cv::resize(src, mask_image, input_shape, cv::INTER_LINEAR);
+            }
+            else
+            {
+                src.copyTo(mask_image);
+            }
+            cv::cvtColor(mask_image, mask_image, cv::COLOR_BGR2RGB);
+            return { mask_image,scale };
         }
 
         pump_light::box_info detect(const exposing::param_span<std::uint8_t>& bitmap, int channels, int height, int width, std::map<std::string, float>& param_map)
@@ -84,8 +86,7 @@ namespace glasssix::pump_light
             CHECK_EQ(channels, 3);
             CHECK_EQ(bitmap.size(), channels * height * width);
 
-            cv::Mat image(cv::Size(width, height), CV_8UC3);
-            std::memcpy(image.data, bitmap.data(), sizeof(uint8_t) * channels * height * width);
+            cv::Mat image(cv::Size(width, height), CV_8UC3, const_cast<uint8_t*>(bitmap.data()));
 
 
             pump_light::box_info result = run_detect(image, height, width, param_map);
@@ -106,13 +107,23 @@ namespace glasssix::pump_light
             float ratio = 0;
             int pad_h = 0;
             int pad_w = 0;
-            std::tie(blob, ratio) = preprocess_detection(image, pad_h, pad_w, new_shape);
+            if(model_type_ == 0)
+                std::tie(blob, ratio) = preprocess_detection(image, pad_h, pad_w, new_shape);
+            else if(model_type_ == 1)
+                std::tie(blob, ratio) = preprocess_detection_32(image, pad_h, pad_w, new_shape);
             std::vector<std::shared_ptr<memory::tensor<float>>> forwards;
 
             std::shared_ptr<memory::tensor<float>> real_forwards;
 
-            auto network_result = net_detect_light->forward(blob.data, { 1, blob.rows, blob.cols,blob.channels() }, RKNN_TENSOR_NHWC);
-            float* light_conf = network_result["output0"]->mutable_cpu_data();
+            auto network_result = net_detect_light->forward(blob);
+            
+#if defined(USE_BMNN)
+			std::string ext{"_Softmax"};
+#else
+			std::string ext{""};
+#endif
+			std::string out_names = {"output0" + ext};
+            float* light_conf = network_result[out_names]->mutable_cpu_data();
             std::vector<float> current_frame_result;
             current_frame_result.push_back(light_conf[0]);
             current_frame_result.push_back(light_conf[1]);
@@ -158,7 +169,7 @@ namespace glasssix::pump_light
             mx_y = std::max(std::max(y1, y2), std::max(y3, y4));
 
             cv::Mat cropped_image = image(cv::Range(mi_y, mx_y), cv::Range(mi_x, mx_x)).clone();
-            std::vector<float> cropped_result = yolo8_detect(cropped_image, 128, 128);// 灯光检测 
+            std::vector<float> cropped_result = yolo8_detect(cropped_image, (model_type_ == 0 ? 128 : 32), (model_type_ == 0 ? 128 : 32));// 灯光检测
             
             pump_light::box_info_internal ans;
             ans.light_status = (cropped_result[0]<= cropped_result[1] && con_thres <=cropped_result[1]) ?1:0;
@@ -167,18 +178,12 @@ namespace glasssix::pump_light
         }
         std::string model_directory_;
         int device_;
-        std::vector<float> add_weight_light;
-        std::vector<float> mul_weight_light;
-#if defined(USE_RKNNAPI) || defined(USE_RKNN2API)
-        std::unique_ptr < rknnwrapper::rknn_wrapper> net_detect_light;  
-#else
-        std::unique_ptr < glasssix::excalibur::pipeline<float>> net_detect_light;
-#endif
-
+        int model_type_;
+        std::shared_ptr<GenPipeline> net_detect_light;
     };
 
-    detect_code_internal::detect_code_internal(std::string_view model_directory, int device)
-        : impl_{ std::make_unique<impl>(model_directory, device) }
+    detect_code_internal::detect_code_internal(std::string_view model_directory, int device, int model_type)
+        : impl_{ std::make_unique<impl>(model_directory, device, model_type) }
     {
     }
 

@@ -10,21 +10,33 @@
 
 #include "hardcode.hpp"
 
+#if defined(USE_RKNNAPI) || defined(USE_RKNN2API)
 #include <RKNN2Wrapper/rknn2_wrapper.hpp>
+#endif
 #include <opencv2/core.hpp>
 #include <opencv2/imgproc.hpp>
 #include <opencv2/opencv.hpp>
 #include <abi/param_vector.hpp>
 #include <utility>
 #include "general.hpp"
-#include <GenPipeline/GenPipeline.hpp>
+
+#if defined(USE_RKNNAPI) || defined(USE_RKNN2API)
+    #include <GenPipeline/GenPipeline.hpp>
+    //#include <YoloFamily/Yolo_wrapper.hpp>
+#elif defined(USE_BMNN)
+    #include <sophonyolov8/SophonYolov8Wrapper.hpp>
+#endif
 #include <YoloFamily/Yolo_wrapper.hpp>
+
 #define no_draw_pic 
 
 namespace glasssix::smoke
 {
-    bool compareByFifthElement(const ObjectInfo& a, const ObjectInfo& b) {
-                        return a.score > b.score;   }
+    template <typename T>
+    bool compareByFifthElement(const T& a, const T& b) {
+        return a.score > b.score;
+    }
+
     class detect_code_internal::impl
     {
     public:
@@ -35,13 +47,14 @@ namespace glasssix::smoke
 
         impl(const std::vector<std::string> &phai, std::string model_directory, int device) 
         {
+
 #if defined(USE_RKNNAPI) || defined(USE_RKNN2API)
-                net_smoke_detect_ = std::make_shared<GenPipeline>(std::string(model_directory) + "/cigarette_detect.rknn", device);
-#elif defined(USE_BMNN)
-                net_smoke_detect_ = std::make_shared<GenPipeline>(std::string(model_directory) + "/cigarette_detect.bmodel", device);
-#endif      
-            net_smoke_detect_->manual_possible_normalization(std::array<float,3>{0.f,0.f,0.f},std::array<float,3>{1.f / 255.f,1.f / 255.f,1.f / 255.f});
+            net_smoke_detect_ = std::make_shared<GenPipeline>(std::string(model_directory) + "/cigarette_detect.rknn", device);
             yolov8_instance = std::make_shared<Yolov8<GenPipeline>>(320,320, net_smoke_detect_);
+#elif defined(USE_BMNN)
+            yolov8_instance = std::make_shared<SophonYolov8Wrapper>(std::string(model_directory) + "/cigarette_detect.bmodel", device);
+            yolov8_instance->init();  
+#endif
         }
 
         exposing::param_vector<smoke::box_info> detect(const exposing::param_span<std::uint8_t>& bitmap, int channels, int height, int width, int roi_x, int roi_y, int roi_width, int roi_height, exposing::param_vector<posture::box_info> posture_info_list, std::map<std::string, float>& param_map)
@@ -85,7 +98,6 @@ namespace glasssix::smoke
                                                                                                                         std::max(detect_rect.x2-detect_rect.x1,detect_rect.y2-detect_rect.y1) ))
                 { continue;}  //    
 
-                //std::cout<<detect_rect.y1<<" "<<detect_rect.y2<<" "<<detect_rect.x1<<" "<<detect_rect.x2<<std::endl;
                 cv::Mat cigarette_detect = image(cv::Range(detect_rect.y1, detect_rect.y2), cv::Range(detect_rect.x1, detect_rect.x2));
                
                 auto cigarette_objects = yolov8_instance->get_objects( cigarette_detect, smoke_conf_thres, smoke_iou_thres );
@@ -94,8 +106,13 @@ namespace glasssix::smoke
 
                 if(cigarette_objects.size()>0)
                 {
-                    std::sort( cigarette_objects.begin(), cigarette_objects.end(), compareByFifthElement   );
-
+                    
+#if defined(USE_RKNNAPI) || defined(USE_RKNN2API)
+     std::sort( cigarette_objects.begin(), cigarette_objects.end(), compareByFifthElement<ObjectInfo>   );
+#elif defined(USE_BMNN)
+     std::sort( cigarette_objects.begin(), cigarette_objects.end(), compareByFifthElement<Object>   );
+#endif
+                   
                     auto cigrate = cigarette_objects[0];
                     {
                         int cigratex1=std::round( cigrate.x1 +detect_rect.x1)>0?std::round( cigrate.x1 +detect_rect.x1):0  ;
@@ -118,7 +135,6 @@ namespace glasssix::smoke
                             temp_box.y1 = postureInfo.y1;
                             temp_box.y2 = postureInfo.y2;
                             temp_box.confidence = cigrate.score;
-                            //std::cout<<"smoke score: "<<temp_box.confidence<<"\n";
                             temp_box.key_points = exposing::make_param_vector<float>();
                             for(int j=0; j<postureInfo.Kpoints.size(); j++)
                             {
@@ -151,16 +167,17 @@ namespace glasssix::smoke
         std::string version()
         {
             const std::string algo_module_version = "3.0.2";
-            std::string nn_frame_version = net_smoke_detect_->version();
+            std::string nn_frame_version = "3.0.2";
             return fmt::format(R"({{"nn_frame_version":"{}", "algo_module_version":"{}"}})", nn_frame_version, algo_module_version);
         }
 
     private:
+#if defined(USE_RKNNAPI) || defined(USE_RKNN2API)
         std::shared_ptr<GenPipeline> net_smoke_detect_;
         std::shared_ptr<Yolov8<GenPipeline>> yolov8_instance;
-        std::string model_directory_;
-        exposing::param_hash_map<exposing::param_string, float> posture_param_abi;
-        int device_ ;
+#elif defined(USE_BMNN)
+        std::shared_ptr<SophonYolov8Wrapper> yolov8_instance;
+#endif
 
     };
 

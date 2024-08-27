@@ -30,21 +30,21 @@ namespace glasssix::crowd
     {
     public:
         impl(const exposing::param_string model_directory, int device = -1)
-                : impl{ exposing::to_narrow_string(model_directory), device}
+            : impl{ exposing::to_narrow_string(model_directory), device }
         {
         }
 
-        impl( std::string model_directory, int device)
+        impl(std::string model_directory, int device)
         {
 #if defined(USE_RKNNAPI) || defined(USE_RKNN2API)
             std::vector<std::string> phai;
-            net_segment0_ =  std::make_unique<rknnwrapper::rknn_wrapper> (phai,  std::string(model_directory) + std::string("/crowdcount_sim0.rknn"), device),
-            net_segment1_ =  std::make_unique<rknnwrapper::rknn_wrapper> (phai,   std::string(model_directory) + std::string("/crowdcount_sim1.rknn"), device);
+            net_segment0_ = std::make_unique<rknnwrapper::rknn_wrapper>(phai, std::string(model_directory) + std::string("/crowdcount_sim0.rknn"), device),
+                net_segment1_ = std::make_unique<rknnwrapper::rknn_wrapper>(phai, std::string(model_directory) + std::string("/crowdcount_sim1.rknn"), device);
 #elif defined(USE_BMNN)
             net_crowd_ = std::make_shared<GenPipeline>(std::string(model_directory) + "/crowdcount_sim.bmodel", device);
-            net_crowd_->manual_possible_normalization(std::array<float,3>{113.7f,104.4f,100.7f},std::array<float,3>{0.01360544, 0.014084507, 0.01383125864});
+            net_crowd_->manual_possible_normalization(std::array<float, 3>{113.7f, 104.4f, 100.7f}, std::array<float, 3>{0.01360544, 0.014084507, 0.01383125864});
 #endif
-            
+
         }
 
         exposing::param_vector<crowd::box_info> detect(const exposing::param_span<std::uint8_t>& bitmap, int channels, int height, int width, int roi_x, int roi_y, int roi_width, int roi_height, int min_cluster_size, std::map<std::string, float>& param_map)
@@ -54,36 +54,36 @@ namespace glasssix::crowd
 
             if (bitmap.empty())
                 throw exposing::abi_invalid_argument("current frame is empty");
-            
+
             int min_area_threshold = std::round(param_map.count("area_threshold") ? param_map["area_threshold"] : 15.f);
 
             CHECK_EQ(channels, 3);
             CHECK_EQ(bitmap.size(), channels * height * width);
 
             cv::Mat image(cv::Size(width, height), CV_8UC3, const_cast<uint8_t*>(bitmap.data()));
-            if(roi_x<0 || roi_x>width || roi_y>height || roi_y<0 ||roi_height<0 || (roi_height+roi_y) >height || roi_width<0 || (roi_width+roi_x) > width)
-                  throw exposing::abi_invalid_argument("incorrect roi in crowd");
+            if (roi_x<0 || roi_x>width || roi_y > height || roi_y < 0 || roi_height<0 || (roi_height + roi_y) >height || roi_width<0 || (roi_width + roi_x) > width)
+                throw exposing::abi_invalid_argument("incorrect roi in crowd");
 
-            cv::Mat cropped_image = image(cv::Range(roi_y,roi_y+roi_height), cv::Range(roi_x,roi_x+roi_width));
+            cv::Mat cropped_image = image(cv::Range(roi_y, roi_y + roi_height), cv::Range(roi_x, roi_x + roi_width));
             float pic_scale = cropped_image.cols > cropped_image.rows ? static_cast<float>(cropped_image.rows) * 1.0f / molel_h : static_cast<float>(cropped_image.cols) * 1.0f / molel_w;
 
             cv::resize(cropped_image, cropped_image, cv::Size((int)(cropped_image.cols / pic_scale), (int)(cropped_image.rows / pic_scale)), cv::INTER_LINEAR);
-            
-            int cropwidth =  cropped_image.cols;
+
+            int cropwidth = cropped_image.cols;
             int cropheight = cropped_image.rows;
             int xslice = (cropwidth + molel_w - 1) / molel_w;
             int yslice = (cropheight + molel_h - 1) / molel_h;
             int pad_h = yslice * molel_h - cropheight;
             int pad_w = xslice * molel_w - cropwidth;
 
-            if(pad_h>0 || pad_w>0 )
+            if (pad_h > 0 || pad_w > 0)
                 cv::copyMakeBorder(cropped_image, cropped_image, 0, pad_h, 0, pad_w, cv::BORDER_CONSTANT, cv::Scalar{ 0,0,0 });
-            
-            cropwidth=cropped_image.cols;
+
+            cropwidth = cropped_image.cols;
             cropheight = cropped_image.rows;
 
             std::vector<cluster_info> detection_points;
-            for(int i=0;i< yslice;i++)
+            for (int i = 0; i < yslice; i++)
             {
                 for (size_t j = 0; j < xslice; j++)
                 {
@@ -92,35 +92,37 @@ namespace glasssix::crowd
                     int cropy1 = i * molel_h;
                     int cropy2 = (i + 1) * molel_h > cropheight ? cropheight : (i + 1) * molel_h;
 
-                    auto result = run_segment(cropped_image,cropx1,cropx2,cropy1,cropy2, min_area_threshold);
-                    for( auto& it:result) 
+                    auto result = run_segment(cropped_image, cropx1, cropx2, cropy1, cropy2, min_area_threshold);
+                    for (auto& it : result)
                     {
-                        it.x1*=pic_scale;
-                        it.x2*=pic_scale;
-                        it.y1*=pic_scale;
-                        it.y2*=pic_scale;
+                        it.x1 *= pic_scale;
+                        it.x2 *= pic_scale;
+                        it.y1 *= pic_scale;
+                        it.y2 *= pic_scale;
 
-                        it.x1+=roi_x;
-                        it.x2+=roi_x;
-                        it.y1+=roi_y;
-                        it.y2+=roi_y;
+                        it.x1 += roi_x;
+                        it.x2 += roi_x;
+                        it.y1 += roi_y;
+                        it.y2 += roi_y;
                         detection_points.push_back(cluster_info{ .x1 = it.x1 ,.y1 = it.y1 ,.x2 = it.x2 ,
-                        .y2 = it.y2 ,.x=(it.x1+ it.x2)*0.5,.y= (it.y1 + it.y2) * 0.5 });
+                        .y2 = it.y2 ,.x = (it.x1 + it.x2) * 0.5,.y = (it.y1 + it.y2) * 0.5 });
                     }
 
                 }
             }
-            
+
             std::vector<crowd::box_info> cluster_list = find_cluster_num(detection_points, min_cluster_size);
             auto results = exposing::make_param_vector<crowd::box_info>();
             if (cluster_list.size() == 0)
                 return results;
             crowd::box_info cluster_key = find_cluster_key(cluster_list);
+
             int trigger_delay = std::round(param_map.count("trigger_delay") ? param_map["trigger_delay"] : 30.f);
             int device_id = std::round(param_map.count("device_id") ? param_map["device_id"] : 0.f);
             int max_area_list = std::round(param_map.count("max_area_list") ? param_map["max_area_list"] : 5.f);
             float nms_threshold = param_map.count("nms_thres") ? param_map["nms_thres"] : 0.5f;
             bool is_crow = check_crow(cluster_key, trigger_delay, device_id, max_area_list, nms_threshold);
+
             if (is_crow)
             {
                 for (auto val : cluster_list)
@@ -137,9 +139,9 @@ namespace glasssix::crowd
         {
             const std::string algo_module_version = "2.3.0";
 
-			std::string nn_frame_version = "dsd";
+            std::string nn_frame_version = "dsd";
 
-			return fmt::format(R"({{"nn_frame_version":"{}", "algo_module_version":"{}"}})", nn_frame_version, algo_module_version);
+            return fmt::format(R"({{"nn_frame_version":"{}", "algo_module_version":"{}"}})", nn_frame_version, algo_module_version);
 
         }
 
@@ -150,6 +152,7 @@ namespace glasssix::crowd
             {
                 area1_map.erase(devices);
             }
+
             if (time_area1_map.count(devices))
             {
                 time_area1_map.erase(devices);
@@ -159,6 +162,7 @@ namespace glasssix::crowd
                 area2_map.erase(devices);
             }
         }
+
         std::string remove_library(int devices)
         {
             delete_area_map_by_id(devices);
@@ -194,6 +198,7 @@ namespace glasssix::crowd
             int y = std::max(0, std::min(ay2, by2) - std::max(ay1, by1));
             return x * y;
         }
+
         float area_iou(const std::list<crowd::box_info>& list_crowd_area1, crowd::box_info cluster_key)
         {
             if (list_crowd_area1.size() == 0)
@@ -210,16 +215,19 @@ namespace glasssix::crowd
             average_y1 /= list_crowd_area1.size();
             average_x2 /= list_crowd_area1.size();
             average_y2 /= list_crowd_area1.size();
+
             float inter_area = ComputeArea(cluster_key.x1(), cluster_key.y1(), cluster_key.x2(), cluster_key.y2(),
                 average_x1, average_y1, average_x2, average_y2) * 1.0;
             float union_area = (average_y2 - average_y1) * (average_x2 - average_x1) + (cluster_key.y2() - cluster_key.y1()) * (cluster_key.x2() - cluster_key.x1()) - inter_area;
             return  std::min(1.0f, std::max(0.0f, inter_area / union_area));
         }
+
         bool check_crow(crowd::box_info cluster_key, int trigger_delay, int device_id, int max_area_list, float nms_threshold)
         {
             std::lock_guard<std::mutex> lock(list_crowd_area_mutex);
             bool flag = false;
             std::list<std::chrono::steady_clock::time_point>& list_crowd_time_area1 = time_area1_map[device_id];
+
             std::list<crowd::box_info>& list_crowd_area1 = area1_map[device_id];
             std::list<crowd::box_info>& list_crowd_area2 = area2_map[device_id];
             if (list_crowd_area1.size() == 0)
@@ -239,11 +247,13 @@ namespace glasssix::crowd
                     list_crowd_area2.push_back(cluster_key);
             }
             auto duration = std::chrono::duration_cast<std::chrono::seconds> (std::chrono::steady_clock::now() - list_crowd_time_area1.front());
+
             if (list_crowd_area2.size() > max_area_list)
             {
                 list_crowd_area1.clear();
                 list_crowd_time_area1.clear();
                 list_crowd_area2.clear();
+
                 list_crowd_area1.push_back(cluster_key);
                 list_crowd_time_area1.push_back(std::chrono::steady_clock::now());
                 flag = false;
@@ -253,9 +263,12 @@ namespace glasssix::crowd
                 flag = true;
                 list_crowd_area1.pop_front();//删除第一个元素
                 list_crowd_time_area1.pop_front(); //删除第一个元素
+                //printf("list_crowd_area1 len =%llu\n", list_crowd_area1.size());
             }
+            //printf("list_crowd_area2 len =%llu\n", list_crowd_area2.size()); 
             return flag;
         }
+
         crowd::box_info find_cluster_key(std::vector<crowd::box_info>& cluster_list)
         {
             struct info {
@@ -292,6 +305,7 @@ namespace glasssix::crowd
                     ans_id = val.category();
                 }
             }
+
             crowd::box_info_internal ans;
             ans.x1 = dd[ans_id].x1;
             ans.y1 = dd[ans_id].y1;
@@ -300,6 +314,7 @@ namespace glasssix::crowd
             ans.category = ans_id;
             return glasssix::exposing::make_as_first<box_info_impl>(ans);
         }
+
         std::vector<crowd::box_info> find_cluster_num(const std::vector<cluster_info>& detection_points, int min_cluster_size)
         {
             std::vector<crowd::box_info> results;
@@ -310,15 +325,15 @@ namespace glasssix::crowd
 
             //crowd::box_info_internal
             //results.push_back(glasssix::exposing::make_as_first<box_info_impl>(it));
-            for ( int i = 0 ;i< detection_points.size();++i)
+            for (int i = 0; i < detection_points.size(); ++i)
             {
                 if (cluster_num_ans[i] == 0 || cluster_num_ans[i] == -1)
                     continue;
                 crowd::box_info_internal temp;
-                temp.x1= detection_points[i].x1;     
-                temp.y1= detection_points[i].y1;     
-                temp.x2= detection_points[i].x2;     
-                temp.y2= detection_points[i].y2;     
+                temp.x1 = detection_points[i].x1;
+                temp.y1 = detection_points[i].y1;
+                temp.x2 = detection_points[i].x2;
+                temp.y2 = detection_points[i].y2;
                 temp.category = cluster_num_ans[i];
                 results.push_back(glasssix::exposing::make_as_first<box_info_impl>(temp));
             }
@@ -331,22 +346,22 @@ namespace glasssix::crowd
             int width = molel_w;
             int height = molel_h;
             cv::Mat grayImage(height, width, CV_8UC1);
-            for (int i = 0; i < height; i++) 
-                for (int j = 0; j < width; j++) 
+            for (int i = 0; i < height; i++)
+                for (int j = 0; j < width; j++)
                 {
                     int index = i * width + j;
-                    grayImage.at<uchar>(i, j) = static_cast<uchar>(binar_map[index]*255);
+                    grayImage.at<uchar>(i, j) = static_cast<uchar>(binar_map[index] * 255);
                 }
 
             cv::Mat labeledImage;
             cv::Mat stats;
             cv::Mat centroids;
 
-            int numLabels = cv::connectedComponentsWithStats(grayImage, labeledImage, stats, centroids,4);
-            
+            int numLabels = cv::connectedComponentsWithStats(grayImage, labeledImage, stats, centroids, 4);
+
             for (int i = 1; i < numLabels; ++i)  // 忽略背景标签 0
             {
-                if( stats.at<int>(i, cv::CC_STAT_AREA) > min_area )
+                if (stats.at<int>(i, cv::CC_STAT_AREA) > min_area)
                 {
                     detect_list box;
                     box.x1 = stats.at<int>(i, cv::CC_STAT_LEFT);
@@ -366,25 +381,24 @@ namespace glasssix::crowd
             std::vector<int> binar_map(len);
             for (size_t i = 0; i < len; i++)
             {
-                if(pred_map[i]>=predict[i]  )
-                    binar_map[i]=1;
+                if (pred_map[i] >= predict[i])
+                    binar_map[i] = 1;
                 else
-                    binar_map[i]=0;
+                    binar_map[i] = 0;
             }
             return get_boxInfo_from_Binar_map(binar_map, area_threshold);
         }
 
-        
-        std::vector<crowd::box_info_internal>  run_segment(cv::Mat& images, int cropx1,int cropx2,int cropy1,int cropy2, int area_threshold )
-        {   
+        std::vector<crowd::box_info_internal>  run_segment(cv::Mat& images, int cropx1, int cropx2, int cropy1, int cropy2, int area_threshold)
+        {
             std::vector<box_info_internal> output;
-            cv::Rect rect {cropx1, cropy1, cropx2 - cropx1, cropy2 - cropy1};
+            cv::Rect rect{ cropx1, cropy1, cropx2 - cropx1, cropy2 - cropy1 };
             cv::Mat blobs = images(rect).clone();
             if (blobs.cols != molel_w || blobs.rows != molel_h)
                 throw exposing::abi_invalid_argument("img size error in crowd");
 
             cv::cvtColor(blobs, blobs, cv::COLOR_BGR2RGB);
-            
+
 #if defined(USE_RKNNAPI) || defined(USE_RKNN2API)
             std::vector<std::shared_ptr<glasssix::memory::tensor<float>>> forward_result;
             auto  network_results = net_segment0_->forward(blobs.data, { 1, blobs.rows, blobs.cols,blobs.channels() }, RKNN_TENSOR_NHWC);
@@ -394,7 +408,7 @@ namespace glasssix::crowd
             auto Mul_268 = std::make_shared<glasssix::memory::tensor<float>>(shape1, -1, glasssix::memory::NCHW);
             std::vector<int> shape2 = { 1, 1, 72, 64 };
             auto Mul_263 = std::make_shared<glasssix::memory::tensor<float>>(shape2, -1, glasssix::memory::NCHW);
-            auto input_188= std::make_shared<glasssix::memory::tensor<float>>(shape1, -1, glasssix::memory::NCHW);
+            auto input_188 = std::make_shared<glasssix::memory::tensor<float>>(shape1, -1, glasssix::memory::NCHW);
 
             resize_nearst(forward_result[0]->cpu_data(), Mul_268->mutable_cpu_data(), 144, 128, 72, 64, 720);
             resize_nearst(forward_result[1]->cpu_data(), Mul_263->mutable_cpu_data(), 576, 512, 72, 64, 1);
@@ -411,24 +425,24 @@ namespace glasssix::crowd
             * @return tensor(preprocess(image))
             */
 
-            const float *predict = network_result1["predict"]->cpu_data();
+            const float* predict = network_result1["predict"]->cpu_data();
             const float* pred_map = forward_result[1]->cpu_data();
 
 
 #elif defined(USE_BMNN)
             auto  net_crowd__result = net_crowd_->forward(blobs);
-            const float *predict = net_crowd__result["predict_Resize_f32"]->cpu_data();
+            const float* predict = net_crowd__result["predict_Resize_f32"]->cpu_data();
             const float* pred_map = net_crowd__result["pred_map_Sigmoid"]->cpu_data();
 #endif
-            auto result_part = post_process( pred_map, predict,area_threshold);
+            auto result_part = post_process(pred_map, predict, area_threshold);
 
-            for (auto &iter: result_part)
-            {       
+            for (auto& iter : result_part)
+            {
                 box_info_internal  headp;
-                headp.x1 = iter.x1+cropx1;
-                headp.x2 = iter.x2+cropx1;
-                headp.y1 =iter.y1+cropy1;
-                headp.y2 =iter.y2+cropy1;
+                headp.x1 = iter.x1 + cropx1;
+                headp.x2 = iter.x2 + cropx1;
+                headp.y1 = iter.y1 + cropy1;
+                headp.y2 = iter.y2 + cropy1;
                 output.push_back(headp);
             }
             return output;
@@ -439,13 +453,13 @@ namespace glasssix::crowd
         std::string model_directory_;
         int device_;
 #if defined(USE_RKNNAPI) || defined(USE_RKNN2API)
-            std::unique_ptr<glasssix::rknnwrapper::rknn_wrapper> net_segment0_;
-            std::unique_ptr<glasssix::rknnwrapper::rknn_wrapper> net_segment1_;
+        std::unique_ptr<glasssix::rknnwrapper::rknn_wrapper> net_segment0_;
+        std::unique_ptr<glasssix::rknnwrapper::rknn_wrapper> net_segment1_;
 
 #elif defined(USE_BMNN)
-            std::shared_ptr<GenPipeline> net_crowd_;
+        std::shared_ptr<GenPipeline> net_crowd_;
 #endif
-        
+
 
     };
 
@@ -465,10 +479,12 @@ namespace glasssix::crowd
     {
         return impl_->remove_library(id);
     }
+
     exposing::param_vector<crowd::box_info> detect_code_internal::detect(exposing::param_span<std::uint8_t> bitmap, int channels, int height, int width, int roi_x, int roi_y, int roi_width, int roi_height, int min_cluster_size, std::map<std::string, float>& param_map) const
     {
         return impl_->detect(bitmap, channels, height, width, roi_x, roi_y, roi_width, roi_height, min_cluster_size, param_map);
     }
+
     std::mutex detect_code_internal::impl::list_crowd_area_mutex;
     std::map<int, std::list<crowd::box_info> >detect_code_internal::impl::area1_map;
     std::map<int, std::list<std::chrono::steady_clock::time_point> >detect_code_internal::impl::time_area1_map;

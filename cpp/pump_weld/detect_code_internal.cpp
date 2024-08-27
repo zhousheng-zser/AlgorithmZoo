@@ -17,6 +17,10 @@
 #include <opencv2/core/core.hpp>
 #include <opencv2/imgproc/imgproc.hpp>
 
+#if defined(USE_BMNN)
+#include <sophonyolov8/SophonYolov8Wrapper.hpp>
+#endif
+
 #ifdef USE_CUDA
 #include <cuda_runtime_api.h>
 #endif
@@ -46,13 +50,12 @@ namespace glasssix::pump_weld
 
 #if defined(USE_RKNNAPI) || defined(USE_RKNN2API)
             ioprocess_pipeline_ = PrePostProcessGenPipeline::mkSharePipeline(model_dir + "pump_weld.rknn", 0);
-#elif defined(USE_BMNN)
-            ioprocess_pipeline_ = PrePostProcessGenPipeline::mkSharePipeline(model_dir + "pump_weld.bmodel", 0);
-#else
-            ioprocess_pipeline_ = PrePostProcessGenPipeline::mkSharePipeline(model_dir + "pump_weld.onnx", 0);
-#endif
-			ioprocess_pipeline_->manual_possible_normalization(0, 0.003921568);
+            ioprocess_pipeline_->manual_possible_normalization(0, 0.003921568);
             ioprocess_pipeline_->set_postprocessing(yolov8_GEN<3, 0>);
+#elif defined(USE_BMNN)
+            ioprocess_pipeline_ = std::make_shared<SophonYolov8Wrapper>(std::string(model_directory) + "/pump_weld.bmodel");
+            ioprocess_pipeline_->init();
+#endif
         }
 
         exposing::param_vector<pump_weld::box_info> detect(exposing::param_span<std::uint8_t> bitmap, int batch, int height, int width, std::map<std::string,float>& param_map_std)
@@ -77,18 +80,18 @@ namespace glasssix::pump_weld
 
             //auto [weld_box_list, candidate_box_list] = weld_detect(BatchImgs, height, width, candidate_box_width, candidate_box_height);
 
-			auto [wlight_list_batch, machine_list_batch] = weld_yolo_seqdet(BatchImgs, wmachine_conf_thres, wlight_conf_thres, weld_machine_nms_thres);
+			auto [wlight_list_batch, machine_list_batch] = weld_yolo_seqdet(BatchImgs, wmachine_conf_thres, weld_machine_nms_thres);
 
-            std::vector<std::vector<cv::Rect>> time_light_box_list;
-            for (auto& wlight_list : wlight_list_batch) {
-                std::vector<cv::Rect> wlight_list_rec;
-                for (auto& wlight : wlight_list) {
-                    wlight_list_rec.push_back(wlight.get_rect());
-                }
-                time_light_box_list.emplace_back(wlight_list_rec);
-            }
+            //std::vector<std::vector<cv::Rect>> time_light_box_list;
+            //for (auto& wlight_list : wlight_list_batch) {
+            //    std::vector<cv::Rect> wlight_list_rec;
+            //    for (auto& wlight : wlight_list) {
+            //        wlight_list_rec.push_back(wlight.get_rect());
+            //    }
+            //    time_light_box_list.emplace_back(wlight_list_rec);
+            //}
 
-			auto weld_box_list = get_weld_box(time_light_box_list);
+			auto weld_box_list = get_weld_box(wlight_list_batch, wlight_conf_thres);
             auto candidate_box_list = weld_box_list;
             get_candidate_box(candidate_box_list, width, height, candidate_box_width, candidate_box_height);
 
@@ -167,17 +170,12 @@ namespace glasssix::pump_weld
             return result;
         }
 
-        struct WlightBox :public GenPipTools::YoloBoxBase {
-        public:
-            using YoloBoxBase::YoloBoxBase; //Inheriting Constructors
-        };
-
         struct MachineBox :public GenPipTools::YoloBoxBase {
         public:
             using YoloBoxBase::YoloBoxBase; //Inheriting Constructors
         };
 
-		std::pair<std::vector<std::vector<WlightBox>>, std::vector<MachineBox>> weld_yolo_seqdet(std::vector<cv::Mat>& BatchImgs, float wmachine_conf_thres, float wlight_conf_thres, float weld_machine_nms_thres) {
+		std::pair<std::vector<std::vector<WlightBox>>, std::vector<MachineBox>> weld_yolo_seqdet(std::vector<cv::Mat>& BatchImgs, float wmachine_conf_thres, float weld_machine_nms_thres) {
             constexpr int infrW = 1280;
             constexpr int infrH = 736;
             constexpr bool ifCvtRGB = true;
@@ -189,7 +187,7 @@ namespace glasssix::pump_weld
                 std::vector<MachineBox> chassis_list;
                 std::vector<MachineBox> tube_list;
                 std::vector<WlightBox> wlight_list;
-
+#if defined(USE_RKNNAPI) || defined(USE_RKNN2API)
                 GenPipTools::LetterInfo letter_op;
                 auto letter_img = GenPipTools::letter_image(image, infrW, infrH, letter_op, ifCvtRGB);
                 auto net_rstmap = ioprocess_pipeline_->forward(letter_img);
@@ -210,7 +208,7 @@ namespace glasssix::pump_weld
                         MachineBox tubeBox(pdata[0] * infrW, pdata[1] * infrH, pdata[2] * infrW, pdata[3] * infrH, tube_conf, 1);
                         tube_list.push_back(tubeBox);
                     }
-                    if (wlight_conf > wlight_conf_thres) {
+                    if (wlight_conf > wmachine_conf_thres) {
                         WlightBox wlightBox(pdata[0] * infrW, pdata[1] * infrH, pdata[2] * infrW, pdata[3] * infrH, wlight_conf, 3);
                         wlight_list.push_back(wlightBox);
                     }
@@ -221,6 +219,27 @@ namespace glasssix::pump_weld
                 GenPipTools::letter_map_origin_location(chassis_list, letter_op);
                 GenPipTools::letter_map_origin_location(tube_list, letter_op);
                 GenPipTools::letter_map_origin_location(wlight_list, letter_op);
+#elif defined(USE_BMNN)
+                auto cropped_result = ioprocess_pipeline_->get_objects(image, wmachine_conf_thres, weld_machine_nms_thres);// 防护面罩检测
+                for (auto& object : cropped_result)
+                {
+                    if (object.category == 0)
+                    {
+                        MachineBox chassisBox((object.x1 + object.x2) * 0.5, (object.y1 + object.y2) * 0.5, object.x2 - object.x1, object.y2 - object.y1, object.score, 0);
+                        chassis_list.push_back(chassisBox);
+                    }
+                    else if (object.category == 1)
+                    {
+                        MachineBox tubeBox((object.x1 + object.x2) * 0.5, (object.y1 + object.y2) * 0.5, object.x2 - object.x1, object.y2 - object.y1, object.score, 1);
+                        tube_list.push_back(tubeBox);
+                    }
+                    else if (object.category == 2)
+                    {
+                        WlightBox wlightBox((object.x1 + object.x2) * 0.5, (object.y1 + object.y2) * 0.5, object.x2- object.x1, object.y2 - object.y1, object.score, 3);
+                        wlight_list.push_back(wlightBox);
+                    }
+                }
+#endif  
                 machine_list_batch.insert(machine_list_batch.begin(), chassis_list.begin(), chassis_list.end());
                 machine_list_batch.insert(machine_list_batch.begin(), tube_list.begin(), tube_list.end());
                 wlight_list_batch.push_back(wlight_list);
@@ -233,13 +252,17 @@ namespace glasssix::pump_weld
         {
             const std::string algo_module_version = "2.0.3";
 
-            std::string nn_frame_version = ioprocess_pipeline_->version();
+            std::string nn_frame_version = "2.0.3";
 
             return fmt::format(R"({ {"nn_frame_version":"{}", "algo_module_version" : "{}"} })", nn_frame_version, algo_module_version);
         }
 
     private:
+#if defined(USE_RKNNAPI) || defined(USE_RKNN2API)
         std::shared_ptr<PrePostProcessGenPipeline> ioprocess_pipeline_;
+#elif defined(USE_BMNN)
+        std::shared_ptr<SophonYolov8Wrapper> ioprocess_pipeline_;
+#endif
         int device_;
     };
 
