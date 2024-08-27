@@ -511,7 +511,7 @@ public:
         {
             std::vector<float> out_centre_xywh{ * (ptr_out + candicate_index[i]), * (ptr_out + candicate_index[i] + object_length ),
                                                 * (ptr_out + candicate_index[i] + object_length*2 ), * (ptr_out + candicate_index[i] + object_length * 3),
-                                                yolo_wrapper::sigmoid_x(conf_[candicate_index[i] + category_label[i] * object_length]),
+                                                conf_[candicate_index[i] + category_label[i] * object_length],
                                                 category_label[i] };
             output_new.push_back(out_centre_xywh);
         }
