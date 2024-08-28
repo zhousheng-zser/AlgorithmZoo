@@ -29,16 +29,19 @@ namespace glasssix::cassius
     }
 
 
-    void nchw_to_nhwc(const std::uint8_t* sou_data, std::uint8_t* dst_data, int C, int H, int W) 
+    void nchw_to_nhwc(const std::uint8_t* sou_data, std::uint8_t* dst_data, int N, int C, int H, int W) 
     {
-        
+        for (int n = 0; n < N; ++n) 
             for (int h = 0; h < H; ++h) 
                 for (int w = 0; w < W; ++w) 
                     for (int c = 0; c < C; ++c) {
-                        int nchw_index =  c * H * W + h * W + w;
-                        int nhwc_index =  h * W * C + w * C + c;
+                        // NCHW index
+                        int nchw_index = n * C * H * W + c * H * W + h * W + w;
+                        // NHWC index
+                        int nhwc_index = n * H * W * C + h * W * C + w * C + c;
                         dst_data[nhwc_index] = sou_data[nchw_index];
                     }
+        
     }
 
     class feature_extractor_internal::impl
@@ -61,35 +64,28 @@ namespace glasssix::cassius
         {
             if (bitmaps.empty())
                 return {};
-
             // std::span<std::uint8_t> NHWC_DATA(3*128*128);
-            std::uint8_t NHWC_DATA[3*128*128];
+            std::uint8_t NHWC_DATA[count*3*128*128];
             std::vector<std::vector<float>> result;
-#if defined(USE_RKNNAPI) || defined(USE_RKNN2API)
-            nchw_to_nhwc(bitmaps.data(), NHWC_DATA, 3,128, 128  );
-#ifdef USE_RKNNAPI
-            auto network_result = unicorn_.forward(NHWC_DATA, { static_cast<int>(count), 128, 128, 3 }, static_cast<rknn_tensor_format>(order));
-            if (auto iter = network_result.find("dequantize_at_636_107_out0_108"); iter != network_result.end())
-#else
+            nchw_to_nhwc(bitmaps.data(), NHWC_DATA,count, 3,128, 128  );
+
+#ifdef USE_RKNN2API
             std::unordered_map<std::string, std::shared_ptr<memory::tensor<float>>> network_result;
             network_result = unicorn_.forward(NHWC_DATA, { static_cast<int>(count), 128, 128, 3 }, rknn_tensor_format::RKNN_TENSOR_NHWC);
             if (auto iter = network_result.find("predict"); iter != network_result.end())
-#endif
 #else
-            init_cache(bitmaps, count, order);
-            auto network_result = unicorn_.forward(cache_ | memory::tensor_convert_to<float>);
-            if (auto iter = network_result.find("834"); iter != network_result.end())
+            auto network_result = unicorn_.forward(NHWC_DATA, { static_cast<int>(count), 128, 128, 3 }, static_cast<rknn_tensor_format>(order));
+            if (auto iter = network_result.find("dequantize_at_636_107_out0_108"); iter != network_result.end())
 #endif
-            {
-                auto iter_conv5 = iter->second->cpu_data();
 
-                for (std::size_t i = 0; i < count; i++)
-                {
-                    std::vector<float> feature(feature_size);
-                    std::copy(iter_conv5, iter_conv5 + feature_size, feature.data());
-                    iter_conv5 += feature_size;
-                    result.emplace_back(feature);
-                }
+            {
+                        auto iter_conv5 = iter->second->cpu_data();
+                        for (std::size_t i = 0; i < count; i++)
+                        {
+                            std::vector<float> feature(feature_size);
+                            std::copy(iter_conv5, iter_conv5 + feature_size, feature.data());
+                            result.emplace_back(feature);
+                        }          
             }
             return result;
         }
