@@ -37,24 +37,32 @@ namespace glasssix::pump_protect_face
     class detect_code_internal::impl
     {
     public:
-        impl(std::string_view model_directory, int device)
-            : model_directory_{ std::string(model_directory) }, device_{ device }
+        impl(std::string_view model_directory, int device, int model_type)
+            : model_directory_{ std::string(model_directory) }, device_{ device },model_type_{model_type}
         {
+            if(model_type == 0){
+                std::string model_ins{ "_640" };
+                int width  = 384;
+                int height = 640;
+            }
+            else{
+                std::string model_ins{ "_1280" };
+                int width  = 726;
+                int height = 1280;
+            }
 #if defined(USE_RKNNAPI) || defined(USE_RKNN2API)
-            std::string model_ext{ ".rknn" };
-
-
-
-            net_head_ = std::make_shared<GenPipeline>(model_directory_ + "/pump_protect_face_head.rknn" , device);
-            yolov8_instance_head = std::make_shared<Yolov8<GenPipeline, false, false>>(1152, 640, net_head_); //2个模板变量分别对应 GenPipeline ，(通用yolov8)是否是李鑫尧的yolo  第三个参数默认为false
+            //罗健翔的模型
+            net_head_ = std::make_shared<GenPipeline>(model_directory_ + "/pump_protect_face_det" + model_ins + ".rknn" , device);
+            yolov8_instance_head = std::make_shared<Yolov8<GenPipeline, false, false>>(width, height, net_head_); //2个模板变量分别对应 GenPipeline ，(通用yolov8)是否是李鑫尧的yolo  第三个参数默认为false
             net_head_->manual_possible_normalization(0, 1.f / 255);
 
-            net_detect_face = std::make_shared<GenPipeline>(model_directory_ + "/pump_protect_face_face.rknn", device);
+            net_detect_face = std::make_shared<GenPipeline>(model_directory_ + "/pump_protect_face_cls.rknn", device);
+            net_detect_face->manual_possible_normalization(0, 1.f / 255);
+
+            net_detect_goggle = std::make_shared<GenPipeline>(model_directory_ + "/pump_protect_face_goggle.rknn", device);
             net_detect_face->manual_possible_normalization(0, 1.f / 255);
 #elif defined(USE_BMNN)
-            yolov8_instance_mask = std::make_shared<SophonYolov8Wrapper>(model_directory_ + "/pump_protect_face.bmodel");
-            yolov8_instance_mask->init();
-            yolov8_instance_head = std::make_shared<SophonYolov8Wrapper>(model_directory_ + "/pump_protect_face_head.bmodel");
+            yolov8_instance_head = std::make_shared<SophonYolov8Wrapper>(model_directory_ + "/pump_protect_face_det" + model_ins + ".bmodel");
             yolov8_instance_head->init();
 
             net_detect_face = std::make_shared<GenPipeline>(model_directory_ + "/pump_protect_face_face.bmodel", device);
@@ -516,58 +524,48 @@ namespace glasssix::pump_protect_face
             std::vector<Bbox> head_box_list;
             std::vector<Bbox> valid_head_box_list;    ///在人体框里的有效人头
             for (auto& it : frame_result) {
-                if (it.category == 0)
-                    person_box_list.push_back(Bbox{ it.x1,it.y1,it.x2,it.y2,it.category,it.score,0 });
-                else if (it.x2 - it.x1 > 30 || it.y2 - it.y1 > 30)
                     head_box_list.push_back(Bbox{ it.x1,it.y1,it.x2,it.y2,it.category,it.score,0 });
             }
             std::vector<box_info_internal> result;
-            for (int j = 0; j < person_box_list.size(); ++j)
-            {
-                for (int i = 0; i < head_box_list.size(); ++i) {
-                    if (iou(head_box_list[i], person_box_list[j], true, false) >= 0.99999) {
-                        valid_head_box_list.push_back(head_box_list[i]);
-                        break;
-                    }
-                }
+            for (int i = 0; i < head_box_list.size(); ++i) {
+                    valid_head_box_list.push_back(head_box_list[i]);
             }
             auto fin_result = exposing::make_param_vector<pump_protect_face::box_info>();
             if (valid_head_box_list.size() == 0)
                 return  fin_result;      ///没有人头直接返回空数组
-            std::vector<Bbox> face_box_list = yolo7_detect(image);// 检测人脸 
-            std::vector<Bbox> unwear_gas_mask_head_box_list;
-            for (int i = 0; i < valid_head_box_list.size(); i++)
-            {
-                int move_x, move_y;
-                cv::Mat cropped_image = process_of_image_by_stage1(image, image.cols, image.rows, valid_head_box_list[i], move_x, move_y);
-                //0: 'head', 1: 'face', 2: 'face_mask', 3: 'gas_mask'  #没用这个里的face
-                auto cropped_result = yolov8_instance_mask->get_objects(cropped_image, con_thres, iou_thres);// 防护面罩检测
-                std::vector<Bbox> frame_result;
-                for (auto& it : cropped_result) {
-                    frame_result.push_back(Bbox{ it.x1,it.y1,it.x2,it.y2,it.category,it.score,0 });
-                }
+            // std::vector<Bbox> face_box_list = yolo7_detect(image);// 检测人脸 
+            // std::vector<Bbox> unwear_gas_mask_head_box_list;
+            // for (int i = 0; i < valid_head_box_list.size(); i++)
+            // {
+            //     int move_x, move_y;
+            //     cv::Mat cropped_image = process_of_image_by_stage1(image, image.cols, image.rows, valid_head_box_list[i], move_x, move_y);
+            //     //0: 'head', 1: 'face', 2: 'face_mask', 3: 'gas_mask'  #没用这个里的face
+            //     auto cropped_result = yolov8_instance_mask->get_objects(cropped_image, con_thres, iou_thres);// 防护面罩检测
+            //     std::vector<Bbox> frame_result;
+            //     for (auto& it : cropped_result) {
+            //         frame_result.push_back(Bbox{ it.x1,it.y1,it.x2,it.y2,it.category,it.score,0 });
+            //     }
+            //     std::vector<Bbox> the_face_box_list;
+            //     for (int j = 0; j < face_box_list.size(); ++j) {
+            //         if (iou(face_box_list[j], valid_head_box_list[i], true, false) >= 0.9)
+            //         {
+            //             Bbox temp = face_box_list[j];
+            //             temp.x1 -= move_x;
+            //             temp.x2 -= move_x;
+            //             temp.y1 -= move_y;
+            //             temp.y2 -= move_y;
+            //             the_face_box_list.push_back(temp);
+            //         }
+            //     }
+            //     auto fin_result_temp = detect_wear_mask_by_result_stage_2(frame_result, the_face_box_list);
+            //     for (int j = 0; j < fin_result_temp.size(); j++) {
+            //         fin_result_temp[j].x1 += move_x, fin_result_temp[j].x2 += move_x;
+            //         fin_result_temp[j].y1 += move_y, fin_result_temp[j].y2 += move_y;
+            //         unwear_gas_mask_head_box_list.push_back(fin_result_temp[j]);
+            //     }
+            // }
 
-                std::vector<Bbox> the_face_box_list;
-                for (int j = 0; j < face_box_list.size(); ++j) {
-                    if (iou(face_box_list[j], valid_head_box_list[i], true, false) >= 0.9)
-                    {
-                        Bbox temp = face_box_list[j];
-                        temp.x1 -= move_x;
-                        temp.x2 -= move_x;
-                        temp.y1 -= move_y;
-                        temp.y2 -= move_y;
-                        the_face_box_list.push_back(temp);
-                    }
-                }
-                auto fin_result_temp = detect_wear_mask_by_result_stage_2(frame_result, the_face_box_list);
-                for (int j = 0; j < fin_result_temp.size(); j++) {
-                    fin_result_temp[j].x1 += move_x, fin_result_temp[j].x2 += move_x;
-                    fin_result_temp[j].y1 += move_y, fin_result_temp[j].y2 += move_y;
-                    unwear_gas_mask_head_box_list.push_back(fin_result_temp[j]);
-                }
-            }
-
-            for (auto& val : unwear_gas_mask_head_box_list)
+            for (auto& val : valid_head_box_list)
             {
                 if (val.score >= con_thres) {
                     box_info_internal temp_result;
@@ -578,6 +576,28 @@ namespace glasssix::pump_protect_face
                     temp_result.category = val.category;
                     temp_result.score = val.score;
                     fin_result.push_back(exposing::make_as_first<box_info_impl>(temp_result));
+                    int category = -1;
+                    int category_goggle = -1;
+                    //人脸/护目镜分类
+                    //满足以上条件,就开始:
+                    cv::Rect roi(val.x1, val.y1, val.x2 - val.x1, val.y2 - val.y1);
+                    cv::Mat crop = image(roi);
+                    auto result = net_detect_face->forward(crop).begin()->second->cpu_data();
+
+                    if(*result > *(result++))
+                    {
+                        category = 0;
+                        auto result_goggle = net_detect_goggle->forward(crop).begin()->second->cpu_data();
+                        if(*result_goggle > *(result_goggle++))
+                            category_goggle = 0;
+                    }
+                    if(category ==0 && category_goggle == 0)
+                    {
+                        temp_result.category = 1;
+                    }
+                    else
+                        temp_result.category = -1;
+
                 }
             }
 
@@ -587,6 +607,7 @@ namespace glasssix::pump_protect_face
     private:
         std::string model_directory_;
         int device_;
+        int model_type_;
         int img_size = 1280;
 #if defined(USE_RKNNAPI) || defined(USE_RKNN2API)
         std::shared_ptr<GenPipeline> net_head_;
@@ -598,6 +619,7 @@ namespace glasssix::pump_protect_face
         std::shared_ptr<SophonYolov8Wrapper> yolov8_instance_mask;// 防护面罩
 #endif
         std::shared_ptr<GenPipeline> net_detect_face;// 人脸
+        std::shared_ptr<GenPipeline> net_detect_goggle; //护目镜
     };
 
     detect_code_internal::detect_code_internal(std::string_view model_directory, int device)
