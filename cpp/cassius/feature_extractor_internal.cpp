@@ -84,6 +84,7 @@ namespace glasssix::cassius
                         {
                             std::vector<float> feature(feature_size);
                             std::copy(iter_conv5, iter_conv5 + feature_size, feature.data());
+                            iter_conv5 += feature_size;
                             result.emplace_back(feature);
                         }          
             }
