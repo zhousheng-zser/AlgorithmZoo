@@ -24,8 +24,8 @@ namespace glasssix::pump_light
     class detect_code_internal::impl
     {
     public:
-        impl(std::string_view model_directory, int device)
-            : model_directory_{ std::string(model_directory) }, device_{ device } 
+        impl(std::string_view model_directory, int device,int model_type)
+            : model_directory_{ std::string(model_directory) }, device_{ device }, model_type_{ model_type }
         {
 #if defined(USE_RKNNAPI) || defined(USE_RKNN2API)
             std::string model_ext{ ".rknn" };
@@ -34,7 +34,10 @@ namespace glasssix::pump_light
 #else
             std::string model_ext{ ".onnx" };
 #endif
-            net_detect_light = std::make_shared<GenPipeline>(model_directory_ + "/pump_light" + model_ext, device);
+            if(model_type == 0)
+                net_detect_light = std::make_shared<GenPipeline>(model_directory_ + "/pump_light" + model_ext, device);
+            else if(model_type == 1)
+                net_detect_light = std::make_shared<GenPipeline>(model_directory_ + "/pump_light_32" + model_ext, device);
             net_detect_light->manual_possible_normalization(0, 1.f / 255);
         } 
 
@@ -50,6 +53,21 @@ namespace glasssix::pump_light
                 pad_h = int((input_shape.height - cut_image.rows) / 2);
                 pad_w = int((input_shape.width - cut_image.cols) / 2);
                 cv::copyMakeBorder(cut_image, mask_image, pad_h, input_shape.height - cut_image.rows - pad_h, pad_w, input_shape.width - cut_image.cols - pad_w, cv::BORDER_CONSTANT, cv::Scalar{ 114,114,114 });
+            }
+            else
+            {
+                src.copyTo(mask_image);
+            }
+            cv::cvtColor(mask_image, mask_image, cv::COLOR_BGR2RGB);
+            return { mask_image,scale };
+        }
+        std::tuple<cv::Mat, float> preprocess_detection_32(cv::Mat& src, int& pad_h, int& pad_w, cv::Size input_shape = cv::Size(640, 640))
+        {
+            float scale = std::min((float)input_shape.width / (float)src.cols, (float)input_shape.height / (float)src.rows);
+            cv::Mat mask_image;
+            if (src.rows != input_shape.height || src.cols != input_shape.width)
+            {
+                cv::resize(src, mask_image, input_shape, cv::INTER_LINEAR);
             }
             else
             {
@@ -89,7 +107,10 @@ namespace glasssix::pump_light
             float ratio = 0;
             int pad_h = 0;
             int pad_w = 0;
-            std::tie(blob, ratio) = preprocess_detection(image, pad_h, pad_w, new_shape);
+            if(model_type_ == 0)
+                std::tie(blob, ratio) = preprocess_detection(image, pad_h, pad_w, new_shape);
+            else if(model_type_ == 1)
+                std::tie(blob, ratio) = preprocess_detection_32(image, pad_h, pad_w, new_shape);
             std::vector<std::shared_ptr<memory::tensor<float>>> forwards;
 
             std::shared_ptr<memory::tensor<float>> real_forwards;
@@ -148,7 +169,7 @@ namespace glasssix::pump_light
             mx_y = std::max(std::max(y1, y2), std::max(y3, y4));
 
             cv::Mat cropped_image = image(cv::Range(mi_y, mx_y), cv::Range(mi_x, mx_x)).clone();
-            std::vector<float> cropped_result = yolo8_detect(cropped_image, 128, 128);// 灯光检测 
+            std::vector<float> cropped_result = yolo8_detect(cropped_image, (model_type_ == 0 ? 128 : 32), (model_type_ == 0 ? 128 : 32));// 灯光检测
             
             pump_light::box_info_internal ans;
             ans.light_status = (cropped_result[0]<= cropped_result[1] && con_thres <=cropped_result[1]) ?1:0;
@@ -157,11 +178,12 @@ namespace glasssix::pump_light
         }
         std::string model_directory_;
         int device_;
+        int model_type_;
         std::shared_ptr<GenPipeline> net_detect_light;
     };
 
-    detect_code_internal::detect_code_internal(std::string_view model_directory, int device)
-        : impl_{ std::make_unique<impl>(model_directory, device) }
+    detect_code_internal::detect_code_internal(std::string_view model_directory, int device, int model_type)
+        : impl_{ std::make_unique<impl>(model_directory, device, model_type) }
     {
     }
 
