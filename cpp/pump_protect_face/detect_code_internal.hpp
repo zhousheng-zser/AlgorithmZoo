@@ -34,7 +34,7 @@ namespace glasssix::pump_protect_face
         /// </summary>
         /// <param name="racy_path">The model path</param>
         /// <param name="device">The device ID; -1 for CPU or a non-negative number for a GPU core</param>
-        detect_code_internal(std::string_view model_directory, int device);
+        detect_code_internal(std::string_view model_directory, int device, int model_type);
 
         virtual ~detect_code_internal();
 

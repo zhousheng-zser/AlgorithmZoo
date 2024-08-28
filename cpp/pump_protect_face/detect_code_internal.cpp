@@ -40,15 +40,17 @@ namespace glasssix::pump_protect_face
         impl(std::string_view model_directory, int device, int model_type)
             : model_directory_{ std::string(model_directory) }, device_{ device },model_type_{model_type}
         {
+            std::string model_ins;
+            int width, height;
             if(model_type == 0){
-                std::string model_ins{ "_640" };
-                int width  = 384;
-                int height = 640;
+                model_ins = std::string( "_640" );
+                width  = 384;
+                height = 640;
             }
             else{
-                std::string model_ins{ "_1280" };
-                int width  = 726;
-                int height = 1280;
+                model_ins = std::string( "_1280" );
+                width  = 726;
+                height = 1280;
             }
 #if defined(USE_RKNNAPI) || defined(USE_RKNN2API)
             //罗健翔的模型
@@ -622,8 +624,8 @@ namespace glasssix::pump_protect_face
         std::shared_ptr<GenPipeline> net_detect_goggle; //护目镜
     };
 
-    detect_code_internal::detect_code_internal(std::string_view model_directory, int device)
-        : impl_{ std::make_unique<impl>(model_directory, device) }
+    detect_code_internal::detect_code_internal(std::string_view model_directory, int device, int model_type)
+        : impl_{ std::make_unique<impl>(model_directory, device, model_type) }
     {
     }
 
