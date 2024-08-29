@@ -75,6 +75,7 @@ namespace glasssix::onphone
 			}
 			std::map<std::string, float> dynamic_param_map;
 			params.removeMember("head_info_list");
+			params.removeMember("posture_info_list");
 			for (auto& param_name : params.getMemberNames()) {
 				dynamic_param_map.try_emplace(param_name, params[param_name].asFloat());
 			}
@@ -119,7 +120,6 @@ namespace glasssix::onphone
 			}
 			value["detect_info"]["norm_list"] = jarray_normal_detected;
 			value["detect_info"]["onphone_list"] = jarray_onphone_detected;
-			value["command"] = root["command"];
 			break;
 		}
 		case 1:
@@ -149,6 +149,7 @@ namespace glasssix::onphone
 			}
 			std::map<std::string, float> dynamic_param_map;
 			params.removeMember("posture_info_list");
+			params.removeMember("head_info_list");
 			for (auto& param_name : params.getMemberNames()) {
 				dynamic_param_map.try_emplace(param_name, params[param_name].asFloat());
 			}
@@ -198,7 +199,6 @@ namespace glasssix::onphone
 
 			value["detect_info"]["norm_list"] = jarray_normal_detected;
 			value["detect_info"]["onphone_list"] = jarray_onphone_detected;
-			value["command"] = root["command"];
 			break;
 		}
 		default:
