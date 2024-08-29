@@ -49,13 +49,13 @@ namespace glasssix::pump_protect_face
             }
             else{
                 model_ins = std::string( "_1280" );
-                width  = 726;
+                width  = 736;
                 height = 1280;
             }
 #if defined(USE_RKNNAPI) || defined(USE_RKNN2API)
             //罗健翔的模型
             net_head_ = std::make_shared<GenPipeline>(model_directory_ + "/pump_protect_face_det" + model_ins + ".rknn" , device);
-            yolov8_instance_head = std::make_shared<Yolov8<GenPipeline, false, false>>(width, height, net_head_); //2个模板变量分别对应 GenPipeline ，(通用yolov8)是否是李鑫尧的yolo  第三个参数默认为false
+            yolov8_instance_head = std::make_shared<Yolov8_Complement<GenPipeline, false, false>>(width, height, net_head_); //2个模板变量分别对应 GenPipeline ，(通用yolov8)是否是李鑫尧的yolo  第三个参数默认为false
             net_head_->manual_possible_normalization(0, 1.f / 255);
 
             net_detect_face = std::make_shared<GenPipeline>(model_directory_ + "/pump_protect_face_cls.rknn", device);
@@ -67,7 +67,9 @@ namespace glasssix::pump_protect_face
             yolov8_instance_head = std::make_shared<SophonYolov8Wrapper>(model_directory_ + "/pump_protect_face_det" + model_ins + ".bmodel");
             yolov8_instance_head->init();
 
-            net_detect_face = std::make_shared<GenPipeline>(model_directory_ + "/pump_protect_face_face.bmodel", device);
+            net_detect_face = std::make_shared<GenPipeline>(model_directory_ + "/pump_protect_face_cls.bmodel", device);
+            net_detect_face->manual_possible_normalization(0, 1.f / 255);
+            net_detect_goggle = std::make_shared<GenPipeline>(model_directory_ + "/pump_protect_face_goggle.bmodel", device);
             net_detect_face->manual_possible_normalization(0, 1.f / 255);
 #endif  
         }
@@ -584,6 +586,7 @@ namespace glasssix::pump_protect_face
                     //满足以上条件,就开始:
                     cv::Rect roi(val.x1, val.y1, val.x2 - val.x1, val.y2 - val.y1);
                     cv::Mat crop = image(roi);
+                    cv::resize(crop, crop, {128, 128});
                     auto result = net_detect_face->forward(crop).begin()->second->cpu_data();
 
                     if(*result > *(result++))
@@ -613,12 +616,9 @@ namespace glasssix::pump_protect_face
         int img_size = 1280;
 #if defined(USE_RKNNAPI) || defined(USE_RKNN2API)
         std::shared_ptr<GenPipeline> net_head_;
-        std::shared_ptr<Yolov8<GenPipeline, true, false>> yolov8_instance_head;//人体人头
-        std::shared_ptr<GenPipeline> net_mask_;
-        std::shared_ptr<Yolov8<GenPipeline, true, false>> yolov8_instance_mask;// 防护面罩
+        std::shared_ptr<Yolov8_Complement<GenPipeline, false, false>> yolov8_instance_head;//人体人头
 #elif defined(USE_BMNN)
         std::shared_ptr<SophonYolov8Wrapper> yolov8_instance_head;//人体人头
-        std::shared_ptr<SophonYolov8Wrapper> yolov8_instance_mask;// 防护面罩
 #endif
         std::shared_ptr<GenPipeline> net_detect_face;// 人脸
         std::shared_ptr<GenPipeline> net_detect_goggle; //护目镜
