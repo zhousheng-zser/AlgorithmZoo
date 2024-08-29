@@ -11,8 +11,6 @@ target_include_directories(${module_name} PRIVATE ${CMAKE_CURRENT_SOURCE_DIR}/..
 target_link_libraries(${module_name} PRIVATE jsoncpp)
 add_dependencies(${module_name} jsoncpp)
 
-target_link_libraries(${module_name} PRIVATE pedestrian)
-
 if(NOT (CMAKE_CXX_COMPILER_ID STREQUAL "MSVC"))
 	target_link_directories(${module_name} PRIVATE ${COMMON_LIBRARY_DIRS})
 endif()

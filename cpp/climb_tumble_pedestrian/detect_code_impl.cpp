@@ -41,7 +41,7 @@ namespace glasssix::climb_tumble_pedestrian
 
 		Json::Value params = root.get("dyparams", Json::Value());
 		Json::Value pedestrain_info(Json::arrayValue);
-		pedestrain_info = params["person_list"];
+		pedestrain_info = params["pedestrian_info_list"];
 		std::map<std::string, float> dparam_map;
 		auto pedestrian_info_abi = exposing::make_param_vector<pedestrian::box_info>();
 		for (int i = 0; i < pedestrain_info.size(); i++)
@@ -60,7 +60,7 @@ namespace glasssix::climb_tumble_pedestrian
 			pedestrian_info.push_back(PedestrianInfo{it});
 		}
 
-		params.removeMember("person_list");
+		params.removeMember("pedestrian_info_list");
 		for (auto& param_name : params.getMemberNames()) {
 			dparam_map.try_emplace(param_name, params[param_name].asFloat());
 		}

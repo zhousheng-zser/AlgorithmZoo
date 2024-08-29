@@ -199,7 +199,7 @@ if(BUILD_SAFE_PRODUCTION_SDK)
 	add_subdirectory(Pedestrian_min)
 	add_subdirectory(Tumble)
 	add_subdirectory(Climb)
-	#add_subdirectory(Climb_Tumble_Pedestrian)
+	add_subdirectory(Climb_Tumble_Pedestrian)
 	#add_subdirectory(Wander)   #没拆分完的
 	add_subdirectory(Crowd)
 	add_subdirectory(Fighting)
