@@ -27,13 +27,13 @@ namespace glasssix::pump_protect_face
             int width, height;
             if(model_type == 0){
                 model_ins = std::string( "_640" );
-                width  = 384;
-                height = 640;
+                width  = 640;
+                height = 384;
             }
             else{
                 model_ins = std::string( "_1280" );
-                width  = 736;
-                height = 1280;
+                width  = 1280;
+                height = 736;
             }
 #if defined(USE_RKNNAPI) || defined(USE_RKNN2API)
             //罗健翔的模型
@@ -80,8 +80,9 @@ namespace glasssix::pump_protect_face
             CHECK_EQ(channels, 3);
 
             cv::Mat image(cv::Size(width, height), CV_8UC3, const_cast<uint8_t*>(bitmap.data()));
-            cv::imwrite("im_here.jpg", image);
+            // cv::imwrite("IV.jpg", image);
             auto frame_result = yolov8_instance_face->get_objects(image, con_thres, iou_thres);   //检测人脸
+            // std::cout << "thres: " << con_thres << " ; iou_thres: " << iou_thres << std::endl;
             std::cout << "frame_result'size: " << frame_result.size() << std::endl;
             std::vector<Bbox> person_box_list;
             std::vector<Bbox> head_box_list;
@@ -107,7 +108,6 @@ namespace glasssix::pump_protect_face
                     temp_result.y2 = val.y2;
                     temp_result.category = val.category;
                     temp_result.score = val.score;
-                    fin_result.push_back(exposing::make_as_first<box_info_impl>(temp_result));
                     int category = -1;
                     int category_goggle = -1;
                     //人脸/护目镜分类
@@ -117,11 +117,11 @@ namespace glasssix::pump_protect_face
                     cv::resize(crop, crop, {128, 128});
                     auto result = net_detect_face->forward(crop).begin()->second->cpu_data();
 
-                    if(*result > *(result++))
+                    if(*result > *(result+1))
                     {
                         category = 0;
                         auto result_goggle = net_detect_goggle->forward(crop).begin()->second->cpu_data();
-                        if(*result_goggle > *(result_goggle++))
+                        if(*result_goggle > *(result_goggle+1))
                             category_goggle = 0;
                     }
                     if(category ==0 && category_goggle == 0)
@@ -130,6 +130,7 @@ namespace glasssix::pump_protect_face
                     }
                     else
                         temp_result.category = -1;
+                    fin_result.push_back(exposing::make_as_first<box_info_impl>(temp_result));
 
                 }
             }
