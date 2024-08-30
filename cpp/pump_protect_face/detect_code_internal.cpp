@@ -83,7 +83,7 @@ namespace glasssix::pump_protect_face
             // cv::imwrite("IV.jpg", image);
             auto frame_result = yolov8_instance_face->get_objects(image, con_thres, iou_thres);   //检测人脸
             // std::cout << "thres: " << con_thres << " ; iou_thres: " << iou_thres << std::endl;
-            std::cout << "frame_result'size: " << frame_result.size() << std::endl;
+            // std::cout << "frame_result'size: " << frame_result.size() << std::endl;
             std::vector<Bbox> person_box_list;
             std::vector<Bbox> head_box_list;
             std::vector<Bbox> valid_head_box_list;    ///在人体框里的有效人头
