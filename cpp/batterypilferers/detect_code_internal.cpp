@@ -58,7 +58,6 @@ namespace glasssix::batterypilferers
             {
                 throw exposing::abi_invalid_argument("current frame is empty");
             }
-            CHECK_EQ(channels, 24);
 
             std::vector<cv::Mat> images;
             for (size_t i = 0; i < batch_size; i++)
