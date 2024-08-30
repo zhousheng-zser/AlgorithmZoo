@@ -47,7 +47,7 @@ namespace glasssix::pump_hoisting
             const int letter_w = 640;
 #endif
 
-            std::cout << "pedestrian_pump.rknn\n";
+            // std::cout << "pedestrian_pump.rknn\n";
 #if defined(USE_RKNNAPI) || defined(USE_RKNN2API)
             net_pump_hoisting_detect2_ = std::make_shared<GenPipeline>(model_directory + "/pump_hoisting" + model_ext, device);
             net_pump_hoisting_detect2_->manual_possible_normalization(0, 1.f / 255);
