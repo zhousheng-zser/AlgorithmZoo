@@ -50,7 +50,7 @@ namespace glasssix::pump_protect_face
             net_detect_face = std::make_shared<GenPipeline>(model_directory_ + "/pump_protect_face_cls.bmodel", device);
             net_detect_face->manual_possible_normalization(0, 1.f / 255);
             net_detect_goggle = std::make_shared<GenPipeline>(model_directory_ + "/pump_protect_face_goggle.bmodel", device);
-            net_detect_face->manual_possible_normalization(0, 1.f / 255);
+            net_detect_goggle->manual_possible_normalization(0, 1.f / 255);
 #endif  
         }
 
