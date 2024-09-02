@@ -2,6 +2,7 @@
 #include "hardcode.hpp"
 
 #include <algorithm>
+#include <fstream>
 
 #ifdef USE_RKNNAPI
 #include "RKNNWrapper/rknn_wrapper.hpp"
@@ -9,6 +10,11 @@
 #include "RKNN2Wrapper/rknn2_wrapper.hpp"
 #else
 #include <Excalibur/pipeline.hpp>
+#endif
+#ifdef USE_BMNN
+#include <fstream>
+#include <GenPipeline/GenPipeline.hpp>
+#include <GenPipeline/GenPipeTools.hpp>
 #endif
 #include <Primitives/pool_allocator.hpp>
 #include <Primitives/tensor_conversions.hpp>
@@ -47,6 +53,7 @@ namespace glasssix::cassius
     class feature_extractor_internal::impl
     {
     public:
+#if defined(USE_RKNNAPI) || defined(USE_RKNN2API)
         impl(std::int32_t model_type, std::string_view racy_path, int device, bool use_int8) :
         impl{get_model_params(model_type ? "SimpleRepUnicorn" : "SimpleRepUnicorn", use_int8), racy_path, device}
         {
@@ -55,11 +62,25 @@ namespace glasssix::cassius
         impl(const std::vector<std::string> &phai, std::string_view racy_path, int device) try : device_{device}, unicorn_{phai, std::string{racy_path}+std::string("/SimpleRepUnicorn128.rknn"), device}
         {
         }
+#else
+        std::vector<std::string> phai;
+        impl(std::int32_t model_type, std::string_view racy_path, int device, bool use_int8) :
+        impl{phai, racy_path, device}
+        {
+        }
+        std::string model_ext{".bmodel"};
+
+        impl(const std::vector<std::string> &phai, std::string_view racy_path, int device) try : device_{device}, unicorn_{std::make_unique<GenPipeline>(std::string{racy_path}+std::string("/SimpleRepUnicorn128" + model_ext), device)}
+        {
+			unicorn_->manual_possible_normalization({104,117,123}, {1.f / 128, 1.f / 128, 1.f / 128});
+        }
+#endif
         catch (...)
         {
 
         }
 
+#if defined(USE_RKNNAPI) || defined(USE_RKNN2API)
         std::vector<std::vector<float>> get(exposing::param_span<std::uint8_t> bitmaps, std::size_t count, int order)
         {
             if (bitmaps.empty())
@@ -90,6 +111,37 @@ namespace glasssix::cassius
             }
             return result;
         }
+#else
+        std::vector<std::vector<float>> get(exposing::param_span<std::uint8_t> bitmaps, std::size_t count, int order)
+        {
+            if (bitmaps.empty())
+                return {};
+            
+            std::vector<std::vector<float>> result;
+            cv::Mat image(cv::Size(single_bitmap_width, single_bitmap_height), CV_8UC3, const_cast<uint8_t*>(bitmaps.data()));
+            // cv::imwrite("./cassius.jpg", image);
+            auto network_result = unicorn_->forward(image).begin()->second->cpu_data();
+                for (std::size_t i = 0; i < count; i++)
+                {
+                    std::vector<float> feature(feature_size);
+                    std::copy(network_result, network_result + feature_size, feature.data());
+                    network_result += feature_size;
+                    result.emplace_back(feature);
+                }
+                // std::ofstream outfile("./outfile_cassius.txt");
+                // // std::cout << "cassius " << std::endl;
+                 
+				// for_each(result.begin(), result.end(), [&outfile](std::vector<float> vals) {
+				// for_each(vals.begin(), vals.end(), [&outfile](float val) {
+				// 	// std::cout << val << std::endl;
+				// 	outfile << val << std::endl;
+				// 	});
+				// 	});
+				// 	// std::cout << std::endl << " selene end" << std::endl;
+				// 	outfile.close();
+            return result;
+        }
+#endif
 
         static std::string version()
         {
@@ -120,6 +172,8 @@ namespace glasssix::cassius
         int device_;
 #if defined(USE_RKNNAPI) || defined(USE_RKNN2API)
         rknnwrapper::rknn_wrapper unicorn_;
+#elif defined(USE_BMNN)
+		std::shared_ptr<GenPipeline> unicorn_;
 #else
         excalibur::pipeline<float> unicorn_;
 #endif
