@@ -214,6 +214,7 @@ if(BUILD_SAFE_PRODUCTION_SDK)
 	add_subdirectory(Pump_gate_status )
 	add_subdirectory(Pump_work_status )
 	add_subdirectory(Pump_hoisting )
+	add_subdirectory(Pump_glove)
 	#add_subdirectory(Subway_anomaly)
 	add_subdirectory(Policeuniform)  #目前只3588
 endif()
