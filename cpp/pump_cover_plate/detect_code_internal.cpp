@@ -132,16 +132,16 @@ namespace glasssix::pump_cover_plate
             auto temp_cls_rst = network_result.begin()->second;
             float* cls_conf = temp_cls_rst->mutable_cpu_data();
 
-            pump_cover_plate::box_info_internal ans;
-            if (conf_thres < cls_conf[0] && cls_conf[1] <= cls_conf[0])
-            {
-                    ans.cover_plate_status = 0; 
-                    ans.score = cls_conf[0];  //不报警 关闭的 
-            }
-            else if (conf_thres < cls_conf[1] && cls_conf[0] <= cls_conf[1] )
+            pump_cover_plate::box_info_internal ans; 
+            if (conf_thres < cls_conf[1] && cls_conf[0] <= cls_conf[1] )
             {
                     ans.cover_plate_status = 1;
                     ans.score = cls_conf[1];  //1 报警 打开的 
+            }
+            else
+            {
+                    ans.cover_plate_status = 0; 
+                    ans.score = cls_conf[0];  //不报警 关闭的 
             }
             return exposing::make_as_first<box_info_impl>(ans);
 
