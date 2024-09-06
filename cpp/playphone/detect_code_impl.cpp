@@ -105,6 +105,8 @@ namespace glasssix::playphone
 			jarray_box["x2"] = Json::Int(result[i].x2());
 			jarray_box["y2"] = Json::Int(result[i].y2());
 			jarray_box["man_score"] = Json::Value(result[i].confidence());
+			jarray_box["frequency"] = Json::Value(result[i].frequency());
+			jarray_box["id"] = Json::Value(result[i].id());
 
 			if (category == 1) {
 				// good man

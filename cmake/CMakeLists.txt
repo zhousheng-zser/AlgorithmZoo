@@ -193,7 +193,7 @@ if(BUILD_SAFE_PRODUCTION_SDK)
 	add_subdirectory(Helmet)
 	add_subdirectory(Refvest)
 	add_subdirectory(Onphone)
-	# add_subdirectory(PlayPhone) #œ»≤ªπ‹20240724
+	add_subdirectory(PlayPhone)
 	add_subdirectory(Workcloth)
 	add_subdirectory(Pedestrian)
 	add_subdirectory(Pedestrian_min)
