@@ -206,13 +206,13 @@ if(BUILD_SAFE_PRODUCTION_SDK)
 	add_subdirectory(Vehicle)
 	#add_subdirectory(Pump_Vesthelmet) #依赖姿态的 一会改成两段
 	add_subdirectory(Pump_pumptop_person)
-	#add_subdirectory(Pump_mask)
-	#add_subdirectory(Pumptop_helmet) #先不管20240724
+	add_subdirectory(Pump_mask)
+	#add_subdirectory(Pumptop_helmet)
 	add_subdirectory(Pump_weld)
 	#add_subdirectory(Pump_Light)
 	add_subdirectory(Pump_gate_status )
 	add_subdirectory(Pump_work_status )
-	#add_subdirectory(Pump_hoisting )
+	add_subdirectory(Pump_hoisting )
 	#add_subdirectory(Subway_anomaly) #只用3588
 endif()
 if(BUILD_GENERAL_CV_SDK)

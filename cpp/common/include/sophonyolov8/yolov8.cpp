@@ -22,11 +22,9 @@ const std::vector<std::vector<int>> colors = {
     {255, 170, 255}, {255, 255, 255}, {170, 255, 255}, {85, 255, 255}};
 
 YoloV8::YoloV8(std::shared_ptr<BMNNContext> context) : m_bmContext(context) {
-    std::cout << "YoloV8 ctor .." << std::endl;
 }
 
 YoloV8::~YoloV8() {
-    std::cout << "YoloV8 dtor ..." << std::endl;
     bm_image_free_contiguous_mem(max_batch, m_resized_imgs.data());
     bm_image_free_contiguous_mem(max_batch, m_converto_imgs.data());
     for (int i = 0; i < max_batch; i++) {

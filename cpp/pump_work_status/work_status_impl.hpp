@@ -9,7 +9,7 @@
 
 namespace glasssix::pump_work_status
 {
-    inline constexpr exposing::utf8_string_view pump_work_status_work_status_qualified_name{ u8"g6.pump_work_status.work_status" };
+    inline constexpr exposing::utf8_string_view pump_work_status_work_status_qualified_name{ u8"g6.pump_work_status.detect_code" };
 
     class work_status_internal;
 

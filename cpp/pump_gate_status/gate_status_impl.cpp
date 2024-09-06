@@ -82,9 +82,9 @@ namespace glasssix::pump_gate_status
 		auto result = impl_->detect(input_data, channels, height, width, yellow_hsv_lower, yellow_hsv_upper, gray_hsv_lower,  gray_hsv_upper, std_rois,  dparam_map  );
 
         if(result)
-            value["security_status"] = Json::Value("dangerous");
+            value["detect_info"]["security_status"] = Json::Value("dangerous");
         else
-            value["security_status"] = Json::Value("secure");
+            value["detect_info"]["security_status"] = Json::Value("secure");
 
         value["status"]["message"] = Json::Value("OK");
 		value["status"]["code"] = Json::Value(0);

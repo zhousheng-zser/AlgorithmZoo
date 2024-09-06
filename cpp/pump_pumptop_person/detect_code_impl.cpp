@@ -36,7 +36,7 @@ namespace glasssix::pump_pumptop_person
 		Json::Value params = root.get("dyparams", Json::Value());
 		//从json获取人头数据,并赋值给C++对应结构体
 		auto person_list = Json::Value(Json::arrayValue);;
-		person_list = params["person_list"];
+		person_list = params["pedestrian_info_list"];
 		std::vector<pump_pumptop_person::PedestrianInfo> persons;
 
 		for (auto p : person_list)
@@ -49,7 +49,7 @@ namespace glasssix::pump_pumptop_person
 			person.set_score(p["score"].asFloat());
 			persons.push_back(pump_pumptop_person::PedestrianInfo(person));
 		}
-		params.removeMember("person_list");
+		params.removeMember("pedestrian_info_list");
 
 		std::map<std::string, float> dparam_map;
 

@@ -9,7 +9,7 @@
 
 namespace glasssix::pump_gate_status
 {
-    inline constexpr exposing::utf8_string_view pump_gate_status_gate_status_qualified_name{u8"g6.pump_gate_status.gate_status"};
+    inline constexpr exposing::utf8_string_view pump_gate_status_gate_status_qualified_name{u8"g6.pump_gate_status.detect_code"};
 
     class gate_status_internal;
 
