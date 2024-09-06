@@ -5,8 +5,15 @@ file(GLOB header ${CMAKE_CURRENT_SOURCE_DIR}/../../cpp/flame/*.hpp)
 
 add_library(${module_name} SHARED ${src} ${header})
 
-target_link_libraries(${module_name} PRIVATE genpipeline)
-add_dependencies(${module_name} genpipeline)
+if(RKNNAPI_VERSION STREQUAL "2")
+	target_link_libraries(${module_name} PRIVATE genpipeline)
+	add_dependencies(${module_name} genpipeline)
+endif()
+if(NOT ${SOPHON_SDK} STREQUAL "")
+	target_link_libraries(${module_name} PRIVATE yolov8_bmcv)
+	add_dependencies(${module_name} yolov8_bmcv)
+endif()
+
 
 target_include_directories(${module_name} PRIVATE ${CMAKE_CURRENT_SOURCE_DIR}/../../cpp/3rdparty/jsoncpp/include)
 target_link_libraries(${module_name} PRIVATE jsoncpp)

@@ -9,7 +9,7 @@
 
 namespace glasssix::workcloth
 {
-    inline constexpr exposing::utf8_string_view workcloth_classify_code_qualified_name{ u8"g6.workcloth.classify_code" };
+    inline constexpr exposing::utf8_string_view workcloth_classify_code_qualified_name{ u8"g6.workcloth.detect_code" };
 
     class classify_code_internal;
 

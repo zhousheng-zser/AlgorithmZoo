@@ -6,7 +6,7 @@ endif()
 message(STATUS "CMAKE_TOOLCHAIN_FILE: ${CMAKE_TOOLCHAIN_FILE}")
 
 # For Visual Studio Generator (not Ninja), it is unnecessary to set CMAKE_MAKE_PROGRAM.
-if (NOT ${CMAKE_GENERATOR} MATCHES "Visual Studio")
+if (NOT ${CMAKE_GENERATOR} MATCHES "V isual Studio")
 	if(NOT DEFINED CMAKE_MAKE_PROGRAM)
 		message(WARNING "CMAKE_MAKE_PROGRAM: please specify make program in cmake command line.")
 	endif()
@@ -16,7 +16,7 @@ endif()
 
 project(AlgorithmZoo C CXX)
 
-option(BUILD_FACE_SDK "Build Face SDK" OFF)
+option(BUILD_FACE_SDK "Build Face SDK" ON)
 option(BUILD_MATIERIAL_OCR_SDK "Build matierial ocr SDK" OFF)
 option(BUILD_SAFE_PRODUCTION_SDK "Build safe production SDK" OFF)
 option(BUILD_GENERAL_CV_SDK "Build general cv SDK" OFF)
